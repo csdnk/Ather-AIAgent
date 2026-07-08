@@ -1,0 +1,21 @@
+Looking in indexes: https://pypi.tuna.tsinghua.edu.cn/simple
+Collecting textual
+  Downloading https://pypi.tuna.tsinghua.edu.cn/packages/fb/be/35261223d9416a0751cdff1c7b4a6f881387218a12d439fe22fefebc8c04/textual-8.2.8-py3-none-any.whl (731 kB)
+     -------------------------------------- 731.4/731.4 kB 4.2 MB/s eta 0:00:00
+Requirement already satisfied: markdown-it-py[linkify]>=2.1.0 in c:\users\27921\anaconda3\lib\site-packages (from textual) (2.2.0)
+Requirement already satisfied: mdit-py-plugins in c:\users\27921\anaconda3\lib\site-packages (from textual) (0.3.0)
+Requirement already satisfied: platformdirs<5,>=3.6.0 in c:\users\27921\anaconda3\lib\site-packages (from textual) (3.10.0)
+Collecting pygments<3.0.0,>=2.19.2 (from textual)
+  Downloading https://pypi.tuna.tsinghua.edu.cn/packages/f4/7e/a72dd26f3b0f4f2bf1dd8923c85f7ceb43172af56d63c7383eb62b332364/pygments-2.20.0-py3-none-any.whl (1.2 MB)
+     ---------------------------------------- 1.2/1.2 MB 11.2 MB/s eta 0:00:00
+Requirement already satisfied: rich>=14.2.0 in c:\users\27921\anaconda3\lib\site-packages (from textual) (15.0.0)
+Requirement already satisfied: typing-extensions<5.0.0,>=4.4.0 in c:\users\27921\anaconda3\lib\site-packages (from textual) (4.12.2)
+Requirement already satisfied: mdurl~=0.1 in c:\users\27921\anaconda3\lib\site-packages (from markdown-it-py[linkify]>=2.1.0->textual) (0.1.0)
+Requirement already satisfied: linkify-it-py<3,>=1 in c:\users\27921\anaconda3\lib\site-packages (from markdown-it-py[linkify]>=2.1.0->textual) (2.0.0)
+Requirement already satisfied: uc-micro-py in c:\users\27921\anaconda3\lib\site-packages (from linkify-it-py<3,>=1->markdown-it-py[linkify]>=2.1.0->textual) (1.0.1)
+Installing collected packages: pygments, textual
+  Attempting uninstall: pygments
+    Found existing installation: Pygments 2.15.1
+    Uninstalling Pygments-2.15.1:
+      Successfully uninstalled Pygments-2.15.1
+Successfully installed pygments-2.20.0 textual-8.2.8

@@ -25,6 +25,9 @@ dev = [
   "pytest-cov>=7.1.0",
   "ruff>=0.15.20",
 ]
+demo = [
+  "textual>=0.86.0",
+]
 
 [build-system]
 requires = ["hatchling"]
