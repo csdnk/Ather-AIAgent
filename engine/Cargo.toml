@@ -1,0 +1,48 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/ae-common",
+  "crates/ae-wal",
+  "crates/ae-kernel",
+  "crates/ae-p1-client",
+  "crates/ae-proto",
+  "crates/ae-telemetry",
+  "engines/e1-vector",
+  "engines/e2-object",
+  "engines/e3-graph",
+  "services/ae-server",
+  "services/ae-cli"
+]
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+license = "Apache-2.0"
+authors = ["AetherEngine Team"]
+repository = "https://example.local/aether-engine"
+
+[workspace.dependencies]
+ae-common = { path = "crates/ae-common" }
+ae-wal = { path = "crates/ae-wal" }
+ae-kernel = { path = "crates/ae-kernel" }
+ae-p1-client = { path = "crates/ae-p1-client" }
+ae-proto = { path = "crates/ae-proto" }
+ae-telemetry = { path = "crates/ae-telemetry" }
+e1-vector = { path = "engines/e1-vector" }
+e2-object = { path = "engines/e2-object" }
+e3-graph = { path = "engines/e3-graph" }
+
+anyhow = "1"
+tracing = "0.1"
+thiserror = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+crc32fast = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+md5 = "0.7"
+blake3 = "1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+tempfile = "3"
+tonic = "0.12"
+prost = "0.13"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

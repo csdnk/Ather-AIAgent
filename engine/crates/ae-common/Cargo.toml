@@ -1,0 +1,12 @@
+[package]
+name = "ae-common"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+crc32fast.workspace = true
+uuid.workspace = true

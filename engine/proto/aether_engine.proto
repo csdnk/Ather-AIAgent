@@ -1,0 +1,389 @@
+syntax = "proto3";
+
+package aether.engine.v1;
+
+// =============================================================================
+// AetherEngine (P2) external contract — FROZEN v0.1 (M0 deliverable).
+//
+// Covers the M0 contract items (横向合同 第二条 / 项目分解 §2.2.3 / §5.1):
+//   * 三态统一查询 API   — VectorService / ObjectService / GraphService / FusionService
+//   * Segment 内省接口    — VectorService.SegmentStats + SegmentControlService.ListSegments
+//   * Tier Migrate Callback — SegmentControlService.{Freeze,Unfreeze,OnMigrateComplete,OnMigrateFailed}
+//
+// Interface-sprint mapping: IF-04 (Segment Introspection, P2->P3),
+// IF-05 (六态查询 API 子集, P2->P4).
+//
+// Freeze rule: field numbers and RPC signatures below are STABLE. Later
+// milestones may ADD fields / messages / RPCs (backward-compatible) but MUST
+// NOT renumber or remove existing ones.
+//
+// The Rust crate `ae-proto` keeps a hand-written mirror of these messages to
+// avoid blocking M0 on a tonic/protoc toolchain; the two are kept in lockstep.
+// =============================================================================
+
+// ----------------------------------------------------------------------------
+// Shared
+// ----------------------------------------------------------------------------
+
+// Uniform acknowledgement for control-plane RPCs. On failure the call returns a
+// gRPC status carrying a P2Err_* code (see ae-common P2ErrorCode).
+message Ack {
+  bool ok = 1;
+  string engine = 2;
+  string segment_id = 3;
+  string migration_id = 4;
+  uint64 route_epoch = 5;
+  bool idempotent = 6;
+  string state = 7;
+  repeated string block_ids = 8;
+  optional string outcome = 9;
+}
+
+// ----------------------------------------------------------------------------
+// E1 · Vector engine
+// ----------------------------------------------------------------------------
+
+message VectorRecord {
+  string id = 1;
+  repeated float values = 2;
+  optional string graph_node_id = 3;
+  optional string metadata_json = 4;
+}
+
+message SearchHit {
+  string id = 1;
+  float score = 2;
+  optional string graph_node_id = 3;
+  optional string metadata_json = 4;
+}
+
+message CreateCollectionRequest {
+  string collection = 1;
+  uint32 dimension = 2;
+}
+
+message CreateCollectionResponse {
+  bool ok = 1;
+}
+
+message InsertVectorRequest {
+  string collection = 1;
+  repeated VectorRecord records = 2;
+}
+
+message InsertVectorResponse {
+  uint64 inserted = 1;
+}
+
+message DeleteVectorsRequest {
+  string collection = 1;
+  repeated string ids = 2;
+}
+
+message DeleteVectorsResponse {
+  uint64 deleted = 1;
+}
+
+message SearchVectorRequest {
+  string collection = 1;
+  repeated float query = 2;
+  uint32 top_k = 3;
+}
+
+message SearchVectorResponse {
+  repeated SearchHit hits = 1;
+}
+
+// Segment introspection for P3 (IF-04). One row per Segment.
+message SegmentStat {
+  string segment_id = 1;
+  // growing | sealing | sealed | frozen | archived
+  string state = 2;
+  uint64 row_count = 3;
+  uint64 size_bytes = 4;
+  // flat | hnsw | ivfpq (absent while Growing)
+  optional string index_type = 5;
+  uint64 access_count = 6;
+}
+
+message SegmentStatsRequest {
+  string collection = 1;
+}
+
+message SegmentStatsResponse {
+  repeated SegmentStat segments = 1;
+}
+
+service VectorService {
+  rpc CreateCollection(CreateCollectionRequest) returns (CreateCollectionResponse);
+  rpc InsertVector(InsertVectorRequest) returns (InsertVectorResponse);
+  rpc DeleteVectors(DeleteVectorsRequest) returns (DeleteVectorsResponse);
+  rpc SearchVector(SearchVectorRequest) returns (SearchVectorResponse);
+  rpc SegmentStats(SegmentStatsRequest) returns (SegmentStatsResponse);
+}
+
+// ----------------------------------------------------------------------------
+// E2 · Object engine
+// ----------------------------------------------------------------------------
+
+message CreateBucketRequest {
+  string bucket = 1;
+}
+
+message PutObjectRequest {
+  string bucket = 1;
+  string key = 2;
+  bytes data = 3;
+}
+
+message GetObjectRequest {
+  string bucket = 1;
+  string key = 2;
+}
+
+// Range GET (S3 `Range: bytes=start-end`, inclusive end). `end` absent => to EOF.
+message GetObjectRangeRequest {
+  string bucket = 1;
+  string key = 2;
+  uint64 start = 3;
+  optional uint64 end = 4;
+}
+
+message ObjectMeta {
+  string bucket = 1;
+  string key = 2;
+  string etag = 3;
+  uint64 size = 4;
+  optional string md5_hex = 5;
+  optional string blake3_hex = 6;
+}
+
+message ObjectBytes {
+  bytes data = 1;
+  ObjectMeta meta = 2;
+}
+
+message ListObjectsRequest {
+  string bucket = 1;
+  string prefix = 2;
+}
+
+message ListObjectsResponse {
+  repeated ObjectMeta objects = 1;
+}
+
+// Paginated listing (S3 LIST v2 semantics).
+message ListObjectsPagedRequest {
+  string bucket = 1;
+  string prefix = 2;
+  uint32 max_keys = 3;
+  optional string continuation_token = 4;
+}
+
+message ListObjectsPagedResponse {
+  repeated ObjectMeta objects = 1;
+  bool is_truncated = 2;
+  optional string next_continuation_token = 3;
+}
+
+// Multipart upload.
+message CreateMultipartUploadRequest {
+  string bucket = 1;
+  string key = 2;
+}
+
+message CreateMultipartUploadResponse {
+  string upload_id = 1;
+}
+
+message UploadPartRequest {
+  string upload_id = 1;
+  uint32 part_no = 2;
+  bytes data = 3;
+}
+
+message UploadPartResponse {
+  string etag = 1;
+}
+
+message CompleteMultipartUploadRequest {
+  string upload_id = 1;
+}
+
+message AbortMultipartUploadRequest {
+  string upload_id = 1;
+}
+
+message ListPartsRequest {
+  string upload_id = 1;
+}
+
+message PartInfo {
+  uint32 part_no = 1;
+  uint64 size = 2;
+  string etag = 3;
+}
+
+message ListPartsResponse {
+  repeated PartInfo parts = 1;
+}
+
+service ObjectService {
+  rpc CreateBucket(CreateBucketRequest) returns (ObjectMeta);
+  rpc PutObject(PutObjectRequest) returns (ObjectMeta);
+  rpc GetObject(GetObjectRequest) returns (ObjectBytes);
+  rpc GetObjectRange(GetObjectRangeRequest) returns (ObjectBytes);
+  rpc HeadObject(GetObjectRequest) returns (ObjectMeta);
+  rpc DeleteObject(GetObjectRequest) returns (ObjectMeta);
+  rpc ListObjects(ListObjectsRequest) returns (ListObjectsResponse);
+  rpc ListObjectsPaged(ListObjectsPagedRequest) returns (ListObjectsPagedResponse);
+  rpc CreateMultipartUpload(CreateMultipartUploadRequest) returns (CreateMultipartUploadResponse);
+  rpc UploadPart(UploadPartRequest) returns (UploadPartResponse);
+  rpc CompleteMultipartUpload(CompleteMultipartUploadRequest) returns (ObjectMeta);
+  rpc AbortMultipartUpload(AbortMultipartUploadRequest) returns (Ack);
+  rpc ListParts(ListPartsRequest) returns (ListPartsResponse);
+}
+
+// ----------------------------------------------------------------------------
+// E3 · Graph engine
+// ----------------------------------------------------------------------------
+
+message NodeRecord {
+  string id = 1;
+  optional string properties_json = 2;
+}
+
+message EdgeRecord {
+  string id = 1;
+  string src = 2;
+  string dst = 3;
+  optional string label = 4;
+  optional string properties_json = 5;
+}
+
+message TraverseRequest {
+  string start_node_id = 1;
+  uint32 depth = 2;
+}
+
+message SubGraph {
+  repeated NodeRecord nodes = 1;
+  repeated EdgeRecord edges = 2;
+}
+
+// Fusion vector projection: attach a vector to a graph node so fusion queries
+// run entirely inside E3 (design doc §5.2).
+message ProjectVectorRequest {
+  string node_id = 1;
+  repeated float vector = 2;
+}
+
+service GraphService {
+  rpc CreateNode(NodeRecord) returns (NodeRecord);
+  rpc CreateEdge(EdgeRecord) returns (EdgeRecord);
+  rpc ProjectVector(ProjectVectorRequest) returns (Ack);
+  rpc Traverse(TraverseRequest) returns (SubGraph);
+}
+
+// ----------------------------------------------------------------------------
+// Fusion · VectorAnchoredSubgraph (single read path inside E3, design doc §5)
+// ----------------------------------------------------------------------------
+
+// Traversal / fusion predicate pushdown (design doc §5.3.3 edge_filter / node_filter).
+message GraphFilter {
+  // Allowed edge labels; empty => no restriction.
+  repeated string edge_labels = 1;
+  // Optional node-property equality predicate: node.<key> == <value>.
+  optional string node_property_key = 2;
+  // JSON-encoded expected value for the predicate above.
+  optional string node_property_value_json = 3;
+}
+
+message FusionParams {
+  uint32 anchor_top_k = 1;
+  uint32 hop = 2;
+  uint32 fanout_cap = 3;
+  uint32 max_nodes = 4;
+  uint32 max_edges = 5;
+}
+
+message VectorAnchoredSubgraphRequest {
+  string collection = 1;
+  repeated float query = 2;
+  FusionParams params = 3;
+  GraphFilter filter = 4;
+}
+
+// Anchors come from the in-engine vector search; `truncated` signals fanout /
+// node / edge caps were hit before full k-hop expansion (design doc §5).
+message VectorAnchoredSubgraphResponse {
+  repeated SearchHit anchors = 1;
+  SubGraph subgraph = 2;
+  bool truncated = 3;
+}
+
+service FusionService {
+  rpc VectorAnchoredSubgraph(VectorAnchoredSubgraphRequest)
+      returns (VectorAnchoredSubgraphResponse);
+}
+
+// ----------------------------------------------------------------------------
+// Segment control · introspection + tier-migrate callback (IF-04, P2 -> P3)
+//
+// Mirrors the ae-kernel `SegmentControl` trait. Migration flow:
+//   Freeze (write-fence) -> P3 moves data -> OnMigrateComplete (atomic route
+//   swap, segment live again) | OnMigrateFailed (keep old route, unfreeze).
+// ----------------------------------------------------------------------------
+
+message ListSegmentsRequest {
+  // Engine instance scope, e.g. "vector/default", "object/default", "graph/default".
+  string engine = 1;
+}
+
+message ListSegmentsResponse {
+  repeated string segment_ids = 1;
+  repeated SegmentInfo segments = 2;
+}
+
+message SegmentInfo {
+  string engine = 1;
+  string segment_id = 2;
+  string state = 3;
+  uint64 route_epoch = 4;
+  repeated string block_ids = 5;
+  optional string active_migration_id = 6;
+  optional string last_migration_id = 7;
+  optional string last_outcome = 8;
+}
+
+message SegmentRef {
+  string segment_id = 1;
+  string engine = 2;
+  string migration_id = 3;
+  optional uint64 expected_route_epoch = 4;
+}
+
+message OnMigrateCompleteRequest {
+  string segment_id = 1;
+  // New physical block route after migration (double-buffering, design doc §3.6).
+  repeated string new_block_ids = 2;
+  string engine = 3;
+  string migration_id = 4;
+  optional uint64 expected_route_epoch = 5;
+}
+
+message OnMigrateFailedRequest {
+  string segment_id = 1;
+  string reason = 2;
+  string engine = 3;
+  string migration_id = 4;
+  optional uint64 expected_route_epoch = 5;
+}
+
+service SegmentControlService {
+  rpc ListSegments(ListSegmentsRequest) returns (ListSegmentsResponse);
+  rpc Freeze(SegmentRef) returns (Ack);
+  rpc Unfreeze(SegmentRef) returns (Ack);
+  rpc OnMigrateComplete(OnMigrateCompleteRequest) returns (Ack);
+  rpc OnMigrateFailed(OnMigrateFailedRequest) returns (Ack);
+}

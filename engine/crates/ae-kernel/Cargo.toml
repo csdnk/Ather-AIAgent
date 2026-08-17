@@ -1,0 +1,8 @@
+[package]
+name = "ae-kernel"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+ae-common.workspace = true

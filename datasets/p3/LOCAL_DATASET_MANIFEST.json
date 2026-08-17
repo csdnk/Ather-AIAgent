@@ -1,0 +1,12 @@
+{
+  "source_root": "D:\\codex项目\\捷运盛\\datasets\\B2_B3",
+  "available": {
+    "locomo": 35,
+    "longmemeval_oracle": 500
+  },
+  "missing": [
+    "beam",
+    "mem2act"
+  ],
+  "note": "Acceptance files are local subsets; they are not the full official acceptance set."
+}

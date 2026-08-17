@@ -1,0 +1,3 @@
+{"id":"doc-001","text":"Aether B1 intercepts text and returns a normalized CPU embedding vector.","tenant_id":"demo","source_type":"rag_document"}
+{"id":"doc-002","text":"这是一条中文数据，用于验证 JSONL、中文文本和 UTF-8 输入。","tenant_id":"demo","source_type":"rag_document"}
+{"id":"query-001","text":"How does the B1 Sidecar return vectors?","tenant_id":"demo","source_type":"query_sample"}

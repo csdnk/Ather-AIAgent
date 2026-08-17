@@ -1,0 +1,19 @@
+[package]
+name = "e2-object"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+ae-common.workspace = true
+ae-wal.workspace = true
+ae-kernel.workspace = true
+ae-telemetry.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+md5.workspace = true
+blake3.workspace = true
+rusqlite.workspace = true
+tempfile.workspace = true
+uuid.workspace = true

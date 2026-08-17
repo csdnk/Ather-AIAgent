@@ -1,0 +1,12 @@
+[package]
+name = "ae-wal"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+ae-common.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+crc32fast.workspace = true
+tempfile.workspace = true

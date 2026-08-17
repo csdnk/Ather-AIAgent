@@ -1,0 +1,11 @@
+[package]
+name = "ae-cli"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+ae-common.workspace = true
+ae-wal.workspace = true
+e1-vector.workspace = true
+e3-graph.workspace = true

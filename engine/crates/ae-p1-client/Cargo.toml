@@ -1,0 +1,9 @@
+[package]
+name = "ae-p1-client"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+ae-common.workspace = true
+ae-wal.workspace = true

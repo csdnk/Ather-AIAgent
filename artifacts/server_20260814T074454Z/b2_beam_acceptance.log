@@ -1,0 +1,35 @@
+/app/src/aether_agent_memory/b2/milvus_store.py:60: PyMilvusDeprecationWarning: `connections.connect` is an ORM-style PyMilvus API and will be removed in PyMilvus 3.1. Use `MilvusClient` instead.
+  connections.connect(alias="b2", uri=self._uri)
+/app/src/aether_agent_memory/b2/milvus_store.py:61: PyMilvusDeprecationWarning: `utility.has_collection` is an ORM-style PyMilvus API and will be removed in PyMilvus 3.1. Use `MilvusClient` instead.
+  if not utility.has_collection(self._collection_name, using="b2"):
+/app/src/aether_agent_memory/b2/milvus_store.py:81: PyMilvusDeprecationWarning: `Collection` is an ORM-style PyMilvus API and will be removed in PyMilvus 3.1. Use `MilvusClient` instead.
+  collection = Collection(self._collection_name, schema=schema, using="b2")
+/app/src/aether_agent_memory/b2/milvus_store.py:82: PyMilvusDeprecationWarning: `Collection.create_index` is an ORM-style PyMilvus API and will be removed in PyMilvus 3.1. Use `MilvusClient` instead.
+  collection.create_index(
+/app/src/aether_agent_memory/b2/milvus_store.py:88: PyMilvusDeprecationWarning: `Collection.load` is an ORM-style PyMilvus API and will be removed in PyMilvus 3.1. Use `MilvusClient` instead.
+  collection.load()
+/app/src/aether_agent_memory/b2/milvus_store.py:156: PyMilvusDeprecationWarning: `Collection.search` is an ORM-style PyMilvus API and will be removed in PyMilvus 3.1. Use `MilvusClient` instead.
+  result = collection.search(
+/app/src/aether_agent_memory/b2/milvus_store.py:132: PyMilvusDeprecationWarning: `Collection.upsert` is an ORM-style PyMilvus API and will be removed in PyMilvus 3.1. Use `MilvusClient` instead.
+  collection.upsert(rows)
+/app/src/aether_agent_memory/b2/milvus_store.py:206: PyMilvusDeprecationWarning: `Collection.flush` is an ORM-style PyMilvus API and will be removed in PyMilvus 3.1. Use `MilvusClient` instead.
+  self._collection().flush()
+{
+  "samples": 130,
+  "working_writes": 20072,
+  "episodic_writes": 20072,
+  "semantic_writes": 130,
+  "queries": 130,
+  "working_write_ms_p50_ms": 0.173,
+  "working_write_ms_p99_ms": 0.279,
+  "episodic_write_ms_p50_ms": 0.189,
+  "episodic_write_ms_p99_ms": 0.284,
+  "semantic_write_ms_p50_ms": 8.358,
+  "semantic_write_ms_p99_ms": 15.697,
+  "context_recall_ms_p50_ms": 1327.4,
+  "context_recall_ms_p99_ms": 4564.336
+}
+/app/src/aether_agent_memory/b2/milvus_store.py:219: PyMilvusDeprecationWarning: `Collection.delete` is an ORM-style PyMilvus API and will be removed in PyMilvus 3.1. Use `MilvusClient` instead.
+  self._collection().delete(expression)
+/app/src/aether_agent_memory/b2/milvus_store.py:220: PyMilvusDeprecationWarning: `Collection.flush` is an ORM-style PyMilvus API and will be removed in PyMilvus 3.1. Use `MilvusClient` instead.
+  self._collection().flush()

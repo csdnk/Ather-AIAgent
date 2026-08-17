@@ -1,0 +1,103 @@
+{
+  "text_bytes": 1024,
+  "preloaded_working_memory": 256,
+  "samples_per_scenario": 10000,
+  "scenarios": [
+    "write",
+    "read",
+    "mixed_50_50"
+  ],
+  "manager": "MockWorkingMemoryManager -> RedisMemoryStore",
+  "results": [
+    {
+      "scenario": "write",
+      "concurrency": 1,
+      "samples": 10000,
+      "throughput_ops_s": 5565.327,
+      "p50_ms": 0.169,
+      "p95_ms": 0.202,
+      "p99_ms": 0.236,
+      "max_ms": 2.468
+    },
+    {
+      "scenario": "read",
+      "concurrency": 1,
+      "samples": 10000,
+      "throughput_ops_s": 3972.494,
+      "p50_ms": 0.237,
+      "p95_ms": 0.289,
+      "p99_ms": 0.346,
+      "max_ms": 1.199
+    },
+    {
+      "scenario": "mixed",
+      "concurrency": 1,
+      "samples": 10000,
+      "throughput_ops_s": 4642.279,
+      "p50_ms": 0.227,
+      "p95_ms": 0.274,
+      "p99_ms": 0.33,
+      "max_ms": 2.586
+    },
+    {
+      "scenario": "write",
+      "concurrency": 8,
+      "samples": 10000,
+      "throughput_ops_s": 5591.426,
+      "p50_ms": 1.394,
+      "p95_ms": 1.575,
+      "p99_ms": 1.707,
+      "max_ms": 4.06
+    },
+    {
+      "scenario": "read",
+      "concurrency": 8,
+      "samples": 10000,
+      "throughput_ops_s": 3938.168,
+      "p50_ms": 1.991,
+      "p95_ms": 2.233,
+      "p99_ms": 2.286,
+      "max_ms": 3.324
+    },
+    {
+      "scenario": "mixed",
+      "concurrency": 8,
+      "samples": 10000,
+      "throughput_ops_s": 4742.787,
+      "p50_ms": 1.52,
+      "p95_ms": 2.428,
+      "p99_ms": 2.603,
+      "max_ms": 3.317
+    },
+    {
+      "scenario": "write",
+      "concurrency": 32,
+      "samples": 10000,
+      "throughput_ops_s": 5702.468,
+      "p50_ms": 5.487,
+      "p95_ms": 6.097,
+      "p99_ms": 6.522,
+      "max_ms": 8.675
+    },
+    {
+      "scenario": "read",
+      "concurrency": 32,
+      "samples": 10000,
+      "throughput_ops_s": 3995.497,
+      "p50_ms": 7.865,
+      "p95_ms": 8.775,
+      "p99_ms": 9.411,
+      "max_ms": 9.715
+    },
+    {
+      "scenario": "mixed",
+      "concurrency": 32,
+      "samples": 10000,
+      "throughput_ops_s": 4521.119,
+      "p50_ms": 5.636,
+      "p95_ms": 10.034,
+      "p99_ms": 10.442,
+      "max_ms": 11.044
+    }
+  ]
+}

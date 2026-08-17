@@ -1,0 +1,27 @@
+{
+  "source": "zhangdw/Anchor-benchmarks (BEAM, CC BY-SA 4.0)",
+  "input": {
+    "100K": {
+      "path": "datasets/p3/source/beam/BEAM/data/100K-00000-of-00001.parquet",
+      "sha256": "c0519be25907005ba873c927c50877471d550873039d96c041554d0075a78ace"
+    },
+    "500K": {
+      "path": "datasets/p3/source/beam/BEAM/data/500K-00000-of-00001.parquet",
+      "sha256": "af05921c979355038e1761b7cde3d2dd713200dd3071b278de0200f6c7f30122"
+    }
+  },
+  "selection": {
+    "smoke": {
+      "100K": 1,
+      "500K": 1
+    },
+    "acceptance": {
+      "100K": 10,
+      "500K": 10
+    }
+  },
+  "outputs": {
+    "smoke": "smoke_v0.1/beam.jsonl",
+    "acceptance": "acceptance_v0.1/beam.jsonl"
+  }
+}
