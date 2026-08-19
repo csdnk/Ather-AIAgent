@@ -48,7 +48,9 @@ async def timed(operation) -> float:
     return (time.perf_counter() - started) * 1000
 
 
-async def replay_sample(sample: dict, working, episodic, semantic, stats: dict[str, list[float]], ids: list[str]) -> None:
+async def replay_sample(
+    sample: dict, working, episodic, semantic, stats: dict[str, list[float]], ids: list[str]
+) -> None:
     sample_id = str(sample["sample_id"])
     session_id = f"replay-{sample_id}"
     turns = sample.get("turns", [])
@@ -63,7 +65,19 @@ async def replay_sample(sample: dict, working, episodic, semantic, stats: dict[s
         content = turn.get("content") or turn.get("utterance") or ""
         if not content:
             continue
-        memory = Memory(type=MemoryType.WORKING, session_id=session_id, agent_id="b2-replay", tenant_id="dataset", source_id=source_session_id, content=content, metadata={"sample_id": sample_id, "turn_index": index, "source_session_id": source_session_id})
+        memory = Memory(
+            type=MemoryType.WORKING,
+            session_id=session_id,
+            agent_id="b2-replay",
+            tenant_id="dataset",
+            source_id=source_session_id,
+            content=content,
+            metadata={
+                "sample_id": sample_id,
+                "turn_index": index,
+                "source_session_id": source_session_id,
+            },
+        )
         ids.append(memory.id)
         stats["working_write_ms"].append(await timed(lambda m=memory: working.write(m)))
         archived = memory.model_copy(update={"id": uuid4().hex, "type": MemoryType.EPISODIC})
@@ -72,12 +86,28 @@ async def replay_sample(sample: dict, working, episodic, semantic, stats: dict[s
     question = sample.get("question") or (turns[-1].get("content", "") if turns else "")
     if not question:
         return
-    request = ContextRequest(session_id=session_id, agent_id="b2-replay", tenant_id="dataset", query=question, max_candidates=5)
-    stats["query_count"] .append(1)
+    request = ContextRequest(
+        session_id=session_id,
+        agent_id="b2-replay",
+        tenant_id="dataset",
+        query=question,
+        max_candidates=5,
+    )
+    stats["query_count"].append(1)
     started = time.perf_counter()
-    await asyncio.gather(working.recall(request), episodic.recall(request), semantic.recall(request))
+    await asyncio.gather(
+        working.recall(request), episodic.recall(request), semantic.recall(request)
+    )
     stats["context_recall_ms"].append((time.perf_counter() - started) * 1000)
-    semantic_memory = Memory(type=MemoryType.SEMANTIC, session_id=session_id, agent_id="b2-replay", user_id="dataset-user", tenant_id="dataset", content=question, metadata={"sample_id": sample_id})
+    semantic_memory = Memory(
+        type=MemoryType.SEMANTIC,
+        session_id=session_id,
+        agent_id="b2-replay",
+        user_id="dataset-user",
+        tenant_id="dataset",
+        content=question,
+        metadata={"sample_id": sample_id},
+    )
     ids.append(semantic_memory.id)
     stats["semantic_write_ms"].append(await timed(lambda: semantic.write(semantic_memory)))
 
@@ -103,7 +133,16 @@ async def main() -> None:
     working = MockWorkingMemoryManager(store=redis)
     episodic = MockEpisodicMemoryManager(embedder=embedder, store=redis)
     semantic = MockSemanticMemoryManager(embedder=embedder, store=redis, vector_store=milvus)
-    stats: dict[str, list[float]] = {name: [] for name in ("working_write_ms", "episodic_write_ms", "semantic_write_ms", "context_recall_ms", "query_count")}
+    stats: dict[str, list[float]] = {
+        name: []
+        for name in (
+            "working_write_ms",
+            "episodic_write_ms",
+            "semantic_write_ms",
+            "context_recall_ms",
+            "query_count",
+        )
+    }
     ids: list[str] = []
     try:
         for sample in samples:
@@ -116,18 +155,27 @@ async def main() -> None:
             "semantic_writes": len(stats["semantic_write_ms"]),
             "queries": len(stats["query_count"]),
         }
-        for name in ("working_write_ms", "episodic_write_ms", "semantic_write_ms", "context_recall_ms"):
+        for name in (
+            "working_write_ms",
+            "episodic_write_ms",
+            "semantic_write_ms",
+            "context_recall_ms",
+        ):
             values = stats[name]
             report[f"{name}_p50_ms"] = round(statistics.median(values), 3)
             report[f"{name}_p99_ms"] = round(p99(values), 3)
         print(json.dumps(report, ensure_ascii=False, indent=2))
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
-            args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+            args.output.write_text(
+                json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
     finally:
         if ids:
             for start in range(0, len(ids), 500):
-                await redis._redis.delete(*[redis._key(memory_id) for memory_id in ids[start : start + 500]])
+                await redis._redis.delete(
+                    *[redis._key(memory_id) for memory_id in ids[start : start + 500]]
+                )
             # A full acceptance replay creates tens of thousands of IDs.  One
             # enormous Milvus boolean expression can destabilise the gRPC
             # request during cleanup, even though the replay and flush already

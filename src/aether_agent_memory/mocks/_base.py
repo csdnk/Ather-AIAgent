@@ -1,5 +1,6 @@
 import math
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
 from aether_agent_memory.context.models import ContextRequest
 from aether_agent_memory.core.enums import MemoryState
@@ -106,11 +107,14 @@ class BaseMockMemoryManager:
         scoped = getattr(self._store, "list_scoped", None)
         if scoped is None:
             return await self._all()
-        return await scoped(
-            tenant_id=request.tenant_id,
-            user_id=request.user_id,
-            agent_id=request.agent_id,
-            session_id=request.session_id if include_session else None,
+        return cast(
+            list[Memory],
+            await scoped(
+                tenant_id=request.tenant_id,
+                user_id=request.user_id,
+                agent_id=request.agent_id,
+                session_id=request.session_id if include_session else None,
+            ),
         )
 
     async def recall(self, request: ContextRequest) -> list[RecalledMemory]:

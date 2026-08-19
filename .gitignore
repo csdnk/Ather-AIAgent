@@ -52,6 +52,11 @@ Thumbs.db
 # Local package-manager output accidentally written to the project root
 0.86.0
 
+# Web frontend
+web/node_modules/
+web/dist/
+web/.vite/
+
 # AGENTS
 opencode.json
 .agent/

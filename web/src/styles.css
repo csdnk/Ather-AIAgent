@@ -1,0 +1,208 @@
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+  background: #f5f7fb;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.app-title.ant-typography {
+  margin: 0;
+}
+
+.app-sider {
+  min-height: calc(100vh - 56px);
+  background: #ffffff;
+  border-right: 1px solid #e5e7eb;
+}
+
+.app-sider .ant-menu {
+  border-inline-end: 0;
+  padding-top: 12px;
+}
+
+.app-content {
+  padding: 20px;
+  background: #f5f7fb;
+}
+
+.page-stack,
+.full-width {
+  width: 100%;
+}
+
+.metric-card {
+  height: 100%;
+}
+
+.metric-card-title {
+  font-size: 12px;
+}
+
+.metric-card-value {
+  font-size: 22px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.status-card .ant-card-body {
+  min-height: 332px;
+}
+
+.system-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-dot.healthy {
+  background: #16a34a;
+}
+
+.status-dot.degraded {
+  background: #d97706;
+}
+
+.status-dot.unavailable {
+  background: #dc2626;
+}
+
+.status-descriptions {
+  margin-bottom: 16px;
+}
+
+.status-list {
+  margin-top: 16px;
+}
+
+.status-summary {
+  margin-top: 20px;
+}
+
+.system-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.flow-node {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 12px;
+  background: #ffffff;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.flow-arrow {
+  color: #6b7280;
+}
+
+.vector-preview,
+.vector-modal {
+  display: block;
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.optimization-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid #b7eb8f;
+  border-radius: 6px;
+  color: #135200;
+  background: #f6ffed;
+}
+
+.conversation-card .ant-card-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 520px;
+}
+
+.conversation-card .ant-list {
+  flex: 1;
+  min-height: 360px;
+  margin-bottom: 16px;
+  overflow: auto;
+}
+
+.chat-input-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.memory-group-title.ant-typography {
+  margin: 0 0 6px;
+}
+
+.memory-row {
+  cursor: pointer;
+}
+
+.candidate-summary {
+  margin-top: 12px;
+}
+
+.b3-toolbar {
+  row-gap: 8px;
+}
+
+.b3-query {
+  flex: 1 1 420px;
+}
+
+@media (max-width: 768px) {
+  .app-header {
+    padding: 0 12px;
+  }
+
+  .app-sider {
+    width: 180px !important;
+    min-width: 180px !important;
+    max-width: 180px !important;
+  }
+
+  .app-content {
+    padding: 12px;
+  }
+
+  .chat-input-row {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-card-value {
+    font-size: 18px;
+  }
+}

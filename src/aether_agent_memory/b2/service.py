@@ -1,7 +1,14 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from aether_agent_memory.b2.compression import (
+    CompressionArtifact,
+    HybridMemoryCompressor,
+    attach_compression_metadata,
+)
+from aether_agent_memory.b2.compression_store import CompressionArtifactStore
 from aether_agent_memory.b2.events import MemoryEvent, MemoryEventType
+from aether_agent_memory.b2.memory_consolidation import MemoryConsolidator
 from aether_agent_memory.b2.text_classifier import classify_text
 from aether_agent_memory.context.builder import MockContextPackBuilder
 from aether_agent_memory.context.models import ContextPack, ContextRequest
@@ -23,22 +30,71 @@ class MemoryService:
         semantic: MemoryManager,
         builder: MockContextPackBuilder,
         emitter: SignalEmitter | None = None,
+        compressor: HybridMemoryCompressor | None = None,
+        compression_store: CompressionArtifactStore | None = None,
+        consolidator: MemoryConsolidator | None = None,
+        auto_compress_long_memory: bool = True,
     ) -> None:
         self._working = working
         self._episodic = episodic
         self._semantic = semantic
         self._builder = builder
         self._emitter = emitter
+        self._compressor = compressor
+        self._compression_store = compression_store
+        self._consolidator = consolidator
+        self._auto_compress_long_memory = auto_compress_long_memory
 
     async def close_store(self) -> None:
         """Close an optional network-backed store owned by the runtime."""
-        stores = {getattr(manager, "_store", None) for manager in (self._working, self._episodic, self._semantic)}
+        stores = {
+            getattr(manager, "_store", None)
+            for manager in (self._working, self._episodic, self._semantic)
+        }
+        if self._compression_store is not None:
+            stores.add(self._compression_store)
         for store in stores:
             close = getattr(store, "close", None)
             if close is not None:
                 await close()
 
-    async def ingest(self, event: MemoryEvent) -> Memory:
+    async def compress_memory(
+        self,
+        memory: Memory,
+        *,
+        keywords: list[str] | None = None,
+        metadata: dict[str, object] | None = None,
+    ) -> tuple[Memory, CompressionArtifact]:
+        """Persist a compressed Artifact and attach its reference to Memory.
+
+        Foreground ingest uses this only for policy-selected long memories;
+        asynchronous long-text workers use the same metadata contract.
+        """
+        if self._compressor is None or self._compression_store is None:
+            raise RuntimeError("compression service is not configured")
+        artifact = await self._compressor.compress_and_store(
+            memory.content,
+            source_memory_id=memory.id,
+            source_id=memory.source_id,
+            store=self._compression_store,
+            keywords=keywords,
+            metadata={**memory.metadata, **(metadata or {})},
+        )
+        updated = attach_compression_metadata(memory, artifact)
+        await self._manager_for(memory.type).write(updated)
+        return updated, artifact
+
+    async def content_for_embedding(self, memory: Memory) -> str:
+        """Return the persisted compressed representation when available."""
+        if memory.compression_artifact_id is None or self._compression_store is None:
+            return memory.content
+        try:
+            artifact = await self._compression_store.get(memory.compression_artifact_id)
+        except Exception:
+            return memory.content
+        return artifact.compressed_text if artifact is not None else memory.content
+
+    async def ingest(self, event: MemoryEvent, *, compress: bool | None = None) -> Memory:
         classification = classify_text(event.content)
         memory_type = (
             MemoryType.SEMANTIC
@@ -72,6 +128,27 @@ class MemoryService:
         )
         manager = self._semantic if memory_type == MemoryType.SEMANTIC else self._working
         stored = await manager.write(memory)
+        if memory_type == MemoryType.SEMANTIC and self._consolidator is not None:
+            consolidation = await self._consolidator.consolidate(
+                stored,
+                manager=self._semantic,
+            )
+            stored = consolidation.canonical_memory
+        if compress is None:
+            requested = stored.metadata.get("compress")
+            compress = (
+                requested
+                if isinstance(requested, bool)
+                else self._auto_compress_long_memory
+                and self._compressor is not None
+                and self._compressor.should_compress(stored.content)
+            )
+        if compress and self._compressor is not None and self._compression_store is not None:
+            stored, _ = await self.compress_memory(
+                stored,
+                keywords=classification.keywords,
+                metadata={"compression_trigger": "ingest"},
+            )
         await self._emit_best_effort(stored, SignalType.CREATION)
         return stored
 
@@ -84,7 +161,9 @@ class MemoryService:
             except Exception as exc:
                 pack.complete = False
                 pack.status = "degraded"
-                pack.degradation_reasons[f"feedback:{memory.type.value}"] = f"{type(exc).__name__}: {exc}"
+                pack.degradation_reasons[f"feedback:{memory.type.value}"] = (
+                    f"{type(exc).__name__}: {exc}"
+                )
             await self._emit_best_effort(memory, SignalType.ACCESS, context_used=True)
         return pack
 
@@ -103,6 +182,7 @@ class MemoryService:
         user_id: str | None = None,
         tenant_id: str | None = None,
         trace_id: str | None = None,
+        compress: bool = False,
     ) -> list[Memory]:
         working_items = await self._working.query(
             session_id=session_id,
@@ -128,6 +208,8 @@ class MemoryService:
                 },
             )
             stored = await self._episodic.write(episodic)
+            if compress:
+                stored, _ = await self.compress_memory(stored)
             await self._working.update_state(item.id, MemoryState.ARCHIVED)
             await self._emit_best_effort(stored, SignalType.ARCHIVAL)
             archived.append(stored)

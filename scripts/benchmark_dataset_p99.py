@@ -10,13 +10,13 @@ import statistics
 import time
 from uuid import uuid4
 
+from aether_agent_memory.b1.sidecar_client import SidecarEmbeddingClient
 from aether_agent_memory.b2.milvus_store import MilvusMemoryStore
 from aether_agent_memory.context.models import ContextRequest
 from aether_agent_memory.core.enums import MemoryType
 from aether_agent_memory.core.memory import Memory
 from aether_agent_memory.persistence import RedisMemoryStore
 from aether_agent_memory.semantic.manager import MockSemanticMemoryManager
-from aether_agent_memory.b1.sidecar_client import SidecarEmbeddingClient
 
 
 def p99(values: list[float]) -> float:
@@ -51,8 +51,30 @@ async def main() -> None:
         dimension=int(embedder.dimension or 512),
     )
     manager = MockSemanticMemoryManager(embedder=embedder, store=redis, vector_store=milvus)
-    warmup_memories = [Memory(type=MemoryType.SEMANTIC, session_id="locomo-warmup", agent_id="p99-agent", user_id="locomo-user", tenant_id="locomo-tenant", content=turn, tags=["locomo", "warmup"]) for turn in turns]
-    memories = [Memory(type=MemoryType.SEMANTIC, session_id="locomo-0", agent_id="p99-agent", user_id="locomo-user", tenant_id="locomo-tenant", content=turn, tags=["locomo"]) for turn in turns]
+    warmup_memories = [
+        Memory(
+            type=MemoryType.SEMANTIC,
+            session_id="locomo-warmup",
+            agent_id="p99-agent",
+            user_id="locomo-user",
+            tenant_id="locomo-tenant",
+            content=turn,
+            tags=["locomo", "warmup"],
+        )
+        for turn in turns
+    ]
+    memories = [
+        Memory(
+            type=MemoryType.SEMANTIC,
+            session_id="locomo-0",
+            agent_id="p99-agent",
+            user_id="locomo-user",
+            tenant_id="locomo-tenant",
+            content=turn,
+            tags=["locomo"],
+        )
+        for turn in turns
+    ]
     try:
         for memory in warmup_memories:
             await manager.write(memory)
@@ -61,14 +83,29 @@ async def main() -> None:
         for memory in memories:
             results.append(await measure(lambda memory=memory: manager.write(memory)))
         await asyncio.to_thread(milvus.flush)
-        request = ContextRequest(session_id="locomo-0", agent_id="p99-agent", user_id="locomo-user", tenant_id="locomo-tenant", query="What music and artists were discussed?", max_candidates=5)
-        recalls = await asyncio.gather(*(measure(lambda: manager.recall(request)) for _ in range(len(turns))))
+        request = ContextRequest(
+            session_id="locomo-0",
+            agent_id="p99-agent",
+            user_id="locomo-user",
+            tenant_id="locomo-tenant",
+            query="What music and artists were discussed?",
+            max_candidates=5,
+        )
+        recalls = await asyncio.gather(
+            *(measure(lambda: manager.recall(request)) for _ in range(len(turns)))
+        )
         write_latencies = [latency for _, latency in results]
         recall_latencies = [latency for _, latency in recalls]
         hits = recalls[0][0]
         print(f"dataset={dataset} turns={len(turns)} dimension={embedder.dimension}")
-        print(f"write_p50_ms={statistics.median(write_latencies):.3f} write_p99_ms={p99(write_latencies):.3f}")
-        print(f"recall_p50_ms={statistics.median(recall_latencies):.3f} recall_p99_ms={p99(recall_latencies):.3f}")
+        print(
+            f"write_p50_ms={statistics.median(write_latencies):.3f} "
+            f"write_p99_ms={p99(write_latencies):.3f}"
+        )
+        print(
+            f"recall_p50_ms={statistics.median(recall_latencies):.3f} "
+            f"recall_p99_ms={p99(recall_latencies):.3f}"
+        )
         print(f"recall_hits={len(hits)} top_memory_ids={[hit.memory.id for hit in hits]}")
     finally:
         for memory in [*warmup_memories, *memories]:

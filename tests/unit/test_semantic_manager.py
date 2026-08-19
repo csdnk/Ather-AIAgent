@@ -120,5 +120,7 @@ async def test_milvus_failure_keeps_redis_primary_record_and_falls_back_for_reca
     assert "Milvus unavailable" in memory.metadata["milvus_projection_error"]
     assert (await mgr.get(memory.id)) is not None
 
-    recalled = await mgr.recall(ContextRequest(session_id="s1", agent_id="a1", query="persistent fact"))
+    recalled = await mgr.recall(
+        ContextRequest(session_id="s1", agent_id="a1", query="persistent fact")
+    )
     assert [item.memory.id for item in recalled] == [memory.id]

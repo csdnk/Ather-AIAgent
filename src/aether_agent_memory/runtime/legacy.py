@@ -116,7 +116,8 @@ class P3Runtime:
         working = MockWorkingMemoryManager(store=store)
         episodic = MockEpisodicMemoryManager(embedder=self.embedder, store=store)
         vector_store = None
-        if config.milvus_uri and int(getattr(self.embedder, "dimension", 0) or 0) == config.vector_dimension:
+        embedder_dimension = int(getattr(self.embedder, "dimension", 0) or 0)
+        if config.milvus_uri and embedder_dimension == config.vector_dimension:
             vector_store = MilvusMemoryStore(
                 config.milvus_uri,
                 collection_name=config.milvus_collection,

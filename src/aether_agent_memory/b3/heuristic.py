@@ -156,7 +156,7 @@ class HeuristicPolicy:
         if state is None:
             return True
         allowed = state.allow_promote if for_promotion else state.allow_demote
-        return allowed and state.utilization < self.config.target_max_utilization
+        return bool(allowed and state.utilization < self.config.target_max_utilization)
 
     @staticmethod
     def _expected_effect(action: ActionType, target: StorageTier | None) -> str:

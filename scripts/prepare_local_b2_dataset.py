@@ -7,7 +7,6 @@ import hashlib
 import json
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_ROOT = ROOT.parent / "datasets" / "B2_B3"
 TARGET_ROOT = ROOT / "datasets" / "p3"
@@ -32,7 +31,13 @@ def prepare_locomo() -> list[dict]:
                     zip(payload["speaker_role"], payload["utterance"], strict=True)
                 )
             ]
-            rows.append({"sample_id": f"locomo-{item['dialogue_id']}", "session_id": item["dialogue_id"], "turns": turns})
+            rows.append(
+                {
+                    "sample_id": f"locomo-{item['dialogue_id']}",
+                    "session_id": item["dialogue_id"],
+                    "turns": turns,
+                }
+            )
     return rows
 
 
@@ -44,17 +49,23 @@ def prepare_longmemeval() -> list[dict]:
         sessions = []
         for index, session in enumerate(item.get("haystack_sessions", [])):
             session_id = item.get("haystack_session_ids", [])[index]
-            session_date = item.get("haystack_dates", [])[index] if index < len(item.get("haystack_dates", [])) else None
+            session_date = (
+                item.get("haystack_dates", [])[index]
+                if index < len(item.get("haystack_dates", []))
+                else None
+            )
             sessions.append({"session_id": session_id, "timestamp": session_date, "turns": session})
-        normalized.append({
-            "sample_id": item["question_id"],
-            "question_id": item["question_id"],
-            "question_type": item["question_type"],
-            "question": item["question"],
-            "answer": item["answer"],
-            "evidence_session_ids": item.get("haystack_session_ids", []),
-            "sessions": sessions,
-        })
+        normalized.append(
+            {
+                "sample_id": item["question_id"],
+                "question_id": item["question_id"],
+                "question_type": item["question_type"],
+                "question": item["question"],
+                "answer": item["answer"],
+                "evidence_session_ids": item.get("haystack_session_ids", []),
+                "sessions": sessions,
+            }
+        )
     return normalized
 
 
@@ -70,8 +81,13 @@ def main() -> None:
     locomo = prepare_locomo()
     longmemeval = prepare_longmemeval()
     for name, rows in (("locomo", locomo), ("longmemeval", longmemeval)):
-        write_jsonl(TARGET_ROOT / "smoke_v0.1" / f"{name}.jsonl", rows[:2 if name == "locomo" else 10])
-        write_jsonl(TARGET_ROOT / "acceptance_v0.1" / f"{name}.jsonl", rows[:10 if name == "locomo" else 100])
+        write_jsonl(
+            TARGET_ROOT / "smoke_v0.1" / f"{name}.jsonl", rows[: 2 if name == "locomo" else 10]
+        )
+        write_jsonl(
+            TARGET_ROOT / "acceptance_v0.1" / f"{name}.jsonl",
+            rows[: 10 if name == "locomo" else 100],
+        )
     beam_ready = all(
         (TARGET_ROOT / subset / "beam.jsonl").is_file()
         for subset in ("smoke_v0.1", "acceptance_v0.1")
@@ -80,7 +96,10 @@ def main() -> None:
         "source_root": str(SOURCE_ROOT),
         "available": {"locomo": len(locomo), "longmemeval_oracle": len(longmemeval)},
         "missing": (["mem2act"] if beam_ready else ["beam", "mem2act"]),
-        "note": "Acceptance files are local subsets; they are not the full official acceptance set.",
+        "note": (
+            "Acceptance files are local subsets; they are not the full official "
+            "acceptance set."
+        ),
     }
     manifest_path = TARGET_ROOT / "LOCAL_DATASET_MANIFEST.json"
     manifest_path.parent.mkdir(parents=True, exist_ok=True)

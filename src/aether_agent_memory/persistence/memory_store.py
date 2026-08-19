@@ -22,10 +22,10 @@ class InMemoryMemoryStore:
     async def get(self, memory_id: str) -> Memory | None:
         return self._items.get(memory_id)
 
-    async def list(self) -> list[Memory]:
-        return list(self._items.values())
+    async def list(self) -> builtins.list[Memory]:
+        return builtins.list(self._items.values())
 
-    async def list_scoped(self, **scope: str | None) -> list[Memory]:
+    async def list_scoped(self, **scope: str | None) -> builtins.list[Memory]:
         return [
             memory
             for memory in self._items.values()
@@ -56,11 +56,11 @@ class SQLiteMemoryStore:
         async with self._lock:
             return await asyncio.to_thread(self._get_sync, memory_id)
 
-    async def list(self) -> list[Memory]:
+    async def list(self) -> builtins.list[Memory]:
         async with self._lock:
             return await asyncio.to_thread(self._list_sync)
 
-    async def list_scoped(self, **scope: str | None) -> list[Memory]:
+    async def list_scoped(self, **scope: str | None) -> builtins.list[Memory]:
         async with self._lock:
             return await asyncio.to_thread(self._list_scoped_sync, scope)
 
@@ -250,7 +250,7 @@ class RedisMemoryStore:
             return None
         return Memory.model_validate_json(payload)
 
-    async def list(self) -> list[Memory]:
+    async def list(self) -> builtins.list[Memory]:
         return await self._list_from_index(self._index_key)
 
     async def list_scoped(
@@ -260,7 +260,7 @@ class RedisMemoryStore:
         user_id: str | None = None,
         agent_id: str | None = None,
         session_id: str | None = None,
-    ) -> list[Memory]:
+    ) -> builtins.list[Memory]:
         """Read a bounded scope index instead of the global memory index.
 
         Select the most specific scope supplied by the caller; remaining scope
@@ -294,8 +294,8 @@ class RedisMemoryStore:
             )
         ]
 
-    async def _list_from_index(self, index_key: str) -> list[Memory]:
-        ids = list(await self._retry(lambda: self._redis.smembers(index_key)))
+    async def _list_from_index(self, index_key: str) -> builtins.list[Memory]:
+        ids = builtins.list(await self._retry(lambda: self._redis.smembers(index_key)))
         if not ids:
             return []
         memories: list[Memory] = []
@@ -303,13 +303,18 @@ class RedisMemoryStore:
         # A single MGET over an unbounded set was the BEAM replay timeout root
         # cause.  Small batches keep each Redis operation below its timeout.
         batch_size = 256
+
+        def fetch_payloads(memory_ids: builtins.list[str]) -> Callable[[], Awaitable[Any]]:
+            async def operation() -> Any:
+                return await self._redis.mget(
+                    [self._key(memory_id) for memory_id in memory_ids]
+                )
+
+            return operation
+
         for start in range(0, len(ids), batch_size):
             batch = ids[start : start + batch_size]
-            payloads = await self._retry(
-                lambda batch=batch: self._redis.mget(
-                    [self._key(memory_id) for memory_id in batch]
-                )
-            )
+            payloads = await self._retry(fetch_payloads(batch))
             for memory_id, payload in zip(batch, payloads, strict=True):
                 if payload is None:
                     stale.append(memory_id)

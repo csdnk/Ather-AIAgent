@@ -6,7 +6,6 @@ import json
 import time
 from urllib.request import Request, urlopen
 
-
 BASE_URL = "http://localhost:8080"
 
 

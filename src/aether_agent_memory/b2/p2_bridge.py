@@ -31,6 +31,24 @@ def embedding_records(
         "category": category,
         "keywords": keywords,
     }
+    for field in (
+        "compression_artifact_id",
+        "compression_status",
+        "compression_algorithm",
+        "compression_scorer",
+        "compression_ratio",
+        "compression_rate",
+        "original_utf8_bytes",
+        "compressed_utf8_bytes",
+        "original_token_count",
+        "compressed_token_count",
+        "compression_warnings",
+        "fact_bundle_version",
+        "consolidation_status",
+        "fact_count",
+    ):
+        if field in payload:
+            common_metadata[field] = payload[field]
     return [
         EmbeddingRecord(
             request_id=str(b1_result["request_id"]),

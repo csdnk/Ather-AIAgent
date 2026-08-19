@@ -1,5 +1,29 @@
+from aether_agent_memory.b2.compression import (
+    CompressionArtifact,
+    CompressionPolicy,
+    HybridMemoryCompressor,
+    attach_compression_metadata,
+)
+from aether_agent_memory.b2.compression_store import (
+    CompressionArtifactStore,
+    InMemoryCompressionArtifactStore,
+    RedisCompressionArtifactStore,
+    SQLiteCompressionArtifactStore,
+)
 from aether_agent_memory.b2.events import MemoryEvent, MemoryEventType
 from aether_agent_memory.b2.long_text import chunk_text
+from aether_agent_memory.b2.memory_consolidation import (
+    ConsolidationResult,
+    FactExtractionPolicy,
+    MemoryConsolidator,
+    StructuredFactExtractor,
+)
+from aether_agent_memory.b2.retrieval import (
+    CrossEncoderSemanticReranker,
+    HybridMemoryRetriever,
+    HybridRetrievalPolicy,
+    LexicalSemanticReranker,
+)
 from aether_agent_memory.b2.service import MemoryService
 from aether_agent_memory.b2.task_status import TaskState
 from aether_agent_memory.b2.text_classifier import TextClassification, classify_text
@@ -10,6 +34,22 @@ __all__ = [
     "MemoryService",
     "TaskState",
     "TextClassification",
+    "CompressionArtifact",
+    "CompressionArtifactStore",
+    "CompressionPolicy",
+    "HybridMemoryCompressor",
+    "attach_compression_metadata",
+    "ConsolidationResult",
+    "FactExtractionPolicy",
+    "MemoryConsolidator",
+    "StructuredFactExtractor",
+    "HybridMemoryRetriever",
+    "HybridRetrievalPolicy",
+    "LexicalSemanticReranker",
+    "CrossEncoderSemanticReranker",
+    "InMemoryCompressionArtifactStore",
+    "RedisCompressionArtifactStore",
+    "SQLiteCompressionArtifactStore",
     "chunk_text",
     "classify_text",
 ]

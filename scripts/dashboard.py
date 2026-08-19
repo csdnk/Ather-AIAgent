@@ -3,18 +3,18 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import os
+import sys
 from datetime import UTC, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.util import module_from_spec, spec_from_file_location
-import json
-import os
 from pathlib import Path
-import sys
 
-from aether_agent_memory.p2 import P2GrpcClient
 from dashboard_page import DASHBOARD_HTML
 
+from aether_agent_memory.p2 import P2GrpcClient
 
 STATE: dict[str, object] = {
     "last_run": None,

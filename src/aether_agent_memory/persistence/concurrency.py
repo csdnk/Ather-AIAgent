@@ -9,7 +9,15 @@ from time import perf_counter
 
 
 class AdaptiveConcurrency:
-    def __init__(self, *, initial: int = 8, minimum: int = 1, maximum: int = 128, target_latency_ms: float = 10.0, sample_window: int = 16) -> None:
+    def __init__(
+        self,
+        *,
+        initial: int = 8,
+        minimum: int = 1,
+        maximum: int = 128,
+        target_latency_ms: float = 10.0,
+        sample_window: int = 16,
+    ) -> None:
         self._minimum = minimum
         self._maximum = max(maximum, minimum)
         self._limit = min(max(initial, minimum), self._maximum)

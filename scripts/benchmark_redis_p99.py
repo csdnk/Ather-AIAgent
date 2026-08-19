@@ -58,7 +58,9 @@ async def main() -> None:
             query="benchmark memory",
             max_candidates=5,
         )
-        recall_ms = await asyncio.gather(*(timed(lambda: manager.recall(request)) for _ in range(count)))
+        recall_ms = await asyncio.gather(
+            *(timed(lambda: manager.recall(request)) for _ in range(count))
+        )
         print(f"redis_url={redis_url}")
         print(f"samples={count}")
         for name, values in (("write", write_ms), ("get", read_ms), ("recall", recall_ms)):

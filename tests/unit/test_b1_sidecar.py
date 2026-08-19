@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
+import aether_agent_memory.b1.backends as b1_backends
 from aether_agent_memory.b1.backends import BackendConfig, BackendUnavailableError, create_backend
 from aether_agent_memory.b1.sidecar import B1Service, SidecarSettings, create_app
 
@@ -316,14 +317,22 @@ def test_backend_failure_and_invalid_vector_obey_fail_mode(
 
 
 @pytest.mark.unit
-def test_reserved_backend_is_explicitly_unavailable() -> None:
+def test_optional_backend_without_runtime_is_explicitly_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     config = BackendConfig(
         model_name="unused",
         cache_dir=Path("unused"),
         model_path=None,
         threads=1,
     )
-    with pytest.raises(BackendUnavailableError, match="reserved-not-implemented"):
+    original_module_available = b1_backends._module_available
+    monkeypatch.setattr(
+        b1_backends,
+        "_module_available",
+        lambda name: False if name == "openvino" else original_module_available(name),
+    )
+    with pytest.raises(BackendUnavailableError, match="optional runtime is unavailable"):
         create_backend("openvino", config)
     with pytest.raises(BackendUnavailableError, match="unknown backend"):
         create_backend("not-a-backend", config)

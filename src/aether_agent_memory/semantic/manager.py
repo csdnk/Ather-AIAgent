@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import timedelta
 import asyncio
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from aether_agent_memory.context.models import ContextRequest
@@ -57,7 +57,11 @@ class MockSemanticMemoryManager(BaseMockMemoryManager):
                 recalled: list[RecalledMemory] = []
                 for hit in hits:
                     memory = await self._store.get(hit.memory_id)
-                    if memory is not None and memory.type == MemoryType.SEMANTIC and memory.state == MemoryState.ACTIVE:
+                    if (
+                        memory is not None
+                        and memory.type == MemoryType.SEMANTIC
+                        and memory.state == MemoryState.ACTIVE
+                    ):
                         recalled.append(RecalledMemory(memory=memory, score=hit.score))
                 return recalled[: request.max_candidates]
             except Exception:

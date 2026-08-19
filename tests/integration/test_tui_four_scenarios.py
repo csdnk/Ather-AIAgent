@@ -1,5 +1,7 @@
 import pytest
 
+pytest.importorskip("textual")
+
 from examples.minimal_loop.tui_app import P3DataflowApp
 
 
@@ -26,8 +28,7 @@ async def test_tui_completes_four_documented_application_scenarios() -> None:
     assert v3.status == "superseded"
     assert v4.status == "active"
     assert not any(
-        record.object_id == "object-flood-manual-v3"
-        for record in app.env.vector_sink.records
+        record.object_id == "object-flood-manual-v3" for record in app.env.vector_sink.records
     )
     assert app.filtered_object_ids == ["object-flood-manual-v3"]
 

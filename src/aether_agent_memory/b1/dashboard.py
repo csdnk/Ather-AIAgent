@@ -16,7 +16,7 @@ def _flag(value: bool) -> str:
     return "YES" if value else "no"
 
 
-class B1Dashboard(App[None]):
+class B1Dashboard(App[None]):  # type: ignore[misc]
     TITLE = "Aether P3-B1 Sidecar - real-time process"
     CSS = """
     Screen { layout: vertical; }
@@ -97,10 +97,12 @@ class B1Dashboard(App[None]):
             runtime = capabilities.get("current_backend", {})
             self.query_one("#backend", Static).update(
                 f"Backend: {health.get('backend')}\n"
+                f"Requested: {health.get('requested_backend')} / "
+                f"fallback={health.get('fallback_used')}\n"
                 f"Engine: {health.get('engine')}\n"
                 f"Model: {health.get('model')}\n"
                 f"Provider: {runtime.get('provider', health.get('provider'))}\n"
-                f"Dimension / dtype: {health.get('dimension')} / FP32"
+                f"Dimension / dtype: {health.get('dimension')} / {health.get('precision')}"
             )
             self.query_one("#metrics", Static).update(
                 f"Requests / items: {metrics.get('requests', 0)} / {metrics.get('items', 0)}\n"

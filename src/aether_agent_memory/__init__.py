@@ -1,3 +1,5 @@
+from contextlib import suppress
+
 from aether_agent_memory.b1 import (
     EmbeddingPipeline,
     EmbeddingRecord,
@@ -9,7 +11,9 @@ from aether_agent_memory.b1 import (
     TextChunk,
     TextChunker,
 )
-from aether_agent_memory.b2 import MemoryEvent, MemoryEventType, MemoryService
+
+with suppress(ImportError):
+    from aether_agent_memory.b2 import MemoryEvent, MemoryEventType, MemoryService
 from aether_agent_memory.b3 import (
     AccessStats,
     ActionExecutor,
@@ -50,7 +54,7 @@ from aether_agent_memory.core.exceptions import (
     MemoryNotFoundError,
     StorageError,
 )
-from aether_agent_memory.core.memory import Memory, P2Ref, RecalledMemory
+from aether_agent_memory.core.memory import Memory, MemoryFact, P2Ref, RecalledMemory
 from aether_agent_memory.episodic.manager import MockEpisodicMemoryManager
 from aether_agent_memory.mocks.embedding import MockEmbeddingClient
 from aether_agent_memory.mocks.storage import MockStorageClient
@@ -88,6 +92,7 @@ __all__ = [
     "MemoryExpiredError",
     "MemoryNotFoundError",
     "MemoryEvent",
+    "MemoryFact",
     "MemoryEventType",
     "MemoryService",
     "MemorySignal",

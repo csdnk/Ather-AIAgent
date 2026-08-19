@@ -6,14 +6,19 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from uuid import uuid4
 
-from aether_agent_memory.b1 import EmbeddingPipeline, EmbeddingRequest, InMemoryVectorSink, TextChunker
+from aether_agent_memory.b1 import (
+    EmbeddingPipeline,
+    EmbeddingRequest,
+    InMemoryVectorSink,
+    TextChunker,
+)
 from aether_agent_memory.b2 import MemoryEvent, MemoryEventType, MemoryService
 from aether_agent_memory.b3 import (
     AccessStats,
     HeuristicScheduler,
     SchedulableObject,
-    ScheduleRunResult,
     ScheduleRequest,
+    ScheduleRunResult,
     SemanticSignals,
 )
 from aether_agent_memory.context import ContextPack, ContextRequest, MockContextPackBuilder
@@ -102,15 +107,22 @@ class UnifiedDemoRunner:
         )
 
         object_key = "documents/unified-demo.md"
-        document = "Aether integrates semantic memory, object storage, vectors, and tier scheduling."
-        self._emit("P4 Gateway", "receive document request", "success", "tenant=demo; object=unified-demo")
+        document = (
+            "Aether integrates semantic memory, object storage, vectors, and tier scheduling."
+        )
+        self._emit(
+            "P4 Gateway", "receive document request", "success", "tenant=demo; object=unified-demo"
+        )
 
         report.p2_ref = await storage.put(object_key, document.encode("utf-8"))
         self._emit(
             "P2 E2 Object",
             "persist raw object",
             "success",
-            f"key={object_key}; tier={report.p2_ref.tier.value}; bytes={len(document.encode('utf-8'))}",
+            (
+                f"key={object_key}; tier={report.p2_ref.tier.value}; "
+                f"bytes={len(document.encode('utf-8'))}"
+            ),
         )
 
         embedding = await pipeline.process(
@@ -125,7 +137,9 @@ class UnifiedDemoRunner:
             )
         )
         if embedding.status.value != "success":
-            self._emit("P3 B1", "chunk and embed", "failed", embedding.error_message or "unknown error")
+            self._emit(
+                "P3 B1", "chunk and embed", "failed", embedding.error_message or "unknown error"
+            )
             raise RuntimeError(embedding.error_message or "B1 embedding failed")
         report.embedding_count = len(embedding.records)
         self._emit(
@@ -178,7 +192,10 @@ class UnifiedDemoRunner:
             "P3 B2",
             "build Context Pack",
             "success",
-            f"memories={report.context_memory_count}; token_budget={context.budget_info['budget_tokens']}",
+            (
+                f"memories={report.context_memory_count}; "
+                f"token_budget={context.budget_info['budget_tokens']}"
+            ),
         )
 
         archived = await memory.archive_session(
@@ -223,13 +240,19 @@ class UnifiedDemoRunner:
             "P3 B3",
             "score and recommend tier action",
             "success",
-            f"action={entry.action.action_type.value}; target={entry.action.target_tier}; score={entry.action.score:.3f}",
+            (
+                f"action={entry.action.action_type.value}; "
+                f"target={entry.action.target_tier}; score={entry.action.score:.3f}"
+            ),
         )
         self._emit(
             "P1/P2 Executor",
             "apply simulated scheduling action",
             entry.feedback.execute_status.value,
-            f"new_tier={entry.feedback.new_tier}; latency_ms={entry.feedback.execute_latency_ms:.1f}",
+            (
+                f"new_tier={entry.feedback.new_tier}; "
+                f"latency_ms={entry.feedback.execute_latency_ms:.1f}"
+            ),
         )
         self._emit("Demo Runner", "complete unified flow", "success", f"nodes={len(self.events)}")
         return report

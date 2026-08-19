@@ -30,7 +30,8 @@ class P2StorageClient:
         )
 
     async def get(self, key: str) -> bytes | None:
-        return await self._client.get_object(key)
+        data = await self._client.get_object(key)
+        return bytes(data) if data is not None else None
 
     async def delete(self, key: str) -> bool:
-        return await self._client.delete_object(key)
+        return bool(await self._client.delete_object(key))

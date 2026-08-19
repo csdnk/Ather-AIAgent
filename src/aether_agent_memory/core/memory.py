@@ -13,6 +13,23 @@ class P2Ref(BaseModel):
     tier: StorageTier = StorageTier.L0_DRAM
 
 
+class MemoryFact(BaseModel):
+    kind: str
+    subject: str
+    predicate: str
+    value: str
+    normalized_key: str
+    group_key: str
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    source_memory_id: str | None = None
+    source_id: str | None = None
+    evidence_refs: list[str] = Field(default_factory=list)
+    valid_from: datetime | None = None
+    valid_to: datetime | None = None
+    revision: int = Field(default=1, ge=1)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class Memory(BaseModel):
     id: str = Field(default_factory=lambda: uuid4().hex)
     type: MemoryType
@@ -39,6 +56,17 @@ class Memory(BaseModel):
     p2_ref: P2Ref | None = None
     superseded_by: str | None = None
     tags: list[str] = Field(default_factory=list)
+    facts: list[MemoryFact] = Field(default_factory=list)
+    revision: int = Field(default=1, ge=1)
+    fact_bundle_version: str | None = None
+    consolidation_status: str | None = None
+    consolidated_from: list[str] = Field(default_factory=list)
+    compression_artifact_id: str | None = None
+    compression_status: str = "not_applicable"
+    compression_ratio: float | None = None
+    embedding_status: str = "pending"
+    vector_projection_status: str = "pending"
+    scheduler_signal_status: str = "pending"
 
     def touch(self) -> None:
         now = datetime.now(UTC)

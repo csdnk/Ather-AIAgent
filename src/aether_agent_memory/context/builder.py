@@ -31,7 +31,9 @@ class MockContextPackBuilder:
         }
 
     async def build(self, request: ContextRequest) -> ContextPack:
-        async def recall_one(memory_type: MemoryType) -> tuple[MemoryType, list[RecalledMemory], float, str | None]:
+        async def recall_one(
+            memory_type: MemoryType,
+        ) -> tuple[MemoryType, list[RecalledMemory], float, str | None]:
             manager = self._managers.get(memory_type)
             if manager is None:
                 return memory_type, [], 0.0, "memory manager is not configured"
@@ -43,11 +45,23 @@ class MockContextPackBuilder:
                 )
                 return memory_type, recalled, (perf_counter() - started) * 1000, None
             except TimeoutError:
-                return memory_type, [], (perf_counter() - started) * 1000, "recall deadline exceeded"
+                return (
+                    memory_type,
+                    [],
+                    (perf_counter() - started) * 1000,
+                    "recall deadline exceeded",
+                )
             except Exception as exc:
-                return memory_type, [], (perf_counter() - started) * 1000, f"{type(exc).__name__}: {exc}"
+                return (
+                    memory_type,
+                    [],
+                    (perf_counter() - started) * 1000,
+                    f"{type(exc).__name__}: {exc}",
+                )
 
-        results = await asyncio.gather(*(recall_one(memory_type) for memory_type in request.memory_types))
+        results = await asyncio.gather(
+            *(recall_one(memory_type) for memory_type in request.memory_types)
+        )
         merged: list[RecalledMemory] = []
         missing_sources: list[str] = []
         degradation_reasons: dict[str, str] = {}

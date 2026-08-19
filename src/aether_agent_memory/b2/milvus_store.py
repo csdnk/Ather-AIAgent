@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
-from threading import Lock
 from uuid import NAMESPACE_URL, uuid5
 
 from aether_agent_memory.core.memory import Memory
@@ -35,19 +34,8 @@ class MilvusMemoryStore:
         self._uri = uri
         self._collection_name = collection_name
         self._dimension = dimension
-        self._cached_collection: Any | None = None
-        self._collection_lock = Lock()
 
     def _collection(self) -> Any:
-        if self._cached_collection is not None:
-            return self._cached_collection
-        with self._collection_lock:
-            if self._cached_collection is not None:
-                return self._cached_collection
-            self._cached_collection = self._build_collection()
-            return self._cached_collection
-
-    def _build_collection(self) -> Any:
         from pymilvus import (
             Collection,
             CollectionSchema,
@@ -102,7 +90,6 @@ class MilvusMemoryStore:
         records: list[dict[str, Any]],
         category: str,
         keywords: list[str],
-        flush: bool = True,
     ) -> int:
         if not records:
             raise ValueError("B1 returned no records")
@@ -130,9 +117,32 @@ class MilvusMemoryStore:
             vectors,
         ]
         collection.upsert(rows)
-        if flush:
-            collection.flush()
+        collection.flush()
         return len(records)
+
+    def upsert_memory(self, memory: Memory) -> int:
+        if memory.embedding is None:
+            raise ValueError("semantic memory has no embedding")
+        keywords = memory.metadata.get("keywords", [])
+        return self.upsert_b1_records(
+            task_id=memory.task_id or memory.id,
+            memory_id=memory.id,
+            tenant_id=memory.tenant_id or "",
+            user_id=memory.user_id or "",
+            agent_id=memory.agent_id,
+            session_id=memory.session_id,
+            source_id=memory.source_id or memory.id,
+            content_ref=str(memory.metadata.get("content_ref") or memory.object_id or memory.id),
+            records=[
+                {
+                    "chunk_id": memory.id,
+                    "chunk_text": memory.content,
+                    "vector": memory.embedding,
+                }
+            ],
+            category=str(memory.metadata.get("category", "semantic")),
+            keywords=[str(item) for item in keywords] if isinstance(keywords, list) else [],
+        )
 
     def search(
         self,
@@ -182,42 +192,6 @@ class MilvusMemoryStore:
             )
             for hit in result[0]
         ]
-
-    def upsert_memory(self, memory: Memory) -> None:
-        """Index one semantic memory while keeping its full payload in Redis."""
-        if memory.embedding is None:
-            raise ValueError("semantic memory must have an embedding before Milvus indexing")
-        self.upsert_b1_records(
-            task_id=memory.task_id or memory.id,
-            memory_id=memory.id,
-            tenant_id=memory.tenant_id or "",
-            user_id=memory.user_id or "",
-            agent_id=memory.agent_id,
-            session_id=memory.session_id,
-            source_id=memory.source_id or memory.id,
-            content_ref=memory.object_id or memory.id,
-            records=[{"chunk_id": memory.id, "chunk_text": memory.content, "vector": memory.embedding}],
-            category="semantic_memory",
-            keywords=memory.tags,
-            flush=False,
-        )
-
-    def flush(self) -> None:
-        self._collection().flush()
-
-    def delete_memory(self, memory_id: str) -> None:
-        collection = self._collection()
-        collection.delete(f'memory_id == "{self._escape(memory_id)}"')
-        collection.flush()
-
-    def delete_memories(self, memory_ids: list[str]) -> None:
-        if not memory_ids:
-            return
-        expression = " || ".join(
-            f'memory_id == "{self._escape(memory_id)}"' for memory_id in memory_ids
-        )
-        self._collection().delete(expression)
-        self._collection().flush()
 
     @staticmethod
     def _escape(value: str) -> str:
