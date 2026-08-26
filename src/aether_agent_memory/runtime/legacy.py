@@ -7,7 +7,7 @@ from collections.abc import Awaitable
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from aether_agent_memory.b1 import (
@@ -36,6 +36,9 @@ from aether_agent_memory.semantic import MockSemanticMemoryManager
 from aether_agent_memory.signal import MockSignalEmitter, RedisSignalEmitter
 from aether_agent_memory.working import MockWorkingMemoryManager
 
+if TYPE_CHECKING:
+    from aether_agent_memory.config.app_settings import AppSettings
+
 
 @dataclass(frozen=True)
 class P3RuntimeConfig:
@@ -50,6 +53,13 @@ class P3RuntimeConfig:
     milvus_uri: str = ""
     milvus_collection: str = "b2_memory_chunks_v3"
     vector_dimension: int = 512
+    b1_sidecar_url: str = ""
+    b1_tenant_id: str = "p3-runtime"
+    b1_model_name: str = "BAAI/bge-small-zh-v1.5"
+    b1_sidecar_timeout_seconds: float = 120.0
+    b1_max_batch_items: int = 32
+    b1_chunk_max_chars: int = 400
+    b1_chunk_overlap_chars: int = 40
     b3_shadow_mode: bool = True
 
     @classmethod
@@ -66,8 +76,46 @@ class P3RuntimeConfig:
             milvus_uri=os.getenv("AETHER_B2_MILVUS_URI", ""),
             milvus_collection=os.getenv("AETHER_B2_MILVUS_COLLECTION", "b2_memory_chunks_v3"),
             vector_dimension=int(os.getenv("AETHER_B2_VECTOR_DIMENSION", "512")),
+            b1_sidecar_url=os.getenv("AETHER_B1_SIDECAR_URL", "").strip(),
+            b1_tenant_id=os.getenv("AETHER_B1_TENANT_ID", "p3-runtime"),
+            b1_model_name=os.getenv("AETHER_B1_MODEL_NAME", "BAAI/bge-small-zh-v1.5"),
+            b1_sidecar_timeout_seconds=float(
+                os.getenv("AETHER_B1_SIDECAR_TIMEOUT_SECONDS", "120")
+            ),
+            b1_max_batch_items=int(os.getenv("AETHER_B1_MAX_BATCH_ITEMS", "32")),
+            b1_chunk_max_chars=int(os.getenv("AETHER_B1_CHUNK_MAX_CHARS", "400")),
+            b1_chunk_overlap_chars=int(os.getenv("AETHER_B1_CHUNK_OVERLAP_CHARS", "40")),
             b3_shadow_mode=os.getenv("AETHER_B3_SHADOW_MODE", "true").lower()
             in {"1", "true", "yes"},
+        )
+
+    @classmethod
+    def from_settings(cls, settings: AppSettings) -> P3RuntimeConfig:
+        """Build the legacy runtime config from resolved host settings.
+
+        This keeps ``AppSettings`` as the single source of truth while the
+        legacy runtime is still used behind the P3 facade.
+        """
+        return cls(
+            p2_endpoint=settings.p2_endpoint,
+            data_dir=Path(settings.data_dir),
+            p2_engine=settings.p2_engine,
+            p2_bucket=settings.p2_bucket,
+            p2_collection=settings.p2_collection,
+            p2_timeout_seconds=settings.p2_timeout_seconds,
+            memory_store=settings.memory_store,
+            redis_url=settings.redis_url,
+            milvus_uri=settings.milvus_uri,
+            milvus_collection=settings.milvus_collection,
+            vector_dimension=settings.vector_dimension,
+            b1_sidecar_url=settings.b1_sidecar_url,
+            b1_tenant_id=settings.b1_tenant_id,
+            b1_model_name=settings.b1_model_name,
+            b1_sidecar_timeout_seconds=settings.b1_sidecar_timeout_seconds,
+            b1_max_batch_items=settings.b1_max_batch_items,
+            b1_chunk_max_chars=settings.b1_chunk_max_chars,
+            b1_chunk_overlap_chars=settings.b1_chunk_overlap_chars,
+            b3_shadow_mode=settings.b3_shadow_mode,
         )
 
 
@@ -82,23 +130,21 @@ class P3Runtime:
             collection=config.p2_collection,
             timeout_seconds=config.p2_timeout_seconds,
         )
-        sidecar_url = os.getenv("AETHER_B1_SIDECAR_URL", "").strip()
+        sidecar_url = config.b1_sidecar_url.strip()
         if sidecar_url:
             self.embedder: Any = SidecarEmbeddingClient(
                 sidecar_url,
-                tenant_id=os.getenv("AETHER_B1_TENANT_ID", "p3-runtime"),
-                timeout_seconds=float(os.getenv("AETHER_B1_SIDECAR_TIMEOUT_SECONDS", "120")),
-                max_batch_items=int(os.getenv("AETHER_B1_MAX_BATCH_ITEMS", "32")),
+                tenant_id=config.b1_tenant_id,
+                timeout_seconds=config.b1_sidecar_timeout_seconds,
+                max_batch_items=config.b1_max_batch_items,
             )
-            self.embedding_model = os.getenv(
-                "AETHER_B1_MODEL_NAME", "BAAI/bge-small-zh-v1.5"
-            )
+            self.embedding_model = config.b1_model_name
             self.pipeline = EmbeddingPipeline(
                 embedder=self.embedder,
                 sink=P2VectorSink(self.client),
                 chunker=TextChunker(
-                    max_chars=int(os.getenv("AETHER_B1_CHUNK_MAX_CHARS", "400")),
-                    overlap_chars=int(os.getenv("AETHER_B1_CHUNK_OVERLAP_CHARS", "40")),
+                    max_chars=config.b1_chunk_max_chars,
+                    overlap_chars=config.b1_chunk_overlap_chars,
                 ),
                 model_name=self.embedding_model,
             )

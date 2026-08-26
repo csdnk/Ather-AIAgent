@@ -1,8 +1,5 @@
-from typing import Protocol, runtime_checkable
+"""Deprecated compatibility import for the canonical ContextPackBuilder port."""
 
-from aether_agent_memory.context.models import ContextPack, ContextRequest
+from aether_agent_memory.runtime.ports import ContextPackBuilder
 
-
-@runtime_checkable
-class ContextPackBuilder(Protocol):
-    async def build(self, request: ContextRequest) -> ContextPack: ...
+__all__ = ["ContextPackBuilder"]

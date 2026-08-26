@@ -90,8 +90,8 @@ def _date_from_text(value: str) -> datetime | None:
 
 def _evidence_refs(memory: Memory) -> list[str]:
     refs: list[str] = []
-    if memory.p2_ref is not None:
-        refs.append(memory.p2_ref.object_key)
+    if memory.placement is not None:
+        refs.append(memory.placement.object_key)
     metadata_refs = memory.metadata.get("evidence_refs", [])
     if isinstance(metadata_refs, Sequence) and not isinstance(metadata_refs, (str, bytes)):
         refs.extend(str(ref) for ref in metadata_refs)

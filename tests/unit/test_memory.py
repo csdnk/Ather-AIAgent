@@ -3,7 +3,8 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from aether_agent_memory.core.enums import MemoryState, MemoryType, SourceType, StorageTier
-from aether_agent_memory.core.memory import Memory, P2Ref, RecalledMemory
+from aether_agent_memory.core.memory import Memory, RecalledMemory
+from aether_agent_memory.placement import P2Ref
 
 
 @pytest.mark.unit
@@ -26,6 +27,21 @@ def test_memory_defaults() -> None:
 def test_p2_ref_defaults() -> None:
     ref = P2Ref(segment_id="seg-1", object_key="obj-1")
     assert ref.tier == StorageTier.L0_DRAM
+
+
+@pytest.mark.unit
+def test_legacy_p2_ref_payload_maps_to_generic_placement() -> None:
+    memory = Memory(
+        type=MemoryType.SEMANTIC,
+        session_id="s1",
+        agent_id="a1",
+        content="x",
+        p2_ref={"segment_id": "seg-1", "object_key": "obj-1"},
+    )
+
+    assert memory.placement is not None
+    assert memory.placement.provider == "p2"
+    assert memory.p2_ref is memory.placement
 
 
 @pytest.mark.unit

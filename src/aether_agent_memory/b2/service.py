@@ -7,15 +7,20 @@ from aether_agent_memory.b2.compression import (
     attach_compression_metadata,
 )
 from aether_agent_memory.b2.compression_store import CompressionArtifactStore
-from aether_agent_memory.b2.events import MemoryEvent, MemoryEventType
+from aether_agent_memory.b2.events import MemoryEvent
 from aether_agent_memory.b2.memory_consolidation import MemoryConsolidator
 from aether_agent_memory.b2.text_classifier import classify_text
-from aether_agent_memory.context.builder import MockContextPackBuilder
 from aether_agent_memory.context.models import ContextPack, ContextRequest
-from aether_agent_memory.core.enums import MemoryState, MemoryType, SignalType, SourceType
+from aether_agent_memory.core.enums import MemoryState, MemoryType, SignalType
 from aether_agent_memory.core.memory import Memory
 from aether_agent_memory.interfaces.managers import MemoryManager
 from aether_agent_memory.interfaces.signal import SignalEmitter
+from aether_agent_memory.memory.formation import (
+    DefaultMemoryFormationPolicy,
+    FormationAction,
+    MemoryFormationPolicy,
+)
+from aether_agent_memory.runtime.ports import ContextPackBuilder
 from aether_agent_memory.signal.models import MemorySignal
 
 
@@ -28,11 +33,12 @@ class MemoryService:
         working: MemoryManager,
         episodic: MemoryManager,
         semantic: MemoryManager,
-        builder: MockContextPackBuilder,
+        builder: ContextPackBuilder,
         emitter: SignalEmitter | None = None,
         compressor: HybridMemoryCompressor | None = None,
         compression_store: CompressionArtifactStore | None = None,
         consolidator: MemoryConsolidator | None = None,
+        formation_policy: MemoryFormationPolicy | None = None,
         auto_compress_long_memory: bool = True,
     ) -> None:
         self._working = working
@@ -43,6 +49,7 @@ class MemoryService:
         self._compressor = compressor
         self._compression_store = compression_store
         self._consolidator = consolidator
+        self._formation_policy = formation_policy or DefaultMemoryFormationPolicy()
         self._auto_compress_long_memory = auto_compress_long_memory
 
     async def close_store(self) -> None:
@@ -96,12 +103,13 @@ class MemoryService:
 
     async def ingest(self, event: MemoryEvent, *, compress: bool | None = None) -> Memory:
         classification = classify_text(event.content)
-        memory_type = (
-            MemoryType.SEMANTIC
-            if event.event_type == MemoryEventType.USER_MEMORY
-            else MemoryType.WORKING
-        )
-        source = self._source_for(event)
+        decision = self._formation_policy.decide(event)
+        if (
+            decision.action is not FormationAction.CREATE_MEMORY
+            or decision.memory_type is None
+        ):
+            raise RuntimeError(f"memory formation did not create memory: {decision.action}")
+        memory_type = decision.memory_type
         memory = Memory(
             type=memory_type,
             session_id=event.session_id,
@@ -114,7 +122,7 @@ class MemoryService:
             source_id=event.source_id,
             object_id=event.object_id,
             content=event.content,
-            source=source,
+            source=decision.source,
             importance=event.importance,
             tags=[event.event_type.value],
             metadata={
@@ -156,14 +164,6 @@ class MemoryService:
         pack = await self._builder.build(request)
         for memory in pack.memories:
             memory.touch()
-            try:
-                await self._manager_for(memory.type).write(memory)
-            except Exception as exc:
-                pack.complete = False
-                pack.status = "degraded"
-                pack.degradation_reasons[f"feedback:{memory.type.value}"] = (
-                    f"{type(exc).__name__}: {exc}"
-                )
             await self._emit_best_effort(memory, SignalType.ACCESS, context_used=True)
         return pack
 
@@ -214,14 +214,6 @@ class MemoryService:
             await self._emit_best_effort(stored, SignalType.ARCHIVAL)
             archived.append(stored)
         return archived
-
-    @staticmethod
-    def _source_for(event: MemoryEvent) -> SourceType:
-        if event.event_type == MemoryEventType.RAG_RESULT:
-            return SourceType.RAG
-        if event.event_type == MemoryEventType.TOOL_RESULT:
-            return SourceType.TOOL
-        return event.source
 
     async def _emit(
         self,

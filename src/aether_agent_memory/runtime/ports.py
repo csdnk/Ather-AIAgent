@@ -1,17 +1,31 @@
+"""Canonical ports for P3 application services.
+
+This module is the single Runtime/Application ports layer.  Older protocols in
+``aether_agent_memory.interfaces`` remain for low-level domain manager
+compatibility only; new application-facing adapters should depend here.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol
 
+from aether_agent_memory.runtime.dtos import (
+    LongMemorySubmission,
+    MemorySearchResult,
+    ObjectReference,
+    TaskStatusRecord,
+)
 from aether_agent_memory.runtime.request_context import RequestContext
 from aether_agent_memory.runtime.status import ComponentHealth
 
 if TYPE_CHECKING:
     from aether_agent_memory.b1 import EmbeddingRequest, EmbeddingResult
     from aether_agent_memory.b2 import MemoryEvent
-    from aether_agent_memory.b3 import ScheduleRequest, ScheduleRunResult
+    from aether_agent_memory.b3 import ActionLogEntry, ScheduleRequest, ScheduleRunResult
     from aether_agent_memory.context import ContextPack, ContextRequest
     from aether_agent_memory.core.memory import Memory
     from aether_agent_memory.memory.retrieval.models import AccessTrace
+
 
 
 class EmbeddingPort(Protocol):
@@ -38,6 +52,10 @@ class ContextPort(Protocol):
     ) -> ContextPack: ...
 
 
+class ContextPackBuilder(Protocol):
+    async def build(self, request: ContextRequest) -> ContextPack: ...
+
+
 class TaskQueuePort(Protocol):
     async def submit_long_memory(
         self,
@@ -51,11 +69,15 @@ class TaskQueuePort(Protocol):
         object_id: str | None,
         content_ref: str | None,
         context: RequestContext,
-    ) -> dict[str, Any]: ...
+    ) -> LongMemorySubmission: ...
 
 
 class TaskStatusPort(Protocol):
-    async def get_task(self, task_id: str, context: RequestContext) -> dict[str, Any] | None: ...
+    async def get_task(
+        self,
+        task_id: str,
+        context: RequestContext,
+    ) -> TaskStatusRecord | None: ...
 
 
 class ObjectStorePort(Protocol):
@@ -65,7 +87,7 @@ class ObjectStorePort(Protocol):
         text: str,
         object_key: str,
         context: RequestContext,
-    ) -> dict[str, str]: ...
+    ) -> ObjectReference: ...
 
 
 class VectorSearchPort(Protocol):
@@ -79,7 +101,7 @@ class VectorSearchPort(Protocol):
         limit: int,
         context: RequestContext,
         task_id: str | None = None,
-    ) -> dict[str, Any]: ...
+    ) -> MemorySearchResult: ...
 
 
 class SchedulerPort(Protocol):
@@ -92,6 +114,32 @@ class SchedulerPort(Protocol):
 
 class AccessTracePort(Protocol):
     async def record(self, trace: AccessTrace) -> None: ...
+
+
+class IdempotencyPort(Protocol):
+    def claim(
+        self,
+        *,
+        key: str,
+        tenant_id: str | None,
+        op_type: str,
+        payload_hash: str,
+    ) -> tuple[str, dict[str, Any] | None]: ...
+
+    def complete(
+        self,
+        *,
+        key: str,
+        tenant_id: str | None,
+        op_type: str,
+        response: dict[str, Any],
+    ) -> None: ...
+
+    def fail(self, *, key: str, tenant_id: str | None, op_type: str) -> None: ...
+
+
+class ActionLogPort(Protocol):
+    def append_entries(self, entries: list[ActionLogEntry]) -> None: ...
 
 
 class HealthCheckPort(Protocol):

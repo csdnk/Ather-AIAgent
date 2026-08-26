@@ -1,6 +1,6 @@
 from typing import Protocol, runtime_checkable
 
-from aether_agent_memory.core.memory import P2Ref
+from aether_agent_memory.placement import P2Ref
 
 
 @runtime_checkable

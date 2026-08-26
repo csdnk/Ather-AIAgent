@@ -2,8 +2,8 @@
 
 from aether_agent_memory.b1.models import EmbeddingRecord
 from aether_agent_memory.core.enums import StorageTier
-from aether_agent_memory.core.memory import P2Ref
 from aether_agent_memory.p2.client import P2GrpcClient
+from aether_agent_memory.placement import P2Ref
 
 
 class P2VectorSink:

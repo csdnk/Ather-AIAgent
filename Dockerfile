@@ -25,4 +25,4 @@ RUN pip install --no-cache-dir -e . \
     && if [ "$INSTALL_B2_DATASET_TOOLS" = "true" ]; then pip install --no-cache-dir -e ".[b2-dataset]"; fi \
     && python scripts/generate_proto.py
 
-CMD ["python", "scripts/p3_service.py"]
+CMD ["python", "-m", "aether_agent_memory.app"]

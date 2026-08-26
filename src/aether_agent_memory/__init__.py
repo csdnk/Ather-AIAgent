@@ -54,11 +54,12 @@ from aether_agent_memory.core.exceptions import (
     MemoryNotFoundError,
     StorageError,
 )
-from aether_agent_memory.core.memory import Memory, MemoryFact, P2Ref, RecalledMemory
+from aether_agent_memory.core.memory import Memory, MemoryFact, RecalledMemory
 from aether_agent_memory.episodic.manager import MockEpisodicMemoryManager
 from aether_agent_memory.mocks.embedding import MockEmbeddingClient
 from aether_agent_memory.mocks.storage import MockStorageClient
 from aether_agent_memory.persistence import InMemoryMemoryStore, SQLiteMemoryStore
+from aether_agent_memory.placement import P2Ref
 from aether_agent_memory.semantic.manager import MockSemanticMemoryManager
 from aether_agent_memory.signal.emitter import MockSignalEmitter
 from aether_agent_memory.signal.models import MemorySignal

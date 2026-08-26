@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Any
 
 from aether_agent_memory.b2.task_status import RedisTaskStatusStore
+from aether_agent_memory.runtime.dtos import LongMemorySubmission, TaskStatusRecord
 from aether_agent_memory.runtime.errors import ScopeError
 from aether_agent_memory.runtime.request_context import RequestContext
 from aether_agent_memory.runtime.status import ComponentHealth, ComponentStatus, RuntimeComponent
@@ -57,8 +58,8 @@ class CeleryLongMemoryTaskAdapter:
         object_id: str | None,
         content_ref: str | None,
         context: RequestContext,
-    ) -> dict[str, Any]:
-        return await asyncio.to_thread(
+    ) -> LongMemorySubmission:
+        payload = await asyncio.to_thread(
             self._submitter,
             text=text,
             tenant_id=tenant_id,
@@ -71,6 +72,7 @@ class CeleryLongMemoryTaskAdapter:
             request_id=context.request_id,
             trace_id=context.trace_id,
         )
+        return LongMemorySubmission.from_mapping(payload)
 
     async def health(self) -> ComponentHealth:
         try:
@@ -109,12 +111,16 @@ class RedisTaskStatusAdapter:
     def __init__(self, redis_url: str = TASK_STATUS_URL) -> None:
         self._store = RedisTaskStatusStore(redis_url)
 
-    async def get_task(self, task_id: str, context: RequestContext) -> dict[str, Any] | None:
+    async def get_task(
+        self,
+        task_id: str,
+        context: RequestContext,
+    ) -> TaskStatusRecord | None:
         record = await asyncio.to_thread(self._store.get, task_id)
         if record is None:
             return None
         _assert_task_scope(record, context)
-        return record
+        return TaskStatusRecord.from_mapping(record)
 
 
 def _assert_task_scope(record: dict[str, Any], context: RequestContext) -> None:

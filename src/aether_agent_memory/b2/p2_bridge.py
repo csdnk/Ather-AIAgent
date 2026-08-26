@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-from hashlib import sha256
 from typing import Any
 
 from aether_agent_memory.b1.models import EmbeddingRecord
+from aether_agent_memory.placement import PerUserAgentVectorNamespaceStrategy
 
 
 def p2_collection_for_scope(
     base: str, tenant_id: str, user_id: str, agent_id: str, dimension: int
 ) -> str:
-    if dimension <= 0:
-        raise ValueError("P2 collection dimension must be positive")
-    scope = "\0".join((tenant_id, user_id, agent_id)).encode("utf-8")
-    return f"{base}-b2-d{dimension}-{sha256(scope).hexdigest()[:20]}"
+    """Compatibility wrapper for the current adapter namespace strategy."""
+    return PerUserAgentVectorNamespaceStrategy().collection_for_scope(
+        base, tenant_id, user_id, agent_id, dimension
+    )
 
 
 def embedding_records(

@@ -11,6 +11,7 @@ from aether_agent_memory.context import ContextPack, ContextRequest
 from aether_agent_memory.core.enums import MemoryType, SourceType
 from aether_agent_memory.core.memory import Memory
 from aether_agent_memory.runtime import MemoryRuntime, RuntimeDependencies, RuntimeProfile
+from aether_agent_memory.runtime.dtos import LongMemorySubmission, ObjectReference
 from aether_agent_memory.runtime.request_context import RequestContext
 
 
@@ -67,18 +68,18 @@ class _ContextBuilder:
 
 
 class _TaskQueue:
-    async def submit_long_memory(self, **kwargs: Any) -> dict[str, Any]:
+    async def submit_long_memory(self, **kwargs: Any) -> LongMemorySubmission:
         context = kwargs["context"]
-        return {
-            "task_id": "task-1",
-            "memory_id": "memory-1",
-            "state": "PENDING",
-            "request_id": context.request_id,
-            "trace_id": context.trace_id,
-            "source_id": kwargs["source_id"],
-            "object_id": kwargs["object_id"],
-            "content_ref": kwargs["content_ref"],
-        }
+        return LongMemorySubmission(
+            task_id="task-1",
+            memory_id="memory-1",
+            state="PENDING",
+            request_id=context.request_id,
+            trace_id=context.trace_id,
+            source_id=kwargs["source_id"],
+            object_id=kwargs["object_id"],
+            content_ref=kwargs["content_ref"],
+        )
 
 
 class _ObjectStore:
@@ -88,12 +89,12 @@ class _ObjectStore:
         text: str,
         object_key: str,
         context: RequestContext,
-    ) -> dict[str, str]:
-        return {
-            "p2_bucket": "p3-memory",
-            "object_key": object_key,
-            "content_ref": f"p2://p3-memory/{object_key}",
-        }
+    ) -> ObjectReference:
+        return ObjectReference(
+            p2_bucket="p3-memory",
+            object_key=object_key,
+            content_ref=f"p2://p3-memory/{object_key}",
+        )
 
 
 def _runtime(
@@ -193,5 +194,5 @@ async def test_long_memory_response_keeps_existing_schema_keys() -> None:
         "object_id",
         "content_ref",
     ):
-        assert key in result
-    assert result["formation"]["status"] == "FORMATION_PENDING"
+        assert key in result.to_response_dict()
+    assert result.formation["status"] == "FORMATION_PENDING"

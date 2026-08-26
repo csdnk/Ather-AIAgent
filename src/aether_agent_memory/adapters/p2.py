@@ -8,6 +8,11 @@ from uuid import uuid4
 from aether_agent_memory.b2.b1_client import B1EmbeddingServiceClient
 from aether_agent_memory.b2.p2_bridge import p2_collection_for_scope
 from aether_agent_memory.core.enums import SourceType
+from aether_agent_memory.runtime.dtos import (
+    MemorySearchHit,
+    MemorySearchResult,
+    ObjectReference,
+)
 from aether_agent_memory.runtime.request_context import RequestContext
 from aether_agent_memory.runtime.status import ComponentHealth, ComponentStatus, RuntimeComponent
 
@@ -27,15 +32,15 @@ class P2ObjectStoreAdapter:
         text: str,
         object_key: str,
         context: RequestContext,
-    ) -> dict[str, str]:
+    ) -> ObjectReference:
         ref = await self._legacy_runtime.client.put_object(object_key, text.encode("utf-8"))
         bucket = str(getattr(ref, "bucket", self._legacy_runtime.client.bucket))
         key = str(getattr(ref, "key", getattr(ref, "object_key", object_key)))
-        return {
-            "p2_bucket": bucket,
-            "object_key": key,
-            "content_ref": f"p2://{bucket}/{key}",
-        }
+        return ObjectReference(
+            p2_bucket=bucket,
+            object_key=key,
+            content_ref=f"p2://{bucket}/{key}",
+        )
 
     async def health(self) -> ComponentHealth:
         try:
@@ -79,7 +84,7 @@ class P2VectorSearchAdapter:
         limit: int,
         context: RequestContext,
         task_id: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> MemorySearchResult:
         b1_result = await asyncio.to_thread(
             B1EmbeddingServiceClient(self._b1_endpoint).process,
             {
@@ -109,7 +114,7 @@ class P2VectorSearchAdapter:
             top_k=max(limit, 100) if task_id else limit,
             collection=collection,
         )
-        items = []
+        items: list[MemorySearchHit] = []
         for hit in hits:
             metadata = hit.metadata
             if (
@@ -120,26 +125,27 @@ class P2VectorSearchAdapter:
             ):
                 continue
             items.append(
-                {
-                    "memory_id": metadata.get("memory_id"),
-                    "task_id": metadata.get("task_id"),
-                    "chunk_id": hit.id,
-                    "text": metadata.get("chunk_text", ""),
-                    "score": hit.score,
-                    "tenant_id": metadata.get("tenant_id"),
-                    "user_id": metadata.get("user_id"),
-                    "category": metadata.get("category", "other"),
-                    "keywords": metadata.get("keywords", []),
-                    "content_ref": metadata.get("content_ref"),
-                    "trace_id": metadata.get("trace_id"),
-                }
+                MemorySearchHit(
+                    memory_id=metadata.get("memory_id"),
+                    task_id=metadata.get("task_id"),
+                    chunk_id=hit.id,
+                    text=metadata.get("chunk_text", ""),
+                    score=hit.score,
+                    tenant_id=metadata.get("tenant_id"),
+                    user_id=metadata.get("user_id"),
+                    agent_id=metadata.get("agent_id"),
+                    category=metadata.get("category", "other"),
+                    keywords=metadata.get("keywords", []),
+                    content_ref=metadata.get("content_ref"),
+                    trace_id=metadata.get("trace_id"),
+                )
             )
             if len(items) == limit:
                 break
-        return {
-            "items": items,
-            "backend": "p2-e1",
-            "collection": collection,
-            "query_model": records[0].get("embedding_model"),
-            "query_dimension": len(vector),
-        }
+        return MemorySearchResult(
+            items=items,
+            backend="p2-e1",
+            collection=collection,
+            query_model=records[0].get("embedding_model"),
+            query_dimension=len(vector),
+        )

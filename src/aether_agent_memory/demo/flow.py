@@ -23,10 +23,10 @@ from aether_agent_memory.b3 import (
 )
 from aether_agent_memory.context import ContextPack, ContextRequest, MockContextPackBuilder
 from aether_agent_memory.core.enums import SourceType, StorageTier
-from aether_agent_memory.core.memory import P2Ref
 from aether_agent_memory.episodic import MockEpisodicMemoryManager
 from aether_agent_memory.mocks.embedding import MockEmbeddingClient
 from aether_agent_memory.mocks.storage import MockStorageClient
+from aether_agent_memory.placement import P2Ref
 from aether_agent_memory.semantic import MockSemanticMemoryManager
 from aether_agent_memory.signal import MockSignalEmitter
 from aether_agent_memory.working import MockWorkingMemoryManager

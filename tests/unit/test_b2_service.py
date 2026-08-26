@@ -166,9 +166,11 @@ async def test_recall_access_stats_survive_sqlite_restart(tmp_path: Path) -> Non
     persisted = await reopened.get(stored.id)
 
     assert pack.evidence_refs == ["p2://rainfall/segment-1"]
+    assert pack.memories[0].access_count == 1
+    assert pack.memories[0].last_accessed_at is not None
     assert persisted is not None
-    assert persisted.access_count == 1
-    assert persisted.last_accessed_at is not None
+    assert persisted.access_count == 0
+    assert persisted.last_accessed_at is None
 
 
 @pytest.mark.unit

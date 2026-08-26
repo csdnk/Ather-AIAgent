@@ -3,13 +3,15 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aether_agent_memory.runtime.ports import (
     AccessTracePort,
+    ActionLogPort,
     ContextPort,
     EmbeddingPort,
     HealthCheckPort,
+    IdempotencyPort,
     MemoryEventPort,
     ObjectStorePort,
     SchedulerPort,
@@ -17,6 +19,9 @@ from aether_agent_memory.runtime.ports import (
     TaskStatusPort,
     VectorSearchPort,
 )
+
+if TYPE_CHECKING:
+    from aether_agent_memory.memory.retrieval import MemoryRetrievalService
 
 
 class RuntimeProfile(StrEnum):
@@ -49,9 +54,12 @@ class RuntimeDependencies:
     task_status: TaskStatusPort | None = None
     object_store: ObjectStorePort | None = None
     vector_search: VectorSearchPort | None = None
+    retrieval: MemoryRetrievalService | None = None
     scheduler: SchedulerPort | None = None
     access_trace: AccessTracePort | None = None
-    idempotency_store: Any | None = None
-    action_log_store: Any | None = None
+    idempotency_store: IdempotencyPort | None = None
+    action_log_store: ActionLogPort | None = None
     health_checks: list[HealthCheckPort] = field(default_factory=list)
+    # Deprecated compatibility bridge for smoke/demo paths only. New P3
+    # application logic must depend on explicit ports above instead.
     legacy_runtime: Any | None = None

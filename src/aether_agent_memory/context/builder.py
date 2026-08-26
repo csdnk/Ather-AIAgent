@@ -1,14 +1,19 @@
+from __future__ import annotations
+
 import asyncio
 from datetime import UTC, datetime
 from time import perf_counter
+from typing import TYPE_CHECKING
 
 from aether_agent_memory.context.models import ContextPack, ContextRequest
 from aether_agent_memory.core.enums import MemoryType
 from aether_agent_memory.core.memory import RecalledMemory
-from aether_agent_memory.episodic.manager import MockEpisodicMemoryManager
-from aether_agent_memory.interfaces.managers import MemoryManager
-from aether_agent_memory.semantic.manager import MockSemanticMemoryManager
-from aether_agent_memory.working.manager import MockWorkingMemoryManager
+
+if TYPE_CHECKING:
+    from aether_agent_memory.episodic.manager import MockEpisodicMemoryManager
+    from aether_agent_memory.interfaces.managers import MemoryManager
+    from aether_agent_memory.semantic.manager import MockSemanticMemoryManager
+    from aether_agent_memory.working.manager import MockWorkingMemoryManager
 
 _CHARS_PER_TOKEN = 4
 
@@ -100,8 +105,8 @@ class MockContextPackBuilder:
         memory_refs = [rm.memory.id for rm in selected]
         evidence_refs: list[str] = []
         for rm in selected:
-            if rm.memory.p2_ref is not None:
-                evidence_refs.append(rm.memory.p2_ref.object_key)
+            if rm.memory.placement is not None:
+                evidence_refs.append(rm.memory.placement.object_key)
             metadata_refs = rm.memory.metadata.get("evidence_refs", [])
             if isinstance(metadata_refs, list):
                 evidence_refs.extend(str(ref) for ref in metadata_refs)

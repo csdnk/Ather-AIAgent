@@ -7,6 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from aether_agent_memory.core.enums import MemoryType, StorageTier
+from aether_agent_memory.core.memory import Memory
 
 
 class RecallSourceName(StrEnum):
@@ -18,6 +19,7 @@ class RecallSourceName(StrEnum):
 
 class RecallCandidate(BaseModel):
     memory_id: str
+    memory: Memory | None = Field(default=None, exclude=True)
     content: str | None = None
     content_ref: str | None = None
     source: str

@@ -1,5 +1,5 @@
 from aether_agent_memory.core.enums import StorageTier
-from aether_agent_memory.core.memory import P2Ref
+from aether_agent_memory.placement import P2Ref
 
 
 class MockStorageClient:

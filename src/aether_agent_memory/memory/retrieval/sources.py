@@ -8,6 +8,7 @@ from aether_agent_memory.core.enums import MemoryType
 from aether_agent_memory.core.memory import RecalledMemory
 from aether_agent_memory.interfaces.managers import MemoryManager
 from aether_agent_memory.memory.retrieval.models import RecallCandidate
+from aether_agent_memory.runtime.dtos import MemorySearchResult
 from aether_agent_memory.runtime.request_context import RequestContext
 
 
@@ -66,7 +67,7 @@ class P2E1RecallSource:
         request: ContextRequest,
         context: RequestContext,
     ) -> list[RecallCandidate]:
-        result = await self._vector_search.search_memory(
+        search = await self._vector_search.search_memory(
             query=request.query,
             tenant_id=context.tenant_id or request.tenant_id,
             user_id=context.user_id or request.user_id,
@@ -74,23 +75,26 @@ class P2E1RecallSource:
             limit=request.max_candidates,
             context=context,
         )
+        result = (
+            search
+            if isinstance(search, MemorySearchResult)
+            else MemorySearchResult.from_mapping(search)
+        )
         candidates: list[RecallCandidate] = []
-        for item in result.get("items", []):
-            content_ref = item.get("content_ref")
+        for item in result.items:
+            content_ref = item.content_ref
             candidates.append(
                 RecallCandidate(
-                    memory_id=str(
-                        item.get("memory_id") or item.get("chunk_id") or uuid4().hex
-                    ),
-                    content=str(item.get("text", "")),
-                    content_ref=str(content_ref) if content_ref is not None else None,
+                    memory_id=item.memory_id or item.chunk_id or uuid4().hex,
+                    content=item.text,
+                    content_ref=content_ref,
                     source=self._name,
-                    score=float(item.get("score", 0.0)),
+                    score=item.score,
                     memory_type=MemoryType.SEMANTIC,
                     trace_metadata={
                         "request_id": context.request_id,
-                        "trace_id": item.get("trace_id") or context.trace_id,
-                        "task_id": item.get("task_id"),
+                        "trace_id": item.trace_id or context.trace_id,
+                        "task_id": item.task_id,
                         "tenant_id": context.tenant_id,
                         "user_id": context.user_id,
                         "agent_id": context.agent_id,
@@ -109,6 +113,7 @@ def _candidate_from_recalled(
     content_ref = memory.metadata.get("content_ref")
     return RecallCandidate(
         memory_id=memory.id,
+        memory=memory,
         content=memory.content,
         content_ref=str(content_ref) if content_ref is not None else None,
         source=source,

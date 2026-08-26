@@ -78,6 +78,18 @@ class AppSettings(BaseSettings):
     b1_tenant_id: str = Field(
         default="p3-runtime", validation_alias="AETHER_B1_TENANT_ID"
     )
+    b1_sidecar_timeout_seconds: float = Field(
+        default=120.0, validation_alias="AETHER_B1_SIDECAR_TIMEOUT_SECONDS"
+    )
+    b1_max_batch_items: int = Field(
+        default=32, validation_alias="AETHER_B1_MAX_BATCH_ITEMS"
+    )
+    b1_chunk_max_chars: int = Field(
+        default=400, validation_alias="AETHER_B1_CHUNK_MAX_CHARS"
+    )
+    b1_chunk_overlap_chars: int = Field(
+        default=40, validation_alias="AETHER_B1_CHUNK_OVERLAP_CHARS"
+    )
 
     # -- B3 control plane --
     b3_shadow_mode: bool = Field(

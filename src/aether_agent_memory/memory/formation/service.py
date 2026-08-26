@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from typing import Any
-
 from aether_agent_memory.b2 import MemoryEvent
 from aether_agent_memory.core.memory import Memory
 from aether_agent_memory.memory.formation.models import FormationStatus, MemoryFormationResult
 from aether_agent_memory.memory.models import ProjectionStatus
+from aether_agent_memory.runtime.dtos import LongMemorySubmission
 from aether_agent_memory.runtime.ports import MemoryEventPort, TaskQueuePort
 from aether_agent_memory.runtime.request_context import RequestContext
 
@@ -37,10 +36,10 @@ class MemoryFormationService:
         object_id: str | None,
         content_ref: str | None,
         context: RequestContext,
-    ) -> tuple[dict[str, Any], MemoryFormationResult]:
+    ) -> tuple[LongMemorySubmission | None, MemoryFormationResult]:
         if self._task_queue is None:
             return (
-                {},
+                None,
                 MemoryFormationResult(
                     status=FormationStatus.FORMATION_FAILED,
                     compression_status=ProjectionStatus.NOT_IMPLEMENTED,
@@ -63,13 +62,13 @@ class MemoryFormationService:
         return (
             submission,
             MemoryFormationResult(
-                memory_id=str(submission.get("memory_id") or "") or None,
-                task_id=str(submission.get("task_id") or "") or None,
+                memory_id=submission.memory_id,
+                task_id=submission.task_id,
                 status=FormationStatus.FORMATION_PENDING,
                 compression_status=ProjectionStatus.PENDING,
                 embedding_status=ProjectionStatus.PENDING,
                 projection_status=ProjectionStatus.PENDING,
-                trace_id=str(submission.get("trace_id") or context.trace_id),
+                trace_id=submission.trace_id or context.trace_id,
             ),
         )
 

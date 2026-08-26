@@ -79,7 +79,7 @@ services:
       context: .
       args:
         INSTALL_B2_DATASET_TOOLS: "true"
-    command: ["python", "scripts/p3_service.py"]
+    command: ["python", "-m", "aether_agent_memory.app"]
     depends_on:
       engine:
         condition: service_started

@@ -14,7 +14,8 @@ from aether_agent_memory.core.exceptions import (
     MemoryNotFoundError,
     StorageError,
 )
-from aether_agent_memory.core.memory import Memory, P2Ref, RecalledMemory
+from aether_agent_memory.core.memory import Memory, RecalledMemory
+from aether_agent_memory.placement import P2Ref
 
 __all__ = [
     "B2MemoryError",
