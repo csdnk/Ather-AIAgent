@@ -56,6 +56,12 @@ Thumbs.db
 web/node_modules/
 web/dist/
 web/.vite/
+output/
+artifacts/p4-local/
+artifacts/server_*/
+artifacts/web-local/
+.playwright-cli/
+*.bak
 
 # AGENTS
 opencode.json

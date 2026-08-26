@@ -1,0 +1,55 @@
+{
+  "contract": "aetherbrain-p3-northbound",
+  "version": "1.0.0",
+  "status": "frozen",
+  "frozen_at": "2026-08-24",
+  "consumer": "P4 AetherGate / Agent applications",
+  "base_path": "/api/v1",
+  "operations": [
+    {
+      "id": "runtime-health",
+      "method": "GET",
+      "path": "/health",
+      "stability": "stable"
+    },
+    {
+      "id": "write-memory-event",
+      "method": "POST",
+      "path": "/api/v1/memory/events",
+      "stability": "stable"
+    },
+    {
+      "id": "build-context",
+      "method": "POST",
+      "path": "/api/v1/context",
+      "stability": "stable"
+    },
+    {
+      "id": "submit-long-text",
+      "method": "POST",
+      "path": "/api/v1/b2/long-text",
+      "stability": "stable"
+    },
+    {
+      "id": "get-long-text-task",
+      "method": "GET",
+      "path": "/api/v1/b2/tasks/{task_id}",
+      "stability": "stable"
+    },
+    {
+      "id": "search-long-term-memory",
+      "method": "POST",
+      "path": "/api/v1/b2/search",
+      "stability": "stable"
+    }
+  ],
+  "internal_operations": [
+    "POST /api/v1/b1/embeddings",
+    "GET /api/v1/b1/status",
+    "POST /api/v1/b3/candidates",
+    "POST /api/v1/schedules",
+    "GET /api/schedules",
+    "POST /api/demo/session",
+    "POST /api/run-smoke"
+  ]
+}

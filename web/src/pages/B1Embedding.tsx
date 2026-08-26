@@ -64,7 +64,7 @@ export function B1Embedding() {
             metrics?.http_request_qps ?? metrics?.requests_per_second ?? 0,
             metrics?.vector_qps ?? 0,
           ],
-          itemStyle: { color: "#1677ff" },
+          itemStyle: { color: "#53c5ae" },
         },
       ],
     };

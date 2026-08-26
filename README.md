@@ -1,9 +1,10 @@
-# Aether P2/P3 融合项目
+# Aether P2/P3 融合项目与 P4 参考应用
 
 本仓库以 `aether-agent-memory-new` 为根目录，将原本独立的两个单体模块整合为可共同构建、部署和运行的项目：
 
 - `engine/`：P2 Rust 存储基座，包含 E1 向量引擎、E2 对象引擎和 E3 图引擎。
 - `src/aether_agent_memory/`：P3 Python 语义层，包含 B1 Sidecar 嵌入、B2 Agent 记忆与 B3 智能调度。
+- `src/aether_p4_simulator/`：独立 P4 参考 Agent/BFF，只通过冻结的 P3 HTTP v1 契约接入。
 
 P2/P3 统一使用 [engine/proto/aether_engine.proto](engine/proto/aether_engine.proto) 作为 gRPC 契约。Docker Desktop 运行 Linux 容器；Windows 仅作为开发主机。
 
@@ -23,6 +24,7 @@ P2/P3 统一使用 [engine/proto/aether_engine.proto](engine/proto/aether_engine
 │   ├── b1/                          # FastEmbed/ONNX CPU Sidecar 与客户端适配
 │   └── b2/                          # 记忆服务、Celery 长文本任务与 Milvus 投影
 ├── scripts/p3_service.py           # 常驻 HTTP 服务（8080）
+├── scripts/p4_simulator.py         # P4 参考 Agent/BFF（8090）
 ├── scripts/dashboard_page.py       # 浏览器仪表盘
 ├── tests/                          # 单元、集成与 Compose 测试
 └── compose.yaml                    # P2/P3 联调编排
@@ -40,6 +42,16 @@ FastEmbed 模型。
 docker compose up -d --build
 docker compose ps
 ```
+
+需要同时演示上层 P4 Agent 时：
+
+```powershell
+docker compose --profile p4 up -d --build
+```
+
+P4 北向模拟接口位于 [http://localhost:8090](http://localhost:8090)，它只连接 P3，不直接
+访问 P2、Redis、Milvus、Celery 或 B1。P3 对 P4 的冻结接口见
+[`docs/P3_NORTHBOUND_API_V1.md`](docs/P3_NORTHBOUND_API_V1.md)。
 
 容器内服务端口保持固定，宿主机映射可通过 `AETHER_HOST_P3_PORT`、
 `AETHER_HOST_P2_PORT`、`AETHER_HOST_B1_PORT` 和 `AETHER_HOST_MILVUS_PORT` 调整。

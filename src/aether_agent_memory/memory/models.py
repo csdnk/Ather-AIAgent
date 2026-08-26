@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from aether_agent_memory.core.enums import MemoryType
-from aether_agent_memory.runtime.request_context import Scope
+from aether_agent_memory.core.scope import Scope
 
 
 class MemoryFactStatus(StrEnum):

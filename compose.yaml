@@ -16,8 +16,8 @@ services:
     image: minio/minio:RELEASE.2023-03-20T20-16-18Z
     command: minio server /minio_data
     environment:
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
+      MINIO_ACCESS_KEY: "${MINIO_ACCESS_KEY:-minioadmin}"
+      MINIO_SECRET_KEY: "${MINIO_SECRET_KEY:-minioadmin}"
     profiles: ["milvus"]
 
   milvus:
@@ -94,7 +94,8 @@ services:
       AETHER_P2_COLLECTION: p3
       AETHER_P3_DATA_DIR: /var/lib/aether-p3
       AETHER_P3_PORT: "8080"
-      AETHER_ENABLE_DEMO: "true"
+      AETHER_RUNTIME_PROFILE: "${AETHER_RUNTIME_PROFILE:-integration}"
+      AETHER_ENABLE_DEMO: "${AETHER_ENABLE_DEMO:-false}"
       AETHER_B1_SIDECAR_URL: http://b1-sidecar:18081
       AETHER_B2_BROKER_URL: redis://redis:6379/0
       AETHER_B2_REDIS_URL: redis://redis:6379/0
@@ -124,6 +125,7 @@ services:
       AETHER_P2_GRPC: engine:50052
       AETHER_P2_BUCKET: p3-memory
       AETHER_P2_COLLECTION: p3
+      AETHER_RUNTIME_PROFILE: "${AETHER_RUNTIME_PROFILE:-integration}"
       AETHER_B2_BROKER_URL: redis://redis:6379/0
       AETHER_B2_RESULT_BACKEND: redis://redis:6379/1
       AETHER_B2_TASK_STATUS_URL: redis://redis:6379/2
@@ -145,6 +147,20 @@ services:
     environment:
       AETHER_P3_BASE_URL: http://p3:8080
     profiles: ["demo"]
+
+  p4-simulator:
+    build:
+      context: .
+    command: ["python", "scripts/p4_simulator.py"]
+    depends_on:
+      p3:
+        condition: service_started
+    environment:
+      AETHER_P3_BASE_URL: http://p3:8080
+      AETHER_P4_PORT: "8090"
+    ports:
+      - "${AETHER_HOST_P4_PORT:-8090}:8090"
+    profiles: ["p4"]
 
 volumes:
   b1-model-cache:

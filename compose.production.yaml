@@ -1,0 +1,35 @@
+# Production override for the P3 service.
+#
+# Usage:
+#   docker compose -f compose.yaml -f compose.production.yaml up -d
+#
+# The production profile fails startup unless a real B1 sidecar, P2 endpoint
+# and Redis are configured, and it never enables demo/mock fallbacks
+# (enforced by AppSettings.validate_for_profile()).
+services:
+  b1-sidecar:
+    build:
+      args:
+        INSTALL_B1_SIDECAR: "true"
+        INSTALL_B1_OPENVINO: "true"
+    environment:
+      AETHER_B1_BACKEND: "openvino"
+      AETHER_B1_PRECISION: "int8"
+      AETHER_B1_FALLBACK_BACKENDS: ""
+      AETHER_B1_ALLOW_BACKEND_FALLBACK: "false"
+      AETHER_B1_FAIL_MODE: "closed"
+      AETHER_B1_DYNAMIC_BATCHING: "true"
+      AETHER_B1_DYNAMIC_MAX_BATCH_ITEMS: "64"
+      AETHER_B1_DYNAMIC_MAX_BATCH_TOKENS: "8192"
+      AETHER_B1_DYNAMIC_MAX_WAIT_MS: "2"
+      AETHER_B1_OPENVINO_ASYNC: "true"
+      AETHER_B1_OPENVINO_INFER_REQUESTS: "0"
+      AETHER_B1_OPENVINO_NUM_STREAMS: "AUTO"
+      AETHER_B1_MODEL_PATH: "${AETHER_B1_MODEL_PATH:-}"
+  p3:
+    environment:
+      AETHER_RUNTIME_PROFILE: "production"
+      AETHER_ENABLE_DEMO: "false"
+  celery-worker:
+    environment:
+      AETHER_RUNTIME_PROFILE: "production"

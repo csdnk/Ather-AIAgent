@@ -15,6 +15,17 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_compose_demo_runs_the_unified_smoke_flow() -> None:
     if shutil.which("docker") is None:
         pytest.skip("Docker is not installed")
+    compose_probe = subprocess.run(
+        ["docker", "compose", "version"],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=10,
+        check=False,
+    )
+    if compose_probe.returncode != 0:
+        pytest.skip("Docker Compose V2 is not installed")
 
     command = [
         "docker",

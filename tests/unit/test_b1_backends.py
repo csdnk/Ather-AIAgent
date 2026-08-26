@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import sys
-from types import SimpleNamespace
+from pathlib import Path
+from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import numpy as np
@@ -79,3 +80,74 @@ def test_openvino_async_infer_queue_merges_micro_batches_in_order(
     details = backend.runtime_details()
     assert details["async_inference"] is True
     assert details["inference_mode"] == "openvino_async"
+
+
+@pytest.mark.unit
+def test_openvino_loads_existing_int8_ir_without_requantizing(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    model_path = tmp_path / "openvino-int8"
+    model_path.mkdir()
+    (model_path / "openvino_model.xml").write_text("<xml />", encoding="utf-8")
+    (model_path / "openvino_model.bin").write_bytes(b"weights")
+    (model_path / "tokenizer.json").write_text("{}", encoding="utf-8")
+    captured_kwargs: dict[str, Any] = {}
+
+    class FakeTokenizer:
+        def __call__(self, texts: list[str], **_: Any) -> dict[str, np.ndarray]:
+            return {"input_ids": np.zeros((len(texts), 2), dtype=np.int64)}
+
+        @classmethod
+        def from_pretrained(cls, *_: Any, **__: Any) -> FakeTokenizer:
+            return cls()
+
+    class FakeOVModel:
+        model = object()
+
+        @classmethod
+        def from_pretrained(cls, _: str, **kwargs: Any) -> FakeOVModel:
+            captured_kwargs.update(kwargs)
+            return cls()
+
+        def __call__(self, **encoded: np.ndarray) -> Any:
+            batch = int(next(iter(encoded.values())).shape[0])
+            return SimpleNamespace(
+                last_hidden_state=np.ones((batch, 1, 4), dtype=np.float32),
+            )
+
+    openvino_module = ModuleType("optimum.intel.openvino")
+    openvino_module.OVModelForFeatureExtraction = FakeOVModel
+    transformers_module = ModuleType("transformers")
+    transformers_module.AutoTokenizer = FakeTokenizer
+    monkeypatch.setitem(sys.modules, "optimum", ModuleType("optimum"))
+    monkeypatch.setitem(sys.modules, "optimum.intel", ModuleType("optimum.intel"))
+    monkeypatch.setitem(sys.modules, "optimum.intel.openvino", openvino_module)
+    monkeypatch.setitem(sys.modules, "transformers", transformers_module)
+
+    from aether_agent_memory.b1 import backends as b1_backends
+
+    monkeypatch.setattr(
+        b1_backends,
+        "_module_available",
+        lambda name: name in {"openvino", "optimum.intel.openvino"},
+    )
+    monkeypatch.setattr(OpenVinoBackend, "_count_int8_weight_constants", lambda self, _: 3)
+
+    backend = OpenVinoBackend(
+        BackendConfig(
+            model_name="BAAI/bge-small-zh-v1.5",
+            cache_dir=tmp_path / "cache",
+            model_path=model_path,
+            threads=1,
+            precision="int8",
+        )
+    )
+
+    backend.load()
+
+    assert captured_kwargs["export"] is False
+    assert "quantization_config" not in captured_kwargs
+    assert not any((tmp_path / "cache" / "_aether_openvino").glob("**/*.xml"))
+    assert backend.dimension == 4
+    assert backend.int8_weight_constants == 3

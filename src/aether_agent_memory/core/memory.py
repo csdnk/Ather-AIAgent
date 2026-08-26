@@ -83,3 +83,32 @@ class Memory(BaseModel):
 class RecalledMemory(BaseModel):
     memory: Memory
     score: float
+
+
+def normalize_projection_state(memory: Memory) -> Memory:
+    """Keep top-level projection fields and metadata consistent.
+
+    The top-level fields are authoritative; when the async pipeline wrote only
+    one side, the other side is filled in so the two can never disagree.  A real
+    value beats a default (``pending`` / ``not_applicable``).
+    """
+    meta = dict(memory.metadata)
+    memory = _sync_projection(memory, meta, "embedding_status", default="pending")
+    memory = _sync_projection(
+        memory, meta, "compression_status", default="not_applicable"
+    )
+    memory = _sync_projection(memory, meta, "vector_projection_status", default="pending")
+    memory = _sync_projection(memory, meta, "scheduler_signal_status", default="pending")
+    return memory.model_copy(update={"metadata": meta})
+
+
+def _sync_projection(
+    memory: Memory, meta: dict[str, Any], field: str, *, default: str
+) -> Memory:
+    top = str(getattr(memory, field))
+    meta_value = meta.get(field)
+    if top == default and meta_value:
+        memory = memory.model_copy(update={field: str(meta_value)})
+    else:
+        meta[field] = top
+    return memory

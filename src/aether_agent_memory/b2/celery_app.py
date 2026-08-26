@@ -34,7 +34,7 @@ from aether_agent_memory.b2.p2_bridge import embedding_records, p2_collection_fo
 from aether_agent_memory.b2.task_status import RedisTaskStatusStore, TaskState
 from aether_agent_memory.b2.text_classifier import classify_text
 from aether_agent_memory.core.enums import MemoryType, SourceType
-from aether_agent_memory.core.memory import Memory
+from aether_agent_memory.core.memory import Memory, normalize_projection_state
 from aether_agent_memory.p2 import P2GrpcClient, P2UnavailableError
 from aether_agent_memory.persistence import RedisMemoryStore, SQLiteMemoryStore
 
@@ -135,30 +135,49 @@ def _memory_from_payload(payload: dict[str, Any], *, status: str = "pending") ->
 
 
 def _persist_memory(memory: Memory) -> None:
+    normalized = normalize_projection_state(memory)
     store = _memory_store()
-    try:
-        asyncio.run(store.upsert(memory))
-    finally:
-        close = getattr(store, "close", None)
-        if close is not None:
-            asyncio.run(close())
+
+    async def _persist_and_close() -> None:
+        try:
+            await store.upsert(normalized)
+        finally:
+            close = getattr(store, "close", None)
+            if close is not None:
+                await close()
+
+    asyncio.run(_persist_and_close())
+
+
+def _failed_projection_update(memory: Memory) -> dict[str, Any]:
+    """Mark still-pending embedding/vector projections as failed on error paths."""
+    update: dict[str, Any] = {}
+    if memory.embedding_status == "pending":
+        update["embedding_status"] = "failed"
+    if memory.vector_projection_status == "pending":
+        update["vector_projection_status"] = "failed"
+    return update
 
 
 def _load_or_create_memory(payload: dict[str, Any]) -> Memory:
     store = _memory_store()
-    try:
-        existing = asyncio.run(store.get(str(payload["memory_id"])))
-        if existing is not None:
-            if isinstance(existing, Memory):
-                return existing
-            return Memory.model_validate(existing)
-        memory = _memory_from_payload(payload)
-        asyncio.run(store.upsert(memory))
-        return memory
-    finally:
-        close = getattr(store, "close", None)
-        if close is not None:
-            asyncio.run(close())
+
+    async def _load_or_create_and_close() -> Memory:
+        try:
+            existing = await store.get(str(payload["memory_id"]))
+            if existing is not None:
+                if isinstance(existing, Memory):
+                    return existing
+                return Memory.model_validate(existing)
+            memory = _memory_from_payload(payload)
+            await store.upsert(memory)
+            return memory
+        finally:
+            close = getattr(store, "close", None)
+            if close is not None:
+                await close()
+
+    return asyncio.run(_load_or_create_and_close())
 
 
 def _mean_embedding(b1_result: dict[str, Any]) -> list[float] | None:
@@ -177,12 +196,13 @@ def _mean_embedding(b1_result: dict[str, Any]) -> list[float] | None:
 
 def _compress_payload(payload: dict[str, Any]) -> CompressionArtifact:
     store = _compression_store()
-    try:
+
+    async def _compress_and_close() -> CompressionArtifact:
         compressor = HybridMemoryCompressor(
             CompressionPolicy(target_ratio=COMPRESSION_TARGET_RATIO)
         )
-        return asyncio.run(
-            compressor.compress_and_store(
+        try:
+            return await compressor.compress_and_store(
                 str(payload["text"]),
                 source_memory_id=str(payload["memory_id"]),
                 source_id=str(payload["source_id"]),
@@ -196,9 +216,10 @@ def _compress_payload(payload: dict[str, Any]) -> CompressionArtifact:
                     "session_id": str(payload["session_id"]),
                 },
             )
-        )
-    finally:
-        asyncio.run(store.close())
+        finally:
+            await store.close()
+
+    return asyncio.run(_compress_and_close())
 
 
 @celery_app.task(  # type: ignore[untyped-decorator]
@@ -257,6 +278,7 @@ def process_long_text(self: Any, payload: dict[str, Any]) -> dict[str, object]:
             memory = memory.model_copy(
                 update={
                     "embedding": _mean_embedding(b1_result),
+                    "embedding_status": "succeeded",
                     "metadata": {
                         **memory.metadata,
                         "embedding_status": "succeeded",
@@ -318,6 +340,7 @@ def process_long_text(self: Any, payload: dict[str, Any]) -> dict[str, object]:
         if memory is not None:
             memory = memory.model_copy(
                 update={
+                    "vector_projection_status": "succeeded",
                     "metadata": {
                         **memory.metadata,
                         "pipeline_status": "succeeded",
@@ -365,6 +388,7 @@ def process_long_text(self: Any, payload: dict[str, Any]) -> dict[str, object]:
                             "compression_status": (
                                 memory.compression_status if artifact is not None else "failed"
                             ),
+                            **_failed_projection_update(memory),
                             "metadata": {
                                 **memory.metadata,
                                 "pipeline_status": "failed",
@@ -384,6 +408,7 @@ def process_long_text(self: Any, payload: dict[str, Any]) -> dict[str, object]:
                             "compression_status": (
                                 memory.compression_status if artifact is not None else "failed"
                             ),
+                            **_failed_projection_update(memory),
                             "metadata": {
                                 **memory.metadata,
                                 "pipeline_status": "failed",
@@ -405,6 +430,7 @@ def process_long_text(self: Any, payload: dict[str, Any]) -> dict[str, object]:
                             "compression_status": (
                                 memory.compression_status if artifact is not None else "failed"
                             ),
+                            **_failed_projection_update(memory),
                             "metadata": {
                                 **memory.metadata,
                                 "pipeline_status": "failed",
@@ -464,6 +490,10 @@ def submit_long_text(
         source_id=source_id,
         object_id=payload["object_id"],
         content_ref=payload["content_ref"],
+        tenant_id=payload["tenant_id"],
+        user_id=payload["user_id"],
+        agent_id=payload["agent_id"],
+        session_id=payload["session_id"],
     )
     try:
         process_long_text.delay(payload)

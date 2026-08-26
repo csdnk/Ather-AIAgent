@@ -29,9 +29,26 @@ class LegacySchedulerAdapter:
 
     async def health(self) -> ComponentHealth:
         executor_name = getattr(self._legacy_runtime, "executor_name", "unknown")
-        return ComponentHealth(
-            component=RuntimeComponent.B3,
-            status=ComponentStatus.HEALTHY,
-            detail=f"Scheduler ready with {executor_name}",
-            critical=False,
-        )
+        client = getattr(self._legacy_runtime, "client", None)
+        try:
+            if client is not None:
+                dimension = int(
+                    getattr(self._legacy_runtime.embedder, "dimension", None) or 32
+                )
+                await client.ensure_collection(dimension)
+            return ComponentHealth(
+                component=RuntimeComponent.B3,
+                status=ComponentStatus.HEALTHY,
+                detail=f"Scheduler ready with {executor_name}; P2 reachable",
+                critical=False,
+            )
+        except Exception as exc:
+            return ComponentHealth(
+                component=RuntimeComponent.B3,
+                status=ComponentStatus.DEGRADED,
+                detail=(
+                    f"Scheduler ready with {executor_name}; "
+                    f"P2 probe failed: {type(exc).__name__}"
+                ),
+                critical=False,
+            )

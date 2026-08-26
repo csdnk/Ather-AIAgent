@@ -1,13 +1,38 @@
+:root {
+  color-scheme: dark;
+  --bg: #111819;
+  --bar: #182123;
+  --panel: #1b2526;
+  --surface: #131c1d;
+  --line: #36484a;
+  --text: #e8efed;
+  --muted: #9aaead;
+  --teal: #53c5ae;
+  --amber: #efbd62;
+  --red: #ec7c72;
+  --blue: #78b5ed;
+}
+
 html,
 body,
 #root {
   min-height: 100%;
   margin: 0;
-  background: #f5f7fb;
+  background: var(--bg);
+}
+
+body {
+  color: var(--text);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
 }
 
 .app-shell {
   min-height: 100vh;
+  background: var(--bg);
 }
 
 .app-header {
@@ -16,8 +41,8 @@ body,
   justify-content: space-between;
   height: 56px;
   padding: 0 20px;
-  background: #ffffff;
-  border-bottom: 1px solid #e5e7eb;
+  background: var(--bar);
+  border-bottom: 1px solid var(--line);
 }
 
 .app-title.ant-typography {
@@ -26,18 +51,19 @@ body,
 
 .app-sider {
   min-height: calc(100vh - 56px);
-  background: #ffffff;
-  border-right: 1px solid #e5e7eb;
+  background: var(--bar);
+  border-right: 1px solid var(--line);
 }
 
 .app-sider .ant-menu {
   border-inline-end: 0;
   padding-top: 12px;
+  background: transparent;
 }
 
 .app-content {
   padding: 20px;
-  background: #f5f7fb;
+  background: var(--bg);
 }
 
 .page-stack,
@@ -78,15 +104,18 @@ body,
 }
 
 .status-dot.healthy {
-  background: #16a34a;
+  background: var(--teal);
+  box-shadow: 0 0 0 3px rgba(83, 197, 174, 0.15);
 }
 
 .status-dot.degraded {
-  background: #d97706;
+  background: var(--amber);
+  box-shadow: 0 0 0 3px rgba(239, 189, 98, 0.15);
 }
 
 .status-dot.unavailable {
-  background: #dc2626;
+  background: var(--red);
+  box-shadow: 0 0 0 3px rgba(236, 124, 114, 0.15);
 }
 
 .status-descriptions {
@@ -113,14 +142,14 @@ body,
   align-items: center;
   min-height: 36px;
   padding: 6px 12px;
-  background: #ffffff;
-  border: 1px solid #d9d9d9;
-  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
   font-weight: 600;
 }
 
 .flow-arrow {
-  color: #6b7280;
+  color: var(--muted);
 }
 
 .vector-preview,
@@ -137,10 +166,10 @@ body,
   align-items: center;
   min-height: 30px;
   padding: 4px 10px;
-  border: 1px solid #b7eb8f;
+  border: 1px solid rgba(83, 197, 174, 0.35);
   border-radius: 6px;
-  color: #135200;
-  background: #f6ffed;
+  color: var(--teal);
+  background: rgba(83, 197, 174, 0.08);
 }
 
 .conversation-card .ant-card-body {
@@ -183,23 +212,121 @@ body,
   flex: 1 1 420px;
 }
 
+.page-heading-row,
+.p4-compose-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.page-heading-row .ant-typography {
+  margin-bottom: 0;
+}
+
+.p4-chat-card .ant-card-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 540px;
+}
+
+.p4-chat-card .ant-list {
+  flex: 1;
+  max-height: 390px;
+  margin-bottom: 16px;
+  overflow: auto;
+}
+
+.p4-message.assistant {
+  background: rgba(83, 197, 174, 0.08);
+}
+
+.p4-message {
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.p4-message .ant-typography {
+  margin-bottom: 0;
+  white-space: pre-wrap;
+}
+
+.p4-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.p4-evidence-card .ant-card-body {
+  min-height: 540px;
+}
+
+.p4-evidence-card .ant-list {
+  max-height: 250px;
+  overflow: auto;
+}
+
+.p4-task-status {
+  margin-top: 16px;
+}
+
 @media (max-width: 768px) {
   .app-header {
     padding: 0 12px;
   }
 
+  .app-shell > .ant-layout.ant-layout-has-sider {
+    flex-direction: column !important;
+  }
+
   .app-sider {
-    width: 180px !important;
-    min-width: 180px !important;
-    max-width: 180px !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .app-sider .ant-menu {
+    display: flex;
+    width: max-content;
+    min-width: 100%;
+    padding: 6px;
+  }
+
+  .app-sider .ant-menu-item {
+    flex: 0 0 auto;
+    width: auto;
+    margin: 0 2px;
+    padding-inline: 12px !important;
+  }
+
+  .app-sider .ant-menu-item-divider {
+    width: 1px;
+    height: 24px;
+    margin: 4px 6px;
+    border-inline-start: 1px solid var(--line);
+    border-block-start: 0;
   }
 
   .app-content {
+    width: 100% !important;
+    min-width: 0;
+    box-sizing: border-box;
     padding: 12px;
   }
 
   .chat-input-row {
     grid-template-columns: 1fr;
+  }
+
+  .page-heading-row,
+  .p4-compose-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .metric-card-value {

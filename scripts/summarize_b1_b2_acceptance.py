@@ -1,4 +1,9 @@
-"""Write auditable two-phase metrics for the B1/B2 acceptance workflow."""
+"""Write auditable two-phase metrics for the B1/B2 acceptance workflow.
+
+The overall verdict is ``PASSED`` only when every explicit gate reports
+``PASSED``.  A phase that merely finished running (``COMPLETED``) is reported
+as ``NOT_VERIFIED``, never promoted to a pass.
+"""
 
 from __future__ import annotations
 
@@ -7,6 +12,8 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+WORKING_P99_LIMIT_MS = 10.0
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -21,9 +28,29 @@ def load_json(path: Path) -> dict[str, Any]:
 def phase_one(result: dict[str, Any]) -> dict[str, Any]:
     best = result.get("best_primary") or {}
     text = result.get("text") or {}
+    status = result.get("status", "MISSING")
+    error_rate = best.get("error_rate")
+    contract = result.get("contract") if isinstance(result.get("contract"), dict) else {}
+    contract_status = contract.get("status")
+    primary_value = contract.get("primary_value")
+    if primary_value is None:
+        primary_value = best.get("effective_item_qps")
+    target = float(contract.get("contract_target", 2000))
+    throughput_ok = primary_value is not None and float(primary_value) >= target
+    # Gate: completed + contract PASS + throughput at/above target + zero errors.
+    gate_status = (
+        "PASSED"
+        if status == "COMPLETED"
+        and contract_status in {"PASS", "PASSED"}
+        and throughput_ok
+        and error_rate is not None
+        and float(error_rate) == 0.0
+        else "NOT_VERIFIED"
+    )
     return {
         "name": "phase1_b1_real_dataset_embedding",
-        "status": result.get("status", "MISSING"),
+        "status": status,
+        "gate_status": gate_status,
         "method": result.get("method"),
         "dataset": {
             "root": text.get("dataset_root"),
@@ -38,6 +65,8 @@ def phase_one(result: dict[str, Any]) -> dict[str, Any]:
         "throughput": {
             "request_qps": best.get("request_qps"),
             "item_per_second": best.get("item_per_second"),
+            "effective_item_qps": primary_value,
+            "contract_target": target,
             "error_rate": best.get("error_rate"),
             "p50_ms": best.get("p50_ms"),
             "p95_ms": best.get("p95_ms"),
@@ -54,10 +83,28 @@ def phase_two(
     smoke_passed = smoke_log.is_file() and "COMPOSE_SMOKE_PASSED" in smoke_log.read_text(
         encoding="utf-8", errors="replace"
     )
+    compression_gate = compression.get("compression_gate_status")
+    quality_gate = compression.get("acceptance_status")
+    replay_ok = replay.get("samples", 0) > 0
+    # Working memory P99 gate: a reported value above the limit fails the phase.
+    working_p99 = replay.get("working_write_ms_p99_ms")
+    p99_ok = working_p99 is None or float(working_p99) <= WORKING_P99_LIMIT_MS
+    gate_status = (
+        "PASSED"
+        if smoke_passed
+        and str(compression_gate).upper() in {"PASSED", "PASS"}
+        and str(quality_gate).upper() in {"PASSED", "PASS"}
+        and replay_ok
+        and p99_ok
+        else "NOT_VERIFIED"
+    )
     return {
         "name": "phase2_b2_memory_compression_and_retrieval",
-        "status": "PASSED" if smoke_passed and replay.get("samples", 0) > 0 else "FAILED",
+        "status": "PASSED" if gate_status == "PASSED" else "NOT_VERIFIED",
+        "gate_status": gate_status,
         "async_b1_to_p2_to_b2_to_b3_smoke_passed": smoke_passed,
+        "working_write_p99_ms": working_p99,
+        "working_write_p99_ok": p99_ok,
         "compression": {
             "dataset_root": compression.get("dataset_root"),
             "sample_count": compression.get("sample_count"),
@@ -100,11 +147,12 @@ def main() -> None:
 
     phase1 = phase_one(load_json(args.b1_result))
     phase2 = phase_two(load_json(args.b2_compression), load_json(args.b2_replay), args.smoke_log)
+    passed = (
+        phase1["gate_status"] == "PASSED" and phase2["gate_status"] == "PASSED"
+    )
     overall = {
         "generated_at": datetime.now(UTC).isoformat(),
-        "status": "PASSED"
-        if phase1["status"] == "COMPLETED" and phase2["status"] == "PASSED"
-        else "FAILED",
+        "status": "PASSED" if passed else "NOT_VERIFIED",
         "quality_evaluation": phase2["compression"]["quality_status"],
         "phase_reports": ["phase1_b1_metrics.json", "phase2_b2_metrics.json"],
     }

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any, cast
 from uuid import uuid4
 
@@ -7,11 +8,13 @@ from aether_agent_memory.b1 import EmbeddingRequest, EmbeddingResult
 from aether_agent_memory.b2 import MemoryEvent
 from aether_agent_memory.b3 import ScheduleRequest, ScheduleRunResult
 from aether_agent_memory.context import ContextPack, ContextRequest
+from aether_agent_memory.core.enums import MemoryType, SourceType
 from aether_agent_memory.core.memory import Memory
 from aether_agent_memory.memory.formation import MemoryFormationService
 from aether_agent_memory.memory.retrieval.models import AccessTrace
+from aether_agent_memory.persistence.idempotency import ClaimOutcome, payload_hash
 from aether_agent_memory.runtime.dependencies import RuntimeDependencies, RuntimeProfile
-from aether_agent_memory.runtime.errors import DependencyUnavailableError
+from aether_agent_memory.runtime.errors import ConflictError, DependencyUnavailableError
 from aether_agent_memory.runtime.health import RuntimeHealth
 from aether_agent_memory.runtime.legacy import P3Runtime, P3RuntimeConfig
 from aether_agent_memory.runtime.ports import HealthCheckPort
@@ -63,7 +66,10 @@ class MemoryRuntime:
         *,
         profile: RuntimeProfile | None = None,
     ) -> MemoryRuntime:
-        from aether_agent_memory.adapters.access_trace import InMemoryAccessTraceAdapter
+        from aether_agent_memory.adapters.access_trace import (
+            InMemoryAccessTraceAdapter,
+            RedisAccessTraceAdapter,
+        )
         from aether_agent_memory.adapters.b1_client import LegacyEmbeddingAdapter
         from aether_agent_memory.adapters.b3 import LegacySchedulerAdapter
         from aether_agent_memory.adapters.celery import (
@@ -79,6 +85,16 @@ class MemoryRuntime:
         from aether_agent_memory.adapters.redis import RedisHealthAdapter
 
         resolved_profile = profile or RuntimeProfile.from_environment()
+        idempotency_store = None
+        action_log_store = None
+        access_trace: Any = InMemoryAccessTraceAdapter()
+        if legacy_runtime.config.memory_store == "redis":
+            from aether_agent_memory.b3.action_log import RedisActionLogStore
+            from aether_agent_memory.persistence.idempotency import RedisIdempotencyStore
+
+            idempotency_store = RedisIdempotencyStore(legacy_runtime.config.redis_url)
+            access_trace = RedisAccessTraceAdapter(legacy_runtime.config.redis_url)
+            action_log_store = RedisActionLogStore(legacy_runtime.config.redis_url)
         embedding = LegacyEmbeddingAdapter(legacy_runtime)
         scheduler = LegacySchedulerAdapter(legacy_runtime)
         object_store = P2ObjectStoreAdapter(legacy_runtime)
@@ -93,7 +109,9 @@ class MemoryRuntime:
         health_checks.extend(
             [
                 MilvusHealthAdapter(legacy_runtime.config.milvus_uri),
-                CeleryLongMemoryTaskAdapter(),
+                CeleryLongMemoryTaskAdapter(
+                    redis_url=legacy_runtime.config.redis_url
+                ),
             ]
         )
         return cls(
@@ -101,12 +119,16 @@ class MemoryRuntime:
                 embedding=embedding,
                 memory_events=LegacyMemoryEventAdapter(legacy_runtime),
                 context_builder=LegacyContextAdapter(legacy_runtime),
-                task_queue=CeleryLongMemoryTaskAdapter(),
+                task_queue=CeleryLongMemoryTaskAdapter(
+                    redis_url=legacy_runtime.config.redis_url
+                ),
                 task_status=RedisTaskStatusAdapter(),
                 object_store=object_store,
                 vector_search=P2VectorSearchAdapter(legacy_runtime),
                 scheduler=scheduler,
-                access_trace=InMemoryAccessTraceAdapter(),
+                access_trace=access_trace,
+                idempotency_store=idempotency_store,
+                action_log_store=action_log_store,
                 health_checks=health_checks,
                 legacy_runtime=legacy_runtime,
             ),
@@ -166,7 +188,24 @@ class MemoryRuntime:
         context: RequestContext | None = None,
     ) -> Memory:
         ctx = context or _context_from_model(event)
-        return await self.formation.write_event(event, ctx)
+        outcome, cached = await self._claim_idempotency(
+            ctx,
+            op_type="memory_event",
+            request_hash=payload_hash(event.model_dump(mode="json")),
+        )
+        if outcome == ClaimOutcome.CACHED.value and cached is not None:
+            return Memory.model_validate(cached)
+        try:
+            memory = await self.formation.write_event(event, ctx)
+        except Exception:
+            await self._fail_idempotency(ctx, op_type="memory_event")
+            raise
+        await self._complete_idempotency(
+            ctx,
+            op_type="memory_event",
+            response=memory.model_dump(mode="json"),
+        )
+        return memory
 
     async def submit_long_memory(
         self,
@@ -187,6 +226,46 @@ class MemoryRuntime:
             agent_id=agent_id,
             session_id=session_id,
         )
+        outcome, cached = await self._claim_idempotency(
+            ctx,
+            op_type="long_text",
+            request_hash=payload_hash({"text": text, "source_id": source_id}),
+        )
+        if outcome == ClaimOutcome.CACHED.value and cached is not None:
+            return cached
+        try:
+            submission = await self._submit_long_memory_uncached(
+                text=text,
+                tenant_id=tenant_id,
+                user_id=user_id,
+                agent_id=agent_id,
+                session_id=session_id,
+                source_id=source_id,
+                object_id=object_id,
+                content_ref=content_ref,
+                ctx=ctx,
+            )
+        except Exception:
+            await self._fail_idempotency(ctx, op_type="long_text")
+            raise
+        await self._complete_idempotency(
+            ctx, op_type="long_text", response=submission
+        )
+        return submission
+
+    async def _submit_long_memory_uncached(
+        self,
+        *,
+        text: str,
+        tenant_id: str,
+        user_id: str,
+        agent_id: str,
+        session_id: str,
+        source_id: str,
+        object_id: str | None,
+        content_ref: str | None,
+        ctx: RequestContext,
+    ) -> dict[str, Any]:
         object_meta: dict[str, str] = {}
         resolved_object_id = object_id
         resolved_content_ref = content_ref
@@ -291,6 +370,7 @@ class MemoryRuntime:
     ) -> ContextPack:
         ctx = context or _context_from_model(request)
         pack = await self.dependencies.context_builder.build_context(request, ctx)
+        await self._recall_long_documents(pack, request, ctx)
         for memory_id, score in pack.recall_scores.items():
             await self.record_access(
                 AccessTrace(
@@ -304,6 +384,91 @@ class MemoryRuntime:
             )
         return pack
 
+    async def _recall_long_documents(
+        self,
+        pack: ContextPack,
+        request: ContextRequest,
+        context: RequestContext,
+    ) -> None:
+        """Append long-document (P2 E1) recall to the unified context path.
+
+        The existing working/episodic/semantic recall and ranking are untouched;
+        long-document hits are appended and reported honestly.  A P2 E1 failure
+        degrades the context pack instead of failing the whole request.
+        """
+        if self.dependencies.vector_search is None or not request.query:
+            return
+        tenant = context.tenant_id or request.tenant_id
+        user = context.user_id or request.user_id
+        agent = context.agent_id or request.agent_id
+        if not tenant or not user or not agent:
+            return
+        try:
+            search = await self.dependencies.vector_search.search_memory(
+                query=request.query,
+                tenant_id=tenant,
+                user_id=user,
+                agent_id=agent,
+                limit=request.max_candidates,
+                context=context,
+            )
+        except Exception as exc:
+            if "long_document" not in pack.missing_sources:
+                pack.missing_sources.append("long_document")
+            pack.degradation_reasons["long_document"] = f"{type(exc).__name__}: {exc}"
+            pack.status = "degraded"
+            pack.complete = False
+            return
+        for item in search.get("items", []):
+            memory = _long_document_memory(item, context)
+            score = float(item.get("score", 0.0))
+            if any(existing.id == memory.id for existing in pack.memories):
+                continue
+            pack.memories.append(memory)
+            pack.recall_scores[memory.id] = score
+            pack.memory_refs.append(memory.id)
+            content_ref = item.get("content_ref")
+            if content_ref and str(content_ref) not in pack.evidence_refs:
+                pack.evidence_refs.append(str(content_ref))
+            pack.total_tokens += _estimate_tokens(memory.content)
+            pack.assembled_text += (
+                f"\n[{len(pack.memory_refs)}] (long_document) {memory.content}"
+            )
+        self._trim_to_budget(pack)
+
+    def _trim_to_budget(self, pack: ContextPack) -> None:
+        """Re-rank and re-budget after all sources (incl. long documents) fused.
+
+        The token budget is applied once across the fused candidate set, so
+        appended long-document hits can no longer push ``total_tokens`` above
+        ``budget_tokens``.  Ranking stays score-descending.
+        """
+        if pack.total_tokens <= pack.budget_tokens:
+            return
+        ranked = sorted(
+            pack.memories,
+            key=lambda memory: pack.recall_scores.get(memory.id, 0.0),
+            reverse=True,
+        )
+        selected: list[Memory] = []
+        total = 0
+        for memory in ranked:
+            tokens = _estimate_tokens(memory.content)
+            if total + tokens > pack.budget_tokens:
+                continue
+            selected.append(memory)
+            total += tokens
+        pack.memories = selected
+        pack.total_tokens = total
+        pack.recall_scores = {
+            memory.id: pack.recall_scores.get(memory.id, 0.0) for memory in selected
+        }
+        pack.memory_refs = [memory.id for memory in selected]
+        pack.assembled_text = "\n".join(
+            f"[{index + 1}] ({memory.type.value}) {memory.content}"
+            for index, memory in enumerate(selected)
+        )
+
     async def schedule(
         self,
         request: ScheduleRequest,
@@ -315,10 +480,22 @@ class MemoryRuntime:
                 component=RuntimeComponent.B3.value,
                 trace_id=context.trace_id if context else None,
             )
-        return await self.dependencies.scheduler.schedule(
+        result = await self.dependencies.scheduler.schedule(
             request,
             context or _context_from_model(request),
         )
+        await self._persist_action_log(result)
+        return result
+
+    async def _persist_action_log(self, result: ScheduleRunResult) -> None:
+        """Best-effort persistence of B3 action entries; never blocks the decision path."""
+        store = self.dependencies.action_log_store
+        if store is None:
+            return
+        try:
+            await asyncio.to_thread(store.append_entries, result.entries)
+        except Exception:
+            return
 
     async def record_access(self, trace: AccessTrace) -> None:
         if self.dependencies.access_trace is None:
@@ -327,6 +504,64 @@ class MemoryRuntime:
             await self.dependencies.access_trace.record(trace)
         except Exception:
             return
+
+    async def _claim_idempotency(
+        self,
+        context: RequestContext,
+        *,
+        op_type: str,
+        request_hash: str,
+    ) -> tuple[str, dict[str, Any] | None]:
+        """Claim an idempotency key for an operation.
+
+        Returns ``(outcome, cached_response)``; ``conflict`` raises.
+        """
+        store = self.dependencies.idempotency_store
+        key = context.idempotency_key
+        if store is None or not key:
+            return ClaimOutcome.CLAIMED.value, None
+        outcome, cached = await asyncio.to_thread(
+            store.claim,
+            key=key,
+            tenant_id=context.tenant_id,
+            op_type=op_type,
+            payload_hash=request_hash,
+        )
+        if outcome == ClaimOutcome.CONFLICT.value:
+            raise ConflictError(
+                f"idempotency key is processing or payload differs: {key}"
+            )
+        return outcome, cached
+
+    async def _complete_idempotency(
+        self,
+        context: RequestContext,
+        *,
+        op_type: str,
+        response: dict[str, Any],
+    ) -> None:
+        store = self.dependencies.idempotency_store
+        key = context.idempotency_key
+        if store is None or not key:
+            return
+        await asyncio.to_thread(
+            store.complete,
+            key=key,
+            tenant_id=context.tenant_id,
+            op_type=op_type,
+            response=response,
+        )
+
+    async def _fail_idempotency(
+        self, context: RequestContext, *, op_type: str
+    ) -> None:
+        store = self.dependencies.idempotency_store
+        key = context.idempotency_key
+        if store is None or not key:
+            return
+        await asyncio.to_thread(
+            store.fail, key=key, tenant_id=context.tenant_id, op_type=op_type
+        )
 
     async def ingest_memory(self, event: MemoryEvent) -> Memory:
         return await self.write_memory(event)
@@ -361,4 +596,37 @@ def _context_from_model(model: Any) -> RequestContext:
         session_id=getattr(model, "session_id", None),
         task_id=getattr(model, "task_id", None),
         deadline_ms=getattr(model, "deadline_ms", None),
+    )
+
+
+def _estimate_tokens(text: str) -> int:
+    return max(len(text) // 4, 1)
+
+
+def _long_document_memory(item: dict[str, Any], context: RequestContext) -> Memory:
+    return Memory(
+        id=str(item.get("memory_id") or item.get("chunk_id") or uuid4().hex),
+        type=MemoryType.SEMANTIC,
+        session_id=context.session_id or "",
+        agent_id=context.agent_id or "",
+        user_id=context.user_id,
+        tenant_id=context.tenant_id,
+        task_id=item.get("task_id"),
+        request_id=context.request_id,
+        trace_id=item.get("trace_id") or context.trace_id,
+        source_id=item.get("content_ref"),
+        content=str(item.get("text", "")),
+        source=SourceType.DOCUMENT,
+        importance=1.0,
+        embedding_status="succeeded",
+        vector_projection_status="succeeded",
+        metadata={
+            "source": "long_document",
+            "chunk_id": item.get("chunk_id"),
+            "content_ref": item.get("content_ref"),
+            "category": item.get("category"),
+            "keywords": item.get("keywords", []),
+            "embedding_status": "succeeded",
+            "vector_projection_status": "succeeded",
+        },
     )

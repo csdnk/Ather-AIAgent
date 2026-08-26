@@ -7,6 +7,7 @@ authors = [{ name = "Jarstii", email = "xy_jxnu@163.com" }]
 requires-python = ">=3.13"
 dependencies = [
   "celery>=5.5,<6",
+  "fastapi>=0.141.1,<1",
   "grpcio>=1.82.1,<2",
   "grpcio-tools>=1.82.1,<2",
   "httpx>=0.28.1,<1",
@@ -19,6 +20,7 @@ dependencies = [
   "pymilvus>=2.5,<3",
   "redis>=5.2,<6",
   "structlog>=26.1.0",
+  "uvicorn>=0.35,<1",
 ]
 
 [project.optional-dependencies]
@@ -74,6 +76,7 @@ aether-b1-sidecar = "aether_agent_memory.b1.sidecar:main"
 aether-b1-dashboard = "aether_agent_memory.b1.dashboard:main"
 aether-b1-dataset = "aether_agent_memory.b1.dataset_runner:main"
 aether-b1-download-model = "aether_agent_memory.b1.model_download:main"
+aether-p4-simulator = "aether_p4_simulator.server:main"
 
 [dependency-groups]
 dev = [
@@ -93,13 +96,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/aether_agent_memory"]
+packages = ["src/aether_agent_memory", "src/aether_p4_simulator"]
 
 # ── Ruff ──────────────────────────────────────────
 [tool.ruff]
 target-version = "py313"
 src = ["src", "tests"]
 line-length = 100
+extend-exclude = ["src/aether_agent_memory/p2/generated"]
 
 [tool.ruff.lint]
 select = [
@@ -135,6 +139,12 @@ warn_unused_configs = true
 plugins = ["pydantic.mypy"]
 explicit_package_bases = true
 mypy_path = "src"
+exclude = ["^src/aether_agent_memory/p2/generated/"]
+
+[[tool.mypy.overrides]]
+module = ["aether_agent_memory.p2.generated.*"]
+follow_imports = "skip"
+ignore_errors = true
 
 [[tool.mypy.overrides]]
 module = [

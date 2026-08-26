@@ -434,10 +434,14 @@ class OpenVinoBackend:
             "export": not is_openvino_ir,
             "ov_config": ov_config,
         }
-        # A caller-provided OpenVINO IR is not assumed to be quantized. Optimum
-        # Intel can apply the same weight-only compression to an existing IR;
-        # only the sidecar's own completed INT8 cache is already compressed.
-        if self.config.precision == "int8" and not loaded_from_sidecar_cache:
+        # Existing OpenVINO IR directories are treated as immutable artifacts:
+        # load them as-is, then verify INT8 weights below. Re-applying
+        # quantization to a pre-compressed acceptance IR fails in Optimum Intel.
+        if (
+            self.config.precision == "int8"
+            and not is_openvino_ir
+            and not loaded_from_sidecar_cache
+        ):
             from optimum.intel.openvino.configuration import OVWeightQuantizationConfig
 
             model_kwargs["quantization_config"] = OVWeightQuantizationConfig(
@@ -455,7 +459,7 @@ class OpenVinoBackend:
                 raise BackendUnavailableError(
                     "OpenVINO INT8 compression completed without INT8 weight constants"
                 )
-        should_cache_model = not loaded_from_sidecar_cache and (
+        should_cache_model = not loaded_from_sidecar_cache and not is_openvino_ir and (
             source_requires_export or self.config.precision == "int8"
         )
         if should_cache_model:

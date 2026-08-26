@@ -87,7 +87,7 @@ class P2GrpcClient:
         try:
             import grpc
 
-            from aether_agent_memory.p2.generated import (  # type: ignore[import-untyped]
+            from aether_agent_memory.p2.generated import (
                 aether_engine_pb2 as pb,
             )
             from aether_agent_memory.p2.generated import (

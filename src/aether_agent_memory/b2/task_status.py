@@ -38,6 +38,12 @@ class RedisTaskStatusStore:
             "updated_at": datetime.now(UTC).isoformat(),
             **details,
         }
+        # Preserve ownership scope written at submission time across state
+        # transitions (later SUCCEEDED/FAILED updates may not repeat them).
+        existing = self.get(task_id)
+        for field in ("tenant_id", "user_id", "agent_id", "session_id"):
+            if field not in record and existing and existing.get(field):
+                record[field] = existing[field]
         self._redis.set(
             f"{self._prefix}{task_id}",
             json.dumps(record, ensure_ascii=False),

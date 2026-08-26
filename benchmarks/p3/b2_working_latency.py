@@ -15,7 +15,6 @@ from aether_agent_memory.core.memory import Memory
 from aether_agent_memory.persistence import RedisMemoryStore
 from aether_agent_memory.working.manager import MockWorkingMemoryManager
 
-
 TEXT_1KI = "x" * 1024
 DATASET_FILES = ("beam.jsonl", "locomo.jsonl", "longmemeval.jsonl")
 
@@ -121,7 +120,7 @@ async def main() -> None:
     else:
         datasets = {"synthetic_1ki": (Path("<synthetic>"), [TEXT_1KI])}
 
-    for dataset_name, (dataset_path, texts) in datasets.items():
+    for dataset_name, (_dataset_path, texts) in datasets.items():
         for concurrency in (1, 8, 32):
             namespace = f"aether:b2:latency:{uuid4().hex}"
             store = RedisMemoryStore(
@@ -132,12 +131,17 @@ async def main() -> None:
                 adaptive_target_ms=1_000_000.0,
             )
             manager = MockWorkingMemoryManager(store=store)
-            preloaded = [make_memory(texts[index % len(texts)]) for index in range(min(args.preload, len(texts)))]
+            preloaded = [
+                make_memory(texts[index % len(texts)])
+                for index in range(min(args.preload, len(texts)))
+            ]
             try:
                 for memory in preloaded:
                     await manager.write(memory)
                 for scenario in ("write", "read", "mixed"):
-                    result = await run_scenario(manager, preloaded, texts, scenario, concurrency, args.samples)
+                    result = await run_scenario(
+                        manager, preloaded, texts, scenario, concurrency, args.samples
+                    )
                     result["dataset"] = dataset_name
                     results.append(result)
             finally:
@@ -161,7 +165,10 @@ async def main() -> None:
                 "preloaded_working_memory": min(args.preload, len(texts)),
                 "text_bytes_min": min(len(text.encode("utf-8")) for text in texts),
                 "text_bytes_max": max(len(text.encode("utf-8")) for text in texts),
-                "text_bytes_mean": round(sum(len(text.encode("utf-8")) for text in texts) / len(texts), 3),
+                "text_bytes_mean": round(
+                    sum(len(text.encode("utf-8")) for text in texts) / len(texts),
+                    3,
+                ),
             }
             for name, (path, texts) in datasets.items()
         ],

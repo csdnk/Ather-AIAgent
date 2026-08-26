@@ -5,13 +5,15 @@ import { SystemStatusView } from "./SystemStatus";
 
 const { Header, Sider, Content } = Layout;
 
-export type PageKey = "overview" | "b1" | "b2" | "b3";
+export type PageKey = "overview" | "b1" | "b2" | "b3" | "p4";
 
 const menuItems = [
   { key: "overview", label: "Overview" },
   { key: "b1", label: "B1 Embedding" },
   { key: "b2", label: "B2 Memory" },
   { key: "b3", label: "B3 Scheduler" },
+  { type: "divider" as const },
+  { key: "p4", label: "P4 Reference Agent" },
 ];
 
 export function AppLayout({
@@ -39,6 +41,7 @@ export function AppLayout({
         <Sider width={220} className="app-sider">
           <Menu
             mode="inline"
+            theme="dark"
             selectedKeys={[page]}
             items={menuItems}
             onClick={({ key }) => onPageChange(key as PageKey)}

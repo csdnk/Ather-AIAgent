@@ -33,7 +33,7 @@ from aether_agent_memory.mocks.embedding import MockEmbeddingClient
 from aether_agent_memory.p2 import P2GrpcClient, P2StorageClient, P2VectorSink
 from aether_agent_memory.persistence import RedisMemoryStore, SQLiteMemoryStore
 from aether_agent_memory.semantic import MockSemanticMemoryManager
-from aether_agent_memory.signal import MockSignalEmitter
+from aether_agent_memory.signal import MockSignalEmitter, RedisSignalEmitter
 from aether_agent_memory.working import MockWorkingMemoryManager
 
 
@@ -50,6 +50,7 @@ class P3RuntimeConfig:
     milvus_uri: str = ""
     milvus_collection: str = "b2_memory_chunks_v3"
     vector_dimension: int = 512
+    b3_shadow_mode: bool = True
 
     @classmethod
     def from_environment(cls) -> P3RuntimeConfig:
@@ -65,6 +66,8 @@ class P3RuntimeConfig:
             milvus_uri=os.getenv("AETHER_B2_MILVUS_URI", ""),
             milvus_collection=os.getenv("AETHER_B2_MILVUS_COLLECTION", "b2_memory_chunks_v3"),
             vector_dimension=int(os.getenv("AETHER_B2_VECTOR_DIMENSION", "512")),
+            b3_shadow_mode=os.getenv("AETHER_B3_SHADOW_MODE", "true").lower()
+            in {"1", "true", "yes"},
         )
 
 
@@ -128,6 +131,11 @@ class P3Runtime:
             store=store,
             vector_store=vector_store,
         )
+        self.signal_emitter = (
+            RedisSignalEmitter(config.redis_url)
+            if config.memory_store == "redis"
+            else MockSignalEmitter()
+        )
         self.memory = MemoryService(
             working=working,
             episodic=episodic,
@@ -137,14 +145,15 @@ class P3Runtime:
                 episodic=episodic,
                 semantic=semantic,
             ),
-            emitter=MockSignalEmitter(),
+            emitter=self.signal_emitter,
         )
         self.scheduler = HeuristicScheduler(
             executor=P2MigrationExecutor(
                 self.client,
                 default_engine=config.p2_engine,
                 default_segment_id=config.p2_bucket,
-            )
+            ),
+            shadow_mode=config.b3_shadow_mode,
         )
         self.executor_name = type(self.scheduler.executor).__name__
 
@@ -152,6 +161,9 @@ class P3Runtime:
         close_store = getattr(self.memory, "close_store", None)
         if close_store is not None:
             await close_store()
+        close_emitter = getattr(self.signal_emitter, "close", None)
+        if close_emitter is not None:
+            await close_emitter()
         close_embedder = getattr(self.embedder, "close", None)
         if close_embedder is not None:
             await close_embedder()

@@ -4,25 +4,8 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from aether_agent_memory.core.scope import Scope as Scope
 from aether_agent_memory.runtime.ids import new_id
-
-
-@dataclass(frozen=True, slots=True)
-class Scope:
-    tenant_id: str | None = None
-    user_id: str | None = None
-    agent_id: str | None = None
-    session_id: str | None = None
-    task_id: str | None = None
-
-    def as_dict(self) -> dict[str, str | None]:
-        return {
-            "tenant_id": self.tenant_id,
-            "user_id": self.user_id,
-            "agent_id": self.agent_id,
-            "session_id": self.session_id,
-            "task_id": self.task_id,
-        }
 
 
 @dataclass(frozen=True, slots=True)

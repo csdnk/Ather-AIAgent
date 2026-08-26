@@ -21,8 +21,10 @@ from aether_agent_memory.runtime.ports import (
 
 class RuntimeProfile(StrEnum):
     DEMO = "demo"
-    LOCAL = "local"
+    INTEGRATION = "integration"
     PRODUCTION = "production"
+    # Backward-compatible alias: a "local" development run is an integration run.
+    LOCAL = "integration"
 
     @classmethod
     def from_environment(cls) -> RuntimeProfile:
@@ -31,11 +33,11 @@ class RuntimeProfile(StrEnum):
             return cls.DEMO
         if raw in {"prod", "production"}:
             return cls.PRODUCTION
-        if raw in {"local", "dev", "development"}:
-            return cls.LOCAL
+        if raw in {"local", "dev", "development", "integration", "integ"}:
+            return cls.INTEGRATION
         if os.getenv("AETHER_ENABLE_DEMO", "false").lower() in {"1", "true", "yes"}:
             return cls.DEMO
-        return cls.LOCAL
+        return cls.INTEGRATION
 
 
 @dataclass(slots=True)
@@ -49,5 +51,7 @@ class RuntimeDependencies:
     vector_search: VectorSearchPort | None = None
     scheduler: SchedulerPort | None = None
     access_trace: AccessTracePort | None = None
+    idempotency_store: Any | None = None
+    action_log_store: Any | None = None
     health_checks: list[HealthCheckPort] = field(default_factory=list)
     legacy_runtime: Any | None = None

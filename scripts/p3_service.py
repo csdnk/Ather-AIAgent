@@ -8,7 +8,7 @@ import os
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from time import monotonic, perf_counter
 from typing import Any
 from uuid import uuid4
@@ -913,6 +913,21 @@ class P3Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
+def main() -> None:
+    """Run the FastAPI application host (single long-lived runtime per process)."""
+    import uvicorn
+
+    from aether_agent_memory.config.app_settings import AppSettings
+
+    settings = AppSettings()
+    settings.validate_for_profile()
+    uvicorn.run(
+        "aether_agent_memory.app:create_app",
+        factory=True,
+        host=settings.host,
+        port=settings.port,
+    )
+
+
 if __name__ == "__main__":
-    port = int(os.getenv("AETHER_P3_PORT", "8080"))
-    ThreadingHTTPServer(("0.0.0.0", port), P3Handler).serve_forever()
+    main()

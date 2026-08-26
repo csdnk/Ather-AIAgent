@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Any
 
 from aether_agent_memory.b2.task_status import RedisTaskStatusStore
+from aether_agent_memory.runtime.errors import ScopeError
 from aether_agent_memory.runtime.request_context import RequestContext
 from aether_agent_memory.runtime.status import ComponentHealth, ComponentStatus, RuntimeComponent
 
@@ -35,8 +36,14 @@ except ImportError as exc:
 
 
 class CeleryLongMemoryTaskAdapter:
-    def __init__(self, submitter: Callable[..., dict[str, str]] = submit_long_text) -> None:
+    def __init__(
+        self,
+        submitter: Callable[..., dict[str, str]] = submit_long_text,
+        *,
+        redis_url: str = TASK_STATUS_URL,
+    ) -> None:
         self._submitter = submitter
+        self._redis_url = redis_url
 
     async def submit_long_memory(
         self,
@@ -66,12 +73,36 @@ class CeleryLongMemoryTaskAdapter:
         )
 
     async def health(self) -> ComponentHealth:
-        return ComponentHealth(
-            component=RuntimeComponent.CELERY,
-            status=ComponentStatus.UNKNOWN,
-            detail="Celery broker health is delegated to Redis/task submission path",
-            critical=False,
-        )
+        try:
+            from redis import Redis
+
+            def _ping() -> bool:
+                client = Redis.from_url(
+                    self._redis_url,
+                    socket_connect_timeout=2,
+                    socket_timeout=2,
+                )
+                try:
+                    return bool(client.ping())
+                finally:
+                    client.close()
+
+            reachable = await asyncio.to_thread(_ping)
+            if not reachable:
+                raise RuntimeError("Redis ping returned false")
+            return ComponentHealth(
+                component=RuntimeComponent.CELERY,
+                status=ComponentStatus.HEALTHY,
+                detail="Celery broker (Redis) reachable",
+                critical=False,
+            )
+        except Exception as exc:
+            return ComponentHealth(
+                component=RuntimeComponent.CELERY,
+                status=ComponentStatus.UNAVAILABLE,
+                detail=f"{type(exc).__name__}: {exc}",
+                critical=False,
+            )
 
 
 class RedisTaskStatusAdapter:
@@ -79,4 +110,26 @@ class RedisTaskStatusAdapter:
         self._store = RedisTaskStatusStore(redis_url)
 
     async def get_task(self, task_id: str, context: RequestContext) -> dict[str, Any] | None:
-        return await asyncio.to_thread(self._store.get, task_id)
+        record = await asyncio.to_thread(self._store.get, task_id)
+        if record is None:
+            return None
+        _assert_task_scope(record, context)
+        return record
+
+
+def _assert_task_scope(record: dict[str, Any], context: RequestContext) -> None:
+    """Reject reads that cross the tenant/user/agent boundary.
+
+    A caller that provides no scope is allowed (internal/debug paths); a caller
+    that provides a scope must match the ownership recorded on the task.
+    """
+    for field, expected in (
+        ("tenant_id", context.tenant_id),
+        ("user_id", context.user_id),
+        ("agent_id", context.agent_id),
+    ):
+        recorded = record.get(field)
+        if recorded and expected and str(recorded) != str(expected):
+            raise ScopeError(
+                f"task does not belong to this {field.removesuffix('_id')}"
+            )
