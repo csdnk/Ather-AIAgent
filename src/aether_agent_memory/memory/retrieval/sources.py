@@ -24,9 +24,16 @@ class RecallSource(Protocol):
 
 
 class MemoryManagerRecallSource:
-    def __init__(self, name: str, manager: MemoryManager) -> None:
+    def __init__(
+        self,
+        name: str,
+        manager: MemoryManager,
+        *,
+        memory_type: MemoryType,
+    ) -> None:
         self._name = name
         self._manager = manager
+        self._memory_type = memory_type
 
     @property
     def name(self) -> str:
@@ -37,18 +44,29 @@ class MemoryManagerRecallSource:
         request: ContextRequest,
         context: RequestContext,
     ) -> list[RecallCandidate]:
+        if self._memory_type not in request.memory_types:
+            return []
         recalled = await self._manager.recall(request)
         return [_candidate_from_recalled(item, self.name, context) for item in recalled]
 
 
 class WorkingRecallSource(MemoryManagerRecallSource):
     def __init__(self, manager: MemoryManager) -> None:
-        super().__init__("working", manager)
+        super().__init__("working", manager, memory_type=MemoryType.WORKING)
 
 
-class LongTermRecallSource(MemoryManagerRecallSource):
+class EpisodicRecallSource(MemoryManagerRecallSource):
     def __init__(self, manager: MemoryManager) -> None:
-        super().__init__("long_term", manager)
+        super().__init__("episodic", manager, memory_type=MemoryType.EPISODIC)
+
+
+class SemanticRecallSource(MemoryManagerRecallSource):
+    def __init__(self, manager: MemoryManager) -> None:
+        super().__init__("semantic", manager, memory_type=MemoryType.SEMANTIC)
+
+
+class LongTermRecallSource(SemanticRecallSource):
+    """Backward-compatible alias for the semantic long-term source."""
 
 
 class P2E1RecallSource:
@@ -67,11 +85,18 @@ class P2E1RecallSource:
         request: ContextRequest,
         context: RequestContext,
     ) -> list[RecallCandidate]:
+        if MemoryType.SEMANTIC not in request.memory_types:
+            return []
+        tenant_id = context.tenant_id or request.tenant_id
+        user_id = context.user_id or request.user_id
+        agent_id = context.agent_id or request.agent_id
+        if not request.query or not tenant_id or not user_id or not agent_id:
+            return []
         search = await self._vector_search.search_memory(
             query=request.query,
-            tenant_id=context.tenant_id or request.tenant_id,
-            user_id=context.user_id or request.user_id,
-            agent_id=context.agent_id or request.agent_id,
+            tenant_id=tenant_id,
+            user_id=user_id,
+            agent_id=agent_id,
             limit=request.max_candidates,
             context=context,
         )

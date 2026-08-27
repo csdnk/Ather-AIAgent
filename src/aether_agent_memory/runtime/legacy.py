@@ -54,12 +54,16 @@ class P3RuntimeConfig:
     milvus_collection: str = "b2_memory_chunks_v3"
     vector_dimension: int = 512
     b1_sidecar_url: str = ""
+    b1_embedding_url: str = ""
     b1_tenant_id: str = "p3-runtime"
     b1_model_name: str = "BAAI/bge-small-zh-v1.5"
     b1_sidecar_timeout_seconds: float = 120.0
     b1_max_batch_items: int = 32
     b1_chunk_max_chars: int = 400
     b1_chunk_overlap_chars: int = 40
+    broker_url: str = ""
+    result_backend: str = ""
+    task_status_url: str = ""
     b3_shadow_mode: bool = True
 
     @classmethod
@@ -77,6 +81,7 @@ class P3RuntimeConfig:
             milvus_collection=os.getenv("AETHER_B2_MILVUS_COLLECTION", "b2_memory_chunks_v3"),
             vector_dimension=int(os.getenv("AETHER_B2_VECTOR_DIMENSION", "512")),
             b1_sidecar_url=os.getenv("AETHER_B1_SIDECAR_URL", "").strip(),
+            b1_embedding_url=os.getenv("AETHER_B1_EMBEDDING_URL", "").strip(),
             b1_tenant_id=os.getenv("AETHER_B1_TENANT_ID", "p3-runtime"),
             b1_model_name=os.getenv("AETHER_B1_MODEL_NAME", "BAAI/bge-small-zh-v1.5"),
             b1_sidecar_timeout_seconds=float(
@@ -85,6 +90,9 @@ class P3RuntimeConfig:
             b1_max_batch_items=int(os.getenv("AETHER_B1_MAX_BATCH_ITEMS", "32")),
             b1_chunk_max_chars=int(os.getenv("AETHER_B1_CHUNK_MAX_CHARS", "400")),
             b1_chunk_overlap_chars=int(os.getenv("AETHER_B1_CHUNK_OVERLAP_CHARS", "40")),
+            broker_url=os.getenv("AETHER_B2_BROKER_URL", "").strip(),
+            result_backend=os.getenv("AETHER_B2_RESULT_BACKEND", "").strip(),
+            task_status_url=os.getenv("AETHER_B2_TASK_STATUS_URL", "").strip(),
             b3_shadow_mode=os.getenv("AETHER_B3_SHADOW_MODE", "true").lower()
             in {"1", "true", "yes"},
         )
@@ -109,12 +117,16 @@ class P3RuntimeConfig:
             milvus_collection=settings.milvus_collection,
             vector_dimension=settings.vector_dimension,
             b1_sidecar_url=settings.b1_sidecar_url,
+            b1_embedding_url=settings.b1_embedding_url,
             b1_tenant_id=settings.b1_tenant_id,
             b1_model_name=settings.b1_model_name,
             b1_sidecar_timeout_seconds=settings.b1_sidecar_timeout_seconds,
             b1_max_batch_items=settings.b1_max_batch_items,
             b1_chunk_max_chars=settings.b1_chunk_max_chars,
             b1_chunk_overlap_chars=settings.b1_chunk_overlap_chars,
+            broker_url=settings.broker_url,
+            result_backend=settings.result_backend,
+            task_status_url=settings.task_status_url,
             b3_shadow_mode=settings.b3_shadow_mode,
         )
 

@@ -10,6 +10,11 @@ from aether_agent_memory.api.dependencies import (
     json_response,
     runtime_of,
 )
+from aether_agent_memory.api.mappers import (
+    long_memory_submission_to_v1,
+    memory_search_result_to_v1,
+    task_status_record_to_v1,
+)
 from aether_agent_memory.integration import request_context_from_payload
 from aether_agent_memory.integration.schemas import LongTextRequest, SearchRequest
 
@@ -28,7 +33,7 @@ async def get_task(request: Request, task_id: str) -> Response | dict[str, Any]:
             {"error": "task not found", "task_id": task_id},
             status_code=404,
         )
-    return record.to_response_dict()
+    return task_status_record_to_v1(record)
 
 
 @router.post("/api/v1/b2/long-text", response_model=None)
@@ -47,7 +52,7 @@ async def long_text(request: Request, body: LongTextRequest) -> Response | dict[
         content_ref=body.content_ref,
         context=context,
     )
-    return json_response(request, submission.to_response_dict(), status_code=202)
+    return json_response(request, long_memory_submission_to_v1(submission), status_code=202)
 
 
 @router.post("/api/v1/b2/search")
@@ -63,4 +68,4 @@ async def b2_search(request: Request, body: SearchRequest) -> dict[str, Any]:
         limit=body.limit,
         context=context,
     )
-    return result.to_response_dict()
+    return memory_search_result_to_v1(result)

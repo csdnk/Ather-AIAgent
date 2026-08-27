@@ -12,9 +12,9 @@ from aether_agent_memory.core.memory import Memory
 
 class RecallSourceName(StrEnum):
     WORKING = "working"
-    LONG_TERM = "long_term"
     EPISODIC = "episodic"
     SEMANTIC = "semantic"
+    LONG_DOCUMENT = "long_document"
 
 
 class RecallCandidate(BaseModel):

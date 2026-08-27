@@ -4,17 +4,36 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ObjectReference(BaseModel):
-    p2_bucket: str
+    model_config = ConfigDict(extra="ignore")
+
+    provider: str = "p2"
+    namespace: str | None = None
     object_key: str
     content_ref: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _from_legacy_mapping(cls, payload: object) -> object:
+        if not isinstance(payload, dict):
+            return payload
+        data = dict(payload)
+        provider_metadata = dict(data.get("metadata") or {})
+        legacy_bucket = data.pop("p2_bucket", None)
+        if legacy_bucket is not None:
+            data.setdefault("namespace", legacy_bucket)
+            provider_metadata.setdefault("bucket", legacy_bucket)
+            data.setdefault("provider", "p2")
+        data["metadata"] = provider_metadata
+        return data
 
 
 class LongMemorySubmission(BaseModel):
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="ignore")
 
     task_id: str
     memory_id: str
@@ -24,9 +43,26 @@ class LongMemorySubmission(BaseModel):
     source_id: str
     object_id: str | None = None
     content_ref: str | None = None
-    p2_bucket: str | None = None
+    provider: str | None = None
+    namespace: str | None = None
     object_key: str | None = None
+    provider_metadata: dict[str, Any] = Field(default_factory=dict)
     formation: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _from_legacy_mapping(cls, payload: object) -> object:
+        if not isinstance(payload, dict):
+            return payload
+        data = dict(payload)
+        provider_metadata = dict(data.get("provider_metadata") or {})
+        legacy_bucket = data.pop("p2_bucket", None)
+        if legacy_bucket is not None:
+            data.setdefault("provider", "p2")
+            data.setdefault("namespace", legacy_bucket)
+            provider_metadata.setdefault("bucket", legacy_bucket)
+        data["provider_metadata"] = provider_metadata
+        return data
 
     @classmethod
     def from_mapping(cls, payload: dict[str, Any]) -> LongMemorySubmission:
@@ -37,7 +73,7 @@ class LongMemorySubmission(BaseModel):
 
 
 class TaskStatusRecord(BaseModel):
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="ignore")
 
     task_id: str
     state: str
@@ -52,8 +88,10 @@ class TaskStatusRecord(BaseModel):
     agent_id: str | None = None
     session_id: str | None = None
     chunk_count: int | None = None
-    p2_vector_count: int | None = None
-    p2_collection: str | None = None
+    projection_count: int | None = None
+    projection_namespace: str | None = None
+    provider: str | None = None
+    provider_metadata: dict[str, Any] = Field(default_factory=dict)
     error: str | None = None
     compression_artifact_id: str | None = None
     compression_status: str | None = None
@@ -62,6 +100,26 @@ class TaskStatusRecord(BaseModel):
     compression_ratio: float | None = None
     compression_rate: float | None = None
     compression_warnings: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _from_legacy_mapping(cls, payload: object) -> object:
+        if not isinstance(payload, dict):
+            return payload
+        data = dict(payload)
+        provider_metadata = dict(data.get("provider_metadata") or {})
+        legacy_count = data.pop("p2_vector_count", None)
+        legacy_collection = data.pop("p2_collection", None)
+        if legacy_count is not None:
+            data.setdefault("projection_count", legacy_count)
+            provider_metadata.setdefault("vector_count", legacy_count)
+        if legacy_collection is not None:
+            data.setdefault("projection_namespace", legacy_collection)
+            provider_metadata.setdefault("collection", legacy_collection)
+        if legacy_count is not None or legacy_collection is not None:
+            data.setdefault("provider", "p2")
+        data["provider_metadata"] = provider_metadata
+        return data
 
     @classmethod
     def from_mapping(cls, payload: dict[str, Any]) -> TaskStatusRecord:
@@ -93,9 +151,25 @@ class MemorySearchHit(BaseModel):
 class MemorySearchResult(BaseModel):
     items: list[MemorySearchHit] = Field(default_factory=list)
     backend: str
-    collection: str | None = None
+    provider: str | None = None
+    namespace: str | None = None
     query_model: str | None = None
     query_dimension: int | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _from_legacy_mapping(cls, payload: object) -> object:
+        if not isinstance(payload, dict):
+            return payload
+        data = dict(payload)
+        metadata = dict(data.get("metadata") or {})
+        legacy_collection = data.pop("collection", None)
+        if legacy_collection is not None:
+            data.setdefault("namespace", legacy_collection)
+            metadata.setdefault("collection", legacy_collection)
+        data["metadata"] = metadata
+        return data
 
     @classmethod
     def from_mapping(cls, payload: dict[str, Any]) -> MemorySearchResult:

@@ -92,6 +92,12 @@ class MemoryRetrievalService:
                 f"{prefix}[{len(pack.memory_refs)}] ({candidate.source}) {memory.content}"
             )
         _trim_to_budget(pack)
+        pack.summary = "\n".join(memory.content for memory in pack.memories[:3])[:1000]
+        pack.budget_info = {
+            "used_tokens": pack.total_tokens,
+            "budget_tokens": pack.budget_tokens,
+            "remaining_tokens": max(pack.budget_tokens - pack.total_tokens, 0),
+        }
         return pack
 
 

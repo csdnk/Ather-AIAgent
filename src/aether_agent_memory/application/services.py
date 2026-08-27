@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import replace
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from aether_agent_memory.b1 import EmbeddingRequest, EmbeddingResult
@@ -175,9 +176,11 @@ class IngestLongMemoryUseCase:
         if object_ref is not None:
             update.update(
                 {
-                    "p2_bucket": object_ref.p2_bucket,
+                    "provider": object_ref.provider,
+                    "namespace": object_ref.namespace,
                     "object_key": object_ref.object_key,
                     "content_ref": object_ref.content_ref,
+                    "provider_metadata": object_ref.metadata,
                 }
             )
         return submission.model_copy(update=update)
@@ -256,8 +259,12 @@ class BuildContextUseCase:
         request: ContextRequest,
         context: RequestContext,
     ) -> ContextPack:
-        pack = await self._dependencies.context_builder.build_context(request, context)
-        if self._dependencies.retrieval is not None:
+        if self._dependencies.retrieval is None:
+            pack = await self._dependencies.context_builder.build_context(
+                request, context
+            )
+        else:
+            pack = _empty_context_pack(request, context)
             pack = await self._dependencies.retrieval.augment_context(
                 pack, request, context
             )
@@ -345,6 +352,35 @@ def trim_context_to_budget(pack: ContextPack) -> None:
     pack.assembled_text = "\n".join(
         f"[{index + 1}] ({memory.type.value}) {memory.content}"
         for index, memory in enumerate(selected)
+    )
+
+
+def _empty_context_pack(request: ContextRequest, context: RequestContext) -> ContextPack:
+    scoped_request = request.model_copy(
+        update={
+            "request_id": request.request_id or context.request_id,
+            "trace_id": request.trace_id or context.trace_id,
+            "tenant_id": request.tenant_id or context.tenant_id,
+            "user_id": request.user_id or context.user_id,
+            "agent_id": request.agent_id or context.agent_id,
+            "session_id": request.session_id or context.session_id,
+            "task_id": request.task_id or context.task_id,
+        }
+    )
+    return ContextPack(
+        request=scoped_request,
+        memories=[],
+        total_tokens=0,
+        budget_tokens=scoped_request.max_tokens,
+        recall_scores={},
+        assembled_text="",
+        built_at=datetime.now(UTC),
+        trace_id=scoped_request.trace_id,
+        budget_info={
+            "used_tokens": 0,
+            "budget_tokens": scoped_request.max_tokens,
+            "remaining_tokens": scoped_request.max_tokens,
+        },
     )
 
 

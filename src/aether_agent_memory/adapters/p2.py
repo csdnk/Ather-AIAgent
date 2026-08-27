@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from typing import Any
 from uuid import uuid4
 
@@ -15,11 +14,6 @@ from aether_agent_memory.runtime.dtos import (
 )
 from aether_agent_memory.runtime.request_context import RequestContext
 from aether_agent_memory.runtime.status import ComponentHealth, ComponentStatus, RuntimeComponent
-
-B1_ENDPOINT = os.getenv(
-    "AETHER_B1_EMBEDDING_URL",
-    "http://localhost:18081/v1/intercept",
-)
 
 
 class P2ObjectStoreAdapter:
@@ -37,9 +31,11 @@ class P2ObjectStoreAdapter:
         bucket = str(getattr(ref, "bucket", self._legacy_runtime.client.bucket))
         key = str(getattr(ref, "key", getattr(ref, "object_key", object_key)))
         return ObjectReference(
-            p2_bucket=bucket,
+            provider="p2",
+            namespace=bucket,
             object_key=key,
             content_ref=f"p2://{bucket}/{key}",
+            metadata={"bucket": bucket},
         )
 
     async def health(self) -> ComponentHealth:
@@ -69,10 +65,11 @@ class P2VectorSearchAdapter:
         self,
         legacy_runtime: Any,
         *,
-        b1_endpoint: str = B1_ENDPOINT,
+        b1_endpoint: str,
     ) -> None:
         self._legacy_runtime = legacy_runtime
         self._b1_endpoint = b1_endpoint
+        self._embedding_client = B1EmbeddingServiceClient(self._b1_endpoint)
 
     async def search_memory(
         self,
@@ -86,7 +83,7 @@ class P2VectorSearchAdapter:
         task_id: str | None = None,
     ) -> MemorySearchResult:
         b1_result = await asyncio.to_thread(
-            B1EmbeddingServiceClient(self._b1_endpoint).process,
+            self._embedding_client.process,
             {
                 "text": query,
                 "source_type": SourceType.DOCUMENT.value,
@@ -145,7 +142,9 @@ class P2VectorSearchAdapter:
         return MemorySearchResult(
             items=items,
             backend="p2-e1",
-            collection=collection,
+            provider="p2",
+            namespace=collection,
             query_model=records[0].get("embedding_model"),
             query_dimension=len(vector),
+            metadata={"collection": collection},
         )

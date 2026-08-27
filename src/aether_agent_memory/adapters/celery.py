@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from collections.abc import Callable
 from typing import Any
 
@@ -11,40 +10,24 @@ from aether_agent_memory.runtime.errors import ScopeError
 from aether_agent_memory.runtime.request_context import RequestContext
 from aether_agent_memory.runtime.status import ComponentHealth, ComponentStatus, RuntimeComponent
 
-try:
-    from aether_agent_memory.b2.celery_app import TASK_STATUS_URL, submit_long_text
-except ImportError as exc:
-    TASK_STATUS_URL = os.getenv(
-        "AETHER_B2_TASK_STATUS_URL",
-        os.getenv("AETHER_B2_REDIS_URL", "redis://localhost:6379/0"),
-    )
-    _CELERY_IMPORT_ERROR = exc
 
-    def submit_long_text(
-        *,
-        text: str,
-        tenant_id: str,
-        user_id: str,
-        agent_id: str,
-        session_id: str,
-        source_id: str,
-        object_id: str | None = None,
-        content_ref: str | None = None,
-        request_id: str | None = None,
-        trace_id: str | None = None,
-    ) -> dict[str, str]:
-        raise RuntimeError(f"B2 Celery path is unavailable: {_CELERY_IMPORT_ERROR}")
+def _default_submitter(**kwargs: Any) -> dict[str, str]:
+    try:
+        from aether_agent_memory.b2.celery_app import submit_long_text
+    except ImportError as exc:
+        raise RuntimeError(f"B2 Celery path is unavailable: {exc}") from exc
+    return submit_long_text(**kwargs)
 
 
 class CeleryLongMemoryTaskAdapter:
     def __init__(
         self,
-        submitter: Callable[..., dict[str, str]] = submit_long_text,
+        submitter: Callable[..., dict[str, str]] | None = None,
         *,
-        redis_url: str = TASK_STATUS_URL,
+        broker_url: str,
     ) -> None:
-        self._submitter = submitter
-        self._redis_url = redis_url
+        self._submitter = submitter or _default_submitter
+        self._broker_url = broker_url
 
     async def submit_long_memory(
         self,
@@ -80,7 +63,7 @@ class CeleryLongMemoryTaskAdapter:
 
             def _ping() -> bool:
                 client = Redis.from_url(
-                    self._redis_url,
+                    self._broker_url,
                     socket_connect_timeout=2,
                     socket_timeout=2,
                 )
@@ -108,7 +91,8 @@ class CeleryLongMemoryTaskAdapter:
 
 
 class RedisTaskStatusAdapter:
-    def __init__(self, redis_url: str = TASK_STATUS_URL) -> None:
+    def __init__(self, redis_url: str) -> None:
+        self._redis_url = redis_url
         self._store = RedisTaskStatusStore(redis_url)
 
     async def get_task(

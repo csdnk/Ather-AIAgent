@@ -36,7 +36,6 @@ from aether_agent_memory.runtime.dtos import (
 from aether_agent_memory.runtime.errors import DependencyUnavailableError
 from aether_agent_memory.runtime.health import RuntimeHealth
 from aether_agent_memory.runtime.legacy import P3Runtime, P3RuntimeConfig
-from aether_agent_memory.runtime.ports import HealthCheckPort
 from aether_agent_memory.runtime.request_context import RequestContext
 from aether_agent_memory.runtime.status import (
     ComponentHealth,
@@ -80,10 +79,12 @@ class MemoryRuntime:
         config: P3RuntimeConfig,
         *,
         profile: RuntimeProfile | None = None,
+        legacy_runtime: P3Runtime | None = None,
     ) -> MemoryRuntime:
         return cls.from_legacy(
-            P3Runtime(config),
+            legacy_runtime or P3Runtime(config),
             profile=profile or RuntimeProfile.from_environment(),
+            config=config,
         )
 
     @classmethod
@@ -92,74 +93,16 @@ class MemoryRuntime:
         legacy_runtime: P3Runtime,
         *,
         profile: RuntimeProfile | None = None,
+        config: P3RuntimeConfig | None = None,
     ) -> MemoryRuntime:
-        from aether_agent_memory.adapters.access_trace import (
-            InMemoryAccessTraceAdapter,
-            RedisAccessTraceAdapter,
-        )
-        from aether_agent_memory.adapters.b1_client import LegacyEmbeddingAdapter
-        from aether_agent_memory.adapters.b3 import LegacySchedulerAdapter
-        from aether_agent_memory.adapters.celery import (
-            CeleryLongMemoryTaskAdapter,
-            RedisTaskStatusAdapter,
-        )
-        from aether_agent_memory.adapters.memory_service import (
-            LegacyContextAdapter,
-            LegacyMemoryEventAdapter,
-        )
-        from aether_agent_memory.adapters.milvus import MilvusHealthAdapter
-        from aether_agent_memory.adapters.p2 import P2ObjectStoreAdapter, P2VectorSearchAdapter
-        from aether_agent_memory.adapters.redis import RedisHealthAdapter
-        from aether_agent_memory.memory.retrieval import MemoryRetrievalService
-        from aether_agent_memory.memory.retrieval.sources import P2E1RecallSource
+        from aether_agent_memory.bootstrap.container import build_dependencies_from_legacy
 
         resolved_profile = profile or RuntimeProfile.from_environment()
-        idempotency_store = None
-        action_log_store = None
-        access_trace: Any = InMemoryAccessTraceAdapter()
-        if legacy_runtime.config.memory_store == "redis":
-            from aether_agent_memory.b3.action_log import RedisActionLogStore
-            from aether_agent_memory.persistence.idempotency import RedisIdempotencyStore
-
-            idempotency_store = RedisIdempotencyStore(legacy_runtime.config.redis_url)
-            access_trace = RedisAccessTraceAdapter(legacy_runtime.config.redis_url)
-            action_log_store = RedisActionLogStore(legacy_runtime.config.redis_url)
-        embedding = LegacyEmbeddingAdapter(legacy_runtime)
-        scheduler = LegacySchedulerAdapter(legacy_runtime)
-        object_store = P2ObjectStoreAdapter(legacy_runtime)
-        vector_search = P2VectorSearchAdapter(legacy_runtime)
-        health_checks: list[HealthCheckPort] = [embedding, object_store, scheduler]
-        if legacy_runtime.config.memory_store == "redis":
-            health_checks.append(
-                RedisHealthAdapter(
-                    legacy_runtime.config.redis_url,
-                    critical=resolved_profile == RuntimeProfile.PRODUCTION,
-                )
-            )
-        health_checks.extend(
-            [
-                MilvusHealthAdapter(legacy_runtime.config.milvus_uri),
-                CeleryLongMemoryTaskAdapter(redis_url=legacy_runtime.config.redis_url),
-            ]
-        )
         return cls(
-            dependencies=RuntimeDependencies(
-                embedding=embedding,
-                memory_events=LegacyMemoryEventAdapter(legacy_runtime),
-                context_builder=LegacyContextAdapter(legacy_runtime),
-                task_queue=CeleryLongMemoryTaskAdapter(
-                    redis_url=legacy_runtime.config.redis_url
-                ),
-                task_status=RedisTaskStatusAdapter(),
-                object_store=object_store,
-                vector_search=vector_search,
-                retrieval=MemoryRetrievalService([P2E1RecallSource(vector_search)]),
-                scheduler=scheduler,
-                access_trace=access_trace,
-                idempotency_store=idempotency_store,
-                action_log_store=action_log_store,
-                health_checks=health_checks,
-                legacy_runtime=legacy_runtime,
+            dependencies=build_dependencies_from_legacy(
+                legacy_runtime,
+                config=config or legacy_runtime.config,
+                profile=resolved_profile,
             ),
             profile=resolved_profile,
         )
