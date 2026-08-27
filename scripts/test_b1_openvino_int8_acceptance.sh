@@ -21,6 +21,8 @@ REPEATS=3
 SINGLE_CONCURRENCY=(1 4 8 16)
 CLUSTER_CONCURRENCY=0
 CLUSTER_BATCH_SIZES=(1 2 4 8 16 32 64)
+SINGLE_REQUEST_MODE="single-item"
+CLUSTER_REQUEST_MODE="single-item"
 CONTRACT_TARGET_QPS=2000
 SKIP_ENVIRONMENT_SETUP=false
 SKIP_SINGLE_INSTANCE=true
@@ -70,6 +72,8 @@ Options:
   --single-concurrency CSV       Default: 1,4,8,16
   --cluster-concurrency N        Default: detected physical cores x 4
   --cluster-batch-sizes CSV      Default: 1,2,4,8,16,32,64
+  --single-request-mode MODE     batch or single-item. Default: single-item
+  --cluster-request-mode MODE    batch or single-item. Default: single-item
   --contract-target-qps QPS
   --skip-environment-setup
   --skip-single-instance
@@ -184,6 +188,16 @@ parse_arguments() {
                 IFS=',' read -r -a CLUSTER_BATCH_SIZES <<<"$2"
                 shift 2
                 ;;
+            --single-request-mode)
+                require_value "$1" "$#"
+                SINGLE_REQUEST_MODE="$2"
+                shift 2
+                ;;
+            --cluster-request-mode)
+                require_value "$1" "$#"
+                CLUSTER_REQUEST_MODE="$2"
+                shift 2
+                ;;
             --contract-target-qps)
                 require_value "$1" "$#"
                 CONTRACT_TARGET_QPS="$2"
@@ -236,6 +250,10 @@ validate_parameters() {
     [[ "$REPEATS" =~ ^[0-9]+$ ]] && (( REPEATS > 0 )) || die "--repeats must be positive."
     [[ "$CLUSTER_CONCURRENCY" =~ ^[0-9]+$ ]] || die "--cluster-concurrency must be zero or positive."
     is_positive_number "$CONTRACT_TARGET_QPS" || die "--contract-target-qps must be positive."
+    [[ "$SINGLE_REQUEST_MODE" == "batch" || "$SINGLE_REQUEST_MODE" == "single-item" ]] ||
+        die "--single-request-mode must be batch or single-item."
+    [[ "$CLUSTER_REQUEST_MODE" == "batch" || "$CLUSTER_REQUEST_MODE" == "single-item" ]] ||
+        die "--cluster-request-mode must be batch or single-item."
     (( ${#SINGLE_CONCURRENCY[@]} > 0 )) || die "At least one single concurrency value is required."
     (( ${#CLUSTER_BATCH_SIZES[@]} > 0 )) || die "At least one cluster batch size is required."
     local value
@@ -529,6 +547,8 @@ write_environment_json() {
     ENV_SINGLE_CONCURRENCY="$single_concurrency_csv" \
     ENV_CLUSTER_CONCURRENCY="$RESOLVED_CLUSTER_CONCURRENCY" \
     ENV_CLUSTER_BATCH_SIZES="$cluster_batch_sizes_csv" \
+    ENV_SINGLE_REQUEST_MODE="$SINGLE_REQUEST_MODE" \
+    ENV_CLUSTER_REQUEST_MODE="$CLUSTER_REQUEST_MODE" \
     ENV_WARMUP="$WARMUP_SECONDS" \
     ENV_MEASUREMENT="$MEASUREMENT_SECONDS" \
     ENV_REPEATS="$REPEATS" \
@@ -563,7 +583,7 @@ payload = {
         "threads_per_instance": 1,
         "max_concurrency_per_instance": 1,
         "batch_sizes": [1, 8],
-        "request_mode": "single-item",
+        "request_mode": os.environ["ENV_SINGLE_REQUEST_MODE"],
         "http_concurrency": int_list("ENV_SINGLE_CONCURRENCY"),
         "warmup_seconds": float(os.environ["ENV_WARMUP"]),
         "measurement_seconds": float(os.environ["ENV_MEASUREMENT"]),
@@ -574,7 +594,7 @@ payload = {
         "threads_per_instance": 1,
         "max_concurrency_per_instance": 1,
         "batch_sizes": int_list("ENV_CLUSTER_BATCH_SIZES"),
-        "request_mode": "single-item",
+        "request_mode": os.environ["ENV_CLUSTER_REQUEST_MODE"],
         "http_concurrency": int(os.environ["ENV_CLUSTER_CONCURRENCY"]),
         "warmup_seconds": float(os.environ["ENV_WARMUP"]),
         "measurement_seconds": float(os.environ["ENV_MEASUREMENT"]),
@@ -1082,7 +1102,7 @@ run_single_instance() {
         --output "$destination"
         --base-url "$url"
         --batch-sizes 1 8
-        --request-mode single-item
+        --request-mode "$SINGLE_REQUEST_MODE"
         --concurrency "${SINGLE_CONCURRENCY[@]}"
         --warmup "$WARMUP_SECONDS"
         --measurement "$MEASUREMENT_SECONDS"
@@ -1346,7 +1366,7 @@ run_multi_instance() {
             --output "$batch_directory"
             --base-urls "${multi_urls[@]}"
             --batch-size "$batch_size"
-            --request-mode single-item
+            --request-mode "$CLUSTER_REQUEST_MODE"
             --concurrency "$RESOLVED_CLUSTER_CONCURRENCY"
             --warmup "$WARMUP_SECONDS"
             --measurement "$MEASUREMENT_SECONDS"
