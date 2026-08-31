@@ -4,9 +4,11 @@ import asyncio
 from typing import Any
 from uuid import uuid4
 
+from aether_agent_memory.b1.models import EmbeddingRecord
 from aether_agent_memory.b2.b1_client import B1EmbeddingServiceClient
 from aether_agent_memory.b2.p2_bridge import p2_collection_for_scope
 from aether_agent_memory.core.enums import SourceType
+from aether_agent_memory.core.memory import Memory
 from aether_agent_memory.runtime.dtos import (
     MemorySearchHit,
     MemorySearchResult,
@@ -37,6 +39,21 @@ class P2ObjectStoreAdapter:
             content_ref=f"p2://{bucket}/{key}",
             metadata={"bucket": bucket},
         )
+
+    async def read_text(self, *, content_ref: str, context: RequestContext) -> str | None:
+        payload = await self.read_bytes(content_ref=content_ref, context=context)
+        return payload.decode("utf-8") if payload is not None else None
+
+    async def read_bytes(self, *, content_ref: str, context: RequestContext) -> bytes | None:
+        prefix = "p2://"
+        object_key = content_ref
+        if content_ref.startswith(prefix):
+            reference = content_ref.removeprefix(prefix)
+            bucket, separator, object_key = reference.partition("/")
+            if not separator or bucket != str(self._legacy_runtime.client.bucket):
+                return None
+        payload = await self._legacy_runtime.client.get_object(object_key)
+        return bytes(payload) if payload is not None else None
 
     async def health(self) -> ComponentHealth:
         try:
@@ -135,6 +152,7 @@ class P2VectorSearchAdapter:
                     keywords=metadata.get("keywords", []),
                     content_ref=metadata.get("content_ref"),
                     trace_id=metadata.get("trace_id"),
+                    source_revision=metadata.get("source_revision"),
                 )
             )
             if len(items) == limit:
@@ -147,4 +165,50 @@ class P2VectorSearchAdapter:
             query_model=records[0].get("embedding_model"),
             query_dimension=len(vector),
             metadata={"collection": collection},
+        )
+
+
+class P2VectorIndexAdapter:
+    """Provider adapter for writing an already-derived Memory vector to P2."""
+
+    def __init__(self, legacy_runtime: Any) -> None:
+        self._legacy_runtime = legacy_runtime
+
+    async def upsert_memory(self, memory: Memory, context: RequestContext) -> None:
+        if memory.embedding is None:
+            raise ValueError("cannot index a memory without an embedding")
+        tenant_id = memory.tenant_id or ""
+        user_id = memory.user_id or ""
+        collection = p2_collection_for_scope(
+            self._legacy_runtime.client.collection,
+            tenant_id,
+            user_id,
+            memory.agent_id,
+            len(memory.embedding),
+        )
+        record = EmbeddingRecord(
+            request_id=context.request_id,
+            trace_id=context.trace_id,
+            source_id=memory.source_id or memory.id,
+            object_id=memory.object_id,
+            chunk_id=memory.id,
+            chunk_text=memory.content,
+            vector=memory.embedding,
+            embedding_model=str(memory.metadata.get("embedding_model", "unknown")),
+            metadata={
+                "memory_id": memory.id,
+                "tenant_id": tenant_id,
+                "user_id": user_id,
+                "agent_id": memory.agent_id,
+                "session_id": memory.session_id,
+                "task_id": memory.task_id,
+                "category": memory.type.value,
+                "keywords": memory.metadata.get("keywords", []),
+                "content_ref": memory.metadata.get("content_ref"),
+                "source_revision": memory.revision,
+            },
+        )
+        await self._legacy_runtime.client.upsert_vectors(
+            [record],
+            collection=collection,
         )

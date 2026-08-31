@@ -97,11 +97,20 @@ async def test_b3_failure_does_not_block_memory_write_or_context() -> None:
         ),
         profile=RuntimeProfile.LOCAL,
     )
-    context = RequestContext.from_values(request_id="request-1", trace_id="trace-1")
+    context = RequestContext.from_values(
+        request_id="request-1",
+        trace_id="trace-1",
+        tenant_id="tenant-1",
+        user_id="user-1",
+        agent_id="agent-1",
+        session_id="session-1",
+    )
 
     memory = await runtime.write_memory(
         MemoryEvent(
             event_type=MemoryEventType.AFTER_TURN,
+            tenant_id="tenant-1",
+            user_id="user-1",
             session_id="session-1",
             agent_id="agent-1",
             content="write survives",
@@ -109,7 +118,13 @@ async def test_b3_failure_does_not_block_memory_write_or_context() -> None:
         context,
     )
     pack = await runtime.build_context(
-        ContextRequest(session_id="session-1", agent_id="agent-1", query="q"),
+        ContextRequest(
+            tenant_id="tenant-1",
+            user_id="user-1",
+            session_id="session-1",
+            agent_id="agent-1",
+            query="q",
+        ),
         context,
     )
 

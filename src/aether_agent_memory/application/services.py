@@ -7,12 +7,29 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from aether_agent_memory.application.scope import require_agent_scope, require_session_scope
 from aether_agent_memory.b1 import EmbeddingRequest, EmbeddingResult
 from aether_agent_memory.b2 import MemoryEvent
 from aether_agent_memory.b3 import ScheduleRequest, ScheduleRunResult
 from aether_agent_memory.context import ContextPack, ContextRequest
+from aether_agent_memory.context_store.access import (
+    item_is_visible_to_scope,
+    uri_is_visible_to_scope,
+)
+from aether_agent_memory.context_store.mapping import scope_uri
+from aether_agent_memory.context_store.models import (
+    ContextItem,
+    ContextItemKind,
+    ContextLayer,
+    ContextSearchQuery,
+    ContextSearchResult,
+    RetrievalTrace,
+)
+from aether_agent_memory.context_store.reindex import ReindexReport
+from aether_agent_memory.context_store.uri import AetherUri
 from aether_agent_memory.core.enums import MemoryType, SourceType
 from aether_agent_memory.core.memory import Memory
+from aether_agent_memory.core.scope import Scope
 from aether_agent_memory.memory.formation import MemoryFormationService
 from aether_agent_memory.memory.retrieval.models import AccessTrace
 from aether_agent_memory.memory.retrieval.service import MemoryRetrievalService
@@ -25,7 +42,13 @@ from aether_agent_memory.runtime.dtos import (
     MemorySearchResult,
     TaskStatusRecord,
 )
-from aether_agent_memory.runtime.errors import ConflictError, DependencyUnavailableError
+from aether_agent_memory.runtime.errors import (
+    ConflictError,
+    DependencyUnavailableError,
+    ScopeError,
+)
+from aether_agent_memory.runtime.ids import is_compact_id
+from aether_agent_memory.runtime.ports import VectorSearchPort
 from aether_agent_memory.runtime.request_context import RequestContext
 from aether_agent_memory.runtime.status import RuntimeComponent
 
@@ -53,6 +76,17 @@ class WriteMemoryUseCase:
         self._dependencies = dependencies
 
     async def execute(self, event: MemoryEvent, context: RequestContext) -> Memory:
+        require_session_scope(
+            context,
+            expected=Scope(
+                tenant_id=event.tenant_id,
+                user_id=event.user_id,
+                agent_id=event.agent_id,
+                session_id=event.session_id,
+                task_id=event.task_id,
+            ),
+            operation="memory write",
+        )
         outcome, cached = await _claim_idempotency(
             self._dependencies,
             context,
@@ -66,6 +100,7 @@ class WriteMemoryUseCase:
         except Exception:
             await _fail_idempotency(self._dependencies, context, op_type="memory_event")
             raise
+        await enqueue_projection_work(self._dependencies, memory)
         await _complete_idempotency(
             self._dependencies,
             context,
@@ -98,6 +133,16 @@ class IngestLongMemoryUseCase:
         content_ref: str | None,
         context: RequestContext,
     ) -> LongMemorySubmission:
+        require_session_scope(
+            context,
+            expected=Scope(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                agent_id=agent_id,
+                session_id=session_id,
+            ),
+            operation="long-memory ingestion",
+        )
         outcome, cached = await _claim_idempotency(
             self._dependencies,
             context,
@@ -195,6 +240,11 @@ class GetTaskStatusUseCase:
         task_id: str,
         context: RequestContext,
     ) -> TaskStatusRecord | None:
+        # Northbound v1 exposes no separate scope fields on task reads. The
+        # server-issued 128-bit task id is therefore the capability boundary;
+        # reject malformed/low-entropy ids before they reach the Redis adapter.
+        if not is_compact_id(task_id):
+            return None
         if self._dependencies.task_status is None:
             raise DependencyUnavailableError(
                 "task status store is not configured",
@@ -219,6 +269,21 @@ class SearchMemoryUseCase:
         context: RequestContext,
         task_id: str | None = None,
     ) -> MemorySearchResult:
+        require_agent_scope(
+            context,
+            expected=Scope(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                agent_id=agent_id,
+                task_id=task_id,
+            ),
+            operation="memory search",
+        )
+        if task_id != context.task_id:
+            raise ScopeError(
+                "memory search task scope does not match request context",
+                trace_id=context.trace_id,
+            )
         if self._dependencies.vector_search is None:
             raise DependencyUnavailableError(
                 "vector search is not configured",
@@ -234,19 +299,21 @@ class SearchMemoryUseCase:
             context=context,
             task_id=task_id,
         )
-        for item in result.items:
-            if item.memory_id is not None:
-                await record_access(
-                    self._dependencies,
-                    AccessTrace(
-                        trace_id=context.trace_id,
-                        request_id=context.request_id,
-                        memory_id=item.memory_id,
-                        source=result.backend,
-                        hit=True,
-                        score=item.score,
-                    ),
+        await record_access_many(
+            self._dependencies,
+            [
+                AccessTrace(
+                    trace_id=context.trace_id,
+                    request_id=context.request_id,
+                    memory_id=item.memory_id,
+                    source=result.backend,
+                    hit=True,
+                    score=item.score,
                 )
+                for item in result.items
+                if item.memory_id is not None
+            ],
+        )
         return result
 
 
@@ -259,6 +326,17 @@ class BuildContextUseCase:
         request: ContextRequest,
         context: RequestContext,
     ) -> ContextPack:
+        require_session_scope(
+            context,
+            expected=Scope(
+                tenant_id=request.tenant_id,
+                user_id=request.user_id,
+                agent_id=request.agent_id,
+                session_id=request.session_id,
+                task_id=request.task_id,
+            ),
+            operation="context build",
+        )
         if self._dependencies.retrieval is None:
             pack = await self._dependencies.context_builder.build_context(
                 request, context
@@ -268,9 +346,9 @@ class BuildContextUseCase:
             pack = await self._dependencies.retrieval.augment_context(
                 pack, request, context
             )
-        for memory_id, score in pack.recall_scores.items():
-            await record_access(
-                self._dependencies,
+        await record_access_many(
+            self._dependencies,
+            [
                 AccessTrace(
                     trace_id=context.trace_id,
                     request_id=context.request_id,
@@ -278,9 +356,154 @@ class BuildContextUseCase:
                     source="context",
                     hit=True,
                     score=score,
-                ),
-            )
+                )
+                for memory_id, score in pack.recall_scores.items()
+            ],
+        )
         return pack
+
+
+class GetRetrievalTraceUseCase:
+    def __init__(self, dependencies: RuntimeDependencies) -> None:
+        self._dependencies = dependencies
+
+    async def execute(
+        self,
+        trace_id: str,
+        context: RequestContext,
+    ) -> RetrievalTrace | None:
+        store = self._dependencies.retrieval_trace_store
+        if store is None:
+            raise DependencyUnavailableError(
+                "retrieval trace store is not configured",
+                component=RuntimeComponent.P3.value,
+                trace_id=context.trace_id,
+            )
+        try:
+            trace = await store.get(trace_id)
+        except Exception as exc:
+            raise DependencyUnavailableError(
+                "retrieval trace store is unavailable",
+                component=RuntimeComponent.P3.value,
+                trace_id=context.trace_id,
+            ) from exc
+        if trace is None:
+            return None
+        _enforce_trace_scope(trace, context)
+        return trace
+
+
+class GetContextItemUseCase:
+    def __init__(self, dependencies: RuntimeDependencies) -> None:
+        self._dependencies = dependencies
+
+    async def execute(
+        self,
+        uri: AetherUri,
+        context: RequestContext,
+    ) -> ContextItem | None:
+        catalog = self._dependencies.context_catalog
+        if catalog is None:
+            raise DependencyUnavailableError(
+                "context catalog is not configured",
+                component=RuntimeComponent.P3.value,
+                trace_id=context.trace_id,
+            )
+        _require_context_scope(context)
+        _enforce_uri_scope(uri, context)
+        item = await catalog.get(uri)
+        if item is None:
+            return None
+        _enforce_item_scope(item, context)
+        return item
+
+
+class ListContextChildrenUseCase:
+    def __init__(self, dependencies: RuntimeDependencies) -> None:
+        self._dependencies = dependencies
+
+    async def execute(
+        self,
+        parent: AetherUri,
+        context: RequestContext,
+        *,
+        kind: ContextItemKind | None = None,
+    ) -> list[ContextItem]:
+        catalog = self._dependencies.context_catalog
+        if catalog is None:
+            raise DependencyUnavailableError(
+                "context catalog is not configured",
+                component=RuntimeComponent.P3.value,
+                trace_id=context.trace_id,
+            )
+        _require_context_scope(context)
+        _enforce_uri_scope(parent, context)
+        items = await catalog.list_children(parent, kind=kind)
+        for item in items:
+            _enforce_item_scope(item, context)
+        return items
+
+
+class SearchContextUseCase:
+    def __init__(self, dependencies: RuntimeDependencies) -> None:
+        self._dependencies = dependencies
+
+    async def execute(
+        self,
+        query: ContextSearchQuery,
+        context: RequestContext,
+    ) -> ContextSearchResult:
+        search = self._dependencies.context_search
+        if search is None:
+            raise DependencyUnavailableError(
+                "hierarchical context search is not configured",
+                component=RuntimeComponent.P3.value,
+                trace_id=context.trace_id,
+            )
+        _require_context_scope(context)
+        root_uri = query.root_uri or scope_uri(context.scope)
+        _enforce_uri_scope(root_uri, context)
+        resolved = query.model_copy(
+            update={
+                "scope": context.scope,
+                "root_uri": root_uri,
+                "trace_id": context.trace_id,
+            }
+        )
+        result = await search.search(resolved)
+        for hit in result.hits:
+            _enforce_uri_scope(hit.uri, context)
+        return result
+
+
+class ReindexContextUseCase:
+    """Rebuild derived Context indexes from the authoritative catalog/content ports."""
+
+    def __init__(self, dependencies: RuntimeDependencies) -> None:
+        self._dependencies = dependencies
+
+    async def execute(
+        self,
+        context: RequestContext,
+        *,
+        root_uri: AetherUri | None = None,
+        layers: tuple[ContextLayer, ...] = (
+            ContextLayer.ABSTRACT,
+            ContextLayer.OVERVIEW,
+        ),
+        cursor: str | None = None,
+    ) -> ReindexReport:
+        reindex = self._dependencies.context_reindex
+        if reindex is None:
+            raise DependencyUnavailableError(
+                "context reindex is not configured",
+                component=RuntimeComponent.P3.value,
+                trace_id=context.trace_id,
+            )
+        _require_context_scope(context)
+        resolved_root = root_uri or scope_uri(context.scope)
+        _enforce_uri_scope(resolved_root, context)
+        return await reindex.rebuild(resolved_root, layers=layers, cursor=cursor)
 
 
 class ScheduleMemoryUseCase:
@@ -298,9 +521,72 @@ class ScheduleMemoryUseCase:
                 component=RuntimeComponent.B3.value,
                 trace_id=context.trace_id,
             )
-        result = await self._dependencies.scheduler.schedule(request, context)
+        scoped_request = _authorize_schedule_request(request, context)
+        result = await self._dependencies.scheduler.schedule(scoped_request, context)
         await persist_action_log(self._dependencies, result)
         return result
+
+
+def _authorize_schedule_request(
+    request: ScheduleRequest,
+    context: RequestContext,
+) -> ScheduleRequest:
+    """Bind scoped B3 candidates before decisions enter the durable action log.
+
+    Unscoped requests remain supported for the legacy internal scheduler path. Once
+    either the request, a candidate, or its application context carries scope, the
+    request must resolve to one complete agent scope and every explicit candidate
+    field must agree with it.
+    """
+    fields = ("tenant_id", "user_id", "agent_id")
+    request_values = tuple(getattr(request, field) for field in fields)
+    candidate_has_scope = any(
+        getattr(obj, field) is not None for obj in request.objects for field in fields
+    )
+    context_has_scope = any(getattr(context, field) is not None for field in fields)
+    if not any(request_values) and not candidate_has_scope and not context_has_scope:
+        return request
+
+    if any(request_values) and not all(request_values):
+        raise ScopeError(
+            "schedule memory requires complete tenant/user/agent scope",
+            trace_id=context.trace_id,
+        )
+    expected = (
+        Scope(
+            tenant_id=request.tenant_id,
+            user_id=request.user_id,
+            agent_id=request.agent_id,
+        )
+        if all(request_values)
+        else None
+    )
+    scope = require_agent_scope(
+        context,
+        expected=expected,
+        operation="schedule memory",
+    )
+
+    scoped_objects = []
+    for obj in request.objects:
+        for field in fields:
+            value = getattr(obj, field)
+            if value is not None and value != getattr(scope, field):
+                raise ScopeError(
+                    "schedule candidate scope does not match request context",
+                    trace_id=context.trace_id,
+                )
+        scoped_objects.append(
+            obj.model_copy(
+                update={field: getattr(scope, field) for field in fields},
+            )
+        )
+    return request.model_copy(
+        update={
+            "objects": scoped_objects,
+            **{field: getattr(scope, field) for field in fields},
+        }
+    )
 
 
 async def append_long_documents_to_context(
@@ -308,7 +594,7 @@ async def append_long_documents_to_context(
     request: ContextRequest,
     context: RequestContext,
     *,
-    vector_search: object | None,
+    vector_search: VectorSearchPort | None,
 ) -> None:
     if vector_search is None or not request.query:
         return
@@ -387,8 +673,45 @@ def _empty_context_pack(request: ContextRequest, context: RequestContext) -> Con
 async def record_access(dependencies: RuntimeDependencies, trace: AccessTrace) -> None:
     if dependencies.access_trace is None:
         return
+
+
+async def record_access_many(
+    dependencies: RuntimeDependencies,
+    traces: list[AccessTrace],
+) -> None:
+    if not traces or dependencies.access_trace is None:
+        return
+    try:
+        record_many = getattr(dependencies.access_trace, "record_many", None)
+        if record_many is not None:
+            await record_many(traces)
+            return
+        for trace in traces:
+            await dependencies.access_trace.record(trace)
+    except Exception:
+        return
     try:
         await dependencies.access_trace.record(trace)
+    except Exception:
+        return
+
+
+async def enqueue_projection_work(
+    dependencies: RuntimeDependencies,
+    memory: Memory,
+) -> None:
+    """Best-effort enqueue of missing derived state after the primary write.
+
+    The Memory fact is authoritative. Queue outages must not roll back a
+    successful write; the same work is recoverable through Reconcile API.
+    """
+    reconciler = dependencies.projection_reconciler
+    queue = dependencies.projection_queue
+    if reconciler is None or queue is None:
+        return
+    try:
+        for item in await reconciler.plan_for(memory):
+            await queue.enqueue(item)
     except Exception:
         return
 
@@ -469,6 +792,46 @@ async def _fail_idempotency(
 
 def _estimate_tokens(text: str) -> int:
     return max(len(text) // 4, 1)
+
+
+def _enforce_trace_scope(trace: RetrievalTrace, context: RequestContext) -> None:
+    required = ("tenant_id", "user_id", "agent_id")
+    if any(getattr(context, field) is None for field in required):
+        raise ScopeError(
+            "tenant_id, user_id and agent_id are required to read retrieval traces",
+            trace_id=context.trace_id,
+        )
+    for field in (*required, "session_id"):
+        if getattr(trace.scope, field) != getattr(context, field):
+            raise ScopeError(
+                "retrieval trace does not belong to the requested scope",
+                trace_id=context.trace_id,
+            )
+
+
+def _require_context_scope(context: RequestContext) -> None:
+    required = ("tenant_id", "user_id", "agent_id", "session_id")
+    if any(getattr(context, field) is None for field in required):
+        raise ScopeError(
+            "tenant_id, user_id, agent_id and session_id are required for context catalog reads",
+            trace_id=context.trace_id,
+        )
+
+
+def _enforce_item_scope(item: ContextItem, context: RequestContext) -> None:
+    if not item_is_visible_to_scope(item, context.scope):
+        raise ScopeError(
+            "context item does not belong to the requested scope",
+            trace_id=context.trace_id,
+        )
+
+
+def _enforce_uri_scope(uri: AetherUri, context: RequestContext) -> None:
+    if not uri_is_visible_to_scope(uri, context.scope):
+        raise ScopeError(
+            "context URI does not belong to the requested scope",
+            trace_id=context.trace_id,
+        )
 
 
 def _long_document_memory(item: MemorySearchHit, context: RequestContext) -> Memory:

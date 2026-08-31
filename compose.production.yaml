@@ -33,3 +33,15 @@ services:
   celery-worker:
     environment:
       AETHER_RUNTIME_PROFILE: "production"
+  p3-session-worker:
+    environment:
+      AETHER_RUNTIME_PROFILE: "production"
+      AETHER_ENABLE_DEMO: "false"
+  p3-projection-worker:
+    environment:
+      AETHER_RUNTIME_PROFILE: "production"
+      AETHER_ENABLE_DEMO: "false"
+  p3-context-projection-worker:
+    environment:
+      AETHER_RUNTIME_PROFILE: "production"
+      AETHER_ENABLE_DEMO: "false"

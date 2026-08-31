@@ -64,6 +64,8 @@ class SchedulableObject(BaseModel):
     current_tier: StorageTier
     size_bytes: int = Field(default=0, ge=0)
     tenant_id: str | None = None
+    user_id: str | None = None
+    agent_id: str | None = None
     namespace: str | None = None
     access: AccessStats = Field(default_factory=AccessStats)
     semantic: SemanticSignals = Field(default_factory=SemanticSignals)
@@ -93,6 +95,9 @@ class ScheduleRequest(BaseModel):
     resource_state: ResourceState = Field(default_factory=ResourceState)
     request_id: str = Field(default_factory=lambda: uuid4().hex)
     trace_id: str = Field(default_factory=lambda: uuid4().hex)
+    tenant_id: str | None = None
+    user_id: str | None = None
+    agent_id: str | None = None
 
 
 class ScheduleAction(BaseModel):
@@ -115,6 +120,9 @@ class ScheduleAction(BaseModel):
     score_semantic: float = Field(ge=0.0, le=1.0)
     score_decay: float = Field(ge=0.0, le=1.0)
     score_cost: float = Field(ge=0.0, le=1.0)
+    tenant_id: str | None = None
+    user_id: str | None = None
+    agent_id: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 

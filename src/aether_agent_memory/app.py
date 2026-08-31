@@ -10,12 +10,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from aether_agent_memory.api.routers import (
+    catalog,
     context,
     demo,
     embedding,
     health,
     memory,
+    projections,
+    resources,
     scheduling,
+    sessions,
+    skills,
     tasks,
 )
 from aether_agent_memory.bootstrap import build_runtime
@@ -64,7 +69,12 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.include_router(health.router)
     app.include_router(embedding.router)
     app.include_router(memory.router)
+    app.include_router(resources.router)
+    app.include_router(projections.router)
     app.include_router(context.router)
+    app.include_router(catalog.router)
+    app.include_router(sessions.router)
+    app.include_router(skills.router)
     app.include_router(tasks.router)
     app.include_router(scheduling.router)
     return app

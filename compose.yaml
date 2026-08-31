@@ -94,6 +94,9 @@ services:
       AETHER_P2_COLLECTION: p3
       AETHER_P3_DATA_DIR: /var/lib/aether-p3
       AETHER_P3_PORT: "8080"
+      AETHER_P3_RETRIEVAL_TRACE_TTL_SECONDS: "${AETHER_P3_RETRIEVAL_TRACE_TTL_SECONDS:-3600}"
+      AETHER_P3_RETRIEVAL_TRACE_MAX_ENTRIES: "${AETHER_P3_RETRIEVAL_TRACE_MAX_ENTRIES:-1000}"
+      AETHER_P3_RETRIEVAL_TRACE_TIMEOUT_SECONDS: "${AETHER_P3_RETRIEVAL_TRACE_TIMEOUT_SECONDS:-0.25}"
       AETHER_RUNTIME_PROFILE: "${AETHER_RUNTIME_PROFILE:-integration}"
       AETHER_ENABLE_DEMO: "${AETHER_ENABLE_DEMO:-false}"
       AETHER_B1_SIDECAR_URL: http://b1-sidecar:18081
@@ -109,6 +112,84 @@ services:
       - p3-data:/var/lib/aether-p3
     ports:
       - "${AETHER_HOST_P3_PORT:-8080}:8080"
+
+  p3-session-worker:
+    build:
+      context: .
+    command: ["aether-p3-session-worker"]
+    depends_on:
+      engine:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      b1-sidecar:
+        condition: service_healthy
+    environment:
+      AETHER_P2_GRPC: engine:50052
+      AETHER_P2_ENGINE: object/default
+      AETHER_P2_BUCKET: p3-memory
+      AETHER_P2_COLLECTION: p3
+      AETHER_RUNTIME_PROFILE: "${AETHER_RUNTIME_PROFILE:-integration}"
+      AETHER_P3_DATA_DIR: /var/lib/aether-p3
+      AETHER_B2_REDIS_URL: redis://redis:6379/0
+      AETHER_B2_BROKER_URL: redis://redis:6379/0
+      AETHER_B2_TASK_STATUS_URL: redis://redis:6379/2
+      AETHER_B1_SIDECAR_URL: http://b1-sidecar:18081
+      AETHER_B1_EMBEDDING_URL: http://b1-sidecar:18081/v1/intercept
+      AETHER_P3_SESSION_WORKER_POLL_SECONDS: "${AETHER_P3_SESSION_WORKER_POLL_SECONDS:-1}"
+      AETHER_P3_SESSION_WORKER_BATCH: "${AETHER_P3_SESSION_WORKER_BATCH:-100}"
+
+  p3-projection-worker:
+    build:
+      context: .
+    command: ["aether-p3-projection-worker"]
+    depends_on:
+      engine:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      b1-sidecar:
+        condition: service_healthy
+    environment:
+      AETHER_P2_GRPC: engine:50052
+      AETHER_P2_ENGINE: object/default
+      AETHER_P2_BUCKET: p3-memory
+      AETHER_P2_COLLECTION: p3
+      AETHER_RUNTIME_PROFILE: "${AETHER_RUNTIME_PROFILE:-integration}"
+      AETHER_P3_DATA_DIR: /var/lib/aether-p3
+      AETHER_B2_REDIS_URL: redis://redis:6379/0
+      AETHER_B2_BROKER_URL: redis://redis:6379/0
+      AETHER_B2_TASK_STATUS_URL: redis://redis:6379/2
+      AETHER_B1_SIDECAR_URL: http://b1-sidecar:18081
+      AETHER_B1_EMBEDDING_URL: http://b1-sidecar:18081/v1/intercept
+      AETHER_P3_PROJECTION_WORKER_POLL_SECONDS: "${AETHER_P3_PROJECTION_WORKER_POLL_SECONDS:-1}"
+      AETHER_P3_PROJECTION_WORKER_BATCH: "${AETHER_P3_PROJECTION_WORKER_BATCH:-100}"
+
+  p3-context-projection-worker:
+    build:
+      context: .
+    command: ["aether-p3-context-projection-worker"]
+    depends_on:
+      engine:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      b1-sidecar:
+        condition: service_healthy
+    environment:
+      AETHER_P2_GRPC: engine:50052
+      AETHER_P2_ENGINE: object/default
+      AETHER_P2_BUCKET: p3-memory
+      AETHER_P2_COLLECTION: p3
+      AETHER_RUNTIME_PROFILE: "${AETHER_RUNTIME_PROFILE:-integration}"
+      AETHER_P3_DATA_DIR: /var/lib/aether-p3
+      AETHER_B2_REDIS_URL: redis://redis:6379/0
+      AETHER_B2_BROKER_URL: redis://redis:6379/0
+      AETHER_B2_TASK_STATUS_URL: redis://redis:6379/2
+      AETHER_B1_SIDECAR_URL: http://b1-sidecar:18081
+      AETHER_B1_EMBEDDING_URL: http://b1-sidecar:18081/v1/intercept
+      AETHER_P3_CONTEXT_PROJECTION_WORKER_POLL_SECONDS: "${AETHER_P3_CONTEXT_PROJECTION_WORKER_POLL_SECONDS:-1}"
+      AETHER_P3_CONTEXT_PROJECTION_WORKER_BATCH: "${AETHER_P3_CONTEXT_PROJECTION_WORKER_BATCH:-100}"
 
   celery-worker:
     build:

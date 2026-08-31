@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Any
+
 from aether_agent_memory.b2.compression import (
     CompressionArtifact,
     CompressionPolicy,
@@ -24,7 +28,6 @@ from aether_agent_memory.b2.retrieval import (
     HybridRetrievalPolicy,
     LexicalSemanticReranker,
 )
-from aether_agent_memory.b2.service import MemoryService
 from aether_agent_memory.b2.task_status import TaskState
 from aether_agent_memory.b2.text_classifier import TextClassification, classify_text
 
@@ -53,3 +56,13 @@ __all__ = [
     "chunk_text",
     "classify_text",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    """Load the legacy service only when its compatibility export is used."""
+
+    if name == "MemoryService":
+        from aether_agent_memory.b2.service import MemoryService
+
+        return MemoryService
+    raise AttributeError(name)

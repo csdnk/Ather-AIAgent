@@ -53,6 +53,11 @@
 | [0004](0004-identity-scope-authorization.md) | 身份与权限：消费 scope、不自建 RBAC | 授权模型 | Proposed | `P3_NORTHBOUND_API_V1.md` §3 |
 | [0005](0005-b3-action-execution-ownership.md) | B3 决策与迁移执行归属、回执状态机 | 执行归属 | Proposed | `p3_runtime_architecture.md` §Scheduling Path |
 | [0006](0006-contract-testing-acceptance.md) | 消费者驱动契约测试与验收 | 验收 | Proposed | `P4_SIMULATOR.md`、`contracts/p3-northbound-v1.json` |
+| [0007](0007-aether-context-namespace.md) | AetherStore 统一上下文命名空间与分层内容模型 | 上下文数据模型/检索契约 | Proposed | `0003-storage-fact-projection.md`、`p3_runtime_architecture.md` |
+| [0008](0008-session-lifecycle.md) | P3 Session 记录、提交与归档生命周期 | 会话事实/一致性 | Proposed | `0007-aether-context-namespace.md` |
+| [0009](0009-derived-projection-work-queue.md) | P3 派生投影工作队列与重建边界 | 派生数据/一致性/可恢复处理 | Proposed | `0003-storage-fact-projection.md`、`0007-aether-context-namespace.md` |
+| [0010](0010-context-resource-persistence.md) | P3 Context Resource 与 Skill 持久化边界 | Context Catalog / 持久化 | Proposed | `0007-aether-context-namespace.md` |
+| [0011](0011-context-projection-work-queue.md) | Resource/Skill/Session 统一派生 Context 投影队列 | 派生数据/一致性/可恢复处理 | Proposed | `0007-aether-context-namespace.md`、`0008-session-lifecycle.md` |
 
 ## 待补候选 ADR（决策地图的「下一步」）
 
@@ -72,7 +77,7 @@
 
 ## 业界对标参照
 
-六个 ADR 的决策均显式对齐业界成熟产品范式，避免自创概念、避免只复述项目现状：
+当前 ADR 的决策均显式对齐业界成熟产品范式，避免自创概念、避免只复述项目现状：
 
 | ADR | 对标产品/范式 | 关键参照 |
 | --- | --- | --- |
@@ -82,6 +87,8 @@
 | 0004 权限 | LangSmith / Pinecone | org/workspace/project 层级租户、API key scope |
 | 0005 调度 | Ceph RGW / Azure smart tier / MinIO lifecycle | 生命周期策略引擎与数据面分离 |
 | 0006 验收 | Pact | consumer-driven contract + provider verifier + CI 门禁 |
+| 0007 上下文命名空间 | OpenViking | 统一 URI、分层内容、目录式检索与检索轨迹；只参考模式，不复制 AGPL 实现 |
+| 0008 会话生命周期 | OpenViking Session | 消息记录、保留窗口、归档 L0/L1、异步记忆提取边界 |
 
 ## 与文档分层的关系
 

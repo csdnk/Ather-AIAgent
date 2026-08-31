@@ -8,6 +8,13 @@ from aether_agent_memory.core.memory import Memory
 class MemoryStore(Protocol):
     async def upsert(self, memory: Memory) -> None: ...
 
+    async def upsert_if_revision(
+        self,
+        memory: Memory,
+        *,
+        expected_revision: int,
+    ) -> bool: ...
+
     async def get(self, memory_id: str) -> Memory | None: ...
 
     async def list(self) -> builtins.list[Memory]: ...

@@ -132,5 +132,8 @@ class HeuristicScheduler:
             score_semantic=failed.score_semantic,
             score_decay=failed.score_decay,
             score_cost=failed.score_cost,
+            tenant_id=failed.tenant_id,
+            user_id=failed.user_id,
+            agent_id=failed.agent_id,
             metadata=dict(failed.metadata),
         )

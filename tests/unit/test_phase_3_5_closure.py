@@ -120,6 +120,7 @@ class _CrmRecallSource:
         return [
             RecallCandidate(
                 memory_id="crm-1",
+                scope=context.scope,
                 content="crm memory",
                 content_ref="crm://account/1",
                 source=self.name,

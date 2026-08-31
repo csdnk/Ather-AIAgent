@@ -142,6 +142,7 @@ class MemorySearchHit(BaseModel):
     keywords: list[str] = Field(default_factory=list)
     content_ref: str | None = None
     trace_id: str | None = None
+    source_revision: int | None = Field(default=None, ge=1)
 
     @classmethod
     def from_mapping(cls, payload: dict[str, Any]) -> MemorySearchHit:

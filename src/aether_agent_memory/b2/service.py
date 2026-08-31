@@ -15,7 +15,7 @@ from aether_agent_memory.core.enums import MemoryState, MemoryType, SignalType
 from aether_agent_memory.core.memory import Memory
 from aether_agent_memory.interfaces.managers import MemoryManager
 from aether_agent_memory.interfaces.signal import SignalEmitter
-from aether_agent_memory.memory.formation import (
+from aether_agent_memory.memory.formation.models import (
     DefaultMemoryFormationPolicy,
     FormationAction,
     MemoryFormationPolicy,

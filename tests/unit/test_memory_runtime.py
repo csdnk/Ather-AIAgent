@@ -5,6 +5,7 @@ from typing import Any
 
 import pytest
 
+from aether_agent_memory.adapters.session_store import InMemorySessionStore
 from aether_agent_memory.b1 import EmbeddingRequest, EmbeddingResult, ProcessingStatus
 from aether_agent_memory.b2 import MemoryEvent, MemoryEventType
 from aether_agent_memory.context import ContextPack, ContextRequest
@@ -12,7 +13,9 @@ from aether_agent_memory.core.enums import MemoryType, SourceType
 from aether_agent_memory.core.memory import Memory
 from aether_agent_memory.runtime import MemoryRuntime, RuntimeDependencies, RuntimeProfile
 from aether_agent_memory.runtime.dtos import LongMemorySubmission, ObjectReference
+from aether_agent_memory.runtime.errors import ScopeError
 from aether_agent_memory.runtime.request_context import RequestContext
+from aether_agent_memory.session import SessionMessage, SessionMessageRole
 
 
 class _RecordingEmbedding:
@@ -132,13 +135,22 @@ async def test_runtime_calls_b1_adapter_and_preserves_context() -> None:
 
 async def test_runtime_calls_existing_memory_implementation() -> None:
     runtime, _, memory_events = _runtime()
-    context = RequestContext.from_values(request_id="request-2", trace_id="trace-2")
+    context = RequestContext.from_values(
+        request_id="request-2",
+        trace_id="trace-2",
+        tenant_id="tenant-1",
+        user_id="user-1",
+        agent_id="agent-1",
+        session_id="session-1",
+    )
 
     memory = await runtime.write_memory(
         MemoryEvent(
             event_type=MemoryEventType.USER_MEMORY,
             session_id="session-1",
             agent_id="agent-1",
+            user_id="user-1",
+            tenant_id="tenant-1",
             content="remember this",
         ),
         context,
@@ -151,12 +163,21 @@ async def test_runtime_calls_existing_memory_implementation() -> None:
 
 async def test_b1_failure_does_not_delete_memory_fact() -> None:
     runtime, _, memory_events = _runtime(embedding=_RecordingEmbedding(fail=True))
-    context = RequestContext.from_values(request_id="request-3", trace_id="trace-3")
+    context = RequestContext.from_values(
+        request_id="request-3",
+        trace_id="trace-3",
+        tenant_id="tenant-1",
+        user_id="user-1",
+        agent_id="agent-1",
+        session_id="session-1",
+    )
     memory = await runtime.write_memory(
         MemoryEvent(
             event_type=MemoryEventType.USER_MEMORY,
             session_id="session-1",
             agent_id="agent-1",
+            user_id="user-1",
+            tenant_id="tenant-1",
             content="primary fact",
         ),
         context,
@@ -181,7 +202,14 @@ async def test_long_memory_response_keeps_existing_schema_keys() -> None:
         agent_id="agent-1",
         session_id="session-1",
         source_id="doc-1",
-        context=RequestContext.from_values(request_id="request-4", trace_id="trace-4"),
+        context=RequestContext.from_values(
+            request_id="request-4",
+            trace_id="trace-4",
+            tenant_id="tenant-1",
+            user_id="user-1",
+            agent_id="agent-1",
+            session_id="session-1",
+        ),
     )
 
     for key in (
@@ -196,3 +224,112 @@ async def test_long_memory_response_keeps_existing_schema_keys() -> None:
     ):
         assert key in result.to_response_dict()
     assert result.formation["status"] == "FORMATION_PENDING"
+
+
+async def test_runtime_rejects_incomplete_session_scope_before_store_access() -> None:
+    embedding = _RecordingEmbedding()
+    memory_events = _RecordingMemoryEvents()
+    runtime = MemoryRuntime(
+        dependencies=RuntimeDependencies(
+            embedding=embedding,
+            memory_events=memory_events,
+            context_builder=_ContextBuilder(),
+            task_queue=_TaskQueue(),
+            object_store=_ObjectStore(),
+            session_store=InMemorySessionStore(),
+        ),
+        profile=RuntimeProfile.LOCAL,
+    )
+    context = RequestContext.from_values(
+        tenant_id="tenant-1",
+        user_id="user-1",
+        agent_id="agent-1",
+    )
+
+    with pytest.raises(ScopeError, match="requires session_id"):
+        await runtime.append_session_message(
+            SessionMessage(role=SessionMessageRole.USER, content="must not persist"),
+            context,
+        )
+
+
+async def test_projection_reconcile_derives_authorized_scope_from_context() -> None:
+    class _ProjectionWork:
+        def __init__(self) -> None:
+            self.scopes = []
+
+        async def reconcile(self, scope, *, session_only):
+            self.scopes.append((scope, session_only))
+            return []
+
+    work = _ProjectionWork()
+    runtime = object.__new__(MemoryRuntime)
+    runtime._projection_work = work
+    context = RequestContext.from_values(
+        tenant_id="tenant-1",
+        user_id="user-1",
+        agent_id="agent-1",
+        session_id="session-1",
+    )
+
+    await runtime.reconcile_projection_work(context, session_only=True)
+
+    assert work.scopes == [(context.scope, True)]
+
+    with pytest.raises(ScopeError, match="requires tenant/user/agent scope"):
+        await runtime.reconcile_projection_work(RequestContext(), session_only=False)
+
+
+async def test_memory_data_use_cases_reject_mismatched_authenticated_scope() -> None:
+    runtime, _, memory_events = _runtime()
+    foreign = RequestContext.from_values(
+        tenant_id="tenant-2",
+        user_id="user-1",
+        agent_id="agent-1",
+        session_id="session-1",
+    )
+
+    with pytest.raises(ScopeError, match="does not match"):
+        await runtime.write_memory(
+            MemoryEvent(
+                event_type=MemoryEventType.USER_MEMORY,
+                tenant_id="tenant-1",
+                user_id="user-1",
+                agent_id="agent-1",
+                session_id="session-1",
+                content="private",
+            ),
+            foreign,
+        )
+    with pytest.raises(ScopeError, match="does not match"):
+        await runtime.submit_long_memory(
+            text="private document",
+            tenant_id="tenant-1",
+            user_id="user-1",
+            agent_id="agent-1",
+            session_id="session-1",
+            source_id="doc-1",
+            context=foreign,
+        )
+    with pytest.raises(ScopeError, match="does not match"):
+        await runtime.search_memory(
+            query="private",
+            tenant_id="tenant-1",
+            user_id="user-1",
+            agent_id="agent-1",
+            limit=5,
+            context=foreign,
+        )
+    with pytest.raises(ScopeError, match="does not match"):
+        await runtime.build_context(
+            ContextRequest(
+                tenant_id="tenant-1",
+                user_id="user-1",
+                agent_id="agent-1",
+                session_id="session-1",
+                query="private",
+            ),
+            foreign,
+        )
+
+    assert memory_events.items == []

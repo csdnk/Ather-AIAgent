@@ -72,6 +72,9 @@ class HeuristicPolicy:
             score_semantic=components["semantic"],
             score_decay=components["recency"],
             score_cost=components["cost"],
+            tenant_id=obj.tenant_id,
+            user_id=obj.user_id,
+            agent_id=obj.agent_id,
             metadata=dict(obj.metadata),
         )
 

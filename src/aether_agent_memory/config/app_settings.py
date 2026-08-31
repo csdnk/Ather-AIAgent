@@ -117,6 +117,77 @@ class AppSettings(BaseSettings):
         default=60.0, validation_alias="AETHER_P3_TIMEOUT_SECONDS"
     )
 
+    # -- context retrieval observability --
+    retrieval_trace_ttl_seconds: int = Field(
+        default=3600,
+        gt=0,
+        validation_alias="AETHER_P3_RETRIEVAL_TRACE_TTL_SECONDS",
+    )
+    retrieval_trace_max_entries: int = Field(
+        default=1000,
+        gt=0,
+        validation_alias="AETHER_P3_RETRIEVAL_TRACE_MAX_ENTRIES",
+    )
+    retrieval_trace_timeout_seconds: float = Field(
+        default=0.25,
+        gt=0,
+        validation_alias="AETHER_P3_RETRIEVAL_TRACE_TIMEOUT_SECONDS",
+    )
+    projection_queue_ttl_seconds: int = Field(
+        default=7 * 24 * 60 * 60,
+        gt=0,
+        validation_alias="AETHER_P3_PROJECTION_QUEUE_TTL_SECONDS",
+    )
+    projection_queue_lease_seconds: float = Field(
+        default=60.0,
+        gt=0,
+        validation_alias="AETHER_P3_PROJECTION_QUEUE_LEASE_SECONDS",
+    )
+    projection_queue_timeout_seconds: float = Field(
+        default=1.0,
+        gt=0,
+        validation_alias="AETHER_P3_PROJECTION_QUEUE_TIMEOUT_SECONDS",
+    )
+    context_reindex_max_items: int = Field(
+        default=10_000,
+        gt=0,
+        le=1_000_000,
+        validation_alias="AETHER_P3_CONTEXT_REINDEX_MAX_ITEMS",
+    )
+    context_reindex_max_children: int = Field(
+        default=1_000,
+        gt=0,
+        le=100_000,
+        validation_alias="AETHER_P3_CONTEXT_REINDEX_MAX_CHILDREN",
+    )
+    context_fact_ttl_seconds: int | None = Field(
+        default=None,
+        gt=0,
+        validation_alias="AETHER_P3_CONTEXT_FACT_TTL_SECONDS",
+    )
+
+    # -- optional semantic Session-to-Memory extraction --
+    memory_extraction_url: str = Field(
+        default="", validation_alias="AETHER_P3_MEMORY_EXTRACTION_URL"
+    )
+    memory_extraction_model: str = Field(
+        default="", validation_alias="AETHER_P3_MEMORY_EXTRACTION_MODEL"
+    )
+    memory_extraction_api_key: str = Field(
+        default="", validation_alias="AETHER_P3_MEMORY_EXTRACTION_API_KEY"
+    )
+    memory_extraction_timeout_seconds: float = Field(
+        default=30.0,
+        gt=0,
+        validation_alias="AETHER_P3_MEMORY_EXTRACTION_TIMEOUT_SECONDS",
+    )
+    memory_extraction_max_candidates: int = Field(
+        default=20,
+        gt=0,
+        le=100,
+        validation_alias="AETHER_P3_MEMORY_EXTRACTION_MAX_CANDIDATES",
+    )
+
     # -- demo gate --
     enable_demo: bool = Field(default=False, validation_alias="AETHER_ENABLE_DEMO")
 
@@ -164,8 +235,14 @@ class AppSettings(BaseSettings):
                 )
             if not self.p2_endpoint:
                 raise ValueError("production profile requires a P2 endpoint")
-            if self.memory_store == "redis" and not self.redis_url:
-                raise ValueError("production profile requires a Redis URL")
+            if not self.redis_url:
+                raise ValueError(
+                    "production profile requires a Redis URL for runtime state and traces"
+                )
+            if self.memory_store != "redis":
+                raise ValueError(
+                    "production profile requires Redis-backed memory_store"
+                )
 
     def safe_status(self) -> dict[str, object]:
         """Public-safe capability view; never leaks secrets."""
@@ -179,4 +256,7 @@ class AppSettings(BaseSettings):
             "b1_configured": bool(self.b1_sidecar_url or self.b1_embedding_url),
             "b3_shadow_mode": self.b3_shadow_mode,
             "p2_endpoint": self.p2_endpoint,
+            "retrieval_trace_ttl_seconds": self.retrieval_trace_ttl_seconds,
+            "context_fact_ttl_seconds": self.context_fact_ttl_seconds,
+            "memory_extraction_configured": bool(self.memory_extraction_url),
         }

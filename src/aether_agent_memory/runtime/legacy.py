@@ -17,8 +17,9 @@ from aether_agent_memory.b1 import (
     TextChunker,
 )
 from aether_agent_memory.b1.sidecar_client import SidecarEmbeddingClient
-from aether_agent_memory.b2 import MemoryEvent, MemoryService
+from aether_agent_memory.b2.events import MemoryEvent
 from aether_agent_memory.b2.milvus_store import MilvusMemoryStore
+from aether_agent_memory.b2.service import MemoryService
 from aether_agent_memory.b3 import (
     HeuristicScheduler,
     P2MigrationExecutor,
@@ -29,6 +30,7 @@ from aether_agent_memory.context import ContextPack, ContextRequest, MockContext
 from aether_agent_memory.core.enums import SourceType, StorageTier
 from aether_agent_memory.core.memory import Memory
 from aether_agent_memory.episodic import MockEpisodicMemoryManager
+from aether_agent_memory.interfaces.memory_store import MemoryStore
 from aether_agent_memory.mocks.embedding import MockEmbeddingClient
 from aether_agent_memory.p2 import P2GrpcClient, P2StorageClient, P2VectorSink
 from aether_agent_memory.persistence import RedisMemoryStore, SQLiteMemoryStore
@@ -65,6 +67,20 @@ class P3RuntimeConfig:
     result_backend: str = ""
     task_status_url: str = ""
     b3_shadow_mode: bool = True
+    retrieval_trace_ttl_seconds: int = 3600
+    retrieval_trace_max_entries: int = 1000
+    retrieval_trace_timeout_seconds: float = 0.25
+    projection_queue_ttl_seconds: int = 7 * 24 * 60 * 60
+    projection_queue_lease_seconds: float = 60.0
+    projection_queue_timeout_seconds: float = 1.0
+    context_reindex_max_items: int = 10_000
+    context_reindex_max_children: int = 1_000
+    context_fact_ttl_seconds: int | None = None
+    memory_extraction_url: str = ""
+    memory_extraction_model: str = ""
+    memory_extraction_api_key: str = ""
+    memory_extraction_timeout_seconds: float = 30.0
+    memory_extraction_max_candidates: int = 20
 
     @classmethod
     def from_environment(cls) -> P3RuntimeConfig:
@@ -95,6 +111,46 @@ class P3RuntimeConfig:
             task_status_url=os.getenv("AETHER_B2_TASK_STATUS_URL", "").strip(),
             b3_shadow_mode=os.getenv("AETHER_B3_SHADOW_MODE", "true").lower()
             in {"1", "true", "yes"},
+            retrieval_trace_ttl_seconds=int(
+                os.getenv("AETHER_P3_RETRIEVAL_TRACE_TTL_SECONDS", "3600")
+            ),
+            retrieval_trace_max_entries=int(
+                os.getenv("AETHER_P3_RETRIEVAL_TRACE_MAX_ENTRIES", "1000")
+            ),
+            retrieval_trace_timeout_seconds=float(
+                os.getenv("AETHER_P3_RETRIEVAL_TRACE_TIMEOUT_SECONDS", "0.25")
+            ),
+            projection_queue_ttl_seconds=int(
+                os.getenv("AETHER_P3_PROJECTION_QUEUE_TTL_SECONDS", str(7 * 24 * 60 * 60))
+            ),
+            projection_queue_lease_seconds=float(
+                os.getenv("AETHER_P3_PROJECTION_QUEUE_LEASE_SECONDS", "60")
+            ),
+            projection_queue_timeout_seconds=float(
+                os.getenv("AETHER_P3_PROJECTION_QUEUE_TIMEOUT_SECONDS", "1")
+            ),
+            context_reindex_max_items=int(
+                os.getenv("AETHER_P3_CONTEXT_REINDEX_MAX_ITEMS", "10000")
+            ),
+            context_reindex_max_children=int(
+                os.getenv("AETHER_P3_CONTEXT_REINDEX_MAX_CHILDREN", "1000")
+            ),
+            context_fact_ttl_seconds=_optional_int(
+                os.getenv("AETHER_P3_CONTEXT_FACT_TTL_SECONDS", "")
+            ),
+            memory_extraction_url=os.getenv("AETHER_P3_MEMORY_EXTRACTION_URL", "").strip(),
+            memory_extraction_model=os.getenv(
+                "AETHER_P3_MEMORY_EXTRACTION_MODEL", ""
+            ).strip(),
+            memory_extraction_api_key=os.getenv(
+                "AETHER_P3_MEMORY_EXTRACTION_API_KEY", ""
+            ).strip(),
+            memory_extraction_timeout_seconds=float(
+                os.getenv("AETHER_P3_MEMORY_EXTRACTION_TIMEOUT_SECONDS", "30")
+            ),
+            memory_extraction_max_candidates=int(
+                os.getenv("AETHER_P3_MEMORY_EXTRACTION_MAX_CANDIDATES", "20")
+            ),
         )
 
     @classmethod
@@ -128,7 +184,31 @@ class P3RuntimeConfig:
             result_backend=settings.result_backend,
             task_status_url=settings.task_status_url,
             b3_shadow_mode=settings.b3_shadow_mode,
+            retrieval_trace_ttl_seconds=settings.retrieval_trace_ttl_seconds,
+            retrieval_trace_max_entries=settings.retrieval_trace_max_entries,
+            retrieval_trace_timeout_seconds=settings.retrieval_trace_timeout_seconds,
+            projection_queue_ttl_seconds=settings.projection_queue_ttl_seconds,
+            projection_queue_lease_seconds=settings.projection_queue_lease_seconds,
+            projection_queue_timeout_seconds=settings.projection_queue_timeout_seconds,
+            context_reindex_max_items=settings.context_reindex_max_items,
+            context_reindex_max_children=settings.context_reindex_max_children,
+            context_fact_ttl_seconds=settings.context_fact_ttl_seconds,
+            memory_extraction_url=settings.memory_extraction_url,
+            memory_extraction_model=settings.memory_extraction_model,
+            memory_extraction_api_key=settings.memory_extraction_api_key,
+            memory_extraction_timeout_seconds=settings.memory_extraction_timeout_seconds,
+            memory_extraction_max_candidates=settings.memory_extraction_max_candidates,
         )
+
+
+def _optional_int(value: str) -> int | None:
+    normalized = value.strip()
+    if not normalized:
+        return None
+    parsed = int(normalized)
+    if parsed < 1:
+        raise ValueError("optional integer setting must be positive")
+    return parsed
 
 
 class P3Runtime:
@@ -174,6 +254,7 @@ class P3Runtime:
             store: Any = SQLiteMemoryStore(config.data_dir / "memory.db")
         else:
             store = RedisMemoryStore(config.redis_url)
+        self._compatibility_memory_store: MemoryStore = store
         working = MockWorkingMemoryManager(store=store)
         episodic = MockEpisodicMemoryManager(embedder=self.embedder, store=store)
         vector_store = None
@@ -214,6 +295,11 @@ class P3Runtime:
             shadow_mode=config.b3_shadow_mode,
         )
         self.executor_name = type(self.scheduler.executor).__name__
+
+    @property
+    def compatibility_memory_store(self) -> MemoryStore:
+        """Composition-root bridge; application code must use Context ports."""
+        return self._compatibility_memory_store
 
     async def close(self) -> None:
         close_store = getattr(self.memory, "close_store", None)

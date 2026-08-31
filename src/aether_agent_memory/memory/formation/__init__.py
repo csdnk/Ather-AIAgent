@@ -1,3 +1,8 @@
+from aether_agent_memory.memory.formation.extraction import (
+    LegacySessionPolicyExtractionAdapter,
+    MemoryExtractionCandidate,
+    MemoryExtractionPort,
+)
 from aether_agent_memory.memory.formation.models import (
     DefaultMemoryFormationPolicy,
     FormationAction,
@@ -16,4 +21,7 @@ __all__ = [
     "MemoryFormationPolicy",
     "MemoryFormationResult",
     "MemoryFormationService",
+    "LegacySessionPolicyExtractionAdapter",
+    "MemoryExtractionCandidate",
+    "MemoryExtractionPort",
 ]

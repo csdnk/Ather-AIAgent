@@ -3,11 +3,29 @@ from aether_agent_memory.memory.retrieval.models import (
     MemoryRetrievalResult,
     RecallCandidate,
     RecallSourceName,
+    RecallSourceResult,
 )
-from aether_agent_memory.memory.retrieval.service import MemoryRetrievalService
+from aether_agent_memory.memory.retrieval.pipeline import (
+    AllowAllRecallPolicy,
+    HighestScoreRecallFuser,
+    IdentityScoreNormalizer,
+    RecallCandidateFuser,
+    RecallCandidatePolicy,
+    RecallPipeline,
+    RecallRanker,
+    RecallScoreNormalizer,
+    ScopeRecallPolicy,
+    ScoreRecallRanker,
+)
+from aether_agent_memory.memory.retrieval.service import (
+    ContextRetrievalService,
+    MemoryRetrievalService,
+)
 from aether_agent_memory.memory.retrieval.sources import (
+    ContextCatalogRecallSource,
     EpisodicRecallSource,
     LongTermRecallSource,
+    MemoryRecallPort,
     P2E1RecallSource,
     RecallSource,
     SemanticRecallSource,
@@ -16,14 +34,28 @@ from aether_agent_memory.memory.retrieval.sources import (
 
 __all__ = [
     "AccessTrace",
+    "ContextRetrievalService",
+    "ContextCatalogRecallSource",
+    "AllowAllRecallPolicy",
+    "HighestScoreRecallFuser",
     "EpisodicRecallSource",
     "LongTermRecallSource",
+    "MemoryRecallPort",
     "MemoryRetrievalService",
     "MemoryRetrievalResult",
     "P2E1RecallSource",
     "RecallCandidate",
+    "RecallCandidateFuser",
+    "RecallSourceResult",
+    "RecallCandidatePolicy",
+    "RecallPipeline",
+    "RecallRanker",
+    "RecallScoreNormalizer",
+    "ScopeRecallPolicy",
     "RecallSource",
     "RecallSourceName",
     "SemanticRecallSource",
+    "ScoreRecallRanker",
+    "IdentityScoreNormalizer",
     "WorkingRecallSource",
 ]

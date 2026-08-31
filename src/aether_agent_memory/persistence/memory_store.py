@@ -19,6 +19,18 @@ class InMemoryMemoryStore:
     async def upsert(self, memory: Memory) -> None:
         self._items[memory.id] = memory
 
+    async def upsert_if_revision(
+        self,
+        memory: Memory,
+        *,
+        expected_revision: int,
+    ) -> bool:
+        current = self._items.get(memory.id)
+        if current is None or current.revision != expected_revision:
+            return False
+        self._items[memory.id] = memory
+        return True
+
     async def get(self, memory_id: str) -> Memory | None:
         return self._items.get(memory_id)
 
@@ -51,6 +63,19 @@ class SQLiteMemoryStore:
     async def upsert(self, memory: Memory) -> None:
         async with self._lock:
             await asyncio.to_thread(self._upsert_sync, memory)
+
+    async def upsert_if_revision(
+        self,
+        memory: Memory,
+        *,
+        expected_revision: int,
+    ) -> bool:
+        async with self._lock:
+            return await asyncio.to_thread(
+                self._upsert_if_revision_sync,
+                memory,
+                expected_revision,
+            )
 
     async def get(self, memory_id: str) -> Memory | None:
         async with self._lock:
@@ -126,6 +151,37 @@ class SQLiteMemoryStore:
                     memory.model_dump_json(),
                 ),
             )
+
+    def _upsert_if_revision_sync(self, memory: Memory, expected_revision: int) -> bool:
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT payload FROM memories WHERE id = ?",
+                (memory.id,),
+            ).fetchone()
+            if row is None or Memory.model_validate_json(row[0]).revision != expected_revision:
+                connection.rollback()
+                return False
+            connection.execute(
+                """
+                UPDATE memories SET
+                    memory_type=?, state=?, tenant_id=?, user_id=?, agent_id=?,
+                    session_id=?, created_at=?, payload=?
+                WHERE id=?
+                """,
+                (
+                    memory.type.value,
+                    memory.state.value,
+                    memory.tenant_id,
+                    memory.user_id,
+                    memory.agent_id,
+                    memory.session_id,
+                    memory.created_at.isoformat(),
+                    memory.model_dump_json(),
+                    memory.id,
+                ),
+            )
+            return True
 
     def _get_sync(self, memory_id: str) -> Memory | None:
         with self._connect() as connection:
@@ -238,6 +294,46 @@ class RedisMemoryStore:
                 await pipeline.execute()
 
             await self._retry(write)
+
+    async def upsert_if_revision(
+        self,
+        memory: Memory,
+        *,
+        expected_revision: int,
+    ) -> bool:
+        """Replace a fact only if its current revision is unchanged."""
+
+        async def compare_and_set() -> bool:
+            from redis.exceptions import WatchError
+
+            key = self._key(memory.id)
+            async with self._redis.pipeline(transaction=True) as pipeline:
+                try:
+                    await pipeline.watch(key)
+                    payload = await pipeline.get(key)
+                    if payload is None:
+                        await pipeline.unwatch()
+                        return False
+                    current = Memory.model_validate_json(payload)
+                    if current.revision != expected_revision:
+                        await pipeline.unwatch()
+                        return False
+                    kwargs: dict[str, Any] = {}
+                    ttl = self._ttl_seconds(memory)
+                    if ttl is not None:
+                        kwargs["ex"] = ttl
+                    pipeline.multi()
+                    pipeline.set(key, memory.model_dump_json(), **kwargs)
+                    pipeline.sadd(self._index_key, memory.id)
+                    for index_key in self._scope_index_keys(memory):
+                        pipeline.sadd(index_key, memory.id)
+                    await pipeline.execute()
+                    return True
+                except WatchError:
+                    return False
+
+        async with self._write_limiter.slot():
+            return bool(await self._retry(compare_and_set))
 
     @property
     def write_concurrency(self) -> int:

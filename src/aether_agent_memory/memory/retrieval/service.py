@@ -6,66 +6,159 @@ from time import perf_counter
 from uuid import uuid4
 
 from aether_agent_memory.context import ContextPack, ContextRequest
+from aether_agent_memory.context_store.mapping import resource_uri
+from aether_agent_memory.context_store.models import (
+    ContextCandidate,
+    ContextItemKind,
+    ContextLayer,
+    RetrievalTrace,
+    RetrievalTraceAction,
+    RetrievalTraceStep,
+)
+from aether_agent_memory.context_store.ports import RetrievalTraceStorePort
 from aether_agent_memory.core.enums import MemoryType, SourceType
 from aether_agent_memory.core.memory import Memory
-from aether_agent_memory.memory.retrieval.models import MemoryRetrievalResult, RecallCandidate
+from aether_agent_memory.memory.retrieval.models import (
+    MemoryRetrievalResult,
+    RecallCandidate,
+    RecallSourceResult,
+)
+from aether_agent_memory.memory.retrieval.pipeline import RecallPipeline
 from aether_agent_memory.memory.retrieval.sources import RecallSource
 from aether_agent_memory.runtime.request_context import RequestContext
 
 
-class MemoryRetrievalService:
-    def __init__(self, sources: list[RecallSource]) -> None:
+class ContextRetrievalService:
+    def __init__(
+        self,
+        sources: list[RecallSource],
+        *,
+        trace_store: RetrievalTraceStorePort | None = None,
+        pipeline: RecallPipeline | None = None,
+    ) -> None:
         self._sources = list(sources)
+        self._trace_store = trace_store
+        self._pipeline = pipeline or RecallPipeline()
+
+    async def close(self) -> None:
+        if self._trace_store is not None:
+            await self._trace_store.close()
 
     async def recall(
         self,
         request: ContextRequest,
         context: RequestContext,
+        *,
+        persist_trace: bool = True,
     ) -> MemoryRetrievalResult:
         async def recall_one(
             source: RecallSource,
-        ) -> tuple[str, list[RecallCandidate], float, str | None]:
+        ) -> tuple[str, RecallSourceResult, float, str | None]:
             started = perf_counter()
             try:
-                candidates = await asyncio.wait_for(
+                recalled = await asyncio.wait_for(
                     source.recall(request, context),
                     timeout=request.deadline_ms / 1000,
                 )
-                return source.name, candidates, (perf_counter() - started) * 1000, None
+                result = (
+                    recalled
+                    if isinstance(recalled, RecallSourceResult)
+                    else RecallSourceResult(candidates=recalled)
+                )
+                return source.name, result, (perf_counter() - started) * 1000, None
             except TimeoutError:
                 return (
                     source.name,
-                    [],
+                    RecallSourceResult(),
                     (perf_counter() - started) * 1000,
                     "recall deadline exceeded",
                 )
             except Exception as exc:
                 return (
                     source.name,
-                    [],
+                    RecallSourceResult(),
                     (perf_counter() - started) * 1000,
                     f"{type(exc).__name__}: {exc}",
                 )
 
+        trace = RetrievalTrace(
+            trace_id=context.trace_id,
+            query=request.query,
+            scope=context.scope,
+        )
         results = await asyncio.gather(*(recall_one(source) for source in self._sources))
         candidates: list[RecallCandidate] = []
         missing_sources: list[str] = []
         degraded_reasons: dict[str, str] = {}
         source_latency_ms: dict[str, float] = {}
-        for name, recalled, latency_ms, error in results:
+        for name, source_result, latency_ms, error in results:
             source_latency_ms[name] = round(latency_ms, 3)
             if error is not None:
                 missing_sources.append(name)
                 degraded_reasons[name] = error
-            candidates.extend(recalled)
-        candidates.sort(key=lambda item: item.score, reverse=True)
+                trace.record(
+                    RetrievalTraceStep(
+                        action=RetrievalTraceAction.DEGRADED,
+                        source=name,
+                        latency_ms=latency_ms,
+                        candidate_count=0,
+                        reason=error,
+                    )
+                )
+            else:
+                trace.record(
+                    RetrievalTraceStep(
+                        action=RetrievalTraceAction.SOURCE_RECALL,
+                        source=name,
+                        latency_ms=latency_ms,
+                        candidate_count=len(source_result.candidates),
+                    )
+                )
+                if not source_result.complete:
+                    source_missing = source_result.missing_sources or [name]
+                    for missing in source_missing:
+                        if missing not in missing_sources:
+                            missing_sources.append(missing)
+                        reason = source_result.degraded_reasons.get(
+                            missing, "source returned a partial result"
+                        )
+                        degraded_reasons[missing] = reason
+                        trace.record(
+                            RetrievalTraceStep(
+                                action=RetrievalTraceAction.DEGRADED,
+                                source=missing,
+                                candidate_count=len(source_result.candidates),
+                                reason=reason,
+                            )
+                        )
+            candidates.extend(source_result.candidates)
+        candidates = self._pipeline.process(candidates, request, context)
+        context_candidates = [
+            _to_context_candidate(candidate, context)
+            for candidate in candidates[: request.max_candidates]
+        ]
+        for candidate in context_candidates:
+            trace.record(
+                RetrievalTraceStep(
+                    action=RetrievalTraceAction.CANDIDATE_SCORED,
+                    source=candidate.source,
+                    uri=candidate.uri,
+                    layer=candidate.layer,
+                    score=candidate.score,
+                )
+            )
+        trace.finish(complete=not missing_sources, missing_sources=missing_sources)
+        if persist_trace:
+            await self._persist_trace(trace)
         return MemoryRetrievalResult(
             candidates=candidates,
+            context_candidates=context_candidates,
             complete=not missing_sources,
             missing_sources=missing_sources,
             degraded_reasons=degraded_reasons,
             source_latency_ms=source_latency_ms,
             trace_id=context.trace_id,
+            retrieval_trace=trace,
         )
 
     async def augment_context(
@@ -74,13 +167,26 @@ class MemoryRetrievalService:
         request: ContextRequest,
         context: RequestContext,
     ) -> ContextPack:
-        result = await self.recall(request, context)
+        result = await self.recall(request, context, persist_trace=False)
         _merge_retrieval_status(pack, result)
         for candidate in result.candidates[: request.max_candidates]:
             memory = _memory_from_candidate(candidate, context)
             if any(existing.id == memory.id for existing in pack.memories):
                 continue
             tokens = _estimate_tokens(memory.content)
+            if pack.total_tokens + tokens > pack.budget_tokens:
+                if result.retrieval_trace is not None:
+                    result.retrieval_trace.record(
+                        RetrievalTraceStep(
+                            action=RetrievalTraceAction.BUDGET_SKIPPED,
+                            source=candidate.source,
+                            uri=candidate.context_uri,
+                            layer=ContextLayer.DETAIL,
+                            score=candidate.score,
+                            reason="context token budget exceeded",
+                        )
+                    )
+                continue
             pack.memories.append(memory)
             pack.recall_scores[memory.id] = candidate.score
             pack.memory_refs.append(memory.id)
@@ -91,6 +197,16 @@ class MemoryRetrievalService:
             pack.assembled_text += (
                 f"{prefix}[{len(pack.memory_refs)}] ({candidate.source}) {memory.content}"
             )
+            if result.retrieval_trace is not None:
+                result.retrieval_trace.record(
+                    RetrievalTraceStep(
+                        action=RetrievalTraceAction.CONTEXT_SELECTED,
+                        source=candidate.source,
+                        uri=candidate.context_uri,
+                        layer=ContextLayer.DETAIL,
+                        score=candidate.score,
+                    )
+                )
         _trim_to_budget(pack)
         pack.summary = "\n".join(memory.content for memory in pack.memories[:3])[:1000]
         pack.budget_info = {
@@ -98,7 +214,26 @@ class MemoryRetrievalService:
             "budget_tokens": pack.budget_tokens,
             "remaining_tokens": max(pack.budget_tokens - pack.total_tokens, 0),
         }
+        if result.retrieval_trace is not None:
+            result.retrieval_trace.finish(
+                complete=result.complete,
+                missing_sources=result.missing_sources,
+            )
+            await self._persist_trace(result.retrieval_trace)
         return pack
+
+    async def _persist_trace(self, trace: RetrievalTrace) -> None:
+        if self._trace_store is None:
+            return
+        try:
+            await self._trace_store.put(trace)
+        except Exception:
+            # Trace persistence must not fail the foreground context request.
+            return
+
+
+class MemoryRetrievalService(ContextRetrievalService):
+    """Deprecated compatibility name; use ContextRetrievalService for new wiring."""
 
 
 def _merge_retrieval_status(
@@ -155,6 +290,38 @@ def _memory_from_candidate(
             **candidate.trace_metadata,
         },
         created_at=candidate.created_at or datetime.now(UTC),
+    )
+
+
+def _to_context_candidate(
+    candidate: RecallCandidate,
+    context: RequestContext,
+) -> ContextCandidate:
+    uri = candidate.context_uri or resource_uri(
+        context.scope,
+        candidate.memory_id,
+        category=candidate.source,
+    )
+    candidate.context_uri = uri
+    kind = candidate.context_kind or (
+        ContextItemKind.MEMORY
+        if candidate.memory is not None
+        else ContextItemKind.RESOURCE
+    )
+    return ContextCandidate(
+        item_id=candidate.memory_id,
+        uri=uri,
+        kind=kind,
+        layer=candidate.context_layer,
+        content=candidate.content,
+        content_ref=candidate.content_ref,
+        source=candidate.source,
+        score=candidate.score,
+        semantic_score=candidate.semantic_score,
+        temporal_score=candidate.temporal_score,
+        created_at=candidate.created_at,
+        last_access=candidate.last_access,
+        metadata=dict(candidate.trace_metadata),
     )
 
 

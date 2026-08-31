@@ -60,6 +60,7 @@ output/
 artifacts/p4-local/
 artifacts/server_*/
 artifacts/web-local/
+artifacts/memory.db
 .playwright-cli/
 *.bak
 

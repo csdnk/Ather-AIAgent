@@ -100,6 +100,14 @@ def test_b2_memory_service_depends_on_context_builder_protocol() -> None:
 
 
 @pytest.mark.unit
+def test_retrieval_context_builder_depends_on_port_not_mock_builder() -> None:
+    source = (SRC / "memory" / "context" / "builder.py").read_text("utf-8")
+
+    assert "MockContextPackBuilder" not in source
+    assert "from aether_agent_memory.runtime.ports import ContextPackBuilder" in source
+
+
+@pytest.mark.unit
 def test_runtime_dependencies_use_explicit_store_ports() -> None:
     source = (SRC / "runtime" / "dependencies.py").read_text("utf-8")
 

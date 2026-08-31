@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from aether_agent_memory.context import ContextPack, ContextRequest, MockContextPackBuilder
-from aether_agent_memory.memory.retrieval.service import MemoryRetrievalService
+from aether_agent_memory.context import ContextPack, ContextRequest
+from aether_agent_memory.memory.retrieval.service import ContextRetrievalService
+from aether_agent_memory.runtime.ports import ContextPackBuilder
 from aether_agent_memory.runtime.request_context import RequestContext
 
 
@@ -19,16 +20,16 @@ class NoOpContextCompressor:
 class RetrievalContextBuilder:
     """Context hook that makes the retrieval layer explicit.
 
-    The current production path still uses the legacy B2 ContextPackBuilder for
-    object construction. This class reserves the point where RetrievalService
-    fusion/compression will replace the mock builder.
+    The compatibility builder is injected through the canonical Port. This
+    keeps the legacy construction path replaceable while RetrievalService owns
+    source fusion and degradation metadata.
     """
 
     def __init__(
         self,
         *,
-        retrieval: MemoryRetrievalService,
-        legacy_builder: MockContextPackBuilder,
+        retrieval: ContextRetrievalService,
+        legacy_builder: ContextPackBuilder,
         compressor: ContextCompressor | None = None,
     ) -> None:
         self._retrieval = retrieval

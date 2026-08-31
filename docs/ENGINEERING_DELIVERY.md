@@ -84,7 +84,11 @@ production 由 `AppSettings.validate_for_profile()` 强制，缺失即启动失�
 服务器 python -m ruff check src tests scripts benchmarks → All checks passed
 服务器 python -m pytest -q                              → 235 passed, 2 skipped
 服务器 python -m mypy src                               → 118 source files, no issues
-本地 python -m pytest tests/unit -q                     → 232 passed, 1 skipped
+本地 python -m pytest -q                                → 349 passed, 3 skipped
+本地 python -m ruff check src tests scripts benchmarks  → All checks passed
+本地 python -m mypy src                                 → 198 source files, no issues
+本地 python -m compileall -q src                        → passed
+Compose YAML（PyYAML 结构校验）                         → passed
 真实依赖功能回归                                        → B1/B2/P2/Milvus/B3 闭环通过
 ```
 
@@ -92,7 +96,7 @@ production 由 `AppSettings.validate_for_profile()` 强制，缺失即启动失�
 Milvus、Celery、B1 Sidecar 的真实功能回归已执行。OpenVINO 详细结果、服务器新增缺陷及证据
 路径见 `docs/SERVER_REGRESSION_20260825.md`。
 
-## 8. 未解决问题与真实风险（工程化纠偏后）
+## 8. 未解决问题与真实风险（当前工作副本）
 
 审查纠偏已落地：Production profile 绑定 `AETHER_RUNTIME_PROFILE` 并 fail-closed（含环境变量
 回归测试）；验收汇总补 `contract.status` + `effective_item_qps>=2000` + Working P99 门禁
@@ -104,27 +108,39 @@ embedding_status；ruff 覆盖 benchmarks 全量通过。
 
 仍保留的未解决项：
 
-- **P0 统一 Retrieval 生产接线**：`/api/v1/context` 仍走 MockContextPackBuilder + 追加式长文档
-  召回（虽已统一 budget），`MemoryRetrievalService` + RecallSource 融合未切换为唯一召回入口
-  （需真实依赖环境验证后切换）。
+- **P1 语义索引生命周期仍需完善**：生产已通过 `P2ContextSemanticIndexAdapter` 接入 B1
+  向量化和现有 P2 Vector Port，Context Catalog 仍是权威事实源；P3 已提供持久逻辑
+  tombstone 并在查询侧过滤；新 Memory 已通过 Projection Worker 自动发布 L0/L1 派生索引，
+  reindex 已增加可配置扫描边界、opaque `next_cursor` 续跑和 `complete/truncated_items`
+  报告，但当前 P2 没有物理向量删除操作，stale 向量回收和真实服务器 reindex 压测仍需补齐。
 - **P1 投影状态词汇收敛**：顶层/metadata 已一致，但散落小写字符串（`pipeline_status` 等）未
   迁移到 `ProjectionStatus` 枚举（契约值变更风险，需谨慎决策）。
 - **P1 原文双写**：长文本 `Memory.content` 保存全文（`celery_app.py:123`）同时 P2 E2 存原文，
   与 ADR-0003「原文只在 P2 E2、P3 只持引用」矛盾，无单一所有权/回收机制。
 - **P1 异步链路覆盖仍不完整**：真实 Celery 长文本、B1、P2、Milvus 链路已完成服务器冒烟，
-  Redis Store 生命周期已有回归测试；故障注入、重试、Outbox/Reconciler 仍缺生产级覆盖。
-- **P2 Outbox/Reconciler 缺失**：无持久事件机制与投影对账器。
+  Redis Store 生命周期已有回归测试；真实依赖环境下的故障注入、断点恢复和重复投递覆盖仍不足。
+- **P2 Domain Event Outbox 未实现**：Projection Work Queue 已具备幂等、失败重试、Reconcile API
+  和独立 Worker，但它解决的是派生投影任务对账，不等同于跨存储事务 Outbox。持久 Domain Event
+  机制、事件投递确认和消费位点仍需后续实现。
+- **Context 派生投影已统一接线**：Resource、Skill、Session Archive 在权威写入成功后进入独立
+  `ContextProjectionQueuePort`，由 `aether-p3-context-projection-worker` 回读 Catalog/Content
+  后写入语义索引；该队列与 Memory Projection、Session Extraction 分离，失败只影响派生状态，
+  不回滚主事实。当前仍需在服务器真实 Redis/Milvus 上验证积压、租约恢复和 stale 回收。
 - **物理迁移未实现**：`P2MigrationExecutor` 仍为确定性逻辑块路由（代码已诚实标注
   `route_mode=logical`），不得描述为物理迁移成功。
+- **语义 Memory Extraction Provider 尚未部署验收**：`MemoryExtractionPort` 已有严格 typed DTO
+  和可选的 HTTP adapter，可通过 `AETHER_P3_MEMORY_EXTRACTION_URL` 接入公司自有语义服务；当前
+  服务器默认未配置该地址，仍使用确定性兼容策略，不能宣称真实语义模型已上线。
 
 ## 9. 下一阶段最多五项任务
 
 1. 在无其他训练任务的 CPU 独占窗口，基于已通过功能 smoke 的 OpenVINO INT8 绑定路径，
    按冻结口径重跑正式 2000 Effective Item QPS 验收。
-2. 统一 RetrievalService 生产接线：把 `MemoryRetrievalService` + `P2E1RecallSource` 作为
-   唯一召回入口替换「MockContextPackBuilder + 追加式长文档召回」，使 Working/Episodic/
-   Semantic/Long-document 四源统一融合（长文档闭环已打通，此步是收敛到单一检索框架）。
-3. 投影状态词汇收敛：把 celery 长文本路径的散落小写字符串（`pipeline_status` 等）迁移到
-   `ProjectionStatus` 枚举，三套状态词汇归一（顶层/metadata 已一致，此步是枚举收敛）。
-4. Outbox/Projection Reconciler：持久事件机制与投影对账器（P2）。
-5. 原文双写治理：长文本 `Memory.content` 与 P2 E2 的存储所有权收口（P1）。
+2. 补齐生产语义索引的物理删除/回收、批量进度和 stale 清理，并在服务器上验证 reindex、
+   失效重建、权限边界和查询退化；保留确定性检索作为降级路径，不把降级结果标成语义索引命中。
+3. 部署并验收真实语义 `MemoryExtractionPort` provider，验证 Session Archive → candidate →
+   Formation Policy → Memory 的端到端幂等、失败和重试行为；HTTP adapter 已完成，剩余是服务
+   部署、鉴权和真实依赖验证。
+4. 建立持久 Domain Event Outbox 与 Projection Work Queue 的边界，补断电、重复投递、消费
+   延迟和对账恢复测试；不要把现有 Reconcile API 误标成完整 Outbox。
+5. 收口原文所有权与 P2 E2 引用、投影状态枚举，并在真实服务器依赖上完成故障注入回归。

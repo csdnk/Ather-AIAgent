@@ -33,6 +33,32 @@ def test_production_accepts_configured_dependencies() -> None:
     ).validate_for_profile()
 
 
+def test_production_requires_redis_even_with_sqlite_memory_store() -> None:
+    settings = AppSettings(
+        profile="production",
+        memory_store="sqlite",
+        redis_url="",
+        b1_sidecar_url="http://b1:18081",
+        p2_endpoint="engine:50052",
+    )
+
+    with pytest.raises(ValueError, match="Redis URL for runtime state and traces"):
+        settings.validate_for_profile()
+
+
+def test_production_rejects_sqlite_memory_store_with_redis_configured() -> None:
+    settings = AppSettings(
+        profile="production",
+        memory_store="sqlite",
+        redis_url="redis://r:6379/0",
+        b1_sidecar_url="http://b1:18081",
+        p2_endpoint="engine:50052",
+    )
+
+    with pytest.raises(ValueError, match="Redis-backed memory_store"):
+        settings.validate_for_profile()
+
+
 def test_demo_and_integration_do_not_require_b1() -> None:
     AppSettings(profile="demo").validate_for_profile()
     AppSettings(profile="integration").validate_for_profile()
@@ -67,3 +93,45 @@ def test_safe_status_does_not_leak_secrets() -> None:
     assert "redis_url" not in status
     assert status["profile"] == "demo"
     assert status["version"]
+
+
+def test_retrieval_trace_retention_reads_from_environment(monkeypatch) -> None:
+    monkeypatch.setenv("AETHER_P3_RETRIEVAL_TRACE_TTL_SECONDS", "7200")
+    monkeypatch.setenv("AETHER_P3_RETRIEVAL_TRACE_MAX_ENTRIES", "250")
+    monkeypatch.setenv("AETHER_P3_RETRIEVAL_TRACE_TIMEOUT_SECONDS", "0.5")
+
+    settings = AppSettings()
+
+    assert settings.retrieval_trace_ttl_seconds == 7200
+    assert settings.retrieval_trace_max_entries == 250
+    assert settings.retrieval_trace_timeout_seconds == 0.5
+
+
+def test_retrieval_trace_retention_must_be_positive() -> None:
+    with pytest.raises(ValueError):
+        AppSettings(retrieval_trace_ttl_seconds=0)
+    with pytest.raises(ValueError):
+        AppSettings(retrieval_trace_max_entries=0)
+    with pytest.raises(ValueError):
+        AppSettings(retrieval_trace_timeout_seconds=0)
+
+
+def test_context_facts_are_persistent_unless_ttl_is_explicit(monkeypatch) -> None:
+    monkeypatch.delenv("AETHER_P3_CONTEXT_FACT_TTL_SECONDS", raising=False)
+    assert AppSettings().context_fact_ttl_seconds is None
+
+    monkeypatch.setenv("AETHER_P3_CONTEXT_FACT_TTL_SECONDS", "86400")
+    assert AppSettings().context_fact_ttl_seconds == 86400
+
+    with pytest.raises(ValueError):
+        AppSettings(context_fact_ttl_seconds=0)
+
+
+def test_context_reindex_bounds_read_from_environment(monkeypatch) -> None:
+    monkeypatch.setenv("AETHER_P3_CONTEXT_REINDEX_MAX_ITEMS", "500")
+    monkeypatch.setenv("AETHER_P3_CONTEXT_REINDEX_MAX_CHILDREN", "50")
+
+    settings = AppSettings()
+
+    assert settings.context_reindex_max_items == 500
+    assert settings.context_reindex_max_children == 50

@@ -6,8 +6,16 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from aether_agent_memory.context_store.models import (
+    ContextCandidate,
+    ContextItemKind,
+    ContextLayer,
+    RetrievalTrace,
+)
+from aether_agent_memory.context_store.uri import AetherUri
 from aether_agent_memory.core.enums import MemoryType, StorageTier
 from aether_agent_memory.core.memory import Memory
+from aether_agent_memory.core.scope import Scope
 
 
 class RecallSourceName(StrEnum):
@@ -18,7 +26,13 @@ class RecallSourceName(StrEnum):
 
 
 class RecallCandidate(BaseModel):
+    """Compatibility DTO accepted from existing memory-oriented recall sources."""
+
     memory_id: str
+    context_uri: AetherUri | None = None
+    context_kind: ContextItemKind | None = None
+    context_layer: ContextLayer = ContextLayer.DETAIL
+    scope: Scope | None = None
     memory: Memory | None = Field(default=None, exclude=True)
     content: str | None = None
     content_ref: str | None = None
@@ -32,13 +46,24 @@ class RecallCandidate(BaseModel):
     trace_metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class RecallSourceResult(BaseModel):
+    """Typed source outcome that can retain useful hits during degradation."""
+
+    candidates: list[RecallCandidate] = Field(default_factory=list)
+    complete: bool = True
+    missing_sources: list[str] = Field(default_factory=list)
+    degraded_reasons: dict[str, str] = Field(default_factory=dict)
+
+
 class MemoryRetrievalResult(BaseModel):
     candidates: list[RecallCandidate] = Field(default_factory=list)
+    context_candidates: list[ContextCandidate] = Field(default_factory=list, exclude=True)
     complete: bool = True
     missing_sources: list[str] = Field(default_factory=list)
     degraded_reasons: dict[str, str] = Field(default_factory=dict)
     source_latency_ms: dict[str, float] = Field(default_factory=dict)
     trace_id: str | None = None
+    retrieval_trace: RetrievalTrace | None = Field(default=None, exclude=True)
 
 
 class AccessTrace(BaseModel):

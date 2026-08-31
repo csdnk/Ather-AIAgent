@@ -7,6 +7,11 @@ from typing import Any
 import pytest
 
 from aether_agent_memory.context.models import ContextRequest
+from aether_agent_memory.context_store import (
+    ContextItemKind,
+    ContextLayer,
+    RetrievalTraceAction,
+)
 from aether_agent_memory.core.enums import MemoryType
 from aether_agent_memory.core.memory import Memory, RecalledMemory
 from aether_agent_memory.memory.retrieval.models import RecallCandidate
@@ -74,6 +79,24 @@ async def test_unified_retrieval_fuses_working_and_long_document() -> None:
     assert result.candidates[0].score >= result.candidates[1].score
     assert result.complete is True
     assert result.missing_sources == []
+    assert len(result.context_candidates) == 2
+    assert {candidate.kind for candidate in result.context_candidates} == {
+        ContextItemKind.MEMORY,
+        ContextItemKind.RESOURCE,
+    }
+    assert all(
+        candidate.layer == ContextLayer.DETAIL
+        and str(candidate.uri).startswith("aether://")
+        for candidate in result.context_candidates
+    )
+    assert result.retrieval_trace is not None
+    assert result.retrieval_trace.complete is True
+    assert any(
+        step.action == RetrievalTraceAction.CANDIDATE_SCORED
+        and step.uri is not None
+        and str(step.uri).startswith("aether://")
+        for step in result.retrieval_trace.steps
+    )
 
 
 @pytest.mark.asyncio
@@ -94,6 +117,13 @@ async def test_p2e1_source_marks_failure_as_missing_source() -> None:
     assert "long_document" in result.missing_sources
     # working candidates survive the degraded long-document source
     assert any(candidate.source == "working" for candidate in result.candidates)
+    assert result.retrieval_trace is not None
+    assert any(
+        step.action == RetrievalTraceAction.DEGRADED
+        and step.source == "long_document"
+        and "P2 down" in (step.reason or "")
+        for step in result.retrieval_trace.steps
+    )
 
 
 @pytest.mark.asyncio

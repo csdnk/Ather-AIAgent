@@ -12,6 +12,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
+import time
+from copy import deepcopy
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, cast
@@ -134,3 +137,96 @@ class RedisIdempotencyStore:
         self, *, key: str, tenant_id: str | None, op_type: str
     ) -> dict[str, Any] | None:
         return self._get(self._key(key=key, tenant_id=tenant_id, op_type=op_type))
+
+
+class InMemoryIdempotencyStore:
+    """Process-local reference implementation of the idempotency protocol."""
+
+    def __init__(self, *, ttl_seconds: int = 24 * 60 * 60) -> None:
+        if ttl_seconds <= 0:
+            raise ValueError("idempotency TTL must be positive")
+        self._ttl_seconds = ttl_seconds
+        self._records: dict[str, tuple[float, dict[str, Any]]] = {}
+        self._lock = threading.Lock()
+
+    def claim(
+        self,
+        *,
+        key: str,
+        tenant_id: str | None,
+        op_type: str,
+        payload_hash: str,
+    ) -> tuple[str, dict[str, Any] | None]:
+        full_key = self._key(key=key, tenant_id=tenant_id, op_type=op_type)
+        record = {
+            "state": IdempotencyState.PROCESSING.value,
+            "payload_hash": payload_hash,
+            "claimed_at": datetime.now(UTC).isoformat(),
+        }
+        with self._lock:
+            self._purge_expired()
+            existing = self._records.get(full_key)
+            if existing is None:
+                self._records[full_key] = (time.monotonic() + self._ttl_seconds, record)
+                return ClaimOutcome.CLAIMED.value, None
+            current = existing[1]
+            state = current.get("state")
+            if state == IdempotencyState.SUCCEEDED.value:
+                if (
+                    current.get("payload_hash") == payload_hash
+                    and current.get("response") is not None
+                ):
+                    return ClaimOutcome.CACHED.value, deepcopy(current["response"])
+                return ClaimOutcome.CONFLICT.value, None
+            if state == IdempotencyState.FAILED.value:
+                self._records[full_key] = (
+                    time.monotonic() + self._ttl_seconds,
+                    record,
+                )
+                return ClaimOutcome.CLAIMED.value, None
+            return ClaimOutcome.CONFLICT.value, None
+
+    def complete(
+        self,
+        *,
+        key: str,
+        tenant_id: str | None,
+        op_type: str,
+        response: dict[str, Any],
+    ) -> None:
+        full_key = self._key(key=key, tenant_id=tenant_id, op_type=op_type)
+        with self._lock:
+            self._purge_expired()
+            existing = self._records.get(full_key)
+            if existing is None:
+                return
+            record = deepcopy(existing[1])
+            record["state"] = IdempotencyState.SUCCEEDED.value
+            record["response"] = deepcopy(response)
+            self._records[full_key] = (existing[0], record)
+
+    def fail(self, *, key: str, tenant_id: str | None, op_type: str) -> None:
+        full_key = self._key(key=key, tenant_id=tenant_id, op_type=op_type)
+        with self._lock:
+            self._purge_expired()
+            existing = self._records.get(full_key)
+            if existing is None:
+                return
+            record = deepcopy(existing[1])
+            record["state"] = IdempotencyState.FAILED.value
+            self._records[full_key] = (existing[0], record)
+
+    def close(self) -> None:
+        with self._lock:
+            self._records.clear()
+
+    def _key(self, *, key: str, tenant_id: str | None, op_type: str) -> str:
+        return f"p3:idempotency:{tenant_id or '-'}:{op_type}:{key}"
+
+    def _purge_expired(self) -> None:
+        now = time.monotonic()
+        expired = [
+            key for key, (expires_at, _) in self._records.items() if expires_at <= now
+        ]
+        for key in expired:
+            self._records.pop(key, None)

@@ -7,6 +7,7 @@ compatibility only; new application-facing adapters should depend here.
 
 from __future__ import annotations
 
+import builtins
 from typing import TYPE_CHECKING, Any, Protocol
 
 from aether_agent_memory.runtime.dtos import (
@@ -89,6 +90,20 @@ class ObjectStorePort(Protocol):
         context: RequestContext,
     ) -> ObjectReference: ...
 
+    async def read_text(
+        self,
+        *,
+        content_ref: str,
+        context: RequestContext,
+    ) -> str | None: ...
+
+    async def read_bytes(
+        self,
+        *,
+        content_ref: str,
+        context: RequestContext,
+    ) -> bytes | None: ...
+
 
 class VectorSearchPort(Protocol):
     async def search_memory(
@@ -104,6 +119,44 @@ class VectorSearchPort(Protocol):
     ) -> MemorySearchResult: ...
 
 
+class VectorIndexPort(Protocol):
+    """Write a Memory's derived vector representation to an index provider."""
+
+    async def upsert_memory(
+        self,
+        memory: Memory,
+        context: RequestContext,
+    ) -> None: ...
+
+
+class MemoryStorePort(Protocol):
+    """Canonical Memory fact store boundary, including versioned writes."""
+
+    async def upsert(self, memory: Memory) -> None: ...
+
+    async def upsert_if_revision(
+        self,
+        memory: Memory,
+        *,
+        expected_revision: int,
+    ) -> bool: ...
+
+    async def get(self, memory_id: str) -> Memory | None: ...
+
+    async def list(self) -> builtins.list[Memory]: ...
+
+    async def list_scoped(
+        self,
+        *,
+        tenant_id: str | None = None,
+        user_id: str | None = None,
+        agent_id: str | None = None,
+        session_id: str | None = None,
+    ) -> builtins.list[Memory]: ...
+
+    async def delete(self, memory_id: str) -> bool: ...
+
+
 class SchedulerPort(Protocol):
     async def schedule(
         self,
@@ -114,6 +167,8 @@ class SchedulerPort(Protocol):
 
 class AccessTracePort(Protocol):
     async def record(self, trace: AccessTrace) -> None: ...
+
+    async def record_many(self, traces: builtins.list[AccessTrace]) -> None: ...
 
 
 class IdempotencyPort(Protocol):

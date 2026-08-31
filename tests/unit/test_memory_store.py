@@ -36,6 +36,38 @@ async def test_sqlite_store_persists_across_instances(tmp_path: Path) -> None:
 
 
 @pytest.mark.unit
+async def test_memory_store_compare_and_set_rejects_stale_projection_write(
+    tmp_path: Path,
+) -> None:
+    store = SQLiteMemoryStore(tmp_path / "cas.db")
+    memory = Memory(
+        type=MemoryType.SEMANTIC,
+        session_id="s1",
+        agent_id="a1",
+        tenant_id="t1",
+        user_id="u1",
+        content="version one",
+    )
+    await store.upsert(memory)
+    newer = memory.model_copy(update={"revision": 2, "content": "version two"})
+    await store.upsert(newer)
+
+    stale_projection = memory.model_copy(
+        update={"embedding": [0.1, 0.2], "embedding_status": "succeeded"}
+    )
+
+    assert await store.upsert_if_revision(
+        stale_projection,
+        expected_revision=1,
+    ) is False
+    restored = await store.get(memory.id)
+    assert restored is not None
+    assert restored.revision == 2
+    assert restored.content == "version two"
+    assert restored.embedding is None
+
+
+@pytest.mark.unit
 async def test_three_managers_can_share_sqlite_store(tmp_path: Path) -> None:
     store = SQLiteMemoryStore(tmp_path / "shared.db")
     embedder = MockEmbeddingClient(dim=8)

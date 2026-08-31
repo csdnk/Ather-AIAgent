@@ -16,6 +16,9 @@ class InMemoryAccessTraceAdapter:
     async def record(self, trace: AccessTrace) -> None:
         self._items.append(trace)
 
+    async def record_many(self, traces: list[AccessTrace]) -> None:
+        self._items.extend(traces)
+
     @property
     def items(self) -> list[AccessTrace]:
         return list(self._items)
@@ -46,8 +49,23 @@ class RedisAccessTraceAdapter:
     async def record(self, trace: AccessTrace) -> None:
         await asyncio.to_thread(self._record_sync, trace)
 
+    async def record_many(self, traces: list[AccessTrace]) -> None:
+        if not traces:
+            return
+        await asyncio.to_thread(self._record_many_sync, traces)
+
     def _record_sync(self, trace: AccessTrace) -> None:
         key = f"{self._prefix}{trace.memory_id}"
         member = json.dumps(trace.model_dump(mode="json"), ensure_ascii=False)
         self._redis.zadd(key, {member: time()})
         self._redis.expire(key, self._ttl_seconds)
+
+    def _record_many_sync(self, traces: list[AccessTrace]) -> None:
+        now = time()
+        pipeline = self._redis.pipeline(transaction=True)
+        for trace in traces:
+            key = f"{self._prefix}{trace.memory_id}"
+            member = json.dumps(trace.model_dump(mode="json"), ensure_ascii=False)
+            pipeline.zadd(key, {member: now})
+            pipeline.expire(key, self._ttl_seconds)
+        pipeline.execute()

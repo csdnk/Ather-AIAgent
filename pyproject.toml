@@ -63,6 +63,10 @@ b1-accelerated = [
   "transformers>=4.45,<6",
   "uvicorn>=0.35,<1",
 ]
+resource-documents = [
+  "pypdf>=5,<7",
+  "python-docx>=1.1,<2",
+]
 b1-dashboard = [
   "textual>=0.86.0,<2",
 ]
@@ -76,6 +80,9 @@ aether-b1-sidecar = "aether_agent_memory.b1.sidecar:main"
 aether-b1-dashboard = "aether_agent_memory.b1.dashboard:main"
 aether-b1-dataset = "aether_agent_memory.b1.dataset_runner:main"
 aether-b1-download-model = "aether_agent_memory.b1.model_download:main"
+aether-p3-session-worker = "aether_agent_memory.workers.session_extraction:main"
+aether-p3-projection-worker = "aether_agent_memory.workers.projection:main"
+aether-p3-context-projection-worker = "aether_agent_memory.workers.context_projection:main"
 aether-p4-simulator = "aether_p4_simulator.server:main"
 
 [dependency-groups]

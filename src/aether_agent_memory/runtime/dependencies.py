@@ -5,6 +5,19 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
+from aether_agent_memory.context_store.ports import (
+    ContextCatalogReaderPort,
+    ContextContentReaderPort,
+    ContextIndexTombstonePort,
+    ContextProjectionExecutorPort,
+    ContextProjectionQueuePort,
+    ContextReindexPort,
+    ContextSearchPort,
+    RetrievalTraceStorePort,
+    SemanticIndexPort,
+)
+from aether_agent_memory.memory.formation import MemoryExtractionPort
+from aether_agent_memory.resource.ports import ResourceStorePort
 from aether_agent_memory.runtime.ports import (
     AccessTracePort,
     ActionLogPort,
@@ -17,11 +30,23 @@ from aether_agent_memory.runtime.ports import (
     SchedulerPort,
     TaskQueuePort,
     TaskStatusPort,
+    VectorIndexPort,
     VectorSearchPort,
 )
+from aether_agent_memory.session.ports import (
+    SessionExtractionQueuePort,
+    SessionStorePort,
+)
+from aether_agent_memory.skill.ports import SkillStorePort
 
 if TYPE_CHECKING:
-    from aether_agent_memory.memory.retrieval import MemoryRetrievalService
+    from aether_agent_memory.memory.projection import (
+        MemoryProjectionReconciler,
+        ProjectionExecutorPort,
+        ProjectionQueuePort,
+    )
+    from aether_agent_memory.memory.retrieval import ContextRetrievalService
+    from aether_agent_memory.runtime.ports import MemoryStorePort
 
 
 class RuntimeProfile(StrEnum):
@@ -54,7 +79,26 @@ class RuntimeDependencies:
     task_status: TaskStatusPort | None = None
     object_store: ObjectStorePort | None = None
     vector_search: VectorSearchPort | None = None
-    retrieval: MemoryRetrievalService | None = None
+    vector_index: VectorIndexPort | None = None
+    memory_store: MemoryStorePort | None = None
+    resource_store: ResourceStorePort | None = None
+    skill_store: SkillStorePort | None = None
+    retrieval: ContextRetrievalService | None = None
+    retrieval_trace_store: RetrievalTraceStorePort | None = None
+    context_catalog: ContextCatalogReaderPort | None = None
+    context_content: ContextContentReaderPort | None = None
+    context_search: ContextSearchPort | None = None
+    context_semantic_index: SemanticIndexPort | None = None
+    context_reindex: ContextReindexPort | None = None
+    context_index_tombstones: ContextIndexTombstonePort | None = None
+    context_projection_queue: ContextProjectionQueuePort | None = None
+    context_projection_executor: ContextProjectionExecutorPort | None = None
+    projection_queue: ProjectionQueuePort | None = None
+    projection_reconciler: MemoryProjectionReconciler | None = None
+    projection_executor: ProjectionExecutorPort | None = None
+    session_store: SessionStorePort | None = None
+    session_extraction_queue: SessionExtractionQueuePort | None = None
+    memory_extraction: MemoryExtractionPort | None = None
     scheduler: SchedulerPort | None = None
     access_trace: AccessTracePort | None = None
     idempotency_store: IdempotencyPort | None = None
