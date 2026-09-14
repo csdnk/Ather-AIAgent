@@ -68,6 +68,7 @@ class ContextProjectionWorkItem(BaseModel):
     last_error: str | None = None
     claimed_at: datetime | None = None
     lease_until: datetime | None = None
+    claim_token: str | None = None
 
 
 class ContextContent(BaseModel):

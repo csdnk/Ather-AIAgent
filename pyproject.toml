@@ -87,6 +87,7 @@ aether-p4-simulator = "aether_p4_simulator.server:main"
 
 [dependency-groups]
 dev = [
+  "fakeredis>=2.38,<3",
   "mypy>=2.1.0",
   "pre-commit>=4.6.0",
   "pytest>=9.1.1",

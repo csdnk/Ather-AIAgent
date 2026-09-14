@@ -65,7 +65,8 @@ async def test_projection_queue_is_revision_aware() -> None:
     first = await queue.enqueue(item)
     duplicate = await queue.enqueue(item.model_copy(update={"work_id": "other"}))
     claimed = await queue.claim(first.work_id)
-    failed = await queue.fail(first.work_id, "backend unavailable")
+    assert claimed is not None
+    failed = await queue.fail(first.work_id, "backend unavailable", claim_token=claimed.claim_token)
     retried = await queue.retry(first.work_id)
     reclaimed = await queue.claim(first.work_id)
 

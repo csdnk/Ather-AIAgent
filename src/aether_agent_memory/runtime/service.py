@@ -126,9 +126,7 @@ class MemoryRuntime:
             RegisterResourceUseCase(
                 resources=dependencies.resource_store,
                 content_store=(
-                    dependencies.object_store
-                    if self.profile == RuntimeProfile.PRODUCTION
-                    else None
+                    dependencies.object_store if self.profile == RuntimeProfile.PRODUCTION else None
                 ),
                 context_projection_queue=dependencies.context_projection_queue,
                 semantic_index=dependencies.context_semantic_index,
@@ -582,13 +580,16 @@ class MemoryRuntime:
             archive_id=archive_id,
         )
 
-    async def drain_session_extraction(
-        self, *, limit: int = 100
-    ) -> SessionExtractionWorkerReport:
+    async def drain_session_extraction(self, *, limit: int = 100) -> SessionExtractionWorkerReport:
         if self._session_extraction_worker is None:
             raise DependencyUnavailableError(
                 "session extraction worker is not configured",
                 component=RuntimeComponent.P3.value,
+            )
+        if self._session_service is not None:
+            self._session_reconcile_cursor, _ = await self._session_service.reconcile_extractions(
+                getattr(self, "_session_reconcile_cursor", 0),
+                limit=limit,
             )
         return await self._session_extraction_worker.drain(limit=limit)
 

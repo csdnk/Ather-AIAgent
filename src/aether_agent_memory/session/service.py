@@ -103,7 +103,11 @@ class SessionService:
                     "pending" if self._extraction_queue is not None else "not_implemented"
                 ),
             )
-            archives = [*current.archives, archive][-self._max_archives :]
+            all_archives = [*current.archives, archive]
+            evicted = all_archives[: -self._max_archives]
+            if any(a.extraction_status in {"pending", "processing", "failed"} for a in evicted):
+                raise ValueError("unprocessed session archives must be recovered before eviction")
+            archives = all_archives[-self._max_archives :]
             updated = current.model_copy(
                 update={
                     "revision": current.revision + 1,
@@ -132,6 +136,25 @@ class SessionService:
     async def close(self) -> None:
         await self._store.close()
 
+    async def reconcile_extractions(self, cursor: int = 0, *, limit: int = 100) -> tuple[int, int]:
+        """Re-derive missing deliveries from committed archives, including after restart."""
+        if self._extraction_queue is None:
+            return 0, 0
+        cursor, records = await self._store.scan(cursor, limit=limit)
+        recovered = 0
+        for record in records:
+            for archive in record.archives:
+                if archive.extraction_status not in {"pending", "processing", "queue_failed"}:
+                    continue
+                work = await self._extraction_queue.enqueue(
+                    SessionExtractionWorkItem(scope=record.scope, archive_id=archive.archive_id)
+                )
+                if work.status == "failed":
+                    # A crash between fail and retry must not strand a pending archive.
+                    await self._extraction_queue.retry(work.work_id)
+                recovered += 1
+        return cursor, recovered
+
     async def set_archive_extraction_status(
         self,
         scope: Scope,
@@ -154,12 +177,12 @@ class SessionService:
             if archive_index is None:
                 return False
             archive = current.archives[archive_index]
+            if archive.extraction_status == "succeeded" and status != "succeeded":
+                return False
             if archive.extraction_status == status:
                 return True
             archives = [archive_item.model_copy(deep=True) for archive_item in current.archives]
-            archives[archive_index] = archive.model_copy(
-                update={"extraction_status": status}
-            )
+            archives[archive_index] = archive.model_copy(update={"extraction_status": status})
             updated = current.model_copy(
                 update={
                     "revision": current.revision + 1,

@@ -5,6 +5,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from typing import Any
+from uuid import uuid4
 
 from aether_agent_memory.session.models import (
     SessionExtractionWorkItem,
@@ -41,61 +42,69 @@ class RedisSessionExtractionQueue(SessionExtractionQueuePort):
         self._operation_timeout_seconds = operation_timeout_seconds
 
     async def enqueue(self, item: SessionExtractionWorkItem) -> SessionExtractionWorkItem:
+        from redis.exceptions import WatchError
+
         if item.scope.session_id is None:
-            raise ValueError("session extraction queue requires session scope")
+            raise ValueError("session extraction requires session scope")
+        # Dedupe, durable payload and due index are committed together.
         async with asyncio.timeout(self._operation_timeout_seconds):
-            dedupe_key = self._dedupe_key(item)
-            existing_id = await self._redis.get(dedupe_key)
-            if existing_id:
-                existing = await self._redis.get(self._key(str(existing_id)))
-                if existing is not None:
-                    return SessionExtractionWorkItem.model_validate_json(existing)
-            if not await self._redis.set(
-                dedupe_key, item.work_id, nx=True, ex=self._ttl_seconds
-            ):
-                existing_id = await self._redis.get(dedupe_key)
-                existing = (
-                    await self._redis.get(self._key(str(existing_id)))
-                    if existing_id
-                    else None
-                )
-                if existing is not None:
-                    return SessionExtractionWorkItem.model_validate_json(existing)
-                await self._redis.delete(dedupe_key)
-                return await self.enqueue(item)
-            await self._redis.set(
-                self._key(item.work_id),
-                item.model_dump_json(),
-                ex=self._ttl_seconds,
-            )
-            await self._redis.sadd(self._index_key(), item.work_id)
-        return item.model_copy(deep=True)
+            for _ in range(5):
+                async with self._redis.pipeline(transaction=True) as pipe:
+                    try:
+                        dedupe = self._dedupe_key(item)
+                        await pipe.watch(dedupe)
+                        existing_id = await pipe.get(dedupe)
+                        key = self._key(str(existing_id or item.work_id))
+                        await pipe.watch(key)
+                        payload = await pipe.get(key)
+                        if existing_id and payload:
+                            existing = SessionExtractionWorkItem.model_validate_json(payload)
+                            pipe.multi()
+                            self._schedule(pipe, existing)
+                            await pipe.execute()
+                            return existing
+                        if payload:
+                            raise ValueError("work_id already belongs to another job")
+                        pipe.multi()
+                        pipe.set(dedupe, item.work_id)
+                        pipe.set(self._key(item.work_id), item.model_dump_json())
+                        self._schedule(pipe, item)
+                        await pipe.execute()
+                        return item.model_copy(deep=True)
+                    except WatchError:
+                        continue
+        raise RuntimeError("queue enqueue conflicted after retries")
 
     async def claim(self, work_id: str) -> SessionExtractionWorkItem | None:
         now = datetime.now(UTC)
         return await self._transition(
             work_id,
-            lambda item: item.status == SessionExtractionWorkStatus.PENDING
-            or (
-                item.status == SessionExtractionWorkStatus.CLAIMED
-                and item.lease_until is not None
-                and item.lease_until <= now
+            lambda item: (
+                item.status == SessionExtractionWorkStatus.PENDING
+                or (
+                    item.status == SessionExtractionWorkStatus.CLAIMED
+                    and item.lease_until is not None
+                    and item.lease_until <= now
+                )
             ),
             lambda item: item.model_copy(
                 update={
                     "status": SessionExtractionWorkStatus.CLAIMED,
                     "attempts": item.attempts + 1,
+                    "claim_token": uuid4().hex,
                     "claimed_at": now,
                     "lease_until": now + timedelta(seconds=self._lease_seconds),
                 }
             ),
         )
 
-    async def complete(self, work_id: str) -> SessionExtractionWorkItem | None:
+    async def complete(self, work_id: str, *, claim_token: str) -> SessionExtractionWorkItem | None:
         now = datetime.now(UTC)
         return await self._transition(
             work_id,
-            lambda item: _lease_is_valid(item, now),
+            lambda item: (
+                _lease_is_valid(item, now) and bool(claim_token) and item.claim_token == claim_token
+            ),
             lambda item: item.model_copy(
                 update={
                     "status": SessionExtractionWorkStatus.SUCCEEDED,
@@ -105,11 +114,15 @@ class RedisSessionExtractionQueue(SessionExtractionQueuePort):
             ),
         )
 
-    async def fail(self, work_id: str, error: str) -> SessionExtractionWorkItem | None:
+    async def fail(
+        self, work_id: str, error: str, *, claim_token: str
+    ) -> SessionExtractionWorkItem | None:
         now = datetime.now(UTC)
         return await self._transition(
             work_id,
-            lambda item: _lease_is_valid(item, now),
+            lambda item: (
+                _lease_is_valid(item, now) and bool(claim_token) and item.claim_token == claim_token
+            ),
             lambda item: item.model_copy(
                 update={
                     "status": SessionExtractionWorkStatus.FAILED,
@@ -131,20 +144,72 @@ class RedisSessionExtractionQueue(SessionExtractionQueuePort):
             ),
         )
 
-    async def pending(self) -> list[SessionExtractionWorkItem]:
+    async def supersede(
+        self, work_id: str, *, claim_token: str
+    ) -> SessionExtractionWorkItem | None:
+        return await self._transition(
+            work_id,
+            lambda item: (
+                _lease_is_valid(item, datetime.now(UTC))
+                and bool(claim_token)
+                and item.claim_token == claim_token
+            ),
+            lambda item: item.model_copy(
+                update={
+                    "status": SessionExtractionWorkStatus.SUPERSEDED,
+                    "last_error": "superseded by newer extraction work",
+                    "lease_until": None,
+                }
+            ),
+        )
+
+    async def pending(self, *, limit: int = 100) -> list[SessionExtractionWorkItem]:
+        if limit < 1:
+            raise ValueError("queue limit must be positive")
         async with asyncio.timeout(self._operation_timeout_seconds):
-            work_ids = await self._redis.smembers(self._index_key())
-            payloads = await self._redis.mget(
-                [self._key(str(work_id)) for work_id in work_ids]
+            ids = await self._redis.zrangebyscore(
+                self._due_key(),
+                "-inf",
+                datetime.now(UTC).timestamp(),
+                start=0,
+                num=limit,
             )
-        result: list[SessionExtractionWorkItem] = []
-        for payload in payloads:
-            if payload is None:
-                continue
-            item = SessionExtractionWorkItem.model_validate_json(payload)
-            if item.status == SessionExtractionWorkStatus.PENDING or _lease_expired(item):
-                result.append(item)
-        return result
+            if not ids:
+                return []
+            payloads = await self._redis.mget([self._key(str(work_id)) for work_id in ids])
+            result = []
+            for work_id, payload in zip(ids, payloads, strict=True):
+                if payload is None:
+                    await self._redis.zrem(self._due_key(), work_id)
+                    continue
+                item = SessionExtractionWorkItem.model_validate_json(payload)
+                if item.status == SessionExtractionWorkStatus.PENDING or (
+                    item.status == SessionExtractionWorkStatus.CLAIMED
+                    and item.lease_until is not None
+                    and item.lease_until <= datetime.now(UTC)
+                ):
+                    result.append(item)
+            return result
+
+    def _due_key(self) -> str:
+        return f"{self._namespace}:due"
+
+    def _schedule(self, pipe: Any, item: SessionExtractionWorkItem) -> None:
+        if item.status == SessionExtractionWorkStatus.PENDING:
+            pipe.zadd(self._due_key(), {item.work_id: datetime.now(UTC).timestamp()})
+        elif item.status == SessionExtractionWorkStatus.CLAIMED and item.lease_until is not None:
+            pipe.zadd(self._due_key(), {item.work_id: item.lease_until.timestamp()})
+        else:
+            pipe.zrem(self._due_key(), item.work_id)
+
+    async def migrate_legacy_index(self, cursor: int = 0, *, limit: int = 100) -> int:
+        """Explicit upgrade-only bounded scan; never used by the hot poll path."""
+        async with asyncio.timeout(self._operation_timeout_seconds):
+            cursor, ids = await self._redis.sscan(self._index_key(), cursor=cursor, count=limit)
+            for work_id in ids:
+                # WATCH ensures an old snapshot cannot overwrite a newer due score.
+                await self._transition(str(work_id), lambda item: True, lambda item: item)
+            return int(cursor)
 
     async def close(self) -> None:
         await self._redis.aclose()
@@ -172,7 +237,20 @@ class RedisSessionExtractionQueue(SessionExtractionQueuePort):
                         return None
                     updated = update(item)
                     pipeline.multi()
-                    pipeline.set(key, updated.model_dump_json(), ex=self._ttl_seconds)
+                    pipeline.set(
+                        key,
+                        updated.model_dump_json(),
+                        ex=(
+                            self._ttl_seconds
+                            if updated.status
+                            in {
+                                SessionExtractionWorkStatus.SUCCEEDED,
+                                SessionExtractionWorkStatus.SUPERSEDED,
+                            }
+                            else None
+                        ),
+                    )
+                    self._schedule(pipeline, updated)
                     await pipeline.execute()
                     return updated
                 except WatchError:
@@ -201,7 +279,8 @@ class RedisSessionExtractionQueue(SessionExtractionQueuePort):
 def _lease_is_valid(item: SessionExtractionWorkItem, now: datetime) -> bool:
     return (
         item.status == SessionExtractionWorkStatus.CLAIMED
-        and (item.lease_until is None or item.lease_until > now)
+        and item.lease_until is not None
+        and item.lease_until > now
     )
 
 

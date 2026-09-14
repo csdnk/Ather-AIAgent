@@ -60,9 +60,7 @@ class ConsolidateSessionUseCase:
             memories.append(
                 await self._write_memory.execute(
                     _event_from_candidate(candidate, context, archive_id, index),
-                    context.child(
-                        idempotency_key=f"session-consolidation:{archive_id}:{index}"
-                    ),
+                    context.child(idempotency_key=f"session-consolidation:{archive_id}:{index}"),
                 )
             )
         await self._sessions.set_archive_extraction_status(
@@ -116,6 +114,7 @@ def _event_from_candidate(
         metadata=dict(candidate.metadata),
     )
 
+
 class SessionExtractionWorkerReport(BaseModel):
     requested: int = Field(ge=0)
     claimed: int = Field(ge=0)
@@ -145,7 +144,7 @@ class SessionExtractionWorker:
     async def drain(self, *, limit: int = 100) -> SessionExtractionWorkerReport:
         if limit < 1:
             raise ValueError("session extraction worker limit must be positive")
-        pending = (await self._queue.pending())[:limit]
+        pending = await self._queue.pending(limit=limit)
         report = SessionExtractionWorkerReport(
             requested=len(pending), claimed=0, succeeded=0, failed=0
         )
@@ -181,7 +180,9 @@ class SessionExtractionWorker:
                 report.failed += 1
                 report.errors[claimed.work_id] = f"{type(exc).__name__}: {exc}"
                 failed = await self._queue.fail(
-                    claimed.work_id, report.errors[claimed.work_id]
+                    claimed.work_id,
+                    report.errors[claimed.work_id],
+                    claim_token=claimed.claim_token or "",
                 )
                 with suppress(Exception):
                     await self._consolidate.mark_archive_extraction_status(
@@ -200,7 +201,10 @@ class SessionExtractionWorker:
                 ):
                     report.retried += 1
                 continue
-            if await self._queue.complete(claimed.work_id) is None:
+            if (
+                await self._queue.complete(claimed.work_id, claim_token=claimed.claim_token or "")
+                is None
+            ):
                 report.skipped += 1
                 continue
             report.succeeded += 1

@@ -45,6 +45,7 @@ class SessionExtractionWorkStatus(StrEnum):
     CLAIMED = "claimed"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
+    SUPERSEDED = "superseded"
 
 
 class SessionExtractionWorkItem(BaseModel):
@@ -56,6 +57,7 @@ class SessionExtractionWorkItem(BaseModel):
     last_error: str | None = None
     claimed_at: datetime | None = None
     lease_until: datetime | None = None
+    claim_token: str | None = None
 
     @model_validator(mode="after")
     def _requires_full_scope(self) -> SessionExtractionWorkItem:
@@ -63,9 +65,7 @@ class SessionExtractionWorkItem(BaseModel):
             getattr(self.scope, field) is None
             for field in ("tenant_id", "user_id", "agent_id", "session_id")
         ):
-            raise ValueError(
-                "session extraction work requires tenant/user/agent/session scope"
-            )
+            raise ValueError("session extraction work requires tenant/user/agent/session scope")
         return self
 
 

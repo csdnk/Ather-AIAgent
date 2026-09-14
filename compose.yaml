@@ -1,6 +1,9 @@
 services:
   redis:
     image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--save", "60", "1000", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -244,6 +247,7 @@ services:
     profiles: ["p4"]
 
 volumes:
+  redis-data:
   b1-model-cache:
   engine-data:
   p3-data:

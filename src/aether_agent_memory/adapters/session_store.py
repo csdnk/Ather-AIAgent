@@ -34,6 +34,15 @@ class InMemorySessionStore:
         async with self._lock:
             self._records.clear()
 
+    async def scan(self, cursor: int = 0, *, limit: int = 100) -> tuple[int, list[SessionRecord]]:
+        if limit < 1 or cursor < 0:
+            raise ValueError("invalid session scan bounds")
+        async with self._lock:
+            records = list(self._records.values())
+            page = records[cursor : cursor + limit]
+            next_cursor = cursor + limit if cursor + limit < len(records) else 0
+            return next_cursor, [record.model_copy(deep=True) for record in page]
+
 
 class RedisSessionStore:
     def __init__(
@@ -86,6 +95,13 @@ class RedisSessionStore:
 
     async def close(self) -> None:
         await self._redis.aclose()
+
+    async def scan(self, cursor: int = 0, *, limit: int = 100) -> tuple[int, list[SessionRecord]]:
+        if limit < 1 or cursor < 0:
+            raise ValueError("invalid session scan bounds")
+        cursor, keys = await self._redis.scan(cursor, match=f"{self._namespace}:*", count=limit)
+        payloads = await self._redis.mget(keys) if keys else []
+        return int(cursor), [SessionRecord.model_validate_json(p) for p in payloads if p]
 
     def _key(self, scope: Scope) -> str:
         return f"{self._namespace}:{_scope_key(scope)}"

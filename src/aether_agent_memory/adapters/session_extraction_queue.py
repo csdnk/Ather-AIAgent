@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime, timedelta
+from itertools import islice
+from uuid import uuid4
 
 from aether_agent_memory.session.models import (
     SessionExtractionWorkItem,
@@ -24,7 +26,7 @@ class InMemorySessionExtractionQueue(SessionExtractionQueuePort):
     async def enqueue(self, item: SessionExtractionWorkItem) -> SessionExtractionWorkItem:
         if item.scope.session_id is None:
             raise ValueError("session extraction queue requires session scope")
-        key = (item.scope.session_id, item.archive_id)
+        key = (repr(item.scope), item.archive_id)
         async with self._lock:
             existing_id = self._keys.get(key)
             if existing_id is not None:
@@ -48,25 +50,42 @@ class InMemorySessionExtractionQueue(SessionExtractionQueuePort):
             ):
                 return None
             item.status = SessionExtractionWorkStatus.CLAIMED
+            item.claim_token = uuid4().hex
             item.attempts += 1
             item.claimed_at = now
             item.lease_until = now + timedelta(seconds=self._lease_seconds)
             return item.model_copy(deep=True)
 
-    async def complete(self, work_id: str) -> SessionExtractionWorkItem | None:
+    async def complete(self, work_id: str, *, claim_token: str) -> SessionExtractionWorkItem | None:
         async with self._lock:
             item = self._items.get(work_id)
-            if item is None or item.status != SessionExtractionWorkStatus.CLAIMED:
+            if (
+                item is None
+                or item.status != SessionExtractionWorkStatus.CLAIMED
+                or not claim_token
+                or item.claim_token != claim_token
+                or item.lease_until is None
+                or item.lease_until <= datetime.now(UTC)
+            ):
                 return None
             item.status = SessionExtractionWorkStatus.SUCCEEDED
             item.last_error = None
             item.lease_until = None
             return item.model_copy(deep=True)
 
-    async def fail(self, work_id: str, error: str) -> SessionExtractionWorkItem | None:
+    async def fail(
+        self, work_id: str, error: str, *, claim_token: str
+    ) -> SessionExtractionWorkItem | None:
         async with self._lock:
             item = self._items.get(work_id)
-            if item is None or item.status != SessionExtractionWorkStatus.CLAIMED:
+            if (
+                item is None
+                or item.status != SessionExtractionWorkStatus.CLAIMED
+                or not claim_token
+                or item.claim_token != claim_token
+                or item.lease_until is None
+                or item.lease_until <= datetime.now(UTC)
+            ):
                 return None
             item.status = SessionExtractionWorkStatus.FAILED
             item.last_error = error
@@ -82,14 +101,45 @@ class InMemorySessionExtractionQueue(SessionExtractionQueuePort):
             item.lease_until = None
             return item.model_copy(deep=True)
 
-    async def pending(self) -> list[SessionExtractionWorkItem]:
+    async def supersede(
+        self, work_id: str, *, claim_token: str
+    ) -> SessionExtractionWorkItem | None:
         async with self._lock:
-            return [
-                item.model_copy(deep=True)
-                for item in self._items.values()
-                if item.status == SessionExtractionWorkStatus.PENDING
-                or _lease_expired(item)
-            ]
+            item = self._items.get(work_id)
+            if (
+                item is None
+                or item.status != SessionExtractionWorkStatus.CLAIMED
+                or not claim_token
+                or item.claim_token != claim_token
+                or item.lease_until is None
+                or item.lease_until <= datetime.now(UTC)
+            ):
+                return None
+            item.status = SessionExtractionWorkStatus.SUPERSEDED
+            item.last_error = "superseded by newer extraction work"
+            item.lease_until = None
+            return item.model_copy(deep=True)
+
+    async def pending(self, *, limit: int = 100) -> list[SessionExtractionWorkItem]:
+        if limit < 1:
+            raise ValueError("queue limit must be positive")
+        async with self._lock:
+            now = datetime.now(UTC)
+            return list(
+                islice(
+                    (
+                        item.model_copy(deep=True)
+                        for item in self._items.values()
+                        if item.status == SessionExtractionWorkStatus.PENDING
+                        or (
+                            item.status == SessionExtractionWorkStatus.CLAIMED
+                            and item.lease_until is not None
+                            and item.lease_until <= now
+                        )
+                    ),
+                    limit,
+                )
+            )
 
     async def close(self) -> None:
         async with self._lock:

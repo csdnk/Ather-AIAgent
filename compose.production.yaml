@@ -7,6 +7,10 @@
 # and Redis are configured, and it never enables demo/mock fallbacks
 # (enforced by AppSettings.validate_for_profile()).
 services:
+  redis:
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--save", "60", "1000", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis-data:/data
   b1-sidecar:
     build:
       args:
@@ -45,3 +49,6 @@ services:
     environment:
       AETHER_RUNTIME_PROFILE: "production"
       AETHER_ENABLE_DEMO: "false"
+
+volumes:
+  redis-data:

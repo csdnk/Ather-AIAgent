@@ -46,7 +46,7 @@ class ContextProjectionWorkService:
     async def drain(self, *, limit: int = 100) -> ContextProjectionWorkerReport:
         if limit < 1:
             raise ValueError("context projection worker limit must be positive")
-        pending = (await self._queue.pending())[:limit]
+        pending = await self._queue.pending(limit=limit)
         report = ContextProjectionWorkerReport(
             requested=len(pending), claimed=0, succeeded=0, failed=0, skipped=0
         )
@@ -59,7 +59,12 @@ class ContextProjectionWorkService:
             try:
                 await self._executor.execute(claimed)
             except ContextProjectionSupersededError:
-                if await self._queue.supersede(claimed.work_id) is not None:
+                if (
+                    await self._queue.supersede(
+                        claimed.work_id, claim_token=claimed.claim_token or ""
+                    )
+                    is not None
+                ):
                     report.superseded += 1
                 else:
                     report.skipped += 1
@@ -68,7 +73,9 @@ class ContextProjectionWorkService:
                 report.failed += 1
                 report.errors[claimed.work_id] = f"{type(exc).__name__}: {exc}"
                 failed = await self._queue.fail(
-                    claimed.work_id, report.errors[claimed.work_id]
+                    claimed.work_id,
+                    report.errors[claimed.work_id],
+                    claim_token=claimed.claim_token or "",
                 )
                 if (
                     failed is not None
@@ -77,7 +84,9 @@ class ContextProjectionWorkService:
                 ):
                     report.retried += 1
                 continue
-            completed = await self._queue.complete(claimed.work_id)
+            completed = await self._queue.complete(
+                claimed.work_id, claim_token=claimed.claim_token or ""
+            )
             if completed is None or completed.status != ContextProjectionWorkStatus.SUCCEEDED:
                 report.skipped += 1
                 continue

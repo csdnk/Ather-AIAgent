@@ -65,7 +65,7 @@ class ProjectionWorkService:
             raise ValueError("projection worker limit must be positive")
         if self._executor is None:
             raise RuntimeError("projection executor is not configured")
-        pending = (await self._queue.pending())[:limit]
+        pending = await self._queue.pending(limit=limit)
         report = ProjectionWorkerReport(
             requested=len(pending),
             claimed=0,
@@ -82,7 +82,12 @@ class ProjectionWorkService:
             try:
                 await self._executor.execute(claimed)
             except ProjectionSupersededError:
-                if await self._queue.supersede(claimed.work_id) is not None:
+                if (
+                    await self._queue.supersede(
+                        claimed.work_id, claim_token=claimed.claim_token or ""
+                    )
+                    is not None
+                ):
                     report.superseded += 1
                 else:
                     report.skipped += 1
@@ -93,13 +98,16 @@ class ProjectionWorkService:
                 failed = await self._queue.fail(
                     claimed.work_id,
                     report.errors[claimed.work_id],
+                    claim_token=claimed.claim_token or "",
                 )
                 if failed is not None and failed.attempts < self._max_attempts:
                     retried = await self._queue.retry(claimed.work_id)
                     if retried is not None:
                         report.retried += 1
                 continue
-            completed = await self._queue.complete(claimed.work_id)
+            completed = await self._queue.complete(
+                claimed.work_id, claim_token=claimed.claim_token or ""
+            )
             if completed is None or completed.status != ProjectionWorkStatus.SUCCEEDED:
                 report.skipped += 1
                 continue
