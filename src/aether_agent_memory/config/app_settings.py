@@ -45,9 +45,7 @@ class AppSettings(BaseSettings):
     p2_engine: str = Field(default="object/default", validation_alias="AETHER_P2_ENGINE")
     p2_bucket: str = Field(default="p3-memory", validation_alias="AETHER_P2_BUCKET")
     p2_collection: str = Field(default="p3", validation_alias="AETHER_P2_COLLECTION")
-    p2_timeout_seconds: float = Field(
-        default=10.0, validation_alias="AETHER_P2_TIMEOUT_SECONDS"
-    )
+    p2_timeout_seconds: float = Field(default=10.0, validation_alias="AETHER_P2_TIMEOUT_SECONDS")
 
     # -- B2 primary memory store --
     memory_store: Literal["redis", "sqlite"] = Field(
@@ -60,48 +58,33 @@ class AppSettings(BaseSettings):
     milvus_collection: str = Field(
         default="b2_memory_chunks_v3", validation_alias="AETHER_B2_MILVUS_COLLECTION"
     )
-    vector_dimension: int = Field(
-        default=512, validation_alias="AETHER_B2_VECTOR_DIMENSION"
-    )
-    milvus_projection: bool = Field(
-        default=False, validation_alias="AETHER_B2_MILVUS_PROJECTION"
-    )
+    vector_dimension: int = Field(default=512, validation_alias="AETHER_B2_VECTOR_DIMENSION")
+    milvus_projection: bool = Field(default=False, validation_alias="AETHER_B2_MILVUS_PROJECTION")
 
     # -- B1 embedding sidecar --
     b1_sidecar_url: str = Field(default="", validation_alias="AETHER_B1_SIDECAR_URL")
-    b1_embedding_url: str = Field(
-        default="", validation_alias="AETHER_B1_EMBEDDING_URL"
-    )
+    b1_embedding_url: str = Field(default="", validation_alias="AETHER_B1_EMBEDDING_URL")
     b1_model_name: str = Field(
         default="BAAI/bge-small-zh-v1.5", validation_alias="AETHER_B1_MODEL_NAME"
     )
-    b1_tenant_id: str = Field(
-        default="p3-runtime", validation_alias="AETHER_B1_TENANT_ID"
-    )
+    b1_tenant_id: str = Field(default="p3-runtime", validation_alias="AETHER_B1_TENANT_ID")
     b1_sidecar_timeout_seconds: float = Field(
         default=120.0, validation_alias="AETHER_B1_SIDECAR_TIMEOUT_SECONDS"
     )
-    b1_max_batch_items: int = Field(
-        default=32, validation_alias="AETHER_B1_MAX_BATCH_ITEMS"
-    )
-    b1_chunk_max_chars: int = Field(
-        default=400, validation_alias="AETHER_B1_CHUNK_MAX_CHARS"
-    )
+    b1_max_batch_items: int = Field(default=32, validation_alias="AETHER_B1_MAX_BATCH_ITEMS")
+    b1_chunk_max_chars: int = Field(default=400, validation_alias="AETHER_B1_CHUNK_MAX_CHARS")
     b1_chunk_overlap_chars: int = Field(
         default=40, validation_alias="AETHER_B1_CHUNK_OVERLAP_CHARS"
     )
 
     # -- B3 control plane --
-    b3_shadow_mode: bool = Field(
-        default=True, validation_alias="AETHER_B3_SHADOW_MODE"
-    )
+    storage_control_url: str = Field(default="", validation_alias="AETHER_P3_STORAGE_CONTROL_URL")
+    b3_shadow_mode: bool = Field(default=True, validation_alias="AETHER_B3_SHADOW_MODE")
 
     # -- B2 async task queue --
     broker_url: str = Field(default="", validation_alias="AETHER_B2_BROKER_URL")
     result_backend: str = Field(default="", validation_alias="AETHER_B2_RESULT_BACKEND")
-    task_status_url: str = Field(
-        default="", validation_alias="AETHER_B2_TASK_STATUS_URL"
-    )
+    task_status_url: str = Field(default="", validation_alias="AETHER_B2_TASK_STATUS_URL")
     compression_target_ratio: float = Field(
         default=5.0, validation_alias="AETHER_B2_COMPRESSION_TARGET_RATIO"
     )
@@ -225,8 +208,7 @@ class AppSettings(BaseSettings):
         if self.profile == "production":
             if self.enable_demo:
                 raise ValueError(
-                    "production profile cannot enable demo "
-                    "(AETHER_ENABLE_DEMO must be false)"
+                    "production profile cannot enable demo (AETHER_ENABLE_DEMO must be false)"
                 )
             if not self.b1_sidecar_url and not self.b1_embedding_url:
                 raise ValueError(
@@ -240,9 +222,7 @@ class AppSettings(BaseSettings):
                     "production profile requires a Redis URL for runtime state and traces"
                 )
             if self.memory_store != "redis":
-                raise ValueError(
-                    "production profile requires Redis-backed memory_store"
-                )
+                raise ValueError("production profile requires Redis-backed memory_store")
 
     def safe_status(self) -> dict[str, object]:
         """Public-safe capability view; never leaks secrets."""
@@ -255,6 +235,7 @@ class AppSettings(BaseSettings):
             "demo_enabled": self.enable_demo,
             "b1_configured": bool(self.b1_sidecar_url or self.b1_embedding_url),
             "b3_shadow_mode": self.b3_shadow_mode,
+            "storage_control_configured": bool(self.storage_control_url),
             "p2_endpoint": self.p2_endpoint,
             "retrieval_trace_ttl_seconds": self.retrieval_trace_ttl_seconds,
             "context_fact_ttl_seconds": self.context_fact_ttl_seconds,

@@ -312,6 +312,7 @@ class SearchMemoryUseCase:
                     task_id=context.task_id,
                     memory_id=item.memory_id,
                     source=result.backend,
+                    metadata={"representation_kind": "vector"},
                     hit=True,
                     score=item.score,
                 )

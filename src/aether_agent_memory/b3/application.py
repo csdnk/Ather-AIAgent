@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from aether_agent_memory.context.models import ContextPack
-from aether_agent_memory.core.enums import MemoryType, StorageTier
+from aether_agent_memory.core.enums import StorageTier
 from aether_agent_memory.core.memory import Memory
 
 
@@ -40,7 +40,7 @@ def b3_candidates_from_context(context: ContextPack) -> dict[str, Any]:
                     "task_relevance": recall_score,
                 },
                 "business_priority": _bounded_score(memory.importance),
-                "migratable": True,
+                "migratable": memory.placement is not None,
                 "pinned": False,
                 "expired": memory.is_expired(),
                 "metadata": {
@@ -48,7 +48,7 @@ def b3_candidates_from_context(context: ContextPack) -> dict[str, Any]:
                     "memory_type": memory.type.value,
                     "source": memory.source.value,
                     "storage_inference": (
-                        "placement" if memory.placement else "memory_type_adapter"
+                        "placement" if memory.placement else "unknown_legacy_placeholder"
                     ),
                     "execution_type": "control-plane",
                     "physical_migration": "external",
@@ -88,8 +88,6 @@ def _recency_score(memory: Memory) -> float:
 def _tier_for_memory(memory: Memory) -> StorageTier:
     if memory.placement is not None:
         return memory.placement.tier
-    if memory.type == MemoryType.WORKING:
-        return StorageTier.L0_DRAM
-    if memory.type == MemoryType.EPISODIC:
-        return StorageTier.L2_HDD
+    # Legacy DTO requires a tier. This placeholder is not observed placement;
+    # new Operate scheduling resolves the Memory and queries the actuator.
     return StorageTier.L3_OBJECT

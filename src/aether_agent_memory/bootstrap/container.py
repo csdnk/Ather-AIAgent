@@ -52,7 +52,6 @@ def build_dependencies_from_legacy(
         RedisAccessTraceAdapter,
     )
     from aether_agent_memory.adapters.b1_client import LegacyEmbeddingAdapter
-    from aether_agent_memory.adapters.b3 import LegacySchedulerAdapter
     from aether_agent_memory.adapters.celery import (
         CeleryLongMemoryTaskAdapter,
         RedisTaskStatusAdapter,
@@ -79,6 +78,12 @@ def build_dependencies_from_legacy(
         LegacyMemoryEventAdapter,
     )
     from aether_agent_memory.adapters.milvus import MilvusHealthAdapter
+    from aether_agent_memory.adapters.operate_journal import SQLiteActionJournal
+    from aether_agent_memory.adapters.operate_scheduler import OperateSchedulerAdapter
+    from aether_agent_memory.adapters.operate_telemetry import (
+        MemoryControlTelemetry,
+        RedisControlTelemetry,
+    )
     from aether_agent_memory.adapters.p2 import (
         P2ObjectStoreAdapter,
         P2VectorIndexAdapter,
@@ -113,6 +118,11 @@ def build_dependencies_from_legacy(
         InMemorySkillStore,
         RedisSkillStore,
     )
+    from aether_agent_memory.adapters.storage_control import (
+        HttpStorageControl,
+        UnavailableStorageControl,
+    )
+    from aether_agent_memory.adapters.storage_control_simulator import StorageControlSimulator
     from aether_agent_memory.context_store.hierarchical import (
         HierarchicalContextSearchService,
     )
@@ -133,6 +143,9 @@ def build_dependencies_from_legacy(
         SemanticRecallSource,
         WorkingRecallSource,
     )
+    from aether_agent_memory.operate.controller import OperateController
+    from aether_agent_memory.operate.policy import PlacementPolicy
+    from aether_agent_memory.operate.ports import StorageControlPort
     from aether_agent_memory.persistence.idempotency import InMemoryIdempotencyStore
     from aether_agent_memory.resource.ports import ResourceStorePort
     from aether_agent_memory.skill.ports import SkillStorePort
@@ -168,7 +181,26 @@ def build_dependencies_from_legacy(
         )
 
     embedding = LegacyEmbeddingAdapter(legacy_runtime)
-    scheduler = LegacySchedulerAdapter(legacy_runtime)
+    actuator: StorageControlPort
+    if config.storage_control_url:
+        actuator = HttpStorageControl(config.storage_control_url)
+    elif profile == RuntimeProfile.PRODUCTION:
+        actuator = UnavailableStorageControl()
+    else:
+        simulation = StorageControlSimulator()
+        simulation.set_capacity(PlacementPolicy().cache_target, 64 * 1024 * 1024)
+        actuator = simulation
+    scheduler = OperateSchedulerAdapter(
+        legacy_runtime.compatibility_memory_store,
+        OperateController(actuator, SQLiteActionJournal(config.data_dir / "operate-actions.db")),
+        telemetry=(
+            RedisControlTelemetry(config.redis_url)
+            if config.memory_store == "redis" or profile == RuntimeProfile.PRODUCTION
+            else MemoryControlTelemetry(access_trace, legacy_runtime.signal_emitter)
+        ),
+        shadow_mode=config.b3_shadow_mode,
+        primary_provider=config.memory_store,
+    )
     object_store = P2ObjectStoreAdapter(legacy_runtime)
     vector_index = P2VectorIndexAdapter(legacy_runtime)
     query_embedding_endpoint = _query_embedding_endpoint(config)
@@ -207,9 +239,7 @@ def build_dependencies_from_legacy(
 
     memory_service = legacy_runtime.memory
     memory_store = legacy_runtime.compatibility_memory_store
-    projection_reconciler = MemoryProjectionReconciler(
-        memory_store
-    )
+    projection_reconciler = MemoryProjectionReconciler(memory_store)
     if config.memory_store == "redis" or profile == RuntimeProfile.PRODUCTION:
         projection_queue: ProjectionQueuePort = RedisProjectionQueue(
             config.redis_url,
@@ -232,9 +262,7 @@ def build_dependencies_from_legacy(
         context_projection_queue = InMemoryContextProjectionQueue(
             lease_seconds=config.projection_queue_lease_seconds
         )
-    memory_context_reader = MemoryStoreContextReader(
-        memory_store
-    )
+    memory_context_reader = MemoryStoreContextReader(memory_store)
     session_context_reader = SessionContextReader(session_store)
     if profile == RuntimeProfile.PRODUCTION:
         resource_store: ResourceStorePort = RedisResourceStore(
@@ -271,9 +299,7 @@ def build_dependencies_from_legacy(
     # uses the provider-neutral adapter backed by the existing B1/P2 ports.
     semantic_index: SemanticIndexPort | None = None
     context_reindex: ContextReindexPort | None = None
-    context_index_tombstones: ContextIndexTombstonePort = (
-        InMemoryContextIndexTombstones()
-    )
+    context_index_tombstones: ContextIndexTombstonePort = InMemoryContextIndexTombstones()
     if profile != RuntimeProfile.PRODUCTION:
         semantic_index = InMemorySemanticIndex()
         context_reindex = ReindexService(

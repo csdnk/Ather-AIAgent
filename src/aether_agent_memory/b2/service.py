@@ -255,7 +255,6 @@ class MemoryService:
                 user_id=memory.user_id,
                 tenant_id=memory.tenant_id,
                 signal_type=signal_type,
-                heat=memory.importance,
                 importance=memory.importance,
                 use_count=memory.access_count,
                 last_used_time=memory.last_accessed_at,
@@ -264,7 +263,7 @@ class MemoryService:
                 context_used_flag=context_used,
                 source_id=memory.source_id,
                 trace_id=memory.trace_id,
-                metadata={"event_id": uuid4().hex},
+                metadata={"event_id": uuid4().hex, "task_id": memory.task_id},
             )
         )
 

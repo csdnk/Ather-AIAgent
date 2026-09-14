@@ -67,6 +67,7 @@ class P3RuntimeConfig:
     result_backend: str = ""
     task_status_url: str = ""
     b3_shadow_mode: bool = True
+    storage_control_url: str = ""
     retrieval_trace_ttl_seconds: int = 3600
     retrieval_trace_max_entries: int = 1000
     retrieval_trace_timeout_seconds: float = 0.25
@@ -100,15 +101,14 @@ class P3RuntimeConfig:
             b1_embedding_url=os.getenv("AETHER_B1_EMBEDDING_URL", "").strip(),
             b1_tenant_id=os.getenv("AETHER_B1_TENANT_ID", "p3-runtime"),
             b1_model_name=os.getenv("AETHER_B1_MODEL_NAME", "BAAI/bge-small-zh-v1.5"),
-            b1_sidecar_timeout_seconds=float(
-                os.getenv("AETHER_B1_SIDECAR_TIMEOUT_SECONDS", "120")
-            ),
+            b1_sidecar_timeout_seconds=float(os.getenv("AETHER_B1_SIDECAR_TIMEOUT_SECONDS", "120")),
             b1_max_batch_items=int(os.getenv("AETHER_B1_MAX_BATCH_ITEMS", "32")),
             b1_chunk_max_chars=int(os.getenv("AETHER_B1_CHUNK_MAX_CHARS", "400")),
             b1_chunk_overlap_chars=int(os.getenv("AETHER_B1_CHUNK_OVERLAP_CHARS", "40")),
             broker_url=os.getenv("AETHER_B2_BROKER_URL", "").strip(),
             result_backend=os.getenv("AETHER_B2_RESULT_BACKEND", "").strip(),
             task_status_url=os.getenv("AETHER_B2_TASK_STATUS_URL", "").strip(),
+            storage_control_url=os.getenv("AETHER_P3_STORAGE_CONTROL_URL", "").strip(),
             b3_shadow_mode=os.getenv("AETHER_B3_SHADOW_MODE", "true").lower()
             in {"1", "true", "yes"},
             retrieval_trace_ttl_seconds=int(
@@ -139,12 +139,8 @@ class P3RuntimeConfig:
                 os.getenv("AETHER_P3_CONTEXT_FACT_TTL_SECONDS", "")
             ),
             memory_extraction_url=os.getenv("AETHER_P3_MEMORY_EXTRACTION_URL", "").strip(),
-            memory_extraction_model=os.getenv(
-                "AETHER_P3_MEMORY_EXTRACTION_MODEL", ""
-            ).strip(),
-            memory_extraction_api_key=os.getenv(
-                "AETHER_P3_MEMORY_EXTRACTION_API_KEY", ""
-            ).strip(),
+            memory_extraction_model=os.getenv("AETHER_P3_MEMORY_EXTRACTION_MODEL", "").strip(),
+            memory_extraction_api_key=os.getenv("AETHER_P3_MEMORY_EXTRACTION_API_KEY", "").strip(),
             memory_extraction_timeout_seconds=float(
                 os.getenv("AETHER_P3_MEMORY_EXTRACTION_TIMEOUT_SECONDS", "30")
             ),
@@ -184,6 +180,7 @@ class P3RuntimeConfig:
             result_backend=settings.result_backend,
             task_status_url=settings.task_status_url,
             b3_shadow_mode=settings.b3_shadow_mode,
+            storage_control_url=settings.storage_control_url,
             retrieval_trace_ttl_seconds=settings.retrieval_trace_ttl_seconds,
             retrieval_trace_max_entries=settings.retrieval_trace_max_entries,
             retrieval_trace_timeout_seconds=settings.retrieval_trace_timeout_seconds,

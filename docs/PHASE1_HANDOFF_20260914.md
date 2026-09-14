@@ -40,3 +40,31 @@ container restart 与 recreate（同一 named volume，未执行 down -v）可�
 lease token 保护队列状态迁移，不等于跨外部 Provider 的 exactly-once side effect；provider 幂等与 revision 仍必需。没有增加 lease heartbeat。真实 Redis restart/recreate/故障注入未运行。没有对 live 系统执行迁移或部署。
 
 无 .git，无法提交独立 commit。Phase 1 修改前快照在 C:/Users/jorcy/AppData/Local/Temp/agentjys-phase12-1c51ac9d65/phase1-baseline；进入 Phase 2 前另保存 phase2-baseline，便于逐阶段 diff。
+
+## Phase 1 文件索引
+
+- [src/aether_agent_memory/memory/projection.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/src/aether_agent_memory/memory/projection.py)
+- [src/aether_agent_memory/context_store/models.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/src/aether_agent_memory/context_store/models.py)
+- [src/aether_agent_memory/context_store/ports.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/src/aether_agent_memory/context_store/ports.py)
+- [src/aether_agent_memory/session/models.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/src/aether_agent_memory/session/models.py)
+- [src/aether_agent_memory/session/ports.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/src/aether_agent_memory/session/ports.py)
+- [src/aether_agent_memory/session/service.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/src/aether_agent_memory/session/service.py)
+- [src/aether_agent_memory/adapters/projection_queue.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/src/aether_agent_memory/adapters/projection_queue.py)
+- [src/aether_agent_memory/adapters/context_projection_queue.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/src/aether_agent_memory/adapters/context_projection_queue.py)
+- [src/aether_agent_memory/adapters/session_extraction_queue.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/src/aether_agent_memory/adapters/session_extraction_queue.py)
+- [src/aether_agent_memory/adapters/redis_projection_queue.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/src/aether_agent_memory/adapters/redis_projection_queue.py)
+- [src/aether_agent_memory/adapters/redis_context_projection_queue.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/src/aether_agent_memory/adapters/redis_context_projection_queue.py)
+- [src/aether_agent_memory/adapters/redis_session_extraction_queue.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/src/aether_agent_memory/adapters/redis_session_extraction_queue.py)
+- [src/aether_agent_memory/adapters/session_store.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/src/aether_agent_memory/adapters/session_store.py)
+- [src/aether_agent_memory/application/projection.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/src/aether_agent_memory/application/projection.py)
+- [src/aether_agent_memory/application/context_projection.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/src/aether_agent_memory/application/context_projection.py)
+- [src/aether_agent_memory/application/session.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/src/aether_agent_memory/application/session.py)
+- [src/aether_agent_memory/runtime/service.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/src/aether_agent_memory/runtime/service.py)
+- [compose.yaml](D:/项目/JYS/AgentJYS-main/AgentJYS-main/compose.yaml)
+- [compose.production.yaml](D:/项目/JYS/AgentJYS-main/AgentJYS-main/compose.production.yaml)
+- [pyproject.toml](D:/项目/JYS/AgentJYS-main/AgentJYS-main/pyproject.toml)
+- [tests/unit/test_queue_reliability.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/tests/unit/test_queue_reliability.py)
+- [tests/unit/test_redis_queue_reliability.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/tests/unit/test_redis_queue_reliability.py)
+- [tests/unit/test_projection_reconciler.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/tests/unit/test_projection_reconciler.py)
+
+以上为 Phase 1 精确文件范围（另含本报告），不包括 __pycache__。部分文件在 Phase 2 又有接线改动；阶段审查请以 phase1-baseline 与 phase2-baseline 比较，最终工作区的 Phase 2 结果见 [docs/PHASE2_HANDOFF_20260914.md](D:/项目/JYS/AgentJYS-main/AgentJYS-main/docs/PHASE2_HANDOFF_20260914.md)。

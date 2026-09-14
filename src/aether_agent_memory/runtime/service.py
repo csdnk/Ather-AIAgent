@@ -246,6 +246,10 @@ class MemoryRuntime:
         return self.dependencies.legacy_runtime
 
     async def close(self) -> None:
+        if self.dependencies.scheduler is not None:
+            close_scheduler = getattr(self.dependencies.scheduler, "close", None)
+            if close_scheduler is not None:
+                await close_scheduler()
         if self.dependencies.retrieval is not None:
             await self.dependencies.retrieval.close()
         if self._session_service is not None:
