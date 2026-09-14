@@ -79,6 +79,15 @@ class MemoryService:
         """
         if self._compressor is None or self._compression_store is None:
             raise RuntimeError("compression service is not configured")
+        # This method is also a direct entry point: preserve the source before
+        # calling the derived compressor/artifact store, not just during ingest.
+        memory = memory.model_copy(
+            update={
+                "compression_status": "pending",
+                "metadata": {**memory.metadata, "compression_status": "pending"},
+            }
+        )
+        memory = await self._manager_for(memory.type).write(memory)
         artifact = await self._compressor.compress_and_store(
             memory.content,
             source_memory_id=memory.id,
@@ -204,7 +213,14 @@ class MemoryService:
                     "updated_at": now,
                     "expires_at": None,
                     "trace_id": trace_id or item.trace_id,
-                    "metadata": {**item.metadata, "archived_from": item.id},
+                    # The embedding can be reused for unchanged content, but
+                    # an index entry under the old id does not project this id.
+                    "vector_projection_status": "pending",
+                    "metadata": {
+                        **item.metadata,
+                        "archived_from": item.id,
+                        "vector_projection_status": "pending",
+                    },
                 },
             )
             stored = await self._episodic.write(episodic)

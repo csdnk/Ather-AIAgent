@@ -28,19 +28,13 @@ class MockSemanticMemoryManager(BaseMockMemoryManager):
         self._vector_store = vector_store
 
     async def write(self, memory: Memory) -> Memory:
-        if memory.embedding is None:
-            memory.embedding = await self._embedder.embed_one(memory.content)
-        memory = await super().write(memory)
-        if self._vector_store is not None:
-            try:
-                await asyncio.to_thread(self._vector_store.upsert_memory, memory)
-                memory.metadata["milvus_projection_status"] = "succeeded"
-            except Exception as exc:
-                # Redis is the primary record; vector projection can be retried later.
-                memory.metadata["milvus_projection_status"] = "pending"
-                memory.metadata["milvus_projection_error"] = f"{type(exc).__name__}: {exc}"
-            await self._store.upsert(memory)
-        return memory
+        """Persist the fact; success does not imply that projections are ready.
+
+        New facts retain pending projection state. The application enqueues
+        derived work after persistence; direct writes are recoverable through
+        MemoryProjectionReconciler and the same Projection Worker.
+        """
+        return await super().write(memory)
 
     async def recall(self, request: ContextRequest) -> list[RecalledMemory]:
         query_vec = await self._embedder.embed_one(request.query)

@@ -129,7 +129,20 @@ class ProviderProjectionExecutor(ProjectionExecutorPort):
         memory: Memory,
         update: dict[str, object],
     ) -> None:
-        updated = memory.model_copy(update=update)
+        # Keep legacy metadata readers consistent with the typed projection
+        # state, including facts that arrived with explicit pending metadata.
+        updated = memory.model_copy(
+            update={
+                **update,
+                "metadata": {
+                    **memory.metadata,
+                    **{
+                        key: value for key, value in update.items()
+                        if key in {"embedding_status", "vector_projection_status"}
+                    },
+                },
+            }
+        )
         if await self._memory_store.upsert_if_revision(
             updated,
             expected_revision=memory.revision,

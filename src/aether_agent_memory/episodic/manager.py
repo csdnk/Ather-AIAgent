@@ -22,8 +22,7 @@ class MockEpisodicMemoryManager(BaseMockMemoryManager):
         self._half_life_hours = half_life_hours
 
     async def write(self, memory: Memory) -> Memory:
-        if memory.embedding is None:
-            memory.embedding = await self._embedder.embed_one(memory.content)
+        """Persist only the fact; the shared projection pipeline embeds it later."""
         return await super().write(memory)
 
     async def recall(self, request: ContextRequest) -> list[RecalledMemory]:

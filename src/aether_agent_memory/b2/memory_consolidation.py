@@ -209,6 +209,9 @@ class MemoryConsolidator:
         *,
         manager: MemoryManager,
     ) -> ConsolidationResult:
+        # Extraction is derived work: even a failing extractor must leave the
+        # original source fact available for inspection and retry.
+        memory = await manager.write(memory)
         enriched = self._attach_facts(memory)
         await manager.write(enriched)
         facts = enriched.facts

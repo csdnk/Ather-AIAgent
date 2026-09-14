@@ -10,13 +10,14 @@ from aether_agent_memory.mocks.embedding import MockEmbeddingClient
 
 
 @pytest.mark.unit
-async def test_write_generates_embedding() -> None:
+async def test_write_persists_fact_with_pending_projection() -> None:
     embedder = MockEmbeddingClient(dim=16)
     mgr = MockEpisodicMemoryManager(embedder=embedder)
     m = Memory(type=MemoryType.EPISODIC, session_id="s1", agent_id="a1", content="hello")
     await mgr.write(m)
-    assert m.embedding is not None
-    assert len(m.embedding) == 16
+    assert m.embedding is None
+    assert m.embedding_status == m.vector_projection_status == "pending"
+    assert await mgr.get(m.id) is not None
 
 
 @pytest.mark.unit
@@ -38,7 +39,14 @@ async def test_write_preserves_existing_embedding() -> None:
 async def test_recall_cosine_with_decay() -> None:
     embedder = MockEmbeddingClient(dim=16)
     mgr = MockEpisodicMemoryManager(embedder=embedder, half_life_hours=168.0)
-    m = Memory(type=MemoryType.EPISODIC, session_id="s1", agent_id="a1", content="hello")
+    m = Memory(
+        type=MemoryType.EPISODIC,
+        session_id="s1",
+        agent_id="a1",
+        content="hello",
+        embedding=await embedder.embed_one("hello"),
+        embedding_status="succeeded",
+    )
     await mgr.write(m)
     req = ContextRequest(session_id="s1", agent_id="a1", query="hello")
     recalled = await mgr.recall(req)
@@ -51,14 +59,29 @@ async def test_recall_ranks_relevant_higher() -> None:
     embedder = MockEmbeddingClient(dim=16)
     mgr = MockEpisodicMemoryManager(embedder=embedder)
     await mgr.write(
-        Memory(type=MemoryType.EPISODIC, session_id="s1", agent_id="a1", content="cats")
+        Memory(
+            type=MemoryType.EPISODIC,
+            session_id="s1",
+            agent_id="a1",
+            content="dogs",
+            embedding=await embedder.embed_one("dogs"),
+            embedding_status="succeeded",
+        )
     )
     await mgr.write(
-        Memory(type=MemoryType.EPISODIC, session_id="s1", agent_id="a1", content="dogs")
+        Memory(
+            type=MemoryType.EPISODIC,
+            session_id="s1",
+            agent_id="a1",
+            content="cats",
+            embedding=await embedder.embed_one("cats"),
+            embedding_status="succeeded",
+        )
     )
     req = ContextRequest(session_id="s1", agent_id="a1", query="cats")
     recalled = await mgr.recall(req)
     assert recalled[0].memory.content == "cats"
+    assert recalled[0].score > recalled[1].score
 
 
 @pytest.mark.unit
@@ -71,6 +94,8 @@ async def test_recall_decay_lowers_old_memory_score() -> None:
         agent_id="a1",
         content="cats",
         created_at=datetime.now(UTC) - timedelta(hours=48),
+        embedding=await embedder.embed_one("cats"),
+        embedding_status="succeeded",
     )
     recent = Memory(
         type=MemoryType.EPISODIC,
@@ -78,6 +103,8 @@ async def test_recall_decay_lowers_old_memory_score() -> None:
         agent_id="a1",
         content="cats",
         created_at=datetime.now(UTC),
+        embedding=await embedder.embed_one("cats"),
+        embedding_status="succeeded",
     )
     await mgr.write(old)
     await mgr.write(recent)

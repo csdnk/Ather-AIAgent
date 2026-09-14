@@ -305,6 +305,11 @@ class SearchMemoryUseCase:
                 AccessTrace(
                     trace_id=context.trace_id,
                     request_id=context.request_id,
+                    tenant_id=context.tenant_id,
+                    user_id=context.user_id,
+                    agent_id=context.agent_id,
+                    session_id=context.session_id,
+                    task_id=context.task_id,
                     memory_id=item.memory_id,
                     source=result.backend,
                     hit=True,
@@ -352,6 +357,11 @@ class BuildContextUseCase:
                 AccessTrace(
                     trace_id=context.trace_id,
                     request_id=context.request_id,
+                    tenant_id=context.tenant_id,
+                    user_id=context.user_id,
+                    agent_id=context.agent_id,
+                    session_id=context.session_id,
+                    task_id=context.task_id,
                     memory_id=memory_id,
                     source="context",
                     hit=True,
@@ -673,6 +683,11 @@ def _empty_context_pack(request: ContextRequest, context: RequestContext) -> Con
 async def record_access(dependencies: RuntimeDependencies, trace: AccessTrace) -> None:
     if dependencies.access_trace is None:
         return
+    try:
+        await dependencies.access_trace.record(trace)
+    except Exception:
+        # Telemetry must not turn a successful recall into a failed request.
+        return
 
 
 async def record_access_many(
@@ -686,14 +701,11 @@ async def record_access_many(
         if record_many is not None:
             await record_many(traces)
             return
-        for trace in traces:
-            await dependencies.access_trace.record(trace)
     except Exception:
+        # A batch may have partially succeeded; do not replay it as singles.
         return
-    try:
-        await dependencies.access_trace.record(trace)
-    except Exception:
-        return
+    for trace in traces:
+        await record_access(dependencies, trace)
 
 
 async def enqueue_projection_work(

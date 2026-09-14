@@ -69,6 +69,11 @@ class MemoryRetrievalResult(BaseModel):
 class AccessTrace(BaseModel):
     trace_id: str
     request_id: str
+    tenant_id: str | None = None
+    user_id: str | None = None
+    agent_id: str | None = None
+    session_id: str | None = None
+    task_id: str | None = None
     memory_id: str
     source: str
     tier: StorageTier | str | None = None
