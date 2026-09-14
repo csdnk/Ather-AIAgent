@@ -12,6 +12,12 @@ def require_agent_scope(
     operation: str = "operation",
 ) -> Scope:
     """Resolve and authorize an agent-scoped application operation."""
+    if context.project_id is not None or (expected is not None and expected.project_id is not None):
+        raise ScopeError(
+            f"{operation} requires a project-aware authorization adapter; "
+            "legacy scope is insufficient",
+            trace_id=context.trace_id,
+        )
     if not context.tenant_id or not context.user_id or not context.agent_id:
         raise ScopeError(
             f"{operation} requires tenant/user/agent scope",
@@ -54,8 +60,7 @@ def require_session_scope(
         task_id=context.task_id,
     )
     if expected is not None and (
-        expected.session_id != resolved.session_id
-        or expected.task_id != resolved.task_id
+        expected.session_id != resolved.session_id or expected.task_id != resolved.task_id
     ):
         raise ScopeError(
             f"{operation} scope does not match request context",

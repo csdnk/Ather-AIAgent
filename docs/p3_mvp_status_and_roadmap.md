@@ -189,6 +189,14 @@ flowchart LR
 7. 涉及真实数据删除、Evict 或物理迁移的功能默认关闭，通过配置和白名单逐步放量。
 8. 每个 Sprint 完成后更新本文档的“已完成、缺口、验证结果”，并记录对应 commit/PR。
 
+### 2026-09-14：Recall / Embedding 首批开发交付
+
+- 开发分支：`codex/recall-embedding-first-batch`，基线 `main`；提交可由该分支历史追溯。
+- 已实现：64 个契约对象/结构、477 个直接字段，Recall 受理及 Query 准备，纯 Query/Passage 计算、Sidecar 适配和 P2 投影模拟器。
+- 缺口：完整 Recall 后续阶段、生产投影协调器与 B/P2 适配；Query 失败分支、收尾预算、运行/排队调度和重试 jitter 尚未完全对齐设计。
+- 验证：提交前 pytest（排除 Docker Compose 文件）528 passed、2 skipped，Ruff 通过；mypy 仍有既有 generated 包类型声明错误，Docker Linux engine 联调未完成。
+- 详细对象字段、调用入口、验证命令与设计差异见 [首批实现说明](RECALL_EMBEDDING_FIRST_BATCH_20260914.md)。新链路未启用为生产默认入口。
+
 ## 7. 下一步优先建议
 
 下一轮优先执行 Sprint 1，而不是立即扩大模型或数据规模。先补齐服务边界、持久化 Action Log、超时/冷却、schema_version 和真实可观测性，可以让现有 B2/B3 MVP 更快进入 P1/P2/P4 联调，也能减少后续替换 Mock 组件时的返工。

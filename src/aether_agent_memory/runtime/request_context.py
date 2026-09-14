@@ -21,6 +21,7 @@ class RequestContext:
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     task_id: str | None = None
     parent_request_id: str | None = None
+    project_id: str | None = None
 
     @property
     def scope(self) -> Scope:
@@ -30,6 +31,7 @@ class RequestContext:
             agent_id=self.agent_id,
             session_id=self.session_id,
             task_id=self.task_id,
+            project_id=self.project_id,
         )
 
     @property
@@ -58,6 +60,7 @@ class RequestContext:
         deadline_ms: int | None = None,
         idempotency_key: str | None = None,
         parent_request_id: str | None = None,
+        project_id: str | None = None,
     ) -> RequestContext:
         resolved_deadline = deadline
         if resolved_deadline is None and deadline_ms is not None:
@@ -73,6 +76,7 @@ class RequestContext:
             deadline=resolved_deadline,
             idempotency_key=idempotency_key,
             parent_request_id=parent_request_id,
+            project_id=project_id,
         )
 
     @classmethod
@@ -94,6 +98,7 @@ class RequestContext:
             deadline_ms=int(deadline_ms) if deadline_ms is not None else None,
             idempotency_key=_optional_str(payload.get("idempotency_key")),
             parent_request_id=_optional_str(payload.get("parent_request_id")),
+            project_id=_optional_str(payload.get("project_id")),
         )
 
     def child(
@@ -134,6 +139,7 @@ class RequestContext:
             "created_at": self.created_at.isoformat(),
             "task_id": self.task_id,
             "parent_request_id": self.parent_request_id,
+            "project_id": self.project_id,
         }
 
 

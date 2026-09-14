@@ -19,6 +19,7 @@ dependencies = [
   "pydantic-settings>=2.14.2",
   "pymilvus>=2.5,<3",
   "redis>=5.2,<6",
+  "rfc8785>=0.1.4,<1",
   "structlog>=26.1.0",
   "uvicorn>=0.35,<1",
 ]

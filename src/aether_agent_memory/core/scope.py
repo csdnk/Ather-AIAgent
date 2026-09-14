@@ -16,6 +16,7 @@ class Scope:
     agent_id: str | None = None
     session_id: str | None = None
     task_id: str | None = None
+    project_id: str | None = None
 
     def as_dict(self) -> dict[str, str | None]:
         return {
@@ -24,4 +25,5 @@ class Scope:
             "agent_id": self.agent_id,
             "session_id": self.session_id,
             "task_id": self.task_id,
+            "project_id": self.project_id,
         }

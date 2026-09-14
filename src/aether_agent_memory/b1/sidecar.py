@@ -130,9 +130,7 @@ class SidecarSettings:
     host: str = field(default_factory=lambda: os.getenv("AETHER_B1_HOST", "127.0.0.1"))
     port: int = field(default_factory=lambda: _env_int("AETHER_B1_PORT", 18081))
     threads: int = field(default_factory=lambda: _env_int("AETHER_B1_THREADS", 1))
-    inter_op_threads: int = field(
-        default_factory=lambda: _env_int("AETHER_B1_INTER_OP_THREADS", 1)
-    )
+    inter_op_threads: int = field(default_factory=lambda: _env_int("AETHER_B1_INTER_OP_THREADS", 1))
     max_length: int = field(default_factory=lambda: _env_int("AETHER_B1_MAX_LENGTH", 512))
     enable_simd: bool = field(default_factory=lambda: _env_bool("AETHER_B1_SIMD_ENABLED", True))
     profile_timing: bool = field(
@@ -158,9 +156,7 @@ class SidecarSettings:
         default_factory=lambda: _env_int("AETHER_B1_DYNAMIC_QUEUE_SIZE", 4096)
     )
     dynamic_length_buckets: tuple[int, ...] = field(
-        default_factory=lambda: _env_int_tuple(
-            "AETHER_B1_LENGTH_BUCKETS", (32, 64, 128, 256, 512)
-        )
+        default_factory=lambda: _env_int_tuple("AETHER_B1_LENGTH_BUCKETS", (32, 64, 128, 256, 512))
     )
     max_body_bytes: int = field(
         default_factory=lambda: _env_int("AETHER_B1_MAX_BODY_BYTES", 2 * 1024 * 1024)
@@ -295,6 +291,7 @@ class InterceptItem(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     embedding_required: bool = True
     input_type: Literal["passage", "query"] = "passage"
+    preserve_input: bool = False
 
     @model_validator(mode="after")
     def exactly_one_text_field(self) -> InterceptItem:
@@ -417,9 +414,7 @@ class Metrics:
         request_qps = len(recent) / elapsed
         effective_item_qps = recent_success / elapsed
         vector_qps = (
-            sum(int(record.get("vectors", 0)) for record in recent) / elapsed
-            if recent
-            else 0.0
+            sum(int(record.get("vectors", 0)) for record in recent) / elapsed if recent else 0.0
         )
         return {
             "started_at_epoch": self.started_at,
@@ -938,9 +933,7 @@ class B1Service:
             for chunk_index, start, end, vector in values:
                 base_chunk_id = item.chunk_id or item.source_id
                 chunk_id = (
-                    base_chunk_id
-                    if len(values) == 1
-                    else f"{base_chunk_id}:{chunk_index:04d}"
+                    base_chunk_id if len(values) == 1 else f"{base_chunk_id}:{chunk_index:04d}"
                 )
                 chunk_results.append(
                     {
@@ -982,6 +975,7 @@ class B1Service:
                 "requested_backend": runtime.get("requested_backend", self.settings.backend_name),
                 "engine": self.backend.engine_name,
                 "embedding_model": self.backend.model_name,
+                "input_type": item.input_type,
                 "model_hash": runtime.get("model_hash"),
                 "embedding_dim": self.backend.dimension,
                 "device": runtime.get("device", "CPU"),
@@ -1103,11 +1097,22 @@ class B1Service:
                     results[index] = replay
                 continue
             chunk_started = time.perf_counter()
-            chunks = _natural_chunks(
-                item.content,
-                self.settings.chunk_max_chars,
-                self.settings.chunk_overlap_chars,
-            )
+            if item.preserve_input:
+                if not item.content.strip() or len(item.content) > self.settings.chunk_max_chars:
+                    results[index] = _error_result(
+                        raw,
+                        "B1_FIXED_INPUT_INVALID",
+                        "fixed input is empty or exceeds the configured single-input limit",
+                        trace_id,
+                    )
+                    continue
+                chunks = [(0, len(item.content), item.content)]
+            else:
+                chunks = _natural_chunks(
+                    item.content,
+                    self.settings.chunk_max_chars,
+                    self.settings.chunk_overlap_chars,
+                )
             if profile_timing:
                 timings["chunking_ms"] += (time.perf_counter() - chunk_started) * 1000
             if len(chunks) > self.settings.max_chunks_per_item:
@@ -1137,8 +1142,7 @@ class B1Service:
         if profile_timing:
             timings["validation_ms"] = max(
                 0.0,
-                (time.perf_counter() - preprocess_started) * 1000
-                - timings["chunking_ms"],
+                (time.perf_counter() - preprocess_started) * 1000 - timings["chunking_ms"],
             )
 
         if valid and not self.ready and self.load_error is None:
@@ -1346,9 +1350,7 @@ class B1Service:
                 value for key, value in stage_timings.items() if key != "server_total_ms"
             )
             stage_timings["unaccounted_ms"] = max(0.0, latency_ms - accounted)
-            payload["profiling"] = {
-                key: round(value, 3) for key, value in stage_timings.items()
-            }
+            payload["profiling"] = {key: round(value, 3) for key, value in stage_timings.items()}
         return payload
 
     def _validate_vectors(self, vectors: list[np.ndarray], expected: int) -> list[np.ndarray]:

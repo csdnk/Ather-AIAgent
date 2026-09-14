@@ -26,6 +26,16 @@ class P2ObjectMeta:
     key: str
     etag: str
     size: int
+    md5_hex: str | None = None
+    blake3_hex: str | None = None
+
+
+@dataclass(frozen=True)
+class P2ObjectBytes:
+    """Raw provider data and metadata; does not assert a B-approved content version."""
+
+    data: bytes
+    meta: P2ObjectMeta | None
 
 
 @dataclass(frozen=True)
@@ -317,9 +327,14 @@ class P2GrpcClient:
             self._pb.PutObjectRequest(bucket=self.bucket, key=key, data=data),
             timeout=self.timeout_seconds,
         )
-        return P2ObjectMeta(bucket=meta.bucket, key=meta.key, etag=meta.etag, size=meta.size)
+        return self._object_meta(meta)
 
     async def get_object(self, key: str) -> bytes | None:
+        result = await self.get_object_result(key)
+        return result.data if result is not None else None
+
+    async def get_object_result(self, key: str) -> P2ObjectBytes | None:
+        """Preserve ObjectBytes.meta for the new contract adapter; keep legacy API unchanged."""
         await self.connect()
         assert self._pb is not None and self._grpc is not None
         try:
@@ -331,7 +346,29 @@ class P2GrpcClient:
             if self._is_not_found(exc):
                 return None
             raise
-        return bytes(response.data)
+        raw_meta = getattr(response, "meta", None)
+        if hasattr(response, "HasField") and not response.HasField("meta"):
+            raw_meta = None
+        return P2ObjectBytes(
+            bytes(response.data), self._object_meta(raw_meta) if raw_meta is not None else None
+        )
+
+    @staticmethod
+    def _object_meta(value: Any) -> P2ObjectMeta:
+        def optional(name: str) -> str | None:
+            if hasattr(value, "HasField") and not value.HasField(name):
+                return None
+            raw = getattr(value, name, None)
+            return str(raw) if raw is not None else None
+
+        return P2ObjectMeta(
+            bucket=value.bucket,
+            key=value.key,
+            etag=value.etag,
+            size=value.size,
+            md5_hex=optional("md5_hex"),
+            blake3_hex=optional("blake3_hex"),
+        )
 
     async def delete_object(self, key: str) -> bool:
         await self.connect()

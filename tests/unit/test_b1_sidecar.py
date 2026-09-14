@@ -93,6 +93,34 @@ def item(**overrides: object) -> dict[str, object]:
 
 
 @pytest.mark.unit
+def test_fixed_input_preserves_whitespace_and_rejects_oversize_without_compute() -> None:
+    backend = FakeBackend()
+    with TestClient(create_app(settings(chunk_max_chars=12), backend)) as client:
+        accepted = client.post(
+            "/v1/intercept",
+            json=item(
+                chunk_text="  exact  ",
+                preserve_input=True,
+                input_type="query",
+            ),
+        ).json()["results"][0]
+        rejected = client.post(
+            "/v1/intercept",
+            json=item(
+                request_id="oversize",
+                chunk_text="x" * 13,
+                preserve_input=True,
+            ),
+        ).json()["results"][0]
+    assert accepted["status"] == "success"
+    assert accepted["input_type"] == "query"
+    assert accepted["chunks"][0]["chunk_text"] == "  exact  "
+    assert accepted["chunks"][0]["start_char"] == 0
+    assert rejected["error_code"] == "B1_FIXED_INPUT_INVALID"
+    assert backend.calls == 1
+
+
+@pytest.mark.unit
 def test_returns_normalized_vector_metrics_events_and_capabilities() -> None:
     with TestClient(create_app(settings(), FakeBackend())) as client:
         response = client.post("/v1/intercept", json=item())
