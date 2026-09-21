@@ -1,0 +1,659 @@
+version: p3/1
+interfaces:
+- id: runtime.Transaction.get
+  provider: RF
+  consumers: &id001
+  - B
+  - A
+  - C
+  signature: '(self, ref: ''RecordRef'') -> ''dict[str, JsonValue] | None'''
+  rules: scope和namespace双重约束；CAS失败拒绝覆盖；分页游标绑定查询范围。
+  examples:
+  - positive-runtime.RecordRef
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.Transaction.put_if_revision
+  provider: RF
+  consumers: *id001
+  signature: '(self, ref: ''RecordRef'', value: ''dict[str, JsonValue]'', expected_revision:
+    ''int | None'') -> ''int'''
+  rules: scope和namespace双重约束；CAS失败拒绝覆盖；分页游标绑定查询范围。
+  examples:
+  - positive-runtime.RecordRef
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.Transaction.remove_if_revision
+  provider: RF
+  consumers: *id001
+  signature: '(self, ref: ''RecordRef'', expected_revision: ''int'') -> ''None'''
+  rules: scope和namespace双重约束；CAS失败拒绝覆盖；分页游标绑定查询范围。
+  examples:
+  - positive-runtime.RecordRef
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.Transaction.scan_page
+  provider: RF
+  consumers: *id001
+  signature: '(self, owner: ''str'', scope: ''Scope'', page: ''PageRequest'') -> ''RecordPage'''
+  rules: scope和namespace双重约束；CAS失败拒绝覆盖；分页游标绑定查询范围。
+  examples:
+  - positive-runtime.Scope
+  - positive-runtime.PageRequest
+  - positive-runtime.RecordPage
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.UnitOfWork.transaction
+  provider: RF
+  consumers:
+  - B
+  - A
+  - C
+  signature: (self) -> 'AbstractContextManager[Transaction]'
+  rules: 事务只包含本地短操作；禁止等待外部调用；异常整体回滚。
+  examples:
+  - positive-runtime.TrustedContext
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.IdentityPort.authenticate
+  provider: RF
+  consumers: &id002
+  - B
+  - A
+  - C
+  signature: '(self, credential: ''str'') -> ''Principal'''
+  rules: 默认拒绝；验证当前epoch及对象授权；共享必须显式授权。
+  examples:
+  - positive-runtime.Principal
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.IdentityPort.authorize
+  provider: RF
+  consumers: *id002
+  signature: '(self, tx: ''Transaction'', ctx: ''TrustedContext'', permission: ''Permission'',
+    target: ''RecordRef'') -> ''None'''
+  rules: 默认拒绝；验证当前epoch及对象授权；共享必须显式授权。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-runtime.RecordRef
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.IdentityPort.revalidate
+  provider: RF
+  consumers: *id002
+  signature: '(self, tx: ''Transaction'', ctx: ''TrustedContext'') -> ''None'''
+  rules: 默认拒绝；验证当前epoch及对象授权；共享必须显式授权。
+  examples:
+  - positive-runtime.TrustedContext
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.TaskHandler.run
+  provider: B/C
+  consumers: &id003
+  - RF
+  signature: '(self, ctx: ''TrustedContext'', task: ''TaskRecord'') -> ''RunResult'''
+  rules: run提交结果和Task终态必须共用UoW；recover返回证据，不直接重置未知操作。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-runtime.TaskRecord
+  - positive-runtime.RunResult
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.TaskHandler.recover
+  provider: B/C
+  consumers: *id003
+  signature: '(self, ctx: ''TrustedContext'', task: ''TaskRecord'') -> ''RecoveryDecision'''
+  rules: run提交结果和Task终态必须共用UoW；recover返回证据，不直接重置未知操作。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-runtime.TaskRecord
+  - positive-runtime.RecoveryDecision
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.TaskPort.register
+  provider: RF
+  consumers: &id004
+  - B
+  - C
+  signature: '(self, kind: ''str'', execution_class: ''str'', handler: ''TaskHandler'')
+    -> ''None'''
+  rules: 注册受控kind；同事务提交；同键异载荷拒绝；领取和配额原子检查。
+  examples:
+  - positive-runtime.TrustedContext
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.TaskPort.enqueue
+  provider: RF
+  consumers: *id004
+  signature: '(self, tx: ''Transaction'', ctx: ''TrustedContext'', spec: ''TaskSpec'')
+    -> ''TaskRecord'''
+  rules: 注册受控kind；同事务提交；同键异载荷拒绝；领取和配额原子检查。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-runtime.TaskSpec
+  - positive-runtime.TaskRecord
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.TaskPort.claim
+  provider: RF
+  consumers: *id004
+  signature: '(self, worker_id: ''str'', execution_class: ''str'', now: ''str'') ->
+    ''TaskRecord | None'''
+  rules: 注册受控kind；同事务提交；同键异载荷拒绝；领取和配额原子检查。
+  examples:
+  - positive-runtime.TaskRecord
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.TaskPort.renew
+  provider: RF
+  consumers: *id004
+  signature: '(self, tx: ''Transaction'', task_id: ''str'', lease: ''Lease'', revision:
+    ''int'') -> ''TaskRecord'''
+  rules: 注册受控kind；同事务提交；同键异载荷拒绝；领取和配额原子检查。
+  examples:
+  - positive-runtime.Lease
+  - positive-runtime.TaskRecord
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.TaskPort.complete
+  provider: RF
+  consumers: *id004
+  signature: '(self, tx: ''Transaction'', ctx: ''TrustedContext'', task: ''TaskRecord'',
+    result: ''RecordRef'') -> ''None'''
+  rules: 注册受控kind；同事务提交；同键异载荷拒绝；领取和配额原子检查。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-runtime.RecordRef
+  - positive-runtime.TaskRecord
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.TaskPort.request_recovery
+  provider: RF
+  consumers: *id004
+  signature: '(self, tx: ''Transaction'', ctx: ''TrustedContext'', request: ''RecoveryRequest'')
+    -> ''OperationRecord'''
+  rules: 注册受控kind；同事务提交；同键异载荷拒绝；领取和配额原子检查。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-runtime.RecoveryRequest
+  - positive-runtime.OperationRecord
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.EventPort.append
+  provider: RF
+  consumers: &id005
+  - B
+  - A
+  - C
+  signature: '(self, tx: ''Transaction'', ctx: ''TrustedContext'', event: ''EventEnvelope'')
+    -> ''None'''
+  rules: 事实与Outbox同事务；Inbox+领域效果+待办同事务后确认；至少一次交接。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-runtime.EventEnvelope
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.EventPort.consume
+  provider: RF
+  consumers: *id005
+  signature: '(self, tx: ''Transaction'', consumer_id: ''str'', event: ''EventEnvelope'',
+    apply: ''Callable[[Transaction, EventEnvelope], None]'') -> ''bool'''
+  rules: 事实与Outbox同事务；Inbox+领域效果+待办同事务后确认；至少一次交接。
+  examples:
+  - positive-runtime.EventEnvelope
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.DiagnosticsPort.record
+  provider: RF
+  consumers: &id006
+  - B
+  - A
+  - C
+  - 部署维护
+  signature: '(self, tx: ''Transaction'', record: ''DiagnosticRecord'') -> ''None'''
+  rules: 查询重验对象授权；诊断最小正文；维护记录与操作意图原子保存。
+  examples:
+  - positive-runtime.DiagnosticRecord
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.DiagnosticsPort.record_maintenance
+  provider: RF
+  consumers: *id006
+  signature: '(self, tx: ''Transaction'', record: ''MaintenanceRecord'') -> ''None'''
+  rules: 查询重验对象授权；诊断最小正文；维护记录与操作意图原子保存。
+  examples:
+  - positive-runtime.MaintenanceRecord
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.DiagnosticsPort.related
+  provider: RF
+  consumers: *id006
+  signature: '(self, ctx: ''TrustedContext'', subject: ''RecordRef'', page: ''PageRequest'')
+    -> ''RelatedRecords'''
+  rules: 查询重验对象授权；诊断最小正文；维护记录与操作意图原子保存。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-runtime.RecordRef
+  - positive-runtime.PageRequest
+  - positive-runtime.RelatedRecords
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.DiagnosticsPort.health
+  provider: RF
+  consumers: *id006
+  signature: '(self, ctx: ''TrustedContext'') -> ''HealthReport'''
+  rules: 查询重验对象授权；诊断最小正文；维护记录与操作意图原子保存。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-runtime.HealthReport
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.DiagnosticsPort.operation
+  provider: RF
+  consumers: *id006
+  signature: '(self, ctx: ''TrustedContext'', operation_id: ''Identifier'') -> ''OperationRecord'''
+  rules: 查询重验对象授权；诊断最小正文；维护记录与操作意图原子保存。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-runtime.OperationRecord
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.DiagnosticsPort.task
+  provider: RF
+  consumers: *id006
+  signature: '(self, ctx: ''TrustedContext'', task_id: ''Identifier'') -> ''TaskRecord'''
+  rules: 查询重验对象授权；诊断最小正文；维护记录与操作意图原子保存。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-runtime.TaskRecord
+  evidence_level: contract_only
+  implemented: false
+- id: remember.RememberPort.save
+  provider: B
+  consumers: &id007
+  - Host
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    request: aether_agent_memory.remember.contracts.models.RememberRequest) -> aether_agent_memory.remember.contracts.models.RememberReceipt'
+  rules: 保存与加工分开；显式纠错CAS；删除先阻断；原正文保留受控历史规则。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-remember.RememberRequest
+  - positive-remember.RememberReceipt
+  evidence_level: contract_only
+  implemented: false
+- id: remember.RememberPort.get
+  provider: B
+  consumers: *id007
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    memory_id: str) -> aether_agent_memory.remember.contracts.models.MemorySnapshot'
+  rules: 保存与加工分开；显式纠错CAS；删除先阻断；原正文保留受控历史规则。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-remember.MemorySnapshot
+  evidence_level: contract_only
+  implemented: false
+- id: remember.RememberPort.correct
+  provider: B
+  consumers: *id007
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    memory_id: str, request: aether_agent_memory.remember.contracts.models.CorrectionRequest)
+    -> aether_agent_memory.remember.contracts.models.RememberReceipt'
+  rules: 保存与加工分开；显式纠错CAS；删除先阻断；原正文保留受控历史规则。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-remember.RememberReceipt
+  - positive-remember.CorrectionRequest
+  evidence_level: contract_only
+  implemented: false
+- id: remember.RememberPort.lifecycle
+  provider: B
+  consumers: *id007
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    memory_id: str, request: aether_agent_memory.remember.contracts.models.LifecycleRequest)
+    -> aether_agent_memory.remember.contracts.models.MemorySnapshot'
+  rules: 保存与加工分开；显式纠错CAS；删除先阻断；原正文保留受控历史规则。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-remember.MemorySnapshot
+  - positive-remember.LifecycleRequest
+  evidence_level: contract_only
+  implemented: false
+- id: remember.RememberPort.delete
+  provider: B
+  consumers: *id007
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    memory_id: str, request: aether_agent_memory.remember.contracts.models.DeleteRequest)
+    -> aether_agent_memory.remember.contracts.models.DeleteReceipt'
+  rules: 保存与加工分开；显式纠错CAS；删除先阻断；原正文保留受控历史规则。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-remember.DeleteRequest
+  - positive-remember.DeleteReceipt
+  evidence_level: contract_only
+  implemented: false
+- id: remember.RememberPort.delete_source
+  provider: B
+  consumers: *id007
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    source_id: str, request: aether_agent_memory.remember.contracts.models.DeleteRequest)
+    -> aether_agent_memory.remember.contracts.models.DeleteReceipt'
+  rules: 保存与加工分开；显式纠错CAS；删除先阻断；原正文保留受控历史规则。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-remember.DeleteRequest
+  - positive-remember.DeleteReceipt
+  evidence_level: contract_only
+  implemented: false
+- id: remember.MemoryReadPort.working
+  provider: B
+  consumers: &id008
+  - A
+  - C
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    selection: aether_agent_memory.runtime.contracts.models.ScopeSelector, page: aether_agent_memory.runtime.contracts.models.PageRequest)
+    -> aether_agent_memory.remember.contracts.models.MemoryReadBatch'
+  rules: 精确版本逐项对应；final_guard使用调用方同一事务；未知不当排除。
+  examples:
+  - positive-runtime.ScopeSelector
+  - positive-runtime.TrustedContext
+  - positive-runtime.PageRequest
+  - positive-remember.MemoryReadBatch
+  evidence_level: contract_only
+  implemented: false
+- id: remember.MemoryReadPort.load
+  provider: B
+  consumers: *id008
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    refs: tuple[aether_agent_memory.remember.contracts.models.MemoryRef, ...]) ->
+    aether_agent_memory.remember.contracts.models.MemoryReadBatch'
+  rules: 精确版本逐项对应；final_guard使用调用方同一事务；未知不当排除。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-remember.MemoryRef
+  - positive-remember.MemoryReadBatch
+  evidence_level: contract_only
+  implemented: false
+- id: remember.MemoryReadPort.final_guard
+  provider: B
+  consumers: *id008
+  signature: '(self, tx: aether_agent_memory.runtime.contracts.ports.Transaction,
+    ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, refs: tuple[aether_agent_memory.remember.contracts.models.MemoryRef,
+    ...], purpose: Literal[''recall'', ''history'', ''actuate'', ''cleanup'']) ->
+    aether_agent_memory.remember.contracts.models.EligibilityBatch'
+  rules: 精确版本逐项对应；final_guard使用调用方同一事务；未知不当排除。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-remember.MemoryRef
+  - positive-remember.EligibilityBatch
+  evidence_level: contract_only
+  implemented: false
+- id: remember.MemoryReadPort.history
+  provider: B
+  consumers: *id008
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    memory_id: str, page: aether_agent_memory.runtime.contracts.models.PageRequest)
+    -> aether_agent_memory.remember.contracts.models.MemoryReadBatch'
+  rules: 精确版本逐项对应；final_guard使用调用方同一事务；未知不当排除。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-runtime.PageRequest
+  - positive-remember.MemoryReadBatch
+  evidence_level: contract_only
+  implemented: false
+- id: remember.MemoryReadPort.source
+  provider: B
+  consumers: *id008
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    source_id: str) -> aether_agent_memory.remember.contracts.models.SourceRef'
+  rules: 精确版本逐项对应；final_guard使用调用方同一事务；未知不当排除。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-remember.SourceRef
+  evidence_level: contract_only
+  implemented: false
+- id: remember.ExtractionPort.extract
+  provider: B
+  consumers:
+  - Remember Handler
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    request: aether_agent_memory.remember.contracts.models.ExtractionRequest) -> aether_agent_memory.remember.contracts.models.ExtractionResult'
+  rules: LangMem只产候选；输入和来源授权；正式ID和版本服务端确定。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-remember.ExtractionRequest
+  - positive-remember.ExtractionResult
+  evidence_level: contract_only
+  implemented: false
+- id: remember.DocumentReaderPort.acquire
+  provider: B适配器
+  consumers: &id009
+  - Remember Handler
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    document: aether_agent_memory.remember.contracts.models.DocumentInput) -> aether_agent_memory.remember.contracts.models.SourceAcquisition'
+  rules: 仅访问获准Provider及文档版本；核对原文件摘要、持久保存和解析来源，不任意抓取URL。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-remember.DocumentInput
+  - positive-remember.SourceAcquisition
+  evidence_level: contract_only
+  implemented: false
+- id: remember.DocumentReaderPort.parse
+  provider: B适配器
+  consumers: *id009
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    acquired: aether_agent_memory.remember.contracts.models.SourceAcquisition) ->
+    aether_agent_memory.remember.contracts.models.DocumentContent'
+  rules: 仅访问获准Provider及文档版本；核对原文件摘要、持久保存和解析来源，不任意抓取URL。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-remember.SourceAcquisition
+  - positive-remember.DocumentContent
+  evidence_level: contract_only
+  implemented: false
+- id: recall.RecallPort.recall
+  provider: A
+  consumers: &id010
+  - Host
+  - Agent工具适配
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    request: aether_agent_memory.recall.contracts.models.RecallRequest) -> aether_agent_memory.recall.contracts.models.ContextPack'
+  rules: 一个入口；来源选择受控；结果再取重验授权和有效性，不隐式重新检索。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-recall.RecallRequest
+  - positive-recall.ContextPack
+  evidence_level: contract_only
+  implemented: false
+- id: recall.RecallPort.status
+  provider: A
+  consumers: *id010
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    recall_id: str) -> aether_agent_memory.recall.contracts.models.RecallRecord'
+  rules: 一个入口；来源选择受控；结果再取重验授权和有效性，不隐式重新检索。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-recall.RecallRecord
+  evidence_level: contract_only
+  implemented: false
+- id: recall.RecallPort.result
+  provider: A
+  consumers: *id010
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    recall_id: str) -> aether_agent_memory.recall.contracts.models.ContextPack'
+  rules: 一个入口；来源选择受控；结果再取重验授权和有效性，不隐式重新检索。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-recall.ContextPack
+  evidence_level: contract_only
+  implemented: false
+- id: recall.EmbeddingPort.embed
+  provider: A
+  consumers:
+  - B
+  - A
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    request: aether_agent_memory.recall.contracts.models.EmbeddingRequest) -> aether_agent_memory.recall.contracts.models.EmbeddingResult'
+  rules: Query/Passage共享模型空间、独立配额；返回每个输入摘要；不可补零向量。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-recall.EmbeddingRequest
+  - positive-recall.EmbeddingResult
+  evidence_level: contract_only
+  implemented: false
+- id: recall.VectorPort.project
+  provider: A
+  consumers: &id011
+  - B
+  - A
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    request: aether_agent_memory.recall.contracts.models.ProjectionRequest) -> aether_agent_memory.recall.contracts.models.ProjectionResult'
+  rules: 服务端追加授权过滤；精确目标绑定；verified仅是机制结果，B判ready。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-recall.ProjectionRequest
+  - positive-recall.ProjectionResult
+  evidence_level: contract_only
+  implemented: false
+- id: recall.VectorPort.inspect
+  provider: A
+  consumers: *id011
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    target: aether_agent_memory.recall.contracts.models.ProjectionTarget, operation_id:
+    str) -> aether_agent_memory.recall.contracts.models.ProjectionResult'
+  rules: 服务端追加授权过滤；精确目标绑定；verified仅是机制结果，B判ready。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-recall.ProjectionTarget
+  - positive-recall.ProjectionResult
+  evidence_level: contract_only
+  implemented: false
+- id: recall.VectorPort.delete
+  provider: A
+  consumers: *id011
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    target: aether_agent_memory.recall.contracts.models.ProjectionTarget, operation_id:
+    str) -> aether_agent_memory.recall.contracts.models.ProjectionResult'
+  rules: 服务端追加授权过滤；精确目标绑定；verified仅是机制结果，B判ready。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-recall.ProjectionTarget
+  - positive-recall.ProjectionResult
+  evidence_level: contract_only
+  implemented: false
+- id: recall.VectorPort.search
+  provider: A
+  consumers: *id011
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    request: aether_agent_memory.recall.contracts.models.VectorSearchRequest) -> aether_agent_memory.recall.contracts.models.VectorSearchResult'
+  rules: 服务端追加授权过滤；精确目标绑定；verified仅是机制结果，B判ready。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-recall.VectorSearchRequest
+  - positive-recall.VectorSearchResult
+  evidence_level: contract_only
+  implemented: false
+- id: operate.SchedulingPort.consume
+  provider: C
+  consumers: &id012
+  - 内部Worker
+  signature: '(self, tx: aether_agent_memory.runtime.contracts.ports.Transaction,
+    event: aether_agent_memory.runtime.contracts.models.EventEnvelope) -> None'
+  rules: 存储和读取共同触发；周期重读状态；keep/defer不提交动作；未知查原ID。
+  examples:
+  - positive-runtime.EventEnvelope
+  evidence_level: contract_only
+  implemented: false
+- id: operate.SchedulingPort.decide
+  provider: C
+  consumers: *id012
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    inputs: aether_agent_memory.operate.contracts.models.SchedulingInput) -> aether_agent_memory.operate.contracts.models.PlacementDecision'
+  rules: 存储和读取共同触发；周期重读状态；keep/defer不提交动作；未知查原ID。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-operate.SchedulingInput
+  - positive-operate.PlacementDecision
+  evidence_level: contract_only
+  implemented: false
+- id: operate.SchedulingPort.execute
+  provider: C
+  consumers: *id012
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    intent: aether_agent_memory.operate.contracts.models.ActionIntent) -> aether_agent_memory.operate.contracts.models.ActionRecord'
+  rules: 存储和读取共同触发；周期重读状态；keep/defer不提交动作；未知查原ID。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-operate.ActionIntent
+  - positive-operate.ActionRecord
+  evidence_level: contract_only
+  implemented: false
+- id: operate.SchedulingPort.reconcile
+  provider: C
+  consumers: *id012
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    action_id: str) -> aether_agent_memory.operate.contracts.models.ActionRecord'
+  rules: 存储和读取共同触发；周期重读状态；keep/defer不提交动作；未知查原ID。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-operate.ActionRecord
+  evidence_level: contract_only
+  implemented: false
+- id: operate.ExecutorPort.submit
+  provider: C接口/Provider实现
+  consumers: &id013
+  - C
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    intent: aether_agent_memory.operate.contracts.models.ActionIntent) -> aether_agent_memory.operate.contracts.models.ExecutionFeedback'
+  rules: 稳定action_id和同载荷；实际反馈+内容读取证据；404不证明未执行。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-operate.ActionIntent
+  - positive-operate.ExecutionFeedback
+  evidence_level: contract_only
+  implemented: false
+- id: operate.ExecutorPort.query
+  provider: C接口/Provider实现
+  consumers: *id013
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    action_id: str) -> aether_agent_memory.operate.contracts.models.ExecutionFeedback'
+  rules: 稳定action_id和同载荷；实际反馈+内容读取证据；404不证明未执行。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-operate.ExecutionFeedback
+  evidence_level: contract_only
+  implemented: false
+- id: operate.ExecutorPort.observe
+  provider: C接口/Provider实现
+  consumers: *id013
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    memory: aether_agent_memory.remember.contracts.models.MemoryRef, representation_id:
+    str) -> aether_agent_memory.operate.contracts.models.PlacementObservation'
+  rules: 稳定action_id和同载荷；实际反馈+内容读取证据；404不证明未执行。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-remember.MemoryRef
+  - positive-operate.PlacementObservation
+  evidence_level: contract_only
+  implemented: false
+- id: operate.ExecutorPort.verify_read
+  provider: C接口/Provider实现
+  consumers: *id013
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    intent: aether_agent_memory.operate.contracts.models.ActionIntent) -> aether_agent_memory.operate.contracts.models.ReadProof'
+  rules: 稳定action_id和同载荷；实际反馈+内容读取证据；404不证明未执行。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-operate.ActionIntent
+  - positive-operate.ReadProof
+  evidence_level: contract_only
+  implemented: false
+- id: operate.ExecutorPort.resources
+  provider: C接口/Provider实现
+  consumers: *id013
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext)
+    -> aether_agent_memory.operate.contracts.models.ResourceSnapshot'
+  rules: 稳定action_id和同载荷；实际反馈+内容读取证据；404不证明未执行。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-operate.ResourceSnapshot
+  evidence_level: contract_only
+  implemented: false

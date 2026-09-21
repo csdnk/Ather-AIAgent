@@ -1,0 +1,262 @@
+{
+  "generated_at": "2026-09-19T07:12:06.315789+00:00",
+  "profile": "basic_local",
+  "passed": true,
+  "python": "3.13.15",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "checks": [
+    {
+      "name": "flow_tests",
+      "passed": true
+    },
+    {
+      "name": "flow_lint",
+      "passed": true
+    },
+    {
+      "name": "flow_types",
+      "passed": true
+    },
+    {
+      "name": "foundation_and_contract_regression",
+      "passed": true
+    },
+    {
+      "name": "three_flow_demo",
+      "passed": true
+    }
+  ],
+  "flow_cases": [
+    {
+      "name": "test_write_recall_and_automatic_real_cache",
+      "passed": true
+    },
+    {
+      "name": "test_correct_filters_old_vectors_and_invalidates_old_pack",
+      "passed": true
+    },
+    {
+      "name": "test_delete_blocks_old_pack_and_cleans_cache",
+      "passed": true
+    },
+    {
+      "name": "test_scope_isolation_across_all_flows[bob]",
+      "passed": true
+    },
+    {
+      "name": "test_scope_isolation_across_all_flows[carol]",
+      "passed": true
+    },
+    {
+      "name": "test_scope_isolation_across_all_flows[david]",
+      "passed": true
+    },
+    {
+      "name": "test_vector_outage_is_degraded_or_failed_not_fake_empty",
+      "passed": true
+    },
+    {
+      "name": "test_context_budget_is_measured_and_too_small_fails",
+      "passed": true
+    },
+    {
+      "name": "test_duplicate_read_events_do_not_double_heat",
+      "passed": true
+    },
+    {
+      "name": "test_lost_execution_response_queries_original_action",
+      "passed": true
+    },
+    {
+      "name": "test_archive_and_reactivate",
+      "passed": true
+    },
+    {
+      "name": "test_delete_source_blocks_working_and_derived",
+      "passed": true
+    },
+    {
+      "name": "test_inflight_extraction_cannot_resurrect_deleted_working",
+      "passed": true
+    },
+    {
+      "name": "test_save_idempotency_same_operation_rejects_different_input",
+      "passed": true
+    },
+    {
+      "name": "test_read_only_user_can_recall_and_feed_internal_operate",
+      "passed": true
+    },
+    {
+      "name": "test_delete_original_working_also_blocks_derived_facts",
+      "passed": true
+    },
+    {
+      "name": "test_restart_preserves_context_and_executor_evidence",
+      "passed": true
+    },
+    {
+      "name": "test_lost_executor_history_stays_unknown",
+      "passed": true
+    },
+    {
+      "name": "test_tampered_embedding_never_marks_projection_ready",
+      "passed": true
+    },
+    {
+      "name": "test_langmem_adapter_rejects_unsubstantiated_candidate",
+      "passed": true
+    },
+    {
+      "name": "test_cache_verification_preserves_exact_crlf_bytes",
+      "passed": true
+    },
+    {
+      "name": "test_cli_repeat_operation_is_idempotent",
+      "passed": true
+    }
+  ],
+  "not_run": [
+    "live_langmem_model",
+    "semantic_embedding_model",
+    "milvus",
+    "production_storage_tiers",
+    "http_host",
+    "azure_aks",
+    "metrics_and_soak"
+  ],
+  "artifacts": [
+    {
+      "path": "src/aether_agent_memory/remember/basic/extraction.py",
+      "sha256": "428df981b087c9791c18baa9bfd4c129da670de0b94879c0436c56896c5bee72"
+    },
+    {
+      "path": "src/aether_agent_memory/remember/basic/service.py",
+      "sha256": "96889c747efaf50c371fb2a21be89a8430467d1ead8aa2b6491560926d43e4ba"
+    },
+    {
+      "path": "src/aether_agent_memory/remember/basic/__init__.py",
+      "sha256": "01a3ece8fa2773f72650076d83557ef9bb97fedbe2de0bea7c5880ea9675d0ac"
+    },
+    {
+      "path": "src/aether_agent_memory/recall/basic/adapters.py",
+      "sha256": "daa5534975262c38963b525897ff330742a0c05a442aa20c89b1c9ae9e06a735"
+    },
+    {
+      "path": "src/aether_agent_memory/recall/basic/service.py",
+      "sha256": "f49abdc5be06cd71a2c93261532b18c4cc6cdf22aa63cf7ea7adde4f069d2cfe"
+    },
+    {
+      "path": "src/aether_agent_memory/recall/basic/__init__.py",
+      "sha256": "0af9b207120945ad474e985af512934213414d79ea0d6830a276a210ced282b9"
+    },
+    {
+      "path": "src/aether_agent_memory/operate/basic/executor.py",
+      "sha256": "4fc317dbb54f31be73e15d2dbf96ff3457b00cb492054083e85f883d5403c1b8"
+    },
+    {
+      "path": "src/aether_agent_memory/operate/basic/service.py",
+      "sha256": "315b0bcbeee02e34f387d03611a3058985f4f5018f303e14607e866f0239a5dd"
+    },
+    {
+      "path": "src/aether_agent_memory/operate/basic/__init__.py",
+      "sha256": "d4047aabffb65c27752798c4c1eaab3664e3c41f966f35c8bd17f48409ffa4d1"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/flows/host.py",
+      "sha256": "3322aaee223e6be15e7c27856e8d5172306018c1878963d76148b5a72b5b4828"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/flows/__init__.py",
+      "sha256": "c5563f0bfbe977d1e778465ffb99bfdfea49c7a68eb85770f6f222298aeacaf2"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/flows/__main__.py",
+      "sha256": "78e1ae89cc3acebb2a6815e9af1693ffe7ccf8a1341e6ccf00cd1ec0d5550b65"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/common.py",
+      "sha256": "fbf827a8af4d101a60681bbc64b75a91af3d61074a773df5cab7dea86478af3b"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/diagnostics.py",
+      "sha256": "a4bb84e7127524e5d0f1b0316448e0d371430b7874df8e12cb31fc333f7b4b81"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/events.py",
+      "sha256": "77997d23f8a19f210fd0337ffc02c70f912083235363b26e99538994405a8698"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/host.py",
+      "sha256": "3cad4d50c0c090a0358308fb4abf18740e48e27a5abb06347c9f87e81adc770b"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/identity.py",
+      "sha256": "1f085d8c47d68d9a2baa4d62fd671e5b291a7088083d879ec8e4af0ba94d37ce"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/requests.py",
+      "sha256": "2e82f34a06f053e8b69e6bd3a67284e0c8920fd51293f464898c00d75c547e7f"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/sample.py",
+      "sha256": "32002e89b2fb1a652d5af948d762f528a6cba8d8e52fc62720760cb47c644307"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/storage.py",
+      "sha256": "5dcab359d62e97b88a2fce0f824201f8a64a2ad07076508f968a9118d2550dc3"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/tasks.py",
+      "sha256": "3e32bf74751f76663a817d075346829caf009c7e30d7496697453a45ac1da33d"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/__init__.py",
+      "sha256": "dcdf50c46bd03a0aab09ebf5e84f4948933b74404c0fe32a115048aa218052cf"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/__main__.py",
+      "sha256": "616a82380dc31554a2f042a9d09511451156e30c4303cbe03cb70401ece35e9e"
+    },
+    {
+      "path": "tests/runtime/flows/conftest.py",
+      "sha256": "0ccf3edc83bbe4f13d32b55e8302027fae14bd7776c6eb37d1cc9b600b6bcdc7"
+    },
+    {
+      "path": "tests/runtime/flows/test_flows.py",
+      "sha256": "4db0e3421b877c9e2f0f0db105dfd74def3f25ed28109fdd9ee75041a2f15a1c"
+    },
+    {
+      "path": "scripts/p3/catalog.py",
+      "sha256": "7ff155fb12165ecec850616ae925ddbda21d49ba62740d445e958b741a2e6357"
+    },
+    {
+      "path": "scripts/p3/demo_flows.py",
+      "sha256": "682c83d17ee31fc0c9278cd7e1ee6b3eba427f6dba57256898de92779bb45480"
+    },
+    {
+      "path": "scripts/p3/demo_foundation.py",
+      "sha256": "76228e847072606400d12a07d06782aad44289689f7d2e1563522039ac3a77dc"
+    },
+    {
+      "path": "scripts/p3/event_contract.py",
+      "sha256": "c0d0c8ccc62344127f6823c338e716fd50275793cad9ee0f960a9f561bfb254a"
+    },
+    {
+      "path": "scripts/p3/generate_schemas.py",
+      "sha256": "8379f2ad02ceb4770dd8a755d230e8fc03668ec27a68aa2ffbe021f173215783"
+    },
+    {
+      "path": "scripts/p3/validate_contracts.py",
+      "sha256": "32cb72c5fd36befdcb346b797b629e6ae9c9f74f30c00e408408460e56c45f10"
+    },
+    {
+      "path": "scripts/p3/validate_flows.py",
+      "sha256": "5bb35de6a6a1c826f4c30b780ee3e7487f3ffb587d0e82f53f12300b42321c81"
+    },
+    {
+      "path": "scripts/p3/validate_foundation.py",
+      "sha256": "58637922afd5120cfff7431d116d5b53a50e5b0df956939af4ec0363f48a41c9"
+    }
+  ]
+}

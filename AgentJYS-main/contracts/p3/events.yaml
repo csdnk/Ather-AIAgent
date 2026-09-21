@@ -1,0 +1,37 @@
+version: p3/1
+events:
+- type: memory.changed
+  producer: remember
+  consumers:
+  - operate
+  payload_model: remember.StorageChanged
+  subject_owner: remember
+  subject_type: memory
+  subject_id_path: memory.memory_id
+  subject_version_path: memory.version
+  example: positive-remember.StorageChanged
+  idempotency: event_id; per-object object_revision prevents state regression
+- type: recall.access
+  producer: recall
+  consumers:
+  - operate
+  payload_model: recall.AccessObserved
+  subject_owner: remember
+  subject_type: memory
+  subject_id_path: memory.memory_id
+  subject_version_path: memory.version
+  example: positive-recall.AccessObserved
+  idempotency: event_id; count one successful read per access_key, never sum candidate/read/packed/delivered
+- type: operate.action_changed
+  producer: operate
+  consumers:
+  - operate
+  - runtime
+  payload_model: operate.ActionChanged
+  subject_owner: operate
+  subject_type: action
+  subject_id_path: action_id
+  subject_version_path: null
+  example: positive-operate.ActionChanged
+  idempotency: event_id; action_id and revision; must not recursively create duplicate
+    intent

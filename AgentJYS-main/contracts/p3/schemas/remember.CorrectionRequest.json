@@ -1,0 +1,77 @@
+{
+  "$defs": {
+    "SourceInput": {
+      "additionalProperties": false,
+      "properties": {
+        "external_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "External Id",
+          "type": "string"
+        },
+        "external_version": {
+          "minLength": 1,
+          "title": "External Version",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "conversation",
+            "tool_result",
+            "task_state",
+            "text",
+            "document"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "title": "Occurred At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "external_id",
+        "external_version",
+        "occurred_at"
+      ],
+      "title": "SourceInput",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "content": {
+      "minLength": 1,
+      "title": "Content",
+      "type": "string"
+    },
+    "expected_version": {
+      "minimum": 1,
+      "title": "Expected Version",
+      "type": "integer"
+    },
+    "reason": {
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/SourceInput"
+    }
+  },
+  "required": [
+    "expected_version",
+    "content",
+    "source",
+    "reason"
+  ],
+  "title": "CorrectionRequest",
+  "type": "object",
+  "x-contract-model": "remember.CorrectionRequest"
+}

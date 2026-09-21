@@ -1,0 +1,230 @@
+{
+  "generated_at": "2026-09-19T08:16:55.263833+00:00",
+  "status": "completed",
+  "scanned_text_files": 687,
+  "files": [
+    {
+      "path": "src/aether_agent_memory/adapters/b3.py",
+      "sha256_before": "5fe261e7582ca36d73846df4112df7f82b28335ec7d037539d90fc251b39a211",
+      "bytes": 2119,
+      "lines": 54,
+      "category": "unused_adapter",
+      "replacement": "operate/basic/service.py; adapters/operate_scheduler.py (retained legacy route)",
+      "external_references": [
+        {
+          "path": "docs/PHASE2_HANDOFF_20260914.md",
+          "line": 161,
+          "text": "8. 旧 B3 仍被 [src/aether_agent_memory/runtime/legacy.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/src/aether_agent_memory/runtime/legacy.py)、[src/aether_agent_memory/demo/flow.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/src/aether_agent_memory/demo/flow.py)、[src/aether_agent_memory/b3/__init__.py](D:/项目/JYS/AgentJYS-main/AgentJYS-main/src/aether_agent_memory/b3/__init__.py) 及兼容 adapter 引用，因此没有删除。新 production/integration SchedulerPort 不调用 LegacySchedulerAdapter。"
+        }
+      ],
+      "code_consumers": 0,
+      "entrypoint_consumers": 0
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/reliability.py",
+      "sha256_before": "67ff9986f1f072c09209e29d6a6bf8d5727d1358b81dbf6298ab4f7926f8108b",
+      "bytes": 614,
+      "lines": 30,
+      "category": "unused_placeholder",
+      "replacement": "runtime/foundation/tasks.py; runtime/contracts/",
+      "external_references": [
+        {
+          "path": "docs/p3/development/03_现有代码复用与改造清单.md",
+          "line": 10,
+          "text": "| runtime/reliability.py | RetryPolicy等声明，部分机制not_implemented | 新实现持久Task/租约/恢复，不把配置对象当运行机制 | RF |"
+        }
+      ],
+      "code_consumers": 0,
+      "entrypoint_consumers": 0
+    },
+    {
+      "path": "src/aether_agent_memory/memory/repository/interfaces.py",
+      "sha256_before": "85eeea6fb7915ad87d65ecf3390ad0219252158c5847b84bb8078196f0360aeb",
+      "bytes": 414,
+      "lines": 14,
+      "category": "unused_protocol",
+      "replacement": "remember/contracts/ports.py; remember/basic/service.py",
+      "external_references": [],
+      "code_consumers": 0,
+      "entrypoint_consumers": 0
+    },
+    {
+      "path": "scripts/dashboard.py",
+      "sha256_before": "f91201a76c6000d04039aaa357b62ab85442f7029683ad81acbf24c97285288b",
+      "bytes": 7831,
+      "lines": 104,
+      "category": "obsolete_standalone_demo",
+      "replacement": "runtime.flows CLI; scripts/p3/demo_flows.py; existing HTTP demo retains dashboard_page.py",
+      "external_references": [
+        {
+          "path": "pyproject.toml",
+          "line": 153,
+          "text": "\"scripts/dashboard.py\" = [\"E501\"]"
+        }
+      ],
+      "code_consumers": 0,
+      "entrypoint_consumers": 0
+    }
+  ],
+  "retained": [
+    {
+      "path": "memory/recall/*; memory/vector_projection/*; b1/semantic/models.py; b1/semantic/service.py",
+      "reason": "12 compatibility alias cases plus 2 architecture tests pass; preserve existing compatibility contract"
+    },
+    {
+      "path": "app.py; workers/*; b1/sidecar.py; b1/dashboard.py; demo/*",
+      "reason": "project.scripts, Docker/Compose, API or example/test consumers remain"
+    },
+    {
+      "path": "scripts/dashboard_page.py",
+      "reason": "api/routers/demo.py imports DASHBOARD_HTML"
+    },
+    {
+      "path": "recall/basic/adapters.py lexical/tokenizer implementations",
+      "reason": "Working ranking, explicit lexical test profile and context budget still use them"
+    },
+    {
+      "path": ".aether/; model cache; databases; historical PRD and documents",
+      "reason": "runtime/user data or historical evidence; not cleanup targets"
+    }
+  ],
+  "limits": [
+    "No claim that unknown out-of-repository consumers are scanned",
+    "Docker/Azure and full legacy integration are not executed by this audit"
+  ],
+  "structure_checks": {
+    "all_four_targets_absent": true,
+    "retired_lint_exception_absent": true,
+    "entrypoints": [
+      {
+        "entrypoint": "aether-embedding-inspect",
+        "target": "aether_agent_memory.recall.embedding.__main__:main",
+        "source_and_symbol_exist": true
+      },
+      {
+        "entrypoint": "aether-b1-sidecar",
+        "target": "aether_agent_memory.b1.sidecar:main",
+        "source_and_symbol_exist": true
+      },
+      {
+        "entrypoint": "aether-b1-dashboard",
+        "target": "aether_agent_memory.b1.dashboard:main",
+        "source_and_symbol_exist": true
+      },
+      {
+        "entrypoint": "aether-b1-dataset",
+        "target": "aether_agent_memory.b1.dataset_runner:main",
+        "source_and_symbol_exist": true
+      },
+      {
+        "entrypoint": "aether-b1-download-model",
+        "target": "aether_agent_memory.b1.model_download:main",
+        "source_and_symbol_exist": true
+      },
+      {
+        "entrypoint": "aether-p3-session-worker",
+        "target": "aether_agent_memory.workers.session_extraction:main",
+        "source_and_symbol_exist": true
+      },
+      {
+        "entrypoint": "aether-p3-projection-worker",
+        "target": "aether_agent_memory.workers.projection:main",
+        "source_and_symbol_exist": true
+      },
+      {
+        "entrypoint": "aether-p3-context-projection-worker",
+        "target": "aether_agent_memory.workers.context_projection:main",
+        "source_and_symbol_exist": true
+      },
+      {
+        "entrypoint": "aether-p4-simulator",
+        "target": "aether_p4_simulator.server:main",
+        "source_and_symbol_exist": true
+      }
+    ],
+    "source_syntax_passed": true,
+    "new_document_links_passed": true,
+    "current_cli_help_passed": true,
+    "diff_check_passed": true,
+    "unchanged_baseline_artifacts": 37
+  },
+  "before_flow_checks": [
+    {
+      "name": "flow_tests",
+      "passed": true
+    },
+    {
+      "name": "flow_lint",
+      "passed": true
+    },
+    {
+      "name": "flow_types",
+      "passed": true
+    },
+    {
+      "name": "foundation_and_contract_regression",
+      "passed": true
+    },
+    {
+      "name": "three_flow_demo",
+      "passed": true
+    }
+  ],
+  "before_architecture_tests": {
+    "passed": 14,
+    "failed": 0
+  },
+  "after_recall_tests": {
+    "passed": 126,
+    "failed": 0,
+    "scope": "tests/unit/recall",
+    "asyncio_mode": "auto"
+  },
+  "backup_verified": true,
+  "completed_at": "2026-09-19T08:25:34.239929+00:00",
+  "deleted_files": 4,
+  "deleted_lines": 202,
+  "tests_passed": 390,
+  "after_validation": {
+    "flow_and_foundation_and_contract_checks": [
+      {
+        "name": "flow_tests",
+        "passed": true
+      },
+      {
+        "name": "flow_lint",
+        "passed": true
+      },
+      {
+        "name": "flow_types",
+        "passed": true
+      },
+      {
+        "name": "foundation_and_contract_regression",
+        "passed": true
+      },
+      {
+        "name": "three_flow_demo",
+        "passed": true
+      }
+    ],
+    "native_flow_passed": true,
+    "native_adapter_tests_passed": 8,
+    "native_attempts": 10,
+    "native_evidence": 10,
+    "recall_tests_passed": 126,
+    "schema_count": 72,
+    "validation_reports": [
+      "cleanup-regression.json",
+      "cleanup-native-validation.json"
+    ]
+  },
+  "verification_environment_notes": [
+    "Extra legacy async suite initially lacked pytest-asyncio in private environment; installed 1.4.0 and enabled auto mode; 126 tests passed without source/test edits",
+    "Final combined validation rerun after completing documentation, with PYTHONUTF8=1 for Windows subprocess output"
+  ],
+  "report_hashes": {
+    "cleanup-regression.json": "1a59803ad0ee8d461845118c2559b69e6cef0b3352dd2d8ad97c9b5ac5d1f73b",
+    "cleanup-native-validation.json": "a36eb1612bcb72f00183ddbc4fddb0548e0133337ca71bcfdc5d08e96a40899f"
+  }
+}

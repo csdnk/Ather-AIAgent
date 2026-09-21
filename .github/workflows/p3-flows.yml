@@ -1,0 +1,35 @@
+name: p3-flows
+on:
+  push:
+    paths:
+      - 'AgentJYS-main/src/aether_agent_memory/**/basic/**'
+      - 'AgentJYS-main/src/aether_agent_memory/runtime/**'
+      - 'AgentJYS-main/src/aether_agent_memory/**/contracts/**'
+      - 'AgentJYS-main/tests/runtime/**'
+      - 'AgentJYS-main/contracts/p3/**'
+      - 'AgentJYS-main/scripts/p3/**'
+      - 'AgentJYS-main/docs/p3/**'
+      - '.github/workflows/p3-flows.yml'
+  pull_request:
+    paths:
+      - 'AgentJYS-main/src/aether_agent_memory/**/basic/**'
+      - 'AgentJYS-main/src/aether_agent_memory/runtime/**'
+      - 'AgentJYS-main/src/aether_agent_memory/**/contracts/**'
+      - 'AgentJYS-main/tests/runtime/**'
+      - 'AgentJYS-main/contracts/p3/**'
+      - 'AgentJYS-main/scripts/p3/**'
+      - 'AgentJYS-main/docs/p3/**'
+      - '.github/workflows/p3-flows.yml'
+defaults:
+  run:
+    working-directory: AgentJYS-main
+jobs:
+  flows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r scripts/p3/requirements.txt
+      - run: python scripts/p3/validate_flows.py

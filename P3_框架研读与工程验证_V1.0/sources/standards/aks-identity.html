@@ -1,0 +1,1949 @@
+ <!DOCTYPE html>
+		<html
+			class="layout layout-holy-grail   show-table-of-contents conceptual show-breadcrumb default-focus"
+			lang="en-us"
+			dir="ltr"
+			data-authenticated="false"
+			data-auth-status-determined="false"
+			data-target="docs"
+			x-ms-format-detection="none"
+		>
+			
+		<head>
+			<title>Use a Microsoft Entra Workload ID on Azure Kubernetes Service (AKS) - Azure Kubernetes Service | Microsoft Learn</title>
+			<meta charset="utf-8" />
+			<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+			<meta name="color-scheme" content="light dark" />
+
+			<meta name="description" content="Learn about Microsoft Entra Workload ID for Azure Kubernetes Service (AKS), how workload identity is preconfigured on AKS Automatic clusters, and how to migrate your application to authenticate using this identity." />
+			<link rel="canonical" href="https://learn.microsoft.com/en-us/azure/aks/workload-identity-overview" /> 
+
+			<!-- Non-customizable open graph and sharing-related metadata -->
+			<meta name="twitter:card" content="summary_large_image" />
+			<meta name="twitter:site" content="@MicrosoftLearn" />
+			<meta property="og:type" content="website" />
+			<meta property="og:image:alt" content="Microsoft Learn" />
+			<meta property="og:image" content="https://learn.microsoft.com/en-us/media/open-graph-image.png" />
+			<!-- Page specific open graph and sharing-related metadata -->
+			<meta property="og:title" content="Use a Microsoft Entra Workload ID on Azure Kubernetes Service (AKS) - Azure Kubernetes Service" />
+			<meta property="og:url" content="https://learn.microsoft.com/en-us/azure/aks/workload-identity-overview" />
+			<meta property="og:description" content="Learn about Microsoft Entra Workload ID for Azure Kubernetes Service (AKS), how workload identity is preconfigured on AKS Automatic clusters, and how to migrate your application to authenticate using this identity." />
+			<meta name="platform_id" content="f9d0bce0-b86a-ef0a-ac3a-5e91c0abfccb" /> <meta name="scope" content="Azure,Azure Kubernetes Service" />
+			<meta name="locale" content="en-us" />
+			 
+			<meta name="uhfHeaderId" content="azure" />
+
+			<meta name="page_type" content="conceptual" />
+
+			<!--page specific meta tags-->
+			
+
+			<!-- custom meta tags -->
+			
+		<meta name="breadcrumb_path" content="/azure/breadcrumb/azure-aks/toc.json" />
+	
+		<meta name="feedback_help_link_url" content="https://learn.microsoft.com/answers/tags/200/azure-kubernetes-service/" />
+	
+		<meta name="feedback_help_link_type" content="get-help-at-qna" />
+	
+		<meta name="feedback_product_url" content="https://feedback.azure.com/d365community/forum/aabe212a-f724-ec11-b6e6-000d3a4f0da0" />
+	
+		<meta name="feedback_system" content="Standard" />
+	
+		<meta name="permissioned-type" content="public" />
+	
+		<meta name="recommendations" content="true" />
+	
+		<meta name="recommendation_types" content="Training" />
+	
+		<meta name="recommendation_types" content="Certification" />
+	
+		<meta name="ms.suite" content="office" />
+	
+		<meta name="adobe-target" content="true" />
+	
+		<meta name="manager" content="kumud" />
+	
+		<meta name="learn_banner_products" content="azure" />
+	
+		<meta name="ms.service" content="azure-kubernetes-service" />
+	
+		<meta name="author" content="shashankbarsin" />
+	
+		<meta name="ms.author" content="shasb" />
+	
+		<meta name="ms.topic" content="overview" />
+	
+		<meta name="ms.subservice" content="aks-security" />
+	
+		<meta name="ms.custom" content="build-2023" />
+	
+		<meta name="ms.date" content="2026-09-04T00:00:00Z" />
+	
+		<meta name="ai-usage" content="ai-assisted" />
+	
+		<meta name="document_id" content="4a9fd9ca-de52-17a5-18a1-6e7dcb1cb1d4" />
+	
+		<meta name="document_version_independent_id" content="f1e18be4-3bb1-89fb-42d7-0735744ee734" />
+	
+		<meta name="updated_at" content="2026-09-09T06:06:00Z" />
+	
+		<meta name="original_content_git_url" content="https://github.com/MicrosoftDocs/azure-aks-docs-pr/blob/live/articles/aks/workload-identity-overview.md" />
+	
+		<meta name="gitcommit" content="https://github.com/MicrosoftDocs/azure-aks-docs-pr/blob/9805d9bb7856b9e1e6b6f85dcea4ea8a0aa373f6/articles/aks/workload-identity-overview.md" />
+	
+		<meta name="git_commit_id" content="9805d9bb7856b9e1e6b6f85dcea4ea8a0aa373f6" />
+	
+		<meta name="site_name" content="Docs" />
+	
+		<meta name="depot_name" content="Learn.azure-aks" />
+	
+		<meta name="schema" content="Conceptual" />
+	
+		<meta name="toc_rel" content="toc.json" />
+	
+		<meta name="word_count" content="2416" />
+	
+		<meta name="asset_id" content="aks/workload-identity-overview" />
+	
+		<meta name="moniker_range_name" content="" />
+	
+		<meta name="item_type" content="Content" />
+	
+		<meta name="source_path" content="articles/aks/workload-identity-overview.md" />
+	
+		<meta name="previous_tlsh_hash" content="88685862630E8600FF411E06395BB75082F1C48ABEB0D5D80C35E8D152661F27D75D90D7F7ABA6D09333CAC31692FE1E92D9FB3E80AF1A53B94498ACC09F4453B69976B6C1" />
+	
+		<meta name="github_feedback_content_git_url" content="https://github.com/MicrosoftDocs/azure-aks-docs/blob/main/articles/aks/workload-identity-overview.md" />
+	
+		<meta name="markdown_url" content="https://learn.microsoft.com/en-us/azure/aks/workload-identity-overview?accept=text/markdown" />
+	 
+		<meta name="cmProducts" content="https://authoring-docs-microsoft.poolparty.biz/devrel/d44a5346-5de4-439c-b804-7b2a536cbb55" data-source="generated" />
+	
+		<meta name="cmProducts" content="https://microsoft-devrel.poolparty.biz/DevRelOfferingOntology/f233afb4-f511-4877-ab18-c53e36c47c54" data-source="generated" />
+	
+		<meta name="cmProducts" content="https://microsoft-devrel.poolparty.biz/DevRelOfferingOntology/57eae307-c3a1-4cac-b645-1a899934bac8" data-source="generated" />
+	
+		<meta name="spProducts" content="https://authoring-docs-microsoft.poolparty.biz/devrel/da41a22b-b7a0-42d3-9c35-50da1c2b7b87" data-source="generated" />
+	
+		<meta name="spProducts" content="https://microsoft-devrel.poolparty.biz/DevRelOfferingOntology/aa758f63-7086-440d-afba-dcb5819f0b6f" data-source="generated" />
+	
+		<meta name="spProducts" content="https://microsoft-devrel.poolparty.biz/DevRelOfferingOntology/ee561821-1ac7-45a8-9409-6ba5eb7a5b97" data-source="generated" />
+	
+
+			<!-- Apply persisted/system theme before first paint to prevent wrong-theme flash when scripts are deferred. -->
+			<script id="theme-preference">
+				(function () {
+			try {
+				var stored = localStorage.getItem('theme');
+				var theme = /^(light|dark|high-contrast)$/.test(stored)
+					? stored
+					: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+				document.documentElement.classList.add('theme-' + theme);
+			} catch (e) {}
+		})();;
+			</script>
+
+			<script id="atlas-layout-preferences">
+				(function () {
+			try {
+				var state = JSON.parse(localStorage.getItem('atlas-layout-preferences') || '{}');
+				var view = state["docs-layout-persistence"] || {};
+				var excludesKey = "";
+				var blocked = {};
+				if (excludesKey) {
+					var exclusions = JSON.parse(localStorage.getItem('atlas-layout-exclusions') || '{}');
+					if (Object.prototype.hasOwnProperty.call(exclusions, excludesKey)) {
+						var scoped = exclusions[excludesKey];
+						if (scoped) {
+							if (typeof scoped === 'object') blocked = scoped;
+						}
+					}
+				}
+				var html = document.documentElement;
+				for (var c in view) {
+					if (Object.prototype.hasOwnProperty.call(blocked, c)) continue;
+					if (view[c]) html.classList.add(c);
+					else html.classList.remove(c);
+				}
+			} catch (e) {}
+		})();;
+			</script>
+
+			<!-- assets and js globals -->
+			
+			<link rel="stylesheet" href="/static/assets/0.4.03547.8249-7a3b4850/styles/site.css" />
+			
+			<script src="https://wcpstatic.microsoft.com/mscc/lib/v2/wcp-consent.js"></script>
+			<!-- Keep this URL in sync with oneDSScriptSelector in instrumentation/one-ds.ts. -->
+			<script async src="https://js.monitor.azure.com/scripts/c/ms.jsll-4.min.js"></script>
+			
+
+			<!-- msdocs global object -->
+			<script id="msdocs-script">
+		var msDocs = {
+  "environment": {
+    "accessLevel": "online",
+    "azurePortalHostname": "portal.azure.com",
+    "reviewFeatures": false,
+    "supportLevel": "production",
+    "systemContent": true,
+    "siteName": "learn",
+    "legacyHosting": false
+  },
+  "data": {
+    "contentLocale": "en-us",
+    "contentDir": "ltr",
+    "userLocale": "en-us",
+    "userDir": "ltr",
+    "pageTemplate": "Conceptual",
+    "layoutStateStorageKey": "docs-layout-persistence",
+    "brand": "azure",
+    "context": {},
+    "standardFeedback": true,
+    "showFeedbackReport": false,
+    "feedbackHelpLinkType": "get-help-at-qna",
+    "feedbackHelpLinkUrl": "https://learn.microsoft.com/answers/tags/200/azure-kubernetes-service/",
+    "feedbackSystem": "Standard",
+    "feedbackGitHubRepo": "",
+    "feedbackProductUrl": "https://feedback.azure.com/d365community/forum/aabe212a-f724-ec11-b6e6-000d3a4f0da0",
+    "extendBreadcrumb": false,
+    "isEditDisplayable": true,
+    "isPrivateUnauthorized": false,
+    "hideViewSource": false,
+    "isPermissioned": false,
+    "hasRecommendations": true
+  },
+  "functions": {}
+};;
+	</script>
+
+			<!-- base scripts, msdocs global should be before this -->
+			<script
+				src="/static/assets/0.4.03547.8249-7a3b4850/scripts/en-us/index-docs.js"
+				async
+			></script>
+			
+
+			<!-- json-ld -->
+			
+		<script >bazadebezolkohpepadr="1848166972"</script><script type="text/javascript" src="https://learn.microsoft.com/akam/13/6e28c88e"  defer></script></head>
+	
+			<body
+				id="body"
+				data-bi-name="body"
+				class="layout-body "
+				lang="en-us"
+				dir="ltr"
+			>
+				<header class="layout-body-header background-color-body-medium">
+		<div class="header-holder has-default-focus">
+			
+		<a
+			href="#main"
+			
+			style="z-index: 1070"
+			class="outline-color-text visually-hidden-until-focused position-fixed inner-focus focus-visible top-0 left-0 right-0 padding-xs text-align-center background-color-body"
+			
+		>
+			Skip to main content
+		</a>
+	
+		<a
+			href="#"
+			data-skip-to-ask-learn
+			style="z-index: 1070"
+			class="outline-color-text visually-hidden-until-focused position-fixed inner-focus focus-visible top-0 left-0 right-0 padding-xs text-align-center background-color-body"
+			hidden
+		>
+			Skip to Ask Learn chat experience
+		</a>
+	
+
+			<div hidden id="cookie-consent-holder" data-test-id="cookie-consent-container"></div>
+			<!-- Unsupported browser warning -->
+			<div
+				id="unsupported-browser"
+				style="background-color: white; color: black; padding: 16px; border-bottom: 1px solid grey;"
+				hidden
+			>
+				<div style="max-width: 800px; margin: 0 auto;">
+					<p style="font-size: 24px">This browser is no longer supported.</p>
+					<p style="font-size: 16px; margin-top: 16px;">
+						Upgrade to Microsoft Edge to take advantage of the latest features, security updates, and technical support.
+					</p>
+					<div style="margin-top: 12px;">
+						<a
+							href="https://go.microsoft.com/fwlink/p/?LinkID=2092881 "
+							style="background-color: #0078d4; border: 1px solid #0078d4; color: white; padding: 6px 12px; border-radius: 2px; display: inline-block;"
+						>
+							Download Microsoft Edge
+						</a>
+						<a
+							href="https://learn.microsoft.com/en-us/lifecycle/faq/internet-explorer-microsoft-edge"
+							style="background-color: white; padding: 6px 12px; border: 1px solid #505050; color: #171717; border-radius: 2px; display: inline-block;"
+						>
+							More info about Internet Explorer and Microsoft Edge
+						</a>
+					</div>
+				</div>
+			</div>
+			<!-- site header -->
+			<div
+				id="ms--site-header"
+				data-test-id="site-header-wrapper"
+				itemscope="itemscope"
+				itemtype="http://schema.org/Organization"
+			>
+				<div
+					id="ms--mobile-nav"
+					class="site-header display-none-tablet padding-inline-none gap-none"
+					data-bi-name="mobile-header"
+					data-test-id="mobile-header"
+				></div>
+				<div
+					id="ms--primary-nav"
+					class="site-header display-none display-flex-tablet"
+					data-bi-name="L1-header"
+					data-test-id="primary-header"
+				></div>
+				<div
+					id="ms--secondary-nav"
+					class="site-header display-none display-flex-tablet"
+					data-bi-name="L2-header"
+					data-test-id="secondary-header"
+					
+				></div>
+			</div>
+			
+		<!-- banner -->
+		<div data-banner>
+			<div id="disclaimer-holder"></div>
+			
+		</div>
+		<!-- banner end -->
+	
+		</div>
+	</header>
+				 <section
+					id="layout-body-menu"
+					class="layout-body-menu border-right display-flex background-color-body-medium"
+					data-bi-name="menu"
+			  >
+					
+		<div
+			id="left-container"
+			class="left-container display-none padding-none display-block-tablet width-full display-none-until-layout-restored"
+			data-toc-container="true"
+		>
+			<div
+				id="ms--toc-content"
+				class="padding-left-sm padding-right-none padding-bottom-sm height-full"
+			>
+				<nav
+					id="affixed-left-container"
+					class="margin-top-xxs-tablet position-sticky display-flex flex-direction-column width-full"
+					aria-label="Primary"
+					data-bi-name="left-toc"
+					role="navigation"
+				>
+					<div
+						id="ms--collapsible-toc-header"
+						class="display-flex flex-direction-row-reverse justify-content-center align-items-center margin-bottom-xxs margin-right-xxs"
+					>
+						<button
+							type="button"
+							class="button button-clear button-sm inner-focus"
+							data-collapsible-toc-toggle
+							aria-expanded="true"
+							hidden
+							aria-controls="ms--toc-content"
+							aria-label="Table of contents"
+						>
+							<span class="icon icon-mirrored-rtl" aria-hidden="true">
+								<span
+									class="docon docon-panel-left-contract display-none-layout-menu-collapsed"
+								></span>
+								<span
+									class="docon docon-panel-left-expand display-none display-inline-layout-menu-collapsed"
+								></span>
+							</span>
+						</button>
+						<div
+							id="ms--collapsible-toc-moniker-slot"
+							class="flex-grow-1 display-none-layout-menu-collapsed"
+						></div>
+					</div>
+				</nav>
+			</div>
+		</div>
+	
+			  </section>
+
+				<main
+					id="main"
+					role="main"
+					class="layout-body-main "
+					data-bi-name="content"
+					lang="en-us"
+					dir="ltr"
+				>
+					
+			<div
+		id="ms--content-header"
+		class="content-header default-focus border-bottom-none"
+		data-bi-name="content-header"
+	>
+		<div class="content-header-controls margin-xxs margin-inline-sm-tablet">
+			<button
+				type="button"
+				class="contents-button button button-sm margin-right-xxs"
+				data-bi-name="contents-expand"
+				aria-haspopup="true"
+				data-contents-button
+			>
+				<span class="icon" aria-hidden="true"><span class="docon docon-menu"></span></span>
+				<span class="contents-expand-title"> Table of contents </span>
+			</button>
+			<button
+				type="button"
+				class="ap-collapse-behavior ap-expanded button button-sm"
+				data-bi-name="ap-collapse"
+				aria-controls="action-panel"
+			>
+				<span class="icon" aria-hidden="true"><span class="docon docon-exit-mode"></span></span>
+				<span>Exit editor mode</span>
+			</button>
+		</div>
+	</div> 
+		<div
+			id="action-panel"
+			role="region"
+			aria-label="Action Panel"
+			class="action-panel"
+			tabindex="-1"
+		></div>
+	
+			<div
+				data-main-column
+				class="reading-width margin-inline-auto layout-padding padding-top-none padding-top-sm-tablet padding-bottom-sm"
+			>
+				<div>
+					
+		<div id="article-header" class="background-color-body margin-bottom-xs display-none-print">
+			<div class="display-flex align-items-center justify-content-space-between">
+				
+		<details
+			id="article-header-breadcrumbs-overflow-popover"
+			class="popover popover-left"
+			data-for="article-header-breadcrumbs"
+		>
+			<summary
+				class="button button-clear button-primary button-sm inner-focus"
+				aria-label="All breadcrumbs"
+			>
+				<span class="icon" aria-hidden="true">
+					<span class="docon docon-more"></span>
+				</span>
+			</summary>
+			<div id="article-header-breadcrumbs-overflow" class="popover-content"></div>
+		</details>
+
+		<bread-crumbs
+			id="article-header-breadcrumbs"
+			role="group"
+			aria-label="Breadcrumbs"
+			data-test-id="article-header-breadcrumbs"
+			class="overflow-hidden flex-grow-1 margin-right-sm margin-right-md-tablet margin-right-lg-desktop margin-left-negative-xxs padding-left-xxs"
+		></bread-crumbs>
+	 
+		<div
+			id="article-header-page-actions"
+			class="opacity-none margin-left-auto display-flex flex-wrap-no-wrap align-items-stretch"
+		>
+			
+		<button
+			class="button button-sm border-none inner-focus display-none-tablet flex-shrink-0 "
+			data-bi-name="ask-learn-assistant-entry"
+			data-test-id="ask-learn-assistant-modal-entry-mobile"
+			data-ask-learn-modal-entry
+			
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			aria-label="Ask Learn"
+			hidden
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+		</button>
+		<button
+			class="button button-sm display-none display-inline-flex-tablet display-none-desktop flex-shrink-0 margin-right-xxs border-color-ask-learn "
+			data-bi-name="ask-learn-assistant-entry"
+			
+			data-test-id="ask-learn-assistant-modal-entry-tablet"
+			data-ask-learn-modal-entry
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			hidden
+		>
+			<span class="icon font-size-lg" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+			<span>Ask Learn</span>
+		</button>
+		<button
+			class="button button-sm display-none flex-shrink-0 display-inline-flex-desktop margin-right-xxs border-color-ask-learn "
+			data-bi-name="ask-learn-assistant-entry"
+			
+			data-test-id="ask-learn-assistant-flyout-entry"
+			data-ask-learn-flyout-entry
+			data-flyout-button="toggle"
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			aria-controls="ask-learn-flyout"
+			hidden
+		>
+			<span class="icon font-size-lg" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+			<span>Ask Learn</span>
+		</button>
+	 
+
+			<details class="popover popover-right" id="article-header-page-actions-overflow">
+				<summary
+					class="justify-content-flex-start button button-clear button-sm button-primary inner-focus"
+					aria-label="More actions"
+					title="More actions"
+				>
+					<span class="icon" aria-hidden="true">
+						<span class="docon docon-more-vertical"></span>
+					</span>
+				</summary>
+				<div class="popover-content">
+					
+		<button
+			type="button"
+			id="ms--focus-mode-button"
+			data-focus-mode
+			data-bi-name="focus-mode-entry"
+			data-page-action-item="overflow-all"
+			data-popover-close
+			class="button button-clear button-sm button-block justify-content-flex-start text-align-left inner-focus display-none display-inline-flex-tablet"
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-glasses"></span>
+			</span>
+			<span>Reading mode</span>
+		</button>
+	 
+		<button
+			data-page-action-item="overflow-mobile"
+			type="button"
+			class="display-block-layout-menu-collapsed button-block button-sm inner-focus button button-clear display-none-tablet justify-content-flex-start text-align-left"
+			data-bi-name="contents-expand"
+			data-contents-button
+			data-popover-close
+		>
+			<span class="icon" aria-hidden="true"
+				><span class="docon docon-editor-list-bullet"></span
+			></span>
+			<span class="contents-expand-title">Table of contents</span>
+		</button>
+	 
+		<a
+			id="lang-link-overflow"
+			class="button-sm inner-focus button button-clear button-block justify-content-flex-start text-align-left"
+			data-bi-name="language-toggle"
+			data-page-action-item="overflow-all"
+			data-check-hidden="true"
+			data-read-in-link
+			href="#"
+			hidden
+		>
+			<span class="icon" aria-hidden="true" data-read-in-link-icon>
+				<span class="docon docon-locale-globe"></span>
+			</span>
+			<span data-read-in-link-text>Read in English</span>
+		</a>
+	
+					
+		<button
+			type="button"
+			class="collection button button-clear button-sm button-block justify-content-flex-start text-align-left inner-focus"
+			data-list-type="collection"
+			data-bi-name="collection"
+			data-page-action-item="overflow-all"
+			data-check-hidden="true"
+			data-popover-close
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-circle-addition"></span>
+			</span>
+			<span class="collection-status">Add</span>
+		</button>
+	 
+		<button
+			type="button"
+			class="collection button button-block button-clear button-sm justify-content-flex-start text-align-left inner-focus"
+			data-list-type="plan"
+			data-bi-name="plan"
+			data-page-action-item="overflow-all"
+			data-check-hidden="true"
+			data-popover-close
+			hidden
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-circle-addition"></span>
+			</span>
+			<span class="plan-status">Add to Plans</span>
+		</button>
+	 
+					
+		<a
+			data-contenteditbtn
+			class="button button-clear button-block button-sm inner-focus justify-content-flex-start text-align-left text-decoration-none"
+			data-bi-name="edit"
+			data-page-action-item="overflow-all"
+			data-check-hidden="true"
+			
+			href="https://github.com/MicrosoftDocs/azure-aks-docs/blob/main/articles/aks/workload-identity-overview.md"
+			data-original_content_git_url="https://github.com/MicrosoftDocs/azure-aks-docs-pr/blob/live/articles/aks/workload-identity-overview.md"
+			data-original_content_git_url_template="{repo}/blob/{branch}/articles/aks/workload-identity-overview.md"
+			data-pr_repo=""
+			data-pr_branch=""
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-edit-outline"></span>
+			</span>
+			<span>Edit</span>
+		</a>
+	  
+		<hr class="margin-block-xxs" />
+		
+				<button
+					class="button button-block button-clear button-sm justify-content-flex-start text-align-left inner-focus"
+					type="button"
+					data-bi-name="copy-markdown"
+					data-page-action-item="overflow-all"
+					data-copy-markdown
+					data-copy-state="idle"
+					data-check-hidden="true"
+				>
+					<span class="icon color-primary" aria-hidden="true">
+						<span data-show-when="idle" class="docon docon-code-lang"></span>
+						<span data-show-when="loading" class="loader" hidden></span>
+						<span data-show-when="success" class="docon docon-check-mark" hidden></span>
+					</span>
+					<span>Copy Markdown</span>
+				</button>
+		   
+				<button
+					class="button button-block button-clear button-sm justify-content-flex-start text-align-left inner-focus"
+					type="button"
+					data-bi-name="print"
+					data-page-action-item="overflow-all"
+					data-popover-close
+					data-print-page
+					data-check-hidden="true"
+				>
+					<span class="icon color-primary" aria-hidden="true">
+						<span class="docon docon-print"></span>
+					</span>
+					<span>Print</span>
+				</button>
+		  
+	
+				</div>
+			</details>
+		</div>
+	
+			</div>
+		</div>
+	  
+		<!-- privateUnauthorizedTemplate is hidden by default -->
+		<div unauthorized-private-section data-bi-name="permission-content-unauthorized-private" hidden>
+			<hr class="hr margin-top-xs margin-bottom-sm" />
+			<div class="notification notification-info">
+				<div class="notification-content">
+					<p class="margin-top-none notification-title">
+						<span class="icon" aria-hidden="true"
+							><span class="docon docon-exclamation-circle-solid"></span
+						></span>
+						<span>Note</span>
+					</p>
+					<p class="margin-top-none authentication-determined not-authenticated">
+						Access to this page requires authorization. You can try <a class="docs-sign-in" href="#" data-bi-name="permission-content-sign-in">signing in</a> or <a  class="docs-change-directory" data-bi-name="permisson-content-change-directory">changing directories</a>.
+					</p>
+					<p class="margin-top-none authentication-determined authenticated">
+						Access to this page requires authorization. You can try <a class="docs-change-directory" data-bi-name="permisson-content-change-directory">changing directories</a>.
+					</p>
+				</div>
+			</div>
+		</div>
+	
+					<div class="content"><h1 id="use-microsoft-entra-workload-id-with-azure-kubernetes-service-aks">Use Microsoft Entra Workload ID with Azure Kubernetes Service (AKS)</h1></div>
+					
+		<div
+			id="article-metadata"
+			data-bi-name="article-metadata"
+			data-test-id="article-metadata"
+			class="page-metadata-container display-flex gap-xxs justify-content-space-between align-items-center flex-wrap-wrap"
+		>
+			 
+				<div
+					id="user-feedback"
+					class="margin-block-xxs display-none display-none-print"
+					hidden
+					data-hide-on-archived
+				>
+					
+		<button
+			id="user-feedback-button"
+			data-test-id="conceptual-feedback-button"
+			class="button button-sm button-clear button-primary display-none"
+			type="button"
+			data-bi-name="user-feedback-button"
+			data-user-feedback-button
+			hidden
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-like"></span>
+			</span>
+			<span>Feedback</span>
+		</button>
+	
+				</div>
+		  
+		</div>
+	 
+		<div data-id="ai-summary" class="display-none-print">
+			<div id="ms--ai-summary-cta" class="margin-top-xs display-flex align-items-center">
+				<span class="icon" aria-hidden="true">
+					<span class="docon docon-sparkle-fill gradient-text-vivid"></span>
+				</span>
+				<button
+					id="ms--ai-summary"
+					type="button"
+					class="tag tag-sm tag-suggestion margin-left-xxs"
+					data-test-id="ai-summary-cta"
+					data-bi-name="ai-summary-cta"
+					data-an="ai-summary"
+				>
+					<span class="ai-summary-cta-text">
+						Summarize this article for me
+					</span>
+				</button>
+			</div>
+			<!-- Slot where the client will render the summary card after the user clicks the CTA -->
+			<div id="ms--ai-summary-header" class="margin-top-xs"></div>
+		</div>
+	 
+		<nav
+			id="center-doc-outline"
+			class="doc-outline display-none-desktop display-none-print margin-bottom-sm"
+			data-bi-name="intopic toc"
+			aria-label="In this article"
+		>
+			<h2 id="ms--in-this-article" class="title is-6 margin-block-xs">
+				In this article
+			</h2>
+		</nav>
+	 <div class="content"><p>Workloads deployed on an AKS cluster require Microsoft Entra application credentials or managed identities to access Microsoft Entra protected resources, such as Azure Key Vault and Microsoft Graph. Microsoft Entra Workload ID integrates with the capabilities native to Kubernetes to federate with external identity providers, allowing you to assign workload identities to your workloads to authenticate and access other services and resources.</p>
+<div class="NOTE">
+<p>Note</p>
+<p>Workload ID covers the <strong>pod-to-Azure</strong> identity scenario in AKS - how applications running in pods authenticate to Microsoft Entra-protected services. On <strong>AKS Automatic</strong>, workload identity with Microsoft Entra Workload ID and the OIDC cluster issuer are preconfigured by default - no cluster-level setup is required. On <strong>AKS Standard</strong>, you enable and configure workload identity separately. For the other identity scenarios (control-plane authentication and authorization, and cluster-to-Azure managed identities), see <a href="concepts-identity" data-linktype="relative-path">Access and identity options for AKS</a>.</p>
+</div>
+<div class="TIP">
+<p>Tip</p>
+<p>If you're using an <strong>AKS Automatic</strong> cluster, workload identity with Microsoft Entra Workload ID and the OIDC cluster issuer are <strong>preconfigured by default</strong>. You can skip cluster-level setup and go directly to <a href="#azure-identity-client-libraries" data-linktype="self-bookmark">configuring your application</a> to use a workload identity. For more information about AKS Automatic's security defaults, see <a href="intro-aks-automatic" data-linktype="relative-path">What is Azure Kubernetes Service Automatic?</a></p>
+</div>
+<p><a href="/en-us/azure/active-directory/develop/workload-identities-overview" data-linktype="absolute-path">Microsoft Entra Workload ID</a> uses <a href="https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#serviceaccount-token-volume-projection" data-linktype="external">Service Account Token Volume Projection</a> to enable pods to use a Kubernetes identity. A Kubernetes token is issued and <a href="https://kubernetes.io/docs/reference/access-authn-authz/authentication/#openid-connect-tokens" data-linktype="external">OpenID Connect (OIDC) federation</a> enables Kubernetes applications to access Azure resources securely with Microsoft Entra ID, based on annotated service accounts.</p>
+<p>You can use Microsoft Entra Workload ID with <a href="#azure-identity-client-libraries" data-linktype="self-bookmark">Azure Identity client libraries</a> or the <a href="/en-us/azure/active-directory/develop/msal-overview" data-linktype="absolute-path">Microsoft Authentication Library</a> (MSAL) collection, together with <a href="/en-us/azure/active-directory/develop/application-model#register-an-application" data-linktype="absolute-path">application registration</a>, to seamlessly authenticate and access Azure cloud resources.</p>
+<div class="NOTE">
+<p>Note</p>
+<p>You can use <em>Service Connector</em> to help you configure some steps automatically. For more information, see <a href="/en-us/azure/service-connector/overview" data-linktype="absolute-path">What is Service Connector?</a></p>
+</div>
+<h2 id="prerequisites">Prerequisites</h2>
+<h3 id="aks-automatic-clusters">AKS Automatic clusters</h3>
+<p>On AKS Automatic clusters, workload identity and the OIDC cluster issuer are preconfigured as part of the cluster's security defaults. No cluster-level configuration is required before using workload identity in your pods. Proceed directly to <a href="#azure-identity-client-libraries" data-linktype="self-bookmark">setting up your application</a>.</p>
+<h3 id="aks-standard-clusters">AKS Standard clusters</h3>
+<ul>
+<li>AKS supports Microsoft Entra Workload ID on version 1.22 and higher.</li>
+<li>The Azure CLI version 2.47.0 or later. Run <code>az --version</code> to find the version, and run <code>az upgrade</code> to upgrade the version. If you need to install or upgrade, see <a href="/en-us/cli/azure/install-azure-cli" data-linktype="absolute-path">Install Azure CLI</a>.</li>
+<li>You must enable workload identity and the OIDC issuer on your cluster before your pods can use workload identity. See <a href="workload-identity-deploy-cluster" data-linktype="relative-path">Deploy and configure workload identity on an AKS cluster</a>.</li>
+</ul>
+<h2 id="limitations">Limitations</h2>
+<ul>
+<li>You can have a maximum of <a href="/en-us/azure/active-directory/workload-identities/workload-identity-federation-considerations#general-federated-identity-credential-considerations" data-linktype="absolute-path">20 federated identity credentials</a> per managed identity.</li>
+<li>It takes a few seconds for the federated identity credential to propagate after being initially added.</li>
+<li>The <a href="virtual-nodes" data-linktype="relative-path">virtual nodes</a> add-on, based on the open source project <a href="https://virtual-kubelet.io/docs/" data-linktype="external">Virtual Kubelet</a>, isn't supported.</li>
+<li>Creation of federated identity credentials isn't supported on user-assigned managed identities in <a href="/en-us/azure/active-directory/workload-identities/workload-identity-federation-considerations#unsupported-regions-user-assigned-managed-identities" data-linktype="absolute-path">these regions</a>.</li>
+</ul>
+<h2 id="azure-identity-client-libraries">Azure Identity client libraries</h2>
+<p>In the Azure Identity client libraries, choose one of the following approaches:</p>
+<ul>
+<li>Use <code>DefaultAzureCredential</code>, which attempts to use the <code>WorkloadIdentityCredential</code>.</li>
+<li>Create a <code>ChainedTokenCredential</code> instance that includes <code>WorkloadIdentityCredential</code>.</li>
+<li>Use <code>WorkloadIdentityCredential</code> directly.</li>
+</ul>
+<p>When requesting tokens with <code>WorkloadIdentityCredential</code>, pass scopes using the Microsoft Entra ID v2 format <code>&lt;resource&gt;/.default</code>, such as <code>https://management.azure.com/.default</code>. A raw resource URI, such as <code>https://management.azure.com/</code>, can fail because workload identity uses the Microsoft Entra v2 token endpoint rather than the IMDS <code>resource</code> flow used by managed identity. For more information about how scopes work in the v2 token endpoint, see <a href="/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow#get-a-token" data-linktype="absolute-path">Get a token</a>.</p>
+<p>The following table provides the <strong>minimum</strong> package version required for each language ecosystem's client library:</p>
+<table>
+<thead>
+<tr>
+<th>Ecosystem</th>
+<th>Library</th>
+<th>Minimum version</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>.NET</td>
+<td><a href="/en-us/dotnet/api/overview/azure/identity-readme" data-linktype="absolute-path">Azure.Identity</a></td>
+<td>1.9.0</td>
+</tr>
+<tr>
+<td>C++</td>
+<td><a href="https://github.com/Azure/azure-sdk-for-cpp/blob/main/sdk/identity/azure-identity/README.md" data-linktype="external">azure-identity-cpp</a></td>
+<td>1.6.0</td>
+</tr>
+<tr>
+<td>Go</td>
+<td><a href="https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/azidentity" data-linktype="external">azidentity</a></td>
+<td>1.3.0</td>
+</tr>
+<tr>
+<td>Java</td>
+<td><a href="/en-us/java/api/overview/azure/identity-readme" data-linktype="absolute-path">azure-identity</a></td>
+<td>1.9.0</td>
+</tr>
+<tr>
+<td>Node.js</td>
+<td><a href="/en-us/javascript/api/overview/azure/identity-readme" data-linktype="absolute-path">@azure/identity</a></td>
+<td>3.2.0</td>
+</tr>
+<tr>
+<td>Python</td>
+<td><a href="/en-us/python/api/overview/azure/identity-readme" data-linktype="absolute-path">azure-identity</a></td>
+<td>1.13.0</td>
+</tr>
+</tbody>
+</table>
+<h2 id="azure-identity-client-library-code-samples">Azure Identity client library code samples</h2>
+<p>The following code samples use the <code>DefaultAzureCredential</code>. This credential type uses the environment variables injected by the workload identity mutating <a href="#webhook-certificate-auto-rotation" data-linktype="self-bookmark">webhook</a> to authenticate with Azure Key Vault. To see samples using one of the other approaches, refer to the <a href="#azure-identity-client-libraries" data-linktype="self-bookmark">ecosystem-specific client libraries</a>.</p>
+<p>Replace <code>&lt;key-vault-url&gt;</code> and <code>&lt;secret-name&gt;</code> with the appropriate values for your Key Vault and secret.</p>
+<div class="tabGroup" id="tabgroup_1">
+<ul role="tablist">
+<li role="presentation">
+<a href="#tabpanel_1_dotnet" role="tab" aria-controls="tabpanel_1_dotnet" data-tab="dotnet" tabindex="0" aria-selected="true" data-linktype="self-bookmark">.NET</a>
+</li>
+<li role="presentation">
+<a href="#tabpanel_1_cpp" role="tab" aria-controls="tabpanel_1_cpp" data-tab="cpp" tabindex="-1" data-linktype="self-bookmark">C++</a>
+</li>
+<li role="presentation">
+<a href="#tabpanel_1_go" role="tab" aria-controls="tabpanel_1_go" data-tab="go" tabindex="-1" data-linktype="self-bookmark">Go</a>
+</li>
+<li role="presentation">
+<a href="#tabpanel_1_java" role="tab" aria-controls="tabpanel_1_java" data-tab="java" tabindex="-1" data-linktype="self-bookmark">Java</a>
+</li>
+<li role="presentation">
+<a href="#tabpanel_1_javascript" role="tab" aria-controls="tabpanel_1_javascript" data-tab="javascript" tabindex="-1" data-linktype="self-bookmark">Node.js</a>
+</li>
+<li role="presentation">
+<a href="#tabpanel_1_python" role="tab" aria-controls="tabpanel_1_python" data-tab="python" tabindex="-1" data-linktype="self-bookmark">Python</a>
+</li>
+</ul>
+<section id="tabpanel_1_dotnet" role="tabpanel" data-tab="dotnet">
+
+<pre><code class="lang-csharp">using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
+
+string keyVaultUrl = Environment.GetEnvironmentVariable("&lt;key-vault-url&gt;");
+string secretName = Environment.GetEnvironmentVariable("&lt;secret-name&gt;");
+
+var client = new SecretClient(
+    new Uri(keyVaultUrl),
+    new DefaultAzureCredential());
+
+KeyVaultSecret secret = await client.GetSecretAsync(secretName);
+</code></pre>
+</section>
+<section id="tabpanel_1_cpp" role="tabpanel" data-tab="cpp" aria-hidden="true" hidden="hidden">
+
+<pre><code class="lang-cpp">#include &lt;cstdlib&gt;
+#include &lt;azure/identity.hpp&gt;
+#include &lt;azure/keyvault/secrets/secret_client.hpp&gt;
+
+using namespace Azure::Identity;
+using namespace Azure::Security::KeyVault::Secrets;
+
+int main()
+{
+  const char* keyVaultUrl = std::getenv("&lt;key-vault-url&gt;");
+  const char* secretName = std::getenv("&lt;secret-name&gt;");
+  auto credential = std::make_shared&lt;DefaultAzureCredential&gt;();
+
+  SecretClient client(keyVaultUrl, credential);
+  Secret secret = client.GetSecret(secretName).Value;
+
+  return 0;
+}
+</code></pre>
+</section>
+<section id="tabpanel_1_go" role="tabpanel" data-tab="go" aria-hidden="true" hidden="hidden">
+
+<pre><code class="lang-go">package main
+
+import (
+   "context"
+   "os"
+
+   "github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+   "github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets"
+    "k8s.io/klog/v2"
+)
+
+func main() {
+   keyVaultUrl := os.Getenv("&lt;key-vault-url&gt;")
+   secretName := os.Getenv("&lt;secret-name&gt;")
+
+   credential, err := azidentity.NewDefaultAzureCredential(nil)
+   if err != nil {
+      klog.Fatal(err)
+   }
+
+   client, err := azsecrets.NewClient(keyVaultUrl, credential, nil)
+   if err != nil {
+      klog.Fatal(err)
+   }
+
+   secret, err := client.GetSecret(context.Background(), secretName, "", nil)
+   if err != nil {
+      klog.ErrorS(err, "failed to get secret", "keyvault", keyVaultUrl, "secretName", secretName)
+      os.Exit(1)
+   }
+}
+</code></pre>
+</section>
+<section id="tabpanel_1_java" role="tabpanel" data-tab="java" aria-hidden="true" hidden="hidden">
+
+<pre><code class="lang-java">import java.util.Map;
+
+import com.azure.security.keyvault.secrets.SecretClient;
+import com.azure.security.keyvault.secrets.SecretClientBuilder;
+import com.azure.security.keyvault.secrets.models.KeyVaultSecret;
+import com.azure.identity.DefaultAzureCredentialBuilder;
+import com.azure.identity.DefaultAzureCredential;
+
+public class App {
+    public static void main(String[] args) {
+        Map&lt;String, String&gt; env = System.getenv();
+        String keyVaultUrl = env.get("&lt;key-vault-url&gt;");
+        String secretName = env.get("&lt;secret-name&gt;");
+
+        SecretClient client = new SecretClientBuilder()
+                .vaultUrl(keyVaultUrl)
+                .credential(new DefaultAzureCredentialBuilder().build())
+                .buildClient();
+        KeyVaultSecret secret = client.getSecret(secretName);
+    }
+}
+</code></pre>
+</section>
+<section id="tabpanel_1_javascript" role="tabpanel" data-tab="javascript" aria-hidden="true" hidden="hidden">
+
+<pre><code class="lang-nodejs">import { DefaultAzureCredential } from "@azure/identity";
+import { SecretClient } from "@azure/keyvault-secrets";
+
+const main = async () =&gt; {
+    const keyVaultUrl = process.env["&lt;key-vault-url&gt;"];
+    const secretName = process.env["&lt;secret-name&gt;"];
+
+    const credential = new DefaultAzureCredential();
+    const client = new SecretClient(keyVaultUrl, credential);
+
+    const secret = await client.getSecret(secretName);
+}
+
+main().catch((error) =&gt; {
+    console.error("An error occurred:", error);
+    process.exit(1);
+});
+</code></pre>
+</section>
+<section id="tabpanel_1_python" role="tabpanel" data-tab="python" aria-hidden="true" hidden="hidden">
+
+<pre><code class="lang-python">import os
+
+from azure.keyvault.secrets import SecretClient
+from azure.identity import DefaultAzureCredential
+
+def main():
+    keyvault_url = os.getenv('&lt;key-vault-url&gt;', '')
+    secret_name = os.getenv('&lt;secret-name&gt;', '')
+
+    client = SecretClient(vault_url=keyvault_url, credential=DefaultAzureCredential())
+    secret = client.get_secret(secret_name)
+
+if __name__ == '__main__':
+    main()
+</code></pre>
+</section>
+</div>
+<h2 id="microsoft-authentication-library-msal">Microsoft Authentication Library (MSAL)</h2>
+<p>The following client libraries are the <strong>minimum</strong> version required:</p>
+<table>
+<thead>
+<tr>
+<th>Ecosystem</th>
+<th>Library</th>
+<th>Image</th>
+<th>Example</th>
+<th>Has Windows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>.NET</td>
+<td><a href="https://github.com/AzureAD/microsoft-authentication-library-for-dotnet" data-linktype="external">Microsoft Authentication Library-for-dotnet</a></td>
+<td><code>ghcr.io/azure/azure-workload-identity/msal-net:latest</code></td>
+<td><a href="https://github.com/Azure/azure-workload-identity/tree/main/examples/msal-net/akvdotnet" data-linktype="external">Link</a></td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Go</td>
+<td><a href="https://github.com/AzureAD/microsoft-authentication-library-for-go" data-linktype="external">Microsoft Authentication Library-for-go</a></td>
+<td><code>ghcr.io/azure/azure-workload-identity/msal-go:latest</code></td>
+<td><a href="https://github.com/Azure/azure-workload-identity/tree/main/examples/msal-go" data-linktype="external">Link</a></td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Java</td>
+<td><a href="https://github.com/AzureAD/microsoft-authentication-library-for-java" data-linktype="external">Microsoft Authentication Library-for-java</a></td>
+<td><code>ghcr.io/azure/azure-workload-identity/msal-java:latest</code></td>
+<td><a href="https://github.com/Azure/azure-workload-identity/tree/main/examples/msal-java" data-linktype="external">Link</a></td>
+<td>No</td>
+</tr>
+<tr>
+<td>JavaScript</td>
+<td><a href="https://github.com/AzureAD/microsoft-authentication-library-for-js" data-linktype="external">Microsoft Authentication Library-for-js</a></td>
+<td><code>ghcr.io/azure/azure-workload-identity/msal-node:latest</code></td>
+<td><a href="https://github.com/Azure/azure-workload-identity/tree/main/examples/msal-node" data-linktype="external">Link</a></td>
+<td>No</td>
+</tr>
+<tr>
+<td>Python</td>
+<td><a href="https://github.com/AzureAD/microsoft-authentication-library-for-python" data-linktype="external">Microsoft Authentication Library-for-python</a></td>
+<td><code>ghcr.io/azure/azure-workload-identity/msal-python:latest</code></td>
+<td><a href="https://github.com/Azure/azure-workload-identity/tree/main/examples/msal-python" data-linktype="external">Link</a></td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<h2 id="locate-the-projected-service-account-token">Locate the projected service account token</h2>
+<p>When the mutating admission webhook injects the projected service account token volume into your pod, it also sets the <code>AZURE_FEDERATED_TOKEN_FILE</code> environment variable to the path of the token file.</p>
+<div class="IMPORTANT">
+<p>Important</p>
+<p>Read the token path from the <code>AZURE_FEDERATED_TOKEN_FILE</code> environment variable. Don't hard-code a path such as <code>/var/run/secrets/azure/tokens/azure-identity-token</code> in your application, container image, or deployment manifests. The mount path is an implementation detail of the webhook and can change. A hard-coded path also breaks when a pod projects more than one token, such as when a workload combines <a href="#use-identity-bindings-and-direct-federation-in-the-same-workload" data-linktype="self-bookmark">identity bindings</a> with direct federation.</p>
+</div>
+<p>The Azure Identity client libraries and MSAL read <code>AZURE_FEDERATED_TOKEN_FILE</code> for you, so applications that use <code>DefaultAzureCredential</code> or <code>WorkloadIdentityCredential</code> don't need to handle the file directly. If your application reads the token itself, for example when it builds a custom client assertion, resolve the path from the environment variable at runtime.</p>
+<p>Kubernetes refreshes the projected token in place before it expires. Read the file again each time you exchange the token for a Microsoft Entra token rather than caching its contents for the lifetime of the process.</p>
+<h2 id="how-it-works">How it works</h2>
+<p>In this security model, the AKS cluster acts as the token issuer. Microsoft Entra ID uses OIDC to discover public signing keys and verify the authenticity of the service account token before exchanging it for a Microsoft Entra token. Your workload can exchange a service account token projected to its volume for a Microsoft Entra token using the Azure Identity client library or the MSAL.</p>
+<p><span class="mx-imgBorder">
+<a href="media/workload-identity-overview/workload-id-model.png#lightbox" data-linktype="relative-path">
+<img src="media/workload-identity-overview/workload-id-model.png" alt="Diagram of the AKS Microsoft Entra Workload ID security model." data-linktype="relative-path">
+</a>
+</span>
+</p>
+<p>The following table describes the required OIDC issuer endpoints for Microsoft Entra Workload ID:</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{IssuerURL}/.well-known/openid-configuration</code></td>
+<td>Also known as the OIDC discovery document. This contains the metadata about the issuer's configurations.</td>
+</tr>
+<tr>
+<td><code>{IssuerURL}/openid/v1/jwks</code></td>
+<td>This contains the public signing key(s) that Microsoft Entra ID uses to verify the authenticity of the service account token.</td>
+</tr>
+</tbody>
+</table>
+<p>The following diagram summarizes the authentication sequence using OIDC:</p>
+<p><span class="mx-imgBorder">
+<a href="media/workload-identity-overview/workload-id-oidc-authentication-model.png#lightbox" data-linktype="relative-path">
+<img src="media/workload-identity-overview/workload-id-oidc-authentication-model.png" alt="Diagram of the AKS Microsoft Entra Workload ID OIDC authentication sequence." data-linktype="relative-path">
+</a>
+</span>
+</p>
+<h2 id="webhook-certificate-auto-rotation">Webhook certificate auto-rotation</h2>
+<p>Similar to other webhook add-ons, the <a href="certificate-rotation#certificate-autorotation-in-aks" data-linktype="relative-path">cluster certificate auto-rotation</a> operation rotates the workload identity webhook certificate.</p>
+<h2 id="service-account-labels-and-annotations">Service account labels and annotations</h2>
+<p>Microsoft Entra Workload ID supports the following mappings related to a service account:</p>
+<ul>
+<li><strong>One-to-one</strong>, where a service account references a Microsoft Entra object.</li>
+<li><strong>Many-to-one</strong>, where multiple service accounts reference the same Microsoft Entra object.</li>
+<li><strong>One-to-many</strong>, where a service account references multiple Microsoft Entra objects by changing the client ID annotation. For more information, see <a href="https://azure.github.io/azure-workload-identity/docs/faq.html#how-to-federate-multiple-identities-with-a-kubernetes-service-account" data-linktype="external">How to federate multiple identities with a Kubernetes service account</a>.</li>
+</ul>
+<div class="NOTE">
+<p>Note</p>
+<p>If you update the service account annotations, you must restart the pod for the changes to take effect.</p>
+</div>
+<p>If you've used <a href="use-azure-ad-pod-identity" data-linktype="relative-path">Microsoft Entra pod-managed identity</a>, think of a service account as an Azure security principal, except that a service account is part of the core Kubernetes API, rather than a <a href="https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/" data-linktype="external">Custom Resource Definition</a> (CRD). The following sections describe a list of available labels and annotations that you can use to configure the behavior when exchanging the service account token for a Microsoft Entra access token.</p>
+<h3 id="service-account-annotations">Service account annotations</h3>
+<p>All annotations are optional. If the annotation isn't specified, the default value is used.</p>
+<table>
+<thead>
+<tr>
+<th>Annotation</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>azure.workload.identity/client-id</code></td>
+<td>Represents the Microsoft Entra application<br> client ID to be used with the pod.</td>
+<td></td>
+</tr>
+<tr>
+<td><code>azure.workload.identity/tenant-id</code></td>
+<td>Represents the Azure tenant ID where the<br> Microsoft Entra application is registered.</td>
+<td>AZURE_TENANT_ID environment variable extracted<br> from <code>azure-wi-webhook-config</code> ConfigMap.</td>
+</tr>
+<tr>
+<td><code>azure.workload.identity/service-account-token-expiration</code></td>
+<td>Represents the <code>expirationSeconds</code> field for the projected service account token. It's an optional field that you configure to prevent any downtime caused by errors during service account token refresh. Kubernetes service account token expiry isn't correlated with Microsoft Entra tokens. Microsoft Entra tokens expire in 24 hours after they're issued.</td>
+<td>3600<br> Supported range is 3600-86400.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="pod-labels">Pod labels</h3>
+<div class="NOTE">
+<p>Note</p>
+<p>For applications using Microsoft Entra Workload ID, it's required to add the label <code>azure.workload.identity/use: "true"</code> to the pod spec for AKS to move the workload identity to a <em>Fail Close</em> scenario to provide a consistent and reliable behavior for pods that need to use workload identity. Otherwise, the pods fail after they're restarted.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Label</th>
+<th>Description</th>
+<th>Recommended value</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>azure.workload.identity/use</code></td>
+<td>This label is required in the pod template spec. Only pods with this label are mutated by the azure-workload-identity mutating admission webhook to inject the Azure specific environment variables and the projected service account token volume.</td>
+<td>true</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table>
+<h3 id="pod-annotations">Pod annotations</h3>
+<p>All annotations are optional. If the annotation isn't specified, the default value is used.</p>
+<table>
+<thead>
+<tr>
+<th>Annotation</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>azure.workload.identity/service-account-token-expiration</code></td>
+<td>See <a href="#service-account-annotations" data-linktype="self-bookmark">Service account annotations</a> for details. <strong>Pod annotations take precedence over service account annotations</strong>.</td>
+<td>3600<br> Supported range is 3600-86400.</td>
+</tr>
+<tr>
+<td><code>azure.workload.identity/skip-containers</code></td>
+<td>Represents a semi-colon-separated list of containers to skip adding projected service account token volume. For example, <code>container1;container2</code>.</td>
+<td>By default, the projected service account token volume is added to all containers if the pod is labeled with <code>azure.workload.identity/use: true</code>.</td>
+</tr>
+<tr>
+<td><code>azure.workload.identity/inject-proxy-sidecar</code></td>
+<td>Injects a proxy init container and proxy sidecar into the pod. The proxy sidecar is used to intercept token requests to IMDS and acquire a Microsoft Entra token on behalf of the user with federated identity credential.</td>
+<td>false</td>
+</tr>
+<tr>
+<td><code>azure.workload.identity/proxy-sidecar-port</code></td>
+<td>Represents the port of the proxy sidecar.</td>
+<td>8000</td>
+</tr>
+</tbody>
+</table>
+<h2 id="use-identity-bindings-and-direct-federation-in-the-same-workload">Use identity bindings and direct federation in the same workload</h2>
+<p><a href="identity-bindings-concepts" data-linktype="relative-path">Identity bindings</a> are a preview feature that extends workload identity to support large-scale AKS environments. Instead of creating a federated identity credential (FIC) for each cluster, identity bindings let multiple clusters share a single user-assigned managed identity through one FIC. When enabled, AKS routes pod token requests through an identity binding proxy webhook that handles token exchange on behalf of the workload.</p>
+<p>A projected service account token has a single audience. When identity bindings are enabled, the identity binding webhook sets the default token referenced by <code>AZURE_FEDERATED_TOKEN_FILE</code> to the audience <code>api://AKSIdentityBinding</code>, which the identity binding proxy uses.</p>
+<p>Direct Microsoft Entra Workload ID federation (without identity bindings) requires a token with the audience <code>api://AzureADTokenExchange</code>. Reusing the identity binding token file for direct federation fails with <code>AADSTS700212</code> because the federated identity credential audience doesn't match the token audience.</p>
+<p>To use identity bindings for one managed identity and direct federation for another in the same workload, project a second service account token with the <code>api://AzureADTokenExchange</code> audience and point the direct federation code at that file:</p>
+<pre><code class="lang-yaml">apiVersion: v1
+kind: Pod
+metadata:
+  name: workload-with-ib-and-direct-fic
+  labels:
+    azure.workload.identity/use: "true"
+spec:
+  serviceAccountName: workload-sa
+  containers:
+  - name: app
+    image: &lt;image&gt;
+    volumeMounts:
+    - name: direct-fic-token
+      mountPath: /var/run/secrets/direct-fic
+      readOnly: true
+    env:
+    - name: DIRECT_FIC_TOKEN_FILE
+      value: /var/run/secrets/direct-fic/token
+  volumes:
+  - name: direct-fic-token
+    projected:
+      sources:
+      - serviceAccountToken:
+          path: token
+          audience: api://AzureADTokenExchange
+          expirationSeconds: 3600
+</code></pre>
+<p>Use <code>AZURE_FEDERATED_TOKEN_FILE</code> for the identity binding flow and the custom token file, such as <code>DIRECT_FIC_TOKEN_FILE</code>, for the direct federated identity credential flow.</p>
+<h2 id="migrate-to-microsoft-entra-workload-id">Migrate to Microsoft Entra Workload ID</h2>
+<p>You can configure clusters already running a pod-managed identity to use Microsoft Entra Workload ID using one of two ways:</p>
+<ul>
+<li>Use the same configuration you implemented for pod-managed identity. You can annotate the service account within the namespace with the identity to enable Microsoft Entra Workload ID and inject the annotations into the pods.</li>
+<li>Rewrite your application to use the latest version of the Azure Identity client library.</li>
+</ul>
+<p>To help streamline and ease the migration process, we developed a migration sidecar that converts the Instance Metadata Service (IMDS) transactions your application makes over to <a href="/en-us/azure/active-directory/develop/v2-protocols-oidc" data-linktype="absolute-path">OIDC</a>. The migration sidecar isn't intended to be a long-term solution, but a way to get up and running quickly on Microsoft Entra Workload ID. Running the migration sidecar within your application proxies the application IMDS transactions over to OIDC. The alternative approach is to upgrade to a supported version of the <a href="/en-us/azure/active-directory/develop/reference-v2-libraries" data-linktype="absolute-path">Azure Identity</a> client library, which supports OIDC authentication.</p>
+<p>The following table summarizes our migration or deployment recommendations for your AKS cluster:</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>New AKS Automatic cluster</td>
+<td>Workload identity and the OIDC issuer are preconfigured. No cluster-level migration or configuration steps are required. Configure your application's service account and federated credential, then use the Azure Identity client library.</td>
+</tr>
+<tr>
+<td>New or existing AKS Standard cluster running a <a href="/en-us/azure/active-directory/develop/reference-v2-libraries" data-linktype="absolute-path">supported version</a> of the Azure Identity client library</td>
+<td>No migration steps are required.<br> Sample deployment resources: <a href="workload-identity-deploy-cluster" data-linktype="relative-path">Deploy and configure Microsoft Entra Workload ID on a new cluster</a></td>
+</tr>
+<tr>
+<td>New or existing cluster deployment runs an unsupported version of Azure Identity client library</td>
+<td>Update container image to use a supported version of the Azure Identity client library, or use the <a href="workload-identity-migrate-from-pod-identity" data-linktype="relative-path">migration sidecar</a>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="related-content">Related content</h2>
+<ul>
+<li>To learn how to set up your pod to authenticate using a workload identity as a migration option, see <a href="workload-identity-migrate-from-pod-identity" data-linktype="relative-path">Modernize application authentication with Microsoft Entra Workload ID</a>.</li>
+<li>See <a href="workload-identity-deploy-cluster" data-linktype="relative-path">Deploy and configure an AKS cluster with Microsoft Entra Workload ID</a>, which helps you deploy a cluster and configure a sample application to use a workload identity.</li>
+<li>To learn more about AKS Automatic's preconfigured security defaults, including workload identity, see <a href="intro-aks-automatic" data-linktype="relative-path">What is Azure Kubernetes Service Automatic?</a></li>
+</ul>
+<!-- EXTERNAL LINKS -->
+<!-- INTERNAL LINKS -->
+</div>
+					
+		<div
+			id="ms--inline-notifications"
+			class="margin-block-xs"
+			data-bi-name="inline-notification"
+		></div>
+	 
+		<div
+			id="assertive-live-region"
+			role="alert"
+			aria-live="assertive"
+			class="visually-hidden"
+			aria-relevant="additions"
+			aria-atomic="true"
+		></div>
+		<div
+			id="polite-live-region"
+			role="status"
+			aria-live="polite"
+			class="visually-hidden"
+			aria-relevant="additions"
+			aria-atomic="true"
+		></div>
+	
+					
+		<!-- feedback section -->
+		<section
+			id="site-user-feedback-footer"
+			class="font-size-sm margin-top-md display-none-print display-none-desktop"
+			data-test-id="site-user-feedback-footer"
+			data-bi-name="site-feedback-section"
+		>
+			<hr class="hr" />
+			<h2 id="ms--feedback" class="title is-3">Feedback</h2>
+			<div class="display-flex flex-wrap-wrap align-items-center">
+				<p class="font-weight-semibold margin-xxs margin-left-none">
+					Was this page helpful?
+				</p>
+				<div class="buttons">
+					<button
+						class="thumb-rating-button like button button-primary button-sm"
+						data-test-id="footer-rating-yes"
+						data-binary-rating-response="rating-yes"
+						type="button"
+						title="This article is helpful"
+						data-bi-name="button-rating-yes"
+						aria-pressed="false"
+					>
+						<span class="icon" aria-hidden="true">
+							<span class="docon docon-like"></span>
+						</span>
+						<span>Yes</span>
+					</button>
+					<button
+						class="thumb-rating-button dislike button button-primary button-sm"
+						id="standard-rating-no-button"
+						hidden
+						data-test-id="footer-rating-no"
+						data-binary-rating-response="rating-no"
+						type="button"
+						title="This article is not helpful"
+						data-bi-name="button-rating-no"
+						aria-pressed="false"
+					>
+						<span class="icon" aria-hidden="true">
+							<span class="docon docon-dislike"></span>
+						</span>
+						<span>No</span>
+					</button>
+					<details
+						class="popover popover-top"
+						id="mobile-help-popover"
+						data-test-id="footer-feedback-popover"
+					>
+						<summary
+							class="thumb-rating-button dislike button button-primary button-sm"
+							data-test-id="details-footer-rating-no"
+							data-binary-rating-response="rating-no"
+							title="This article is not helpful"
+							data-bi-name="button-rating-no"
+							aria-pressed="false"
+							data-bi-an="feedback-unhelpful-popover"
+						>
+							<span class="icon" aria-hidden="true">
+								<span class="docon docon-dislike"></span>
+							</span>
+							<span>No</span>
+						</summary>
+						<div
+							class="popover-content width-200 width-300-tablet"
+							role="dialog"
+							aria-labelledby="popover-heading"
+							aria-describedby="popover-description"
+						>
+							<p id="popover-heading" class="font-size-lg margin-bottom-xxs font-weight-semibold">
+								Need help with this topic?
+							</p>
+							<p id="popover-description" class="font-size-sm margin-bottom-xs">
+								Want to try using Ask Learn to clarify or guide you through this topic?
+							</p>
+							
+		<div class="buttons flex-direction-row flex-wrap justify-content-center gap-xxs">
+			<div>
+		<button
+			class="button button-sm border inner-focus display-none margin-right-xxs"
+			data-bi-name="ask-learn-assistant-entry-troubleshoot"
+			data-test-id="ask-learn-assistant-modal-entry-mobile-feedback"
+			data-ask-learn-modal-entry-feedback
+			data-bi-an=feedback-unhelpful-popover
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			aria-label="Ask Learn"
+			hidden
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+		</button>
+		<button
+			class="button button-sm display-inline-flex display-none-desktop flex-shrink-0 margin-right-xxs border-color-ask-learn margin-right-xxs"
+			data-bi-name="ask-learn-assistant-entry-troubleshoot"
+			data-bi-an=feedback-unhelpful-popover
+			data-test-id="ask-learn-assistant-modal-entry-tablet-feedback"
+			data-ask-learn-modal-entry-feedback
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			hidden
+		>
+			<span class="icon font-size-lg" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+			<span>Ask Learn</span>
+		</button>
+		<button
+			class="button button-sm display-none flex-shrink-0 display-inline-flex-desktop margin-right-xxs border-color-ask-learn margin-right-xxs"
+			data-bi-name="ask-learn-assistant-entry-troubleshoot"
+			data-bi-an=feedback-unhelpful-popover
+			data-test-id="ask-learn-assistant-flyout-entry-feedback"
+			data-ask-learn-flyout-entry-show-only
+			data-flyout-button="toggle"
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			aria-controls="ask-learn-flyout"
+			hidden
+		>
+			<span class="icon font-size-lg" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+			<span>Ask Learn</span>
+		</button>
+	</div>
+			<button
+				type="button"
+				class="button button-sm margin-right-xxs"
+				data-help-option="suggest-fix"
+				data-bi-name="feedback-suggest"
+				data-bi-an="feedback-unhelpful-popover"
+				data-test-id="suggest-fix"
+			>
+				<span class="icon" aria-hidden="true">
+					<span class="docon docon-feedback"></span>
+				</span>
+				<span> Suggest a fix? </span>
+			</button>
+		</div>
+	
+						</div>
+					</details>
+				</div>
+			</div>
+		</section>
+		<!-- end feedback section -->
+	
+				</div>
+				
+		<div id="ms--additional-resources-mobile" class="display-none-print">
+			<hr class="hr" hidden />
+			<h2 id="ms--additional-resources-mobile-heading" class="title is-3" hidden>
+				Additional resources
+			</h2>
+			
+		<section
+			id="right-rail-recommendations-mobile"
+			class=""
+			data-bi-name="recommendations"
+			hidden
+		></section>
+	 
+		<section
+			id="right-rail-training-mobile"
+			class=""
+			data-bi-name="learning-resource-card"
+			hidden
+		></section>
+	 
+		<section
+			id="right-rail-events-mobile"
+			class=""
+			data-bi-name="events-card"
+			hidden
+		></section>
+	
+		</div>
+	 
+		<div
+			id="article-metadata-footer"
+			data-bi-name="article-metadata-footer"
+			data-test-id="article-metadata-footer"
+			class="page-metadata-container"
+		>
+			<hr class="hr" />
+			<ul class="metadata page-metadata" data-bi-name="page info" lang="en-us" dir="ltr">
+				<li class="visibility-hidden-visual-diff">
+			<span class="badge badge-sm text-wrap-pretty">
+				<span>Last updated on <local-time format="twoDigitNumeric"
+		datetime="2026-09-09T06:06:00.000Z"
+		data-article-date-source="calculated"
+		class="is-invisible"
+	>
+		2026-09-09
+	</local-time></span>
+			</span>
+		</li>
+			</ul>
+		</div>
+	
+			</div>
+		
+				</main>
+				<aside
+					id="layout-body-aside"
+					class="layout-body-aside  "
+					data-bi-name="aside"
+					aria-label="Additional resources"
+			  >
+					
+		<div
+			id="ms--additional-resources"
+			class="right-container padding-sm display-none display-block-desktop height-full"
+			data-bi-name="pageactions"
+		>
+			<div id="affixed-right-container" data-bi-name="right-column">
+				
+		<nav
+			id="side-doc-outline"
+			class="doc-outline border-bottom padding-bottom-xs margin-bottom-xs scrollbar-width-thin"
+			data-bi-name="intopic toc"
+			aria-label="In this article"
+		>
+			<h3>In this article</h3>
+		</nav>
+	
+				<!-- Feedback -->
+				
+		<section
+			id="ms--site-user-feedback-right-rail"
+			class="font-size-sm display-none-print"
+			data-test-id="site-user-feedback-right-rail"
+			data-bi-name="site-feedback-right-rail"
+		>
+			<div class="display-flex flex-wrap-wrap align-items-center">
+				<p class="font-weight-semibold margin-xxs margin-left-none">
+					Was this page helpful?
+				</p>
+				<div class="display-flex flex-wrap-nowrap">
+					<button
+						class="thumb-rating-button like inner-focus"
+						data-test-id="right-rail-rating-yes"
+						data-binary-rating-response="rating-yes"
+						type="button"
+						title="This article is helpful"
+						aria-label="This article is helpful"
+						data-bi-name="button-rating-yes"
+						aria-pressed="false"
+					>
+						<span class="icon" aria-hidden="true">
+							<span class="docon docon-like"></span>
+						</span>
+					</button>
+					<button
+						class="thumb-rating-button dislike inner-focus"
+						id="right-rail-no-button"
+						hidden
+						data-test-id="right-rail-rating-no"
+						data-binary-rating-response="rating-no"
+						type="button"
+						title="This article is not helpful"
+						aria-label="This article is not helpful"
+						data-bi-name="button-rating-no"
+						aria-pressed="false"
+					>
+						<span class="icon" aria-hidden="true">
+							<span class="docon docon-dislike"></span>
+						</span>
+					</button>
+					<details class="popover popover-right" id="help-popover" data-test-id="feedback-popover">
+						<summary
+							tabindex="0"
+							class="thumb-rating-button dislike inner-focus"
+							data-test-id="details-right-rail-rating-no"
+							data-binary-rating-response="rating-no"
+							title="This article is not helpful"
+							aria-label="This article is not helpful"
+							data-bi-name="button-rating-no"
+							aria-pressed="false"
+							data-bi-an="feedback-unhelpful-popover"
+						>
+							<span class="icon" aria-hidden="true">
+								<span class="docon docon-dislike"></span>
+							</span>
+						</summary>
+						<div
+							class="popover-content width-200 width-300-tablet"
+							role="dialog"
+							aria-labelledby="popover-heading-right-rail"
+							aria-describedby="popover-description-right-rail"
+						>
+							<p
+								id="popover-heading-right-rail"
+								class="font-size-lg margin-bottom-xxs font-weight-semibold"
+							>
+								Need help with this topic?
+							</p>
+							<p id="popover-description-right-rail" class="font-size-sm margin-bottom-xs">
+								Want to try using Ask Learn to clarify or guide you through this topic?
+							</p>
+							
+		<div class="buttons flex-direction-row flex-wrap justify-content-center gap-xxs">
+			<div>
+		<button
+			class="button button-sm border inner-focus display-none margin-right-xxs"
+			data-bi-name="ask-learn-assistant-entry-troubleshoot"
+			data-test-id="ask-learn-assistant-modal-entry-mobile-feedback"
+			data-ask-learn-modal-entry-feedback
+			data-bi-an=feedback-unhelpful-popover
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			aria-label="Ask Learn"
+			hidden
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+		</button>
+		<button
+			class="button button-sm display-inline-flex display-none-desktop flex-shrink-0 margin-right-xxs border-color-ask-learn margin-right-xxs"
+			data-bi-name="ask-learn-assistant-entry-troubleshoot"
+			data-bi-an=feedback-unhelpful-popover
+			data-test-id="ask-learn-assistant-modal-entry-tablet-feedback"
+			data-ask-learn-modal-entry-feedback
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			hidden
+		>
+			<span class="icon font-size-lg" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+			<span>Ask Learn</span>
+		</button>
+		<button
+			class="button button-sm display-none flex-shrink-0 display-inline-flex-desktop margin-right-xxs border-color-ask-learn margin-right-xxs"
+			data-bi-name="ask-learn-assistant-entry-troubleshoot"
+			data-bi-an=feedback-unhelpful-popover
+			data-test-id="ask-learn-assistant-flyout-entry-feedback"
+			data-ask-learn-flyout-entry-show-only
+			data-flyout-button="toggle"
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			aria-controls="ask-learn-flyout"
+			hidden
+		>
+			<span class="icon font-size-lg" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+			<span>Ask Learn</span>
+		</button>
+	</div>
+			<button
+				type="button"
+				class="button button-sm margin-right-xxs"
+				data-help-option="suggest-fix"
+				data-bi-name="feedback-suggest"
+				data-bi-an="feedback-unhelpful-popover"
+				data-test-id="suggest-fix"
+			>
+				<span class="icon" aria-hidden="true">
+					<span class="docon docon-feedback"></span>
+				</span>
+				<span> Suggest a fix? </span>
+			</button>
+		</div>
+	
+						</div>
+					</details>
+				</div>
+			</div>
+		</section>
+	
+			</div>
+		</div>
+	
+			  </aside> <section
+					id="layout-body-flyout"
+					class="layout-body-flyout "
+					data-bi-name="flyout"
+			  >
+					 <div
+	class="height-full border-left background-color-body-medium"
+	id="ask-learn-flyout"
+></div>
+			  </section> <div class="layout-body-footer " data-bi-name="layout-footer">
+		<footer
+			id="footer"
+			data-test-id="footer"
+			data-bi-name="footer"
+			class="footer-layout padding-xs padding-sm-desktop has-default-focus border-top"
+			role="contentinfo"
+		>
+			<div class="display-flex gap-xs flex-wrap-wrap is-full-height padding-right-lg-desktop">
+				
+		<a
+			data-mscc-ic="false"
+			href="#"
+			data-bi-name="select-locale"
+			class="locale-selector-link flex-shrink-0 button button-sm button-clear external-link-indicator"
+			id=""
+			title=""
+			><span class="icon" aria-hidden="true"
+				><span class="docon docon-world"></span></span
+			><span class="local-selector-link-text">en-us</span></a
+		>
+	 <div class="ccpa-privacy-link" data-ccpa-privacy-link hidden>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://aka.ms/yourcaliforniaprivacychoices"
+			data-bi-name="your-privacy-choices"
+			class="button button-sm button-clear flex-shrink-0 external-link-indicator"
+			id=""
+			title=""
+			>
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			viewBox="0 0 30 14"
+			xml:space="preserve"
+			height="16"
+			width="43"
+			aria-hidden="true"
+			focusable="false"
+		>
+			<path
+				d="M7.4 12.8h6.8l3.1-11.6H7.4C4.2 1.2 1.6 3.8 1.6 7s2.6 5.8 5.8 5.8z"
+				style="fill-rule:evenodd;clip-rule:evenodd;fill:#fff"
+			></path>
+			<path
+				d="M22.6 0H7.4c-3.9 0-7 3.1-7 7s3.1 7 7 7h15.2c3.9 0 7-3.1 7-7s-3.2-7-7-7zm-21 7c0-3.2 2.6-5.8 5.8-5.8h9.9l-3.1 11.6H7.4c-3.2 0-5.8-2.6-5.8-5.8z"
+				style="fill-rule:evenodd;clip-rule:evenodd;fill:#06f"
+			></path>
+			<path
+				d="M24.6 4c.2.2.2.6 0 .8L22.5 7l2.2 2.2c.2.2.2.6 0 .8-.2.2-.6.2-.8 0l-2.2-2.2-2.2 2.2c-.2.2-.6.2-.8 0-.2-.2-.2-.6 0-.8L20.8 7l-2.2-2.2c-.2-.2-.2-.6 0-.8.2-.2.6-.2.8 0l2.2 2.2L23.8 4c.2-.2.6-.2.8 0z"
+				style="fill:#fff"
+			></path>
+			<path
+				d="M12.7 4.1c.2.2.3.6.1.8L8.6 9.8c-.1.1-.2.2-.3.2-.2.1-.5.1-.7-.1L5.4 7.7c-.2-.2-.2-.6 0-.8.2-.2.6-.2.8 0L8 8.6l3.8-4.5c.2-.2.6-.2.9 0z"
+				style="fill:#06f"
+			></path>
+		</svg>
+	
+			<span>Your Privacy Choices</span></a
+		>
+	
+	</div>
+				<div class="flex-shrink-0">
+		<div class="dropdown has-caret-up">
+			<button
+				data-test-id="theme-selector-button"
+				class="dropdown-trigger button button-clear button-sm inner-focus theme-dropdown-trigger"
+				aria-controls="{{ themeMenuId }}"
+				aria-haspopup="true"
+				aria-expanded="false"
+				data-bi-name="theme"
+			>
+				<span class="icon" aria-hidden="true"><span class="docon docon-sun"></span></span>
+				<span>Theme</span>
+				<span class="icon expanded-indicator" aria-hidden="true">
+					<span class="docon docon-chevron-down-light"></span>
+				</span>
+			</button>
+			<div class="dropdown-menu" id="{{ themeMenuId }}" role="menu">
+				<ul class="theme-selector padding-xxs" data-test-id="theme-dropdown-menu" role="none">
+					<li class="theme display-block" role="none">
+						<button
+							class="button button-clear button-sm theme-control button-block justify-content-flex-start text-align-left"
+							role="menuitemradio"
+							aria-checked="false"
+							data-theme-to="light"
+							tabindex="-1"
+						>
+							<span class="theme-light margin-right-xxs">
+								<span
+									class="theme-selector-icon border display-inline-block has-body-background"
+									aria-hidden="true"
+								>
+									<svg class="svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 14">
+										<rect width="22" height="14" class="has-fill-body-background" />
+										<rect x="5" y="5" width="12" height="4" class="has-fill-secondary" />
+										<rect x="5" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="8" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="11" y="2" width="3" height="1" class="has-fill-secondary" />
+										<rect x="1" y="1" width="2" height="2" class="has-fill-secondary" />
+										<rect x="5" y="10" width="7" height="2" rx="0.3" class="has-fill-primary" />
+										<rect x="19" y="1" width="2" height="2" rx="1" class="has-fill-secondary" />
+									</svg>
+								</span>
+							</span>
+							<span> Light </span>
+						</button>
+					</li>
+					<li class="theme display-block" role="none">
+						<button
+							class="button button-clear button-sm theme-control button-block justify-content-flex-start text-align-left"
+							role="menuitemradio"
+							aria-checked="false"
+							data-theme-to="dark"
+							tabindex="-1"
+						>
+							<span class="theme-dark margin-right-xxs">
+								<span
+									class="border theme-selector-icon display-inline-block has-body-background"
+									aria-hidden="true"
+								>
+									<svg class="svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 14">
+										<rect width="22" height="14" class="has-fill-body-background" />
+										<rect x="5" y="5" width="12" height="4" class="has-fill-secondary" />
+										<rect x="5" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="8" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="11" y="2" width="3" height="1" class="has-fill-secondary" />
+										<rect x="1" y="1" width="2" height="2" class="has-fill-secondary" />
+										<rect x="5" y="10" width="7" height="2" rx="0.3" class="has-fill-primary" />
+										<rect x="19" y="1" width="2" height="2" rx="1" class="has-fill-secondary" />
+									</svg>
+								</span>
+							</span>
+							<span> Dark </span>
+						</button>
+					</li>
+					<li class="theme display-block" role="none">
+						<button
+							class="button button-clear button-sm theme-control button-block justify-content-flex-start text-align-left"
+							role="menuitemradio"
+							aria-checked="false"
+							data-theme-to="high-contrast"
+							tabindex="-1"
+						>
+							<span class="theme-high-contrast margin-right-xxs">
+								<span
+									class="border theme-selector-icon display-inline-block has-body-background"
+									aria-hidden="true"
+								>
+									<svg class="svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 14">
+										<rect width="22" height="14" class="has-fill-body-background" />
+										<rect x="5" y="5" width="12" height="4" class="has-fill-secondary" />
+										<rect x="5" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="8" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="11" y="2" width="3" height="1" class="has-fill-secondary" />
+										<rect x="1" y="1" width="2" height="2" class="has-fill-secondary" />
+										<rect x="5" y="10" width="7" height="2" rx="0.3" class="has-fill-primary" />
+										<rect x="19" y="1" width="2" height="2" rx="1" class="has-fill-secondary" />
+									</svg>
+								</span>
+							</span>
+							<span> High contrast </span>
+						</button>
+					</li>
+				</ul>
+			</div>
+		</div>
+	</div>
+			</div>
+			<ul class="links" data-bi-name="footerlinks">
+				<li class="manage-cookies-holder" hidden=""></li>
+				<li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://learn.microsoft.com/en-us/principles-for-ai-generated-content"
+			data-bi-name="aiDisclaimer"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>AI Disclaimer</a
+		>
+	
+	</li><li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://learn.microsoft.com/en-us/previous-versions/"
+			data-bi-name="archivelink"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Previous Versions</a
+		>
+	
+	</li> <li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://techcommunity.microsoft.com/t5/microsoft-learn-blog/bg-p/MicrosoftLearnBlog"
+			data-bi-name="bloglink"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Blog</a
+		>
+	
+	</li> <li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://learn.microsoft.com/en-us/contribute"
+			data-bi-name="contributorGuide"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Contribute</a
+		>
+	
+	</li><li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://go.microsoft.com/fwlink/?LinkId=521839"
+			data-bi-name="privacy"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Privacy</a
+		>
+	
+	</li><li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://go.microsoft.com/fwlink/?linkid=2259814"
+			data-bi-name="consumer-health-privacy"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Consumer Health Privacy</a
+		>
+	
+	</li><li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://learn.microsoft.com/en-us/legal/termsofuse"
+			data-bi-name="termsofuse"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Terms of Use</a
+		>
+	
+	</li><li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://www.microsoft.com/legal/intellectualproperty/Trademarks/"
+			data-bi-name="trademarks"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Trademarks</a
+		>
+	
+	</li>
+				<li>&copy; Microsoft 2026</li>
+			</ul>
+		</footer>
+	</footer>
+			<noscript><img src="https://learn.microsoft.com/akam/13/pixel_6e28c88e?a=dD0zYWZmOTQ0MzIyYWVkNDJhNWIyOGM4Njg5ZTQwOTM2NjI1OWExMTk5JmpzPW9mZg==" style="visibility: hidden; position: absolute; left: -999px; top: -999px;" /></noscript></body>
+		</html>

@@ -1,0 +1,10 @@
+# Isolated learning dependencies; freeze actual resolved versions after installation.
+langmem
+langchain-openai
+llama-index-core
+temporalio
+opentelemetry-sdk
+prometheus-client
+pytest
+httpx
+pyyaml

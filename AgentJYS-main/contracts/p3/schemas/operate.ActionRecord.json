@@ -1,0 +1,530 @@
+{
+  "$defs": {
+    "ActionIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Action Id",
+          "type": "string"
+        },
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "title": "Created At",
+          "type": "string"
+        },
+        "decision": {
+          "$ref": "#/$defs/PlacementDecision"
+        },
+        "expected_epoch": {
+          "minimum": 0,
+          "title": "Expected Epoch",
+          "type": "integer"
+        },
+        "provider_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "provider_instance_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Provider Instance Id",
+          "type": "string"
+        },
+        "provider_mode": {
+          "enum": [
+            "simulated",
+            "real"
+          ],
+          "title": "Provider Mode",
+          "type": "string"
+        },
+        "representation_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Representation Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action_id",
+        "decision",
+        "representation_id",
+        "content_hash",
+        "provider_id",
+        "provider_instance_id",
+        "expected_epoch",
+        "provider_mode",
+        "created_at"
+      ],
+      "title": "ActionIntent",
+      "type": "object"
+    },
+    "ActionState": {
+      "enum": [
+        "generated",
+        "submitted",
+        "succeeded",
+        "failed",
+        "unknown",
+        "cancelled"
+      ],
+      "title": "ActionState",
+      "type": "string"
+    },
+    "ExecutionFeedback": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Action Id",
+          "type": "string"
+        },
+        "observation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PlacementObservation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "observed_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "provider_instance_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Provider Instance Id",
+          "type": "string"
+        },
+        "provider_operation_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Operation Id"
+        },
+        "read_proof": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReadProof"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "state": {
+          "enum": [
+            "accepted",
+            "running",
+            "succeeded",
+            "failed",
+            "unknown",
+            "not_found"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action_id",
+        "provider_instance_id",
+        "state",
+        "observed_at"
+      ],
+      "title": "ExecutionFeedback",
+      "type": "object"
+    },
+    "MemoryRef": {
+      "additionalProperties": false,
+      "properties": {
+        "memory_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Memory Id",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scope",
+        "memory_id",
+        "version"
+      ],
+      "title": "MemoryRef",
+      "type": "object"
+    },
+    "PlacementDecision": {
+      "additionalProperties": false,
+      "properties": {
+        "access_watermark": {
+          "minimum": 0,
+          "title": "Access Watermark",
+          "type": "integer"
+        },
+        "current_tier": {
+          "$ref": "#/$defs/Tier"
+        },
+        "decision_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Decision Id",
+          "type": "string"
+        },
+        "memory": {
+          "$ref": "#/$defs/MemoryRef"
+        },
+        "outcome": {
+          "enum": [
+            "promote",
+            "demote",
+            "keep",
+            "defer"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "policy_version": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Policy Version",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "storage_watermark": {
+          "minimum": 0,
+          "title": "Storage Watermark",
+          "type": "integer"
+        },
+        "target_tier": {
+          "$ref": "#/$defs/Tier"
+        }
+      },
+      "required": [
+        "decision_id",
+        "memory",
+        "outcome",
+        "current_tier",
+        "target_tier",
+        "reason",
+        "policy_version",
+        "storage_watermark",
+        "access_watermark"
+      ],
+      "title": "PlacementDecision",
+      "type": "object"
+    },
+    "PlacementObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "epoch": {
+          "minimum": 0,
+          "title": "Epoch",
+          "type": "integer"
+        },
+        "memory": {
+          "$ref": "#/$defs/MemoryRef"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "provider_instance_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Provider Instance Id",
+          "type": "string"
+        },
+        "readable": {
+          "title": "Readable",
+          "type": "boolean"
+        },
+        "representation_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Representation Id",
+          "type": "string"
+        },
+        "tier": {
+          "$ref": "#/$defs/Tier"
+        }
+      },
+      "required": [
+        "memory",
+        "representation_id",
+        "provider_instance_id",
+        "tier",
+        "epoch",
+        "readable",
+        "content_hash",
+        "observed_at"
+      ],
+      "title": "PlacementObservation",
+      "type": "object"
+    },
+    "ReadProof": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Action Id",
+          "type": "string"
+        },
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "memory": {
+          "$ref": "#/$defs/MemoryRef"
+        },
+        "provider_instance_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Provider Instance Id",
+          "type": "string"
+        },
+        "provider_mode": {
+          "enum": [
+            "simulated",
+            "real"
+          ],
+          "title": "Provider Mode",
+          "type": "string"
+        },
+        "readable": {
+          "const": true,
+          "title": "Readable",
+          "type": "boolean"
+        },
+        "verified_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "title": "Verified At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action_id",
+        "memory",
+        "provider_instance_id",
+        "content_hash",
+        "readable",
+        "verified_at",
+        "provider_mode"
+      ],
+      "title": "ReadProof",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "application_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Application Id",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        },
+        "tenant_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "user_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenant_id",
+        "application_id",
+        "user_id",
+        "agent_id"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "Tier": {
+      "enum": [
+        "cold",
+        "warm",
+        "hot"
+      ],
+      "title": "Tier",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "cleanup_state": {
+      "enum": [
+        "not_required",
+        "pending",
+        "completed",
+        "failed",
+        "unknown"
+      ],
+      "title": "Cleanup State",
+      "type": "string"
+    },
+    "feedback": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ExecutionFeedback"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "intent": {
+      "$ref": "#/$defs/ActionIntent"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason"
+    },
+    "revision": {
+      "minimum": 1,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "state": {
+      "$ref": "#/$defs/ActionState"
+    }
+  },
+  "required": [
+    "intent",
+    "state",
+    "revision",
+    "cleanup_state"
+  ],
+  "title": "ActionRecord",
+  "type": "object",
+  "x-contract-model": "operate.ActionRecord"
+}

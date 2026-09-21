@@ -1,0 +1,31 @@
+name: p3-collaboration
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    working-directory: AgentJYS-main
+jobs:
+  p3-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUTF8: '1'
+      TIKTOKEN_CACHE_DIR: ${{ runner.temp }}/p3-tokenizers
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r scripts/p3/requirements-collaboration.txt
+      - run: python scripts/p3/validate_collaboration.py --report "${{ runner.temp }}/p3-gate.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p3-gate-summary
+          path: ${{ runner.temp }}/p3-gate.json
+          if-no-files-found: warn
+          retention-days: 14

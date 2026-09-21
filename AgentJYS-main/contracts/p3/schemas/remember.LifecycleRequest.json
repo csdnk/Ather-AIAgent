@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "expected_version": {
+      "minimum": 1,
+      "title": "Expected Version",
+      "type": "integer"
+    },
+    "reason": {
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    },
+    "target": {
+      "enum": [
+        "archived",
+        "active"
+      ],
+      "title": "Target",
+      "type": "string"
+    }
+  },
+  "required": [
+    "expected_version",
+    "target",
+    "reason"
+  ],
+  "title": "LifecycleRequest",
+  "type": "object",
+  "x-contract-model": "remember.LifecycleRequest"
+}

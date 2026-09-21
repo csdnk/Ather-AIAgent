@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "deadline_at": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "title": "Deadline At",
+      "type": "string"
+    },
+    "model_space": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Model Space",
+      "type": "string"
+    },
+    "operation_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Operation Id",
+      "type": "string"
+    },
+    "texts": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Texts",
+      "type": "array"
+    },
+    "usage": {
+      "enum": [
+        "query",
+        "passage"
+      ],
+      "title": "Usage",
+      "type": "string"
+    }
+  },
+  "required": [
+    "operation_id",
+    "usage",
+    "texts",
+    "model_space",
+    "deadline_at"
+  ],
+  "title": "EmbeddingRequest",
+  "type": "object",
+  "x-contract-model": "recall.EmbeddingRequest"
+}

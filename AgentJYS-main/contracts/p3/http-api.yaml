@@ -1,0 +1,198 @@
+contract_version: p3/1
+status: design_only_not_installed_routes
+authentication: Bearer credential verified by server; body cannot establish tenant
+error_model: runtime.ErrorResponse
+errors:
+  401:
+  - UNAUTHENTICATED
+  403:
+  - FORBIDDEN
+  404:
+  - NOT_FOUND
+  409:
+  - VERSION_CONFLICT
+  - IDEMPOTENCY_CONFLICT
+  - REQUEST_IN_PROGRESS
+  - TASK_STILL_RUNNING
+  410:
+  - MEMORY_GONE
+  - RESULT_INVALIDATED
+  422:
+  - INVALID_ARGUMENT
+  - BUDGET_TOO_SMALL
+  429:
+  - CAPACITY_EXCEEDED
+  503:
+  - DEPENDENCY_UNAVAILABLE
+  - COMMIT_UNCONFIRMED
+  - EXECUTION_INTERRUPTED
+  504:
+  - DEADLINE_EXCEEDED
+  500:
+  - CONTRACT_VIOLATION
+endpoints:
+- method: POST
+  path: /api/v2/remember
+  port: remember.RememberPort.save
+  permission: memory:write
+  request_model: remember.RememberRequest
+  response_model: remember.RememberReceipt
+  success_status: 202
+  idempotency_key_required: true
+  example: positive-remember.RememberRequest
+  path_parameters: []
+  query_model: null
+- method: GET
+  path: /api/v2/memories/{memory_id}
+  port: remember.RememberPort.get
+  permission: memory:read
+  request_model: null
+  response_model: remember.MemorySnapshot
+  success_status: 200
+  idempotency_key_required: false
+  example: positive-remember.MemorySnapshot
+  path_parameters:
+  - memory_id
+  query_model: null
+- method: PATCH
+  path: /api/v2/memories/{memory_id}
+  port: remember.RememberPort.correct
+  permission: memory:correct
+  request_model: remember.CorrectionRequest
+  response_model: remember.RememberReceipt
+  success_status: 200
+  idempotency_key_required: true
+  example: positive-remember.CorrectionRequest
+  path_parameters:
+  - memory_id
+  query_model: null
+- method: PATCH
+  path: /api/v2/memories/{memory_id}/lifecycle
+  port: remember.RememberPort.lifecycle
+  permission: memory:write
+  request_model: remember.LifecycleRequest
+  response_model: remember.MemorySnapshot
+  success_status: 200
+  idempotency_key_required: true
+  example: positive-remember.LifecycleRequest
+  path_parameters:
+  - memory_id
+  query_model: null
+- method: DELETE
+  path: /api/v2/memories/{memory_id}
+  port: remember.RememberPort.delete
+  permission: memory:delete
+  request_model: remember.DeleteRequest
+  response_model: remember.DeleteReceipt
+  success_status: 200
+  idempotency_key_required: true
+  example: positive-remember.DeleteRequest
+  path_parameters:
+  - memory_id
+  query_model: null
+- method: DELETE
+  path: /api/v2/sources/{source_id}
+  port: remember.RememberPort.delete_source
+  permission: memory:delete
+  request_model: remember.DeleteRequest
+  response_model: remember.DeleteReceipt
+  success_status: 200
+  idempotency_key_required: true
+  example: positive-remember.DeleteRequest
+  path_parameters:
+  - source_id
+  query_model: null
+- method: GET
+  path: /api/v2/memories/{memory_id}/history
+  port: remember.MemoryReadPort.history
+  permission: memory:history
+  request_model: null
+  response_model: remember.MemoryReadBatch
+  success_status: 200
+  idempotency_key_required: false
+  example: positive-remember.MemoryReadBatch
+  path_parameters:
+  - memory_id
+  query_model: runtime.PageRequest
+- method: GET
+  path: /api/v2/sources/{source_id}
+  port: remember.MemoryReadPort.source
+  permission: memory:read
+  request_model: null
+  response_model: remember.SourceRef
+  success_status: 200
+  idempotency_key_required: false
+  example: positive-remember.SourceRef
+  path_parameters:
+  - source_id
+  query_model: null
+- method: POST
+  path: /api/v2/recall
+  port: recall.RecallPort.recall
+  permission: memory:read
+  request_model: recall.RecallRequest
+  response_model: recall.ContextPack
+  success_status: 200
+  idempotency_key_required: true
+  example: positive-recall.RecallRequest
+  path_parameters: []
+  query_model: null
+- method: GET
+  path: /api/v2/recalls/{recall_id}
+  port: recall.RecallPort.status
+  permission: memory:read
+  request_model: null
+  response_model: recall.RecallRecord
+  success_status: 200
+  idempotency_key_required: false
+  example: positive-recall.RecallRecord
+  path_parameters:
+  - recall_id
+  query_model: null
+- method: GET
+  path: /api/v2/recalls/{recall_id}/result
+  port: recall.RecallPort.result
+  permission: memory:read
+  request_model: null
+  response_model: recall.ContextPack
+  success_status: 200
+  idempotency_key_required: false
+  example: positive-recall.ContextPack
+  path_parameters:
+  - recall_id
+  query_model: null
+- method: GET
+  path: /api/v2/operations/{operation_id}
+  port: runtime.DiagnosticsPort.operation
+  permission: object:read
+  request_model: null
+  response_model: runtime.OperationRecord
+  success_status: 200
+  idempotency_key_required: false
+  example: positive-runtime.OperationRecord
+  path_parameters:
+  - operation_id
+  query_model: null
+- method: GET
+  path: /api/v2/tasks/{task_id}
+  port: runtime.DiagnosticsPort.task
+  permission: object:read
+  request_model: null
+  response_model: runtime.TaskRecord
+  success_status: 200
+  idempotency_key_required: false
+  example: positive-runtime.TaskRecord
+  path_parameters:
+  - task_id
+  query_model: null
+- method: GET
+  path: /api/v2/status
+  port: runtime.DiagnosticsPort.health
+  permission: authenticated
+  request_model: null
+  response_model: runtime.HealthReport
+  success_status: 200
+  idempotency_key_required: false
+  example: positive-runtime.HealthReport
+  path_parameters: []
+  query_model: null

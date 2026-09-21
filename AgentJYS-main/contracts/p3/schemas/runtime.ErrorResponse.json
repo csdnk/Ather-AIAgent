@@ -1,0 +1,74 @@
+{
+  "$defs": {
+    "ErrorCode": {
+      "enum": [
+        "UNAUTHENTICATED",
+        "FORBIDDEN",
+        "NOT_FOUND",
+        "INVALID_ARGUMENT",
+        "VERSION_CONFLICT",
+        "IDEMPOTENCY_CONFLICT",
+        "REQUEST_IN_PROGRESS",
+        "RESULT_INVALIDATED",
+        "MEMORY_GONE",
+        "CAPACITY_EXCEEDED",
+        "BUDGET_TOO_SMALL",
+        "DEPENDENCY_UNAVAILABLE",
+        "COMMIT_UNCONFIRMED",
+        "DEADLINE_EXCEEDED",
+        "EXECUTION_INTERRUPTED",
+        "CONTRACT_VIOLATION",
+        "TASK_STILL_RUNNING"
+      ],
+      "title": "ErrorCode",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "$ref": "#/$defs/ErrorCode"
+    },
+    "message": {
+      "minLength": 1,
+      "title": "Message",
+      "type": "string"
+    },
+    "operation_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Operation Id"
+    },
+    "request_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "retryable": {
+      "title": "Retryable",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "code",
+    "message",
+    "retryable",
+    "request_id"
+  ],
+  "title": "ErrorResponse",
+  "type": "object",
+  "x-contract-model": "runtime.ErrorResponse"
+}

@@ -1,0 +1,32 @@
+profile_id: prd-v1.2-product
+prd_version: '1.2'
+required_execution_mode: real
+enforce_now: false
+current_focus: 先搭建系统，产品指标暂不纳入当前门禁；运行检测与正确性保留
+metrics:
+  working_p99_ms:
+    operator: <
+    value: 10
+  embedding_items_per_second:
+    operator: '>='
+    value: 2000
+    cache_hits_count: false
+  persisted_compression_ratio:
+    operator: '>='
+    value: 5
+    quality_required: true
+    exclude_failures: false
+  heuristic_rule_accuracy: 1.0
+  wrong_demotions: 0
+  prediction_relative_uplift:
+    operator: '>='
+    value: 0.1
+    stage: P1
+    zero_baseline: undefined_report_absolute_only
+  mvp_soak_hours: 24
+  final_soak_hours: 72
+gates:
+- 真实执行与读取证据
+- FR01-FR15及FR17-FR18 P0通过
+- 质量、共享范围、轨迹、算法负载和保留细则在对应验收前确定
+status: deferred_by_user_not_current_gate

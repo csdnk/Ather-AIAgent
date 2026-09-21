@@ -1,0 +1,60 @@
+baseline_id: p3-prd-v1.3
+adopted_at: '2026-09-20'
+authority: user_instruction_use_latest_prd
+source:
+  file: 交付成果/PRD版本/AetherBrain_P3_PRD_租户补全版_V1.3.docx
+  version: '1.3'
+  document_date: '2026-09-19'
+  document_status: 产品评审稿
+  sha256: 56cae524daa3ac7a0af2b8f7640c659c4b02cba8159a16cffbb9c8fc609660fb
+  paragraph_count: 1487
+  location_scheme: one-based word/document.xml w:p, including table paragraphs
+legacy_traceability:
+  requirements: docs/p3/acceptance/requirements.yaml
+  source_manifest: docs/p3/acceptance/source-manifest.yaml
+  source_version: '1.2'
+  meaning: historical_source_locations_and_checks_not_complete_v1.3_acceptance
+delta:
+  - id: V13-TEN-01
+    sections: ['3.3', '5.4', 'FR15']
+    paragraph_spans: [[165, 166], [288, 293], [927, 927]]
+    requirement: 稳定业务租户编号、启用状态、受控身份映射；认证通过但未绑定时拒绝访问
+    owners: [RF]
+    acceptance: 获准身份映射正确；未绑定身份不自动开通；伪造编号不能扩大范围
+    verification: pending_v1.3_integration
+  - id: V13-TEN-02
+    sections: [FR15, '12.8']
+    paragraph_spans: [[928, 929], [1316, 1321]]
+    requirement: 同租户共享按资源和操作授权，撤权约束新请求、旧结果及在途提交
+    owners: [RF, B, A, C]
+    acceptance: 只读共享不授予删除；撤权后旧Context和在途交付不返回失效正文
+    verification: partial_local_evidence_not_full_v1.3_acceptance
+  - id: V13-TEN-03
+    sections: [FR15, '9.3', '12.8']
+    paragraph_spans: [[928, 929], [1087, 1087], [1322, 1324]]
+    requirement: 租户停用、配置变更原子性、后台及旧配置恢复不能复活失效许可
+    owners: [RF, B, A, C]
+    acceptance: 排队后停用阻止新业务；旧配置不复活授权；未知外部动作继续受控核对
+    verification: pending_v1.3_integration
+  - id: V13-TEN-04
+    sections: [FR15, '8.2', '11', '12.8']
+    paragraph_spans: [[930, 930], [1023, 1024], [1183, 1183], [1325, 1327]]
+    requirement: 外部认证与业务授权分开，明确外部撤权传播及真实P2多路径隔离
+    owners: [RF, A, B, C]
+    acceptance: 在批准时限内生效，使用真实身份设施与P2/P3验证；不由Mock替代
+    verification: pending_external_environment
+  - id: V13-TEN-05
+    sections: ['12.8']
+    paragraph_spans: [[1305, 1327]]
+    requirement: 两租户及同租户双Agent连续验证合法接入、共享、撤权、停用与恢复
+    owners: [RF, B, A, C]
+    acceptance: 完整记录合法与拒绝分支、旧结果和后台处理；不以孤立单元测试宣称联合验收
+    verification: pending_v1.3_integration
+  - id: V13-TEN-06
+    sections: ['14.2']
+    paragraph_spans: [[1430, 1438]]
+    requirement: 接入前确认租户划分、身份来源、配置责任及撤权窗口；生产前确认退出保留与恢复
+    owners: [RF]
+    acceptance: 形成接入决议与实际验证计划，不自行假定身份或传播时限
+    verification: pending_joint_decisions
+product_acceptance: not_completed

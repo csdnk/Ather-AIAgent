@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aether · P2/P3 架构与原型评审</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<header class="topbar"><div class="brand"><span class="brand-mark">a</span><div>AETHER<span>产品与架构评审 / 2026.09.18</span></div></div><nav aria-label="主导航"><button class="nav active" data-page="demo">场景演示</button><button class="nav" data-page="architecture">架构与契约</button><button class="nav" data-page="adr">架构决策 ADR</button><button class="nav" data-page="coverage">需求与交付</button></nav><span class="environment"><i></i> 本地 Mock</span></header>
+<main>
+<section id="page-demo" class="page active">
+  <div class="intro"><div><div class="eyebrow">CTO REVIEW WORKBENCH</div><h1>让服务行为，看得见。</h1><p>从记住一条约束，到正确取用，再到内部自动调度。沿同一份数据评审 P2 与 P3。</p></div><div class="scope-note"><strong>两个对外功能 · 一条内部闭环</strong><span>Remember 存储 / Recall 召回<br>Operate 在后台自动运行</span></div></div>
+  <div class="notice"><span class="tag amber">评审原型</span> 页面代表接入方替身与内部观察窗，不是新增产品管理端。数据、检索、身份及执行均为模拟；刷新或切换场景重置数据。</div>
+  <div class="demo-grid">
+    <aside class="scenarios"><div class="panel-heading">演示场景 <span>09</span></div><div id="scenario-list"></div><div class="rail-note">建议顺序<br><b>01 → 02 → 04 → 05 → 06</b><br>一次走查约 10 分钟</div></aside>
+    <div class="stage">
+      <div class="scenario-header"><div class="eyebrow" id="scenario-code"></div><h2 id="scenario-title"></h2><p id="scenario-question"></p><div id="scenario-tags" class="tags"></div></div>
+      <div class="stepper" id="stepper"></div>
+      <div class="guide"><div><span class="small-label">下一步</span><strong id="next-title"></strong><p id="next-help"></p></div><button class="primary" id="next">执行这一步 <span>→</span></button></div>
+      <div class="result-panel"><div class="panel-heading">接入方看到的结果 <span id="result-status" class="tag">等待操作</span></div><div id="result" aria-live="polite"></div></div>
+      <details class="manual"><summary>自由试用：修改输入与查询条件</summary><div class="manual-inner">
+        <label>记忆内容<textarea id="input-text" rows="2">本阶段预算上限为20万元，每周五汇总进度。</textarea></label>
+        <div class="form-row"><label>使用范围<select id="request-scope"><option value="own">授权租户 / 项目 Agent</option><option value="tenant">另一租户（应拒绝）</option><option value="agent">未授权 Agent（应拒绝）</option></select></label><label>记忆用途<select id="memory-kind"><option value="working">当前任务 Working</option><option value="episodic">会议事件 Episodic</option><option value="semantic">显式事实 Semantic</option></select></label></div>
+        <div class="button-row"><button id="manual-write">存储记忆</button><button id="manual-repeat">原键重复提交</button><button id="manual-process">推进后台加工</button></div>
+        <label>召回问题<input id="query" value="当前项目有哪些约束？"></label>
+        <div class="form-row"><label>来源<select id="sources"><option value="both">当前 + 长期</option><option value="auto">自动选择</option><option value="working">仅当前记忆</option><option value="long_term">仅长期记忆</option></select></label><label>长度预算（演示字符）<input id="budget" type="number" min="1" max="4000" value="260"></label></div>
+        <div class="form-row"><label>依赖状态<select id="fault"><option value="none">正常</option><option value="vector">向量服务不可用</option><option value="object">对象服务不可用</option><option value="all">全部召回来源不可用</option><option value="ack">调度回执丢失</option><option value="capacity">资源不足，暂缓调度</option></select></label><label>操作目标<select id="target-memory"></select></label></div>
+        <div class="button-row"><button class="primary" id="manual-recall">召回记忆</button><button id="manual-update">按输入更正目标</button><button id="manual-delete">删除目标</button><button id="manual-reconcile">核对模拟执行结果</button></div>
+        <p class="help">“推进后台”和“核对结果”用于推进模拟时钟。正式服务自动处理。自定义文本使用确定性词匹配，不运行大模型或向量计算。</p>
+      </div></details>
+    </div>
+    <aside class="inspector"><div class="panel-heading">内部过程观察 <span class="tag green">模拟</span></div><div class="inspector-tabs"><button class="selected" data-inspect="state">数据状态</button><button data-inspect="trace">调用轨迹</button><button data-inspect="schedule">自动调度</button></div><div id="inspector-content"></div><div class="inspector-footer"><button id="reset">重置本场景</button><button id="export">导出本次证据</button></div></aside>
+  </div>
+</section>
+<section id="page-architecture" class="page"><div class="intro"><div><div class="eyebrow">SYSTEM BOUNDARIES</div><h1>每一个结果，都有负责的边界。</h1><p>产品架构建议与当前 P2 接口依据并列呈现；Mock 中的连线均为本地状态模拟。</p></div><a class="button" href="总体架构设计.md">查看总体架构设计 ↗</a></div>
+  <div class="architecture-map"><div class="arch-layer"><span class="layer-label">调用方</span><div class="arch-box caller"><b>应用 / Agent / P4</b><span>可信调用范围 · Remember / Recall · 处理业务结果</span></div></div><div class="arch-arrows">↓ 存储与召回请求 <span>↑ 内容、来源、版本与结果说明</span></div><div class="arch-layer"><span class="layer-label">P3 记忆服务</span><div class="arch-modules"><div class="arch-box"><b>Remember</b><span>事实与来源 / 当前版本<br>加工任务 / 检索资格</span></div><div class="arch-box"><b>Recall</b><span>来源选择 / 核验 / 排序<br>预算组装 / 最终交付</span></div><div class="arch-box operate"><b>Operate · 内部</b><span>两侧轨迹 + 当前状态<br>基础算法 → 执行跟踪</span></div></div></div><div class="shared">共享保障：身份与范围、可靠任务、幂等、事件记录、恢复机制 <span>具体原子交接待契约落实</span></div><div class="arch-arrows">↓ 对象、向量、图与执行能力适配 <span>↑ 真实数据、状态与结果证据</span></div><div class="arch-layer"><span class="layer-label">P2 引擎与控制</span><div class="arch-modules four"><div class="arch-box"><b>E2 · 对象</b><span>保存 / 准确读取</span></div><div class="arch-box"><b>E1 · 向量</b><span>索引 / 检索候选</span></div><div class="arch-box"><b>E3 · 图</b><span>关系 / 融合查询</span></div><div class="arch-box"><b>执行与内省</b><span>目标状态 / 路由反馈</span></div></div></div><div class="arch-base">P1 / 约定 Executor · 持久底座与物理搬运 <span>执行 Owner、能力与真实接入需联合确认</span></div></div>
+  <h2 class="section-title">P2 / P3 交接时，必须回答的 5 个问题</h2><div id="contract-grid" class="contract-grid"></div>
+  <div class="two-columns"><article class="paper"><h3>正常保存与召回</h3><ol><li>校验可信范围，保存内容与可追踪处理意图。</li><li>适用当前记忆可读，长期加工继续进行。</li><li>绑定表示、内容及版本，查询和回读通过后授予长期资格。</li><li>Recall 固定来源，核验候选并在预算内组装。</li><li>最终复核资格后交付；两侧轨迹供后台调度消费。</li></ol></article><article class="paper"><h3>执行结果未知时</h3><ol><li>保留原 action / migration ID 与目标版本。</li><li>原有效读取路径继续提供服务。</li><li>查询原动作和目标实际状态，不新建冲突动作。</li><li>准确内容可读且版本仍有效时，确认状态更新。</li><li>若内容已更正或删除，隔离旧回执，不重新激活。</li></ol></article></div>
+</section>
+<section id="page-adr" class="page"><div class="intro"><div><div class="eyebrow">ARCHITECTURE DECISION RECORDS</div><h1>记录选择，也记录代价。</h1><p>8 份可评审的架构决策提案，与演示场景和需求逐一关联。全部为 Proposed，尚未替代既有 ADR。</p></div><a class="button" href="ADR/README.md">打开 ADR 文档索引 ↗</a></div><div class="adr-layout"><aside id="adr-list"></aside><article id="adr-detail" class="paper"></article></div></section>
+<section id="page-coverage" class="page"><div class="intro"><div><div class="eyebrow">REVIEW SCOPE & DELIVERY</div><h1>两周交付，先对齐什么。</h1><p>Mock 用来确认产品行为和责任边界。正式验收还需要真实依赖、持久性、质量及性能证据。</p></div><a class="button" href="评审与两周交付说明.md">查看完整评审说明 ↗</a></div>
+  <div class="deliverables"><article><span>01 / 行为</span><h3>连续场景原型</h3><p>同一条记忆的保存、召回、更正与删除；覆盖失败和恢复分支。</p></article><article><span>02 / 边界</span><h3>架构与契约</h3><p>模块职责、核心流转、接口样例及依赖能力缺口。</p></article><article><span>03 / 决策</span><h3>ADR 与待定事项</h3><p>方案对比、推荐理由、代价、验证方式与确认责任。</p></article><article><span>04 / 证据</span><h3>需求对应清单</h3><p>哪些已模拟、哪些未覆盖、下一阶段需要怎样验证。</p></article></div>
+  <div class="paper"><h2>PRD 覆盖与后续验证</h2><div class="table-scroll"><table><thead><tr><th>编号</th><th>需求</th><th>场景</th><th>本次范围</th><th>后续证据 / 限制</th></tr></thead><tbody id="coverage-body"></tbody></table></div></div>
+  <h2 class="section-title">文档依据与版本差异</h2><div id="source-list" class="source-list"></div>
+</section>
+</main><footer><span>Aether · P2 / P3 两周评审交付</span><span>基于 P3 PRD V1.2 · 本地模拟，无外部请求</span></footer>
+<script src="model.js"></script><script src="content.js"></script><script src="app.js"></script>
+</body></html>

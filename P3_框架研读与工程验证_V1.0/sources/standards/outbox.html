@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width">
+
+    <title>Pattern: Transactional outbox</title>
+
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="microservices.io" />
+
+<script type="application/ld+json">
+{ "@context" : "http://schema.org",
+  "@id": "http://microservices.io#website",
+  "url": "http://microservices.io",
+  "@type": "WebSite",
+  "name": "Microservices.io",
+  "alternateName": "Microservice Architecture",
+  "about": {
+    "@type": "Intangible",
+	"name": "Microservices",
+	"alternateName": "Microservice Architecture",
+	"sameAs": [
+	  "http://dbpedia.org/resource/Microservices",
+	  "https://www.wikidata.org/wiki/Q18344624",
+	  "https://en.wikipedia.org/wiki/Microservices"
+	]
+  },
+  "publisher": {
+    "@type": "Person",
+	"@id": "http://www.chrisrichardson.net#chris",
+	"name": "Chris Richardson",
+	"image": "https://gravatar.com/avatar/a290a8643359e2495e1c6312e662012f",
+	"sameAs": [
+	  "https://twitter.com/crichardson",
+	  "http://www.slideshare.net/chris.e.richardson",
+	  "http://www.linkedin.com/in/pojos/",
+	  "https://github.com/cer"
+	],
+	"description": "Chris Richardson is an experienced software architect, author of POJOs in Action and the creator of the original CloudFoundry.com. His latest startup is eventuate.io, a microservices application platform. Chris offers a comprehensive set of resources for learning about microservices including articles, an O'Reilly training video, and example code. Chris offers a comprehensive consulting services, workshops and hands on training classes to help you use microservices effectively.",
+	"worksFor": {
+	  "@type": "Organization",
+	  "name": "eventuate.io",
+	  "logo": {
+	    "@type": "ImageObject",
+		"url": "http://eventuate.io/i/logo.gif",
+		"height": "33",
+		"width": "92",
+		"name": "eventuate.io logo"
+	  },
+	  "url": "http://eventuate.io/"
+	},
+	"jobTitle": "Founder",
+	"affiliation": {
+	  "@type": "Organization",
+	  "name": "CloudFoundry.com",
+	  "alternateName": "CloudFoundry",
+	  "url": "http://CloudFoundry.com"
+	}
+  },
+  "copyrightYear": "2017",
+  "offers": {
+    "@type": "Offer",
+	"itemOffered": {
+	  "@type": "Service",
+	  "name": "Microservices consulting and training",
+	  "description": "Chris offers a comprehensive consulting services, workshops and hands on training classes to help you use microservices effectively.",
+	  "url": "http://www.chrisrichardson.net/microserviceslanding.html"
+	  }
+    }
+}
+</script>
+
+
+<meta property="og:title" content="Microservices Pattern: Pattern: Transactional outbox" />
+
+
+<meta property="og:image" content="http://microservices.io/i/patterns/data/ReliablePublication.png" />
+
+
+<meta property="og:url" content="http://microservices.io/patterns/data/transactional-outbox.html" />
+
+
+<meta property="og:description" content="First, write the message/event to a database OUTBOX table as part of the transaction that updates business objects, and then publish it to a message broker." />
+
+
+<script type="application/ld+json">
+{
+"@context": "http://schema.org",
+"@type": "WebPage",
+"@id": "http://microservices.io/patterns/data/transactional-outbox.html#webpage",
+"isPartOf": {
+  "@id": "http://microservices.io#website"
+  },
+"headline": "Pattern: Transactional outbox",
+"description": "A pattern language for microservices",
+
+
+
+"primaryImageOfPage": {
+  "@type": "ImageObject",
+  "contentUrl": "http://microservices.io/i/patterns/data/ReliablePublication.png",
+  "representativeOfPage": "True"
+},
+
+
+
+"mainEntity": {
+  "@type": "Intangible",
+  "name": "Pattern: Pattern: Transactional outbox"
+
+  
+  ,
+  "description": "First, write the message/event to a database OUTBOX table as part of the transaction that updates business objects, and then publish it to a message broker."
+  
+
+  
+  ,
+  "image": {
+    "@type": "ImageObject",
+	"name": "Transactional outbox",
+	"width": "735",
+	"height": "428",
+	"url": "http://microservices.io/i/patterns/data/ReliablePublication.png"
+  }
+  
+
+ },
+"url": "http://microservices.io/patterns/data/transactional-outbox.html"
+}
+</script>
+
+
+
+<script type="application/ld+json">
+{ "@context" : "http://schema.org",
+  "@type": "Question",
+  "name": "How to reliably/atomically update the database and publish messages/events?",
+  "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "First, write the message/event to a database OUTBOX table as part of the transaction that updates business objects, and then publish it to a message broker."
+  }
+}
+</script>
+
+
+
+
+    <!-- syntax highlighting CSS -->
+    <link rel="stylesheet" href="/css/syntax.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.css">
+    <link rel="stylesheet" href="/css/mystyle.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+
+
+    <meta name="google-site-verification" content="rB3uSmJcbvKTM81SmaySzRyq4bSjan7d0vZ-8rH7i4w" />
+<meta name="msvalidate.01" content="FCD5343EE325466BFFCA1D990110980F" />
+
+<!-- -->
+
+<script src="//load.sumome.com/" data-sumo-site-id="429d272781758132dd5f1fe73308c66cf5a1344b1f41666282845fcb2dab7c38" async="async"></script>
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-7DBL155M0H"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-7DBL155M0H');
+</script>
+
+
+<!-- Begin Constant Contact Active Forms -->
+<script> var _ctct_m = "173e7057e76408bde3aa3ca9eb698799"; </script>
+<script id="signupScript" src="//static.ctctcdn.com/js/signup-form-widget/current/signup-form-widget.min.js" async defer></script>
+<!-- End Constant Contact Active Forms -->
+
+</head>
+<body>
+
+<script src="/scripts/jquery.min.js"></script>
+<script src="/scripts/bootstrap.js"></script>
+<script src="/scripts/popup-anchors.js"></script>
+<script src="/scripts/rotate-ads.js"></script>
+
+<div class="site">
+
+    <div class="container-fluid">
+        <div class="row">
+    <div class="col-md-2">
+        <h4><a href="/index.html">Microservice Architecture</a></h4>
+        <strong>Supported by <a href="https://konghq.com/">Kong</a></strong>
+    </div>
+    <div class="col-md-8">
+        <nav class="navbar navbar-default" role="navigation">
+            <ul class="nav navbar-nav">
+                <li><a href="/patterns/index.html">Patterns</a></li>
+                <li><a href="/articles/index.html">Articles</a></li>
+                <li><a href="/presentations/index.html">Presentations</a></li>
+                <li><a href="/adopt/index.html">Adopt</a></li>
+                <li><a href="/refactoring/index.html">Refactoring</a></li>
+                <li><a href="/testing/index.html">Testing</a></li>
+                <li><a href="https://chrisrichardson.net/">Modernization Help</a></li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+                <li><a href="/about.html">About</a></li>
+            </ul>
+        </nav>
+    </div>
+</div>
+
+        <div class="row">
+            <div class="col-md-8 col-md-push-3">
+                <div class="page-content">                
+                  <h1>Pattern: Transactional outbox</h1>             
+                  
+ 
+
+<span style="font-size: 2rem;">
+<a href="/tags/pattern">
+    <i class="bi-tags" style="font-size: 2rem; color: cornflowerblue;"></i>
+    pattern
+</a>&nbsp;
+</span>
+
+<span style="font-size: 2rem;">
+<a href="/tags/transactional messaging">
+    <i class="bi-tags" style="font-size: 2rem; color: cornflowerblue;"></i>
+    transactional messaging
+</a>&nbsp;
+</span>
+
+<span style="font-size: 2rem;">
+<a href="/tags/service design">
+    <i class="bi-tags" style="font-size: 2rem; color: cornflowerblue;"></i>
+    service design
+</a>&nbsp;
+</span>
+
+<span style="font-size: 2rem;">
+<a href="/tags/inter-service communication">
+    <i class="bi-tags" style="font-size: 2rem; color: cornflowerblue;"></i>
+    inter-service communication
+</a>&nbsp;
+</span>
+
+<br/>
+<hr/>
+
+
+                  <h2 id="also-known-as">Also known as</h2>
+
+<p>Application events</p>
+
+<h2 id="context">Context</h2>
+
+<p>A service command typically needs to create/update/delete <a href="aggregate.html">aggregates</a> in the database <strong>and</strong> send messages/events to a message broker.
+For example, a service that participates in a <a href="/patterns/data/saga.html">saga</a> needs to update business entities and send messages/events.
+Similarly, a service that publishes a <a href="domain-event.html">domain event</a> must update an <a href="aggregate.html">aggregate</a> and publish an event.</p>
+
+<p>The command must atomically update the database and send messages in order to avoid data inconsistencies and bugs.
+However, it is not viable to use a traditional distributed transaction (2PC) that spans the database and the message broker
+The database and/or the message broker might not support 2PC.
+And even if they do, it’s often undesirable to couple the service to both the database and the message broker.</p>
+
+<p>But without using 2PC, sending a message in the middle of a transaction is not reliable.
+There’s no guarantee that the transaction will commit.
+Similarly, if a service sends a message after committing the transaction there’s no guarantee that it won’t crash before sending the message.</p>
+
+<p>In addition, messages must be sent to the message broker in the order they were sent by the service.
+They must usually be delivered to each consumer in the same order although that’s outside the scope of this pattern.
+For example, let’s suppose that an aggregate is updated by a series of transactions <code class="language-plaintext highlighter-rouge">T1</code>, <code class="language-plaintext highlighter-rouge">T2</code>, etc.
+This transactions might be performed by the same service instance or by different service instances.
+Each transaction publishes a corresponding event: <code class="language-plaintext highlighter-rouge">T1 -&gt; E1</code>, <code class="language-plaintext highlighter-rouge">T2 -&gt; E2</code>, etc.
+Since <code class="language-plaintext highlighter-rouge">T1</code> precedes <code class="language-plaintext highlighter-rouge">T2</code>, event <code class="language-plaintext highlighter-rouge">E1</code> must be published before <code class="language-plaintext highlighter-rouge">E2</code>.</p>
+
+<h2 id="problem">Problem</h2>
+
+<p>How to atomically update the database and send messages to a message broker?</p>
+
+<h2 id="forces">Forces</h2>
+
+<ul>
+  <li>2PC is not an option. The database and/or the message broker might not support 2PC. Also, it’s often undesirable to couple the service to both the database and the message broker.</li>
+  <li>If the database transaction commits then the messages must be sent. Conversely, if the database rolls back, the messages must not be sent</li>
+  <li>Messages must be sent to the message broker in the order they were sent by the service. This ordering must be preserved across multiple service instances that update the same aggregate.</li>
+</ul>
+
+<h2 id="solution">Solution</h2>
+
+<p>The solution is for the service that sends the message to first store the message in the database as part of the transaction that updates the business entities.
+A separate process then sends the messages to the message broker.</p>
+
+<p><img class="img-responsive" src="/i/patterns/data/ReliablePublication.png" /></p>
+
+<p>The participants in this pattern are:</p>
+
+<ul>
+  <li>Sender - the service that sends the message</li>
+  <li>Database - the database that stores the business entities and message outbox</li>
+  <li>Message outbox - if it’s a relational database, this is a table that stores the messages to be sent. Otherwise, if it’s a NoSQL database, the outbox is a property of each database record (e.g. document or item)</li>
+  <li>Message relay - sends the messages stored in the outbox to the message broker</li>
+</ul>
+
+<h2 id="result-context">Result context</h2>
+
+<p>This pattern has the following benefits:</p>
+
+<ul>
+  <li>2PC is not used</li>
+  <li>Messages are guaranteed to be sent if and only if the database transaction commits</li>
+  <li>Messages are sent to the message broker in the order they were sent by the application</li>
+</ul>
+
+<p>This pattern has the following drawbacks:</p>
+
+<ul>
+  <li>Potentially error prone since the developer might forget to publish the message/event after updating the database.</li>
+</ul>
+
+<p>This pattern also has the following issues:</p>
+
+<ul>
+  <li>The Message relay might publish a message more than once.
+It might, for example, crash after publishing a message but before recording the fact that it has done so.
+When it restarts, it will then publish the message again.
+As a result, a message consumer must be idempotent, perhaps by tracking the IDs of the messages that it has already processed.
+Fortunately, since message Consumers usually need to be idempotent (because a message broker can deliver messages more than once) this is typically not a problem.</li>
+</ul>
+
+<h2 id="related-patterns">Related patterns</h2>
+
+<ul>
+  <li>The <a href="saga.html">Saga</a> and <a href="domain-event.html">Domain event</a> patterns create the need for this pattern.</li>
+  <li>The <a href="event-sourcing.html">Event sourcing</a> is an alternative solution</li>
+  <li>There are two patterns for implementing the Message relay:
+    <ul>
+      <li>The <a href="transaction-log-tailing.html">Transaction log tailing</a> pattern</li>
+      <li>The <a href="polling-publisher.html">Polling publisher</a> pattern</li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="learn-more">Learn more</h2>
+
+<ul>
+  <li>My book <a href="/book">Microservices patterns</a> describes this pattern in a lot more detail.</li>
+  <li>The <a href="https://github.com/eventuate-tram/eventuate-tram-core">Eventuate Tram framework</a> implements this pattern</li>
+</ul>
+
+                </div>
+                <hr/>
+                
+ 
+
+<span style="font-size: 2rem;">
+<a href="/tags/pattern">
+    <i class="bi-tags" style="font-size: 2rem; color: cornflowerblue;"></i>
+    pattern
+</a>&nbsp;
+</span>
+
+<span style="font-size: 2rem;">
+<a href="/tags/transactional messaging">
+    <i class="bi-tags" style="font-size: 2rem; color: cornflowerblue;"></i>
+    transactional messaging
+</a>&nbsp;
+</span>
+
+<span style="font-size: 2rem;">
+<a href="/tags/service design">
+    <i class="bi-tags" style="font-size: 2rem; color: cornflowerblue;"></i>
+    service design
+</a>&nbsp;
+</span>
+
+<span style="font-size: 2rem;">
+<a href="/tags/inter-service communication">
+    <i class="bi-tags" style="font-size: 2rem; color: cornflowerblue;"></i>
+    inter-service communication
+</a>&nbsp;
+</span>
+
+<br/>
+<hr/>
+
+
+
+                <div class="row">
+    <div class="col-md-3"></div>
+    <div class="col-md-9"><hr></div>
+
+</div>
+<div class="row">
+    <div class="col-md-3">
+    </div>
+    <div class="col-md-2">
+        <a class="btn btn-info btn-xs" href="https://chrisrichardson.net/">Modernization Help</a>
+    </div>
+    <div class="col-md-1">
+    </div>
+     <div class="col-md-6">
+         <div style="text-align: center">Copyright © 2026 Chris Richardson • All rights reserved • Supported by <a href="https://konghq.com/">Kong</a>.</div>
+    </div>
+</div>
+
+                
+                <div id="disqus_thread"></div>
+
+              </div>
+
+            <div class="hidden-print col-md-2 col-md-pull-8">
+                <!--- begin: About -->
+
+<div class="panel panel-default">
+  <div class="panel-heading">
+     <h4>About Microservices.io</h4>
+  </div>
+
+<div class="panel-body">
+  <img src="https://gravatar.com/avatar/a290a8643359e2495e1c6312e662012f" class="img-circle" style="float: right" />
+  <p>
+    Microservices.io is created by <a href="/about.html">Chris Richardson</a>, software architect, creator of the original CloudFoundry.com, and author of <i>Microservices Patterns</i>. Chris helps organizations modernize their architecture to enable fast flow and GenAI-powered software delivery.
+  </p>
+</div>
+
+
+</div>
+
+<div class="panel panel-default">
+  <div class="panel-heading">
+     <h4>Need help modernizing your architecture?</h4>
+  </div>
+
+  <div class="panel-body">
+    <p>
+      Avoid the trap of creating a modern legacy system — a new architecture with the same old problems.<br />
+      Contact me to discuss your modernization goals.
+    </p>
+    <a class="btn btn-info btn-xs" href="https://www.linkedin.com/in/pojos/">Get Help</a>
+  </div>
+
+</div>
+
+<div class="panel panel-default">
+  <div class="panel-heading">
+     <h4>Microservices Patterns, 2nd edition</h4>
+  </div>
+
+  <div class="panel-body">
+    <img src="/i/posts/mp2e-book-cover.png" style="float: right; width: 50%" />
+      <p>I am very excited to announce that the MEAP for the second edition of my book, Microservices Patterns is now available!
+      </p>
+    <a href="/post/architecture/2025/06/26/announcing-meap-microservices-patterns-2nd-edition.html">Learn more</a>
+  </div>
+
+</div>
+
+<!--
+<div class="panel panel-default">
+  <div class="panel-heading">
+     <h4>Latest articles</h4>
+  </div>
+
+  <div class="panel-body">
+      <p>
+        <a href="/post/misc/2022/01/19/writing-better-problem-reports.html">Writing better problem reports: 6 essential details</a>
+      </p>
+  </div>
+
+</div>
+-->
+
+<div class="panel panel-default" style="display:block">
+  <div class="panel-heading">
+     <h4>ASK CHRIS</h4>
+  </div>
+  <div class="panel-body">
+    <div style="float: right; font-size: 4em; text-align: top; font-face: bold; padding-left: 20px">?</div>
+    <p>Got a question about microservices?</p>
+    <p>Fill in <a href="https://forms.gle/ppYDAF1JxHGec8Kn9">this form</a>. If I can, I'll write a blog post that answers your question.</p>
+  </div>
+</div>
+
+<div class="panel panel-default rotating-ad" style="display:block">
+  <div class="panel-heading">
+     <h4>NEED HELP?</h4>
+  </div>
+  <div class="panel-body">
+      <img src="/i/posts/cxo-wondering.webp" style="width: 100%;margin-bottom: 1em" />
+      <p>
+      I help organizations improve agility and competitiveness through better software architecture.
+      </p>
+      
+      <p>
+      Learn more about my <a href="https://chrisrichardson.net/consulting.html">consulting engagements</a>, and <a href="https://chrisrichardson.net/training.html">training workshops</a>.
+      </p>
+
+  </div>
+</div>
+
+<div class="panel panel-default rotating-ad" style="display:none">
+  <div class="panel-heading">
+     <h4>PREMIUM CONTENT</h4>
+  </div>
+  <div class="panel-body">
+    <img src="/i/posts/premium-logo.png" style="width: 100%" />
+    Premium content now available for paid subscribers at <a href="https://premium.microservices.io">premium.microservices.io</a>.
+
+  </div>
+</div>
+
+<div class="panel panel-default rotating-ad" style="display:none">
+  <div class="panel-heading">
+     <h4>MICROSERVICES WORKSHOPS</h4>
+  </div>
+
+  <div class="panel-body">
+    <img src="/i/workshop-kata_small.jpg" style="width: 100%" />
+  <p>Chris teaches <a href="http://chrisrichardson.net/training.html">comprehensive workshops</a> for architects and developers that will enable your organization use microservices effectively.
+  </p>
+  <p>
+  Avoid the pitfalls of adopting microservices and learn essential topics, such as service decomposition and design and how to refactor a monolith to microservices.
+  </p>
+  <a class="btn btn-info btn-xs" href="http://chrisrichardson.net/training.html">Learn more</a>
+
+  </div>
+</div>
+
+<div class="panel panel-default rotating-ad" style="display:none">
+  <div class="panel-heading">
+     <h4>Remote consulting session</h4>
+  </div>
+
+  <div class="panel-body">
+      <img src="/i/posts/zoom-consulting.webp" style="width: 100%" />
+      <p>Got a specific microservice architecture-related question? For example:</p>
+      <ul>
+        <li>Wondering whether your organization should adopt microservices?</li>
+        <li>Want to know how to migrate your monolith to microservices?</li>
+        <li>Facing a tricky microservice architecture design problem?</li>
+      </ul>
+      <p>Consider signing up for a <a href="https://chrisrichardson.net/consulting-office-hours.html">two hour, highly focussed, consulting session.</a></p>
+  </div>
+</div>
+
+<div class="panel panel-default rotating-ad" style="display:none">
+  <div class="panel-heading">
+     <h4>ASSESS your architecture</h4>
+  </div>
+
+  <div class="panel-body">
+     <p>
+     Assess your application's microservice architecture and identify what needs to be improved. <a href="http://www.chrisrichardson.net/consulting.html">Engage Chris</a> to conduct an architect review.</p>
+
+  </div>
+
+</div>
+
+<div class="panel panel-default">
+  <div class="panel-heading">
+     <h4>LEARN about microservices</h4>
+  </div>
+
+  <p>Chris offers numerous other resources for learning the microservice architecture.</p>
+
+  <div class="panel-body">
+
+  <h4>Get the book: Microservices Patterns</h4>
+
+  Read Chris Richardson's book:
+
+  <a href="/book">
+    <img style="width: 200px; margin-top: 20px" src="/i/Microservices-Patterns-Cover-published.png" />
+  </a>  
+  </div>
+
+  <hr />
+
+  <h4>Example microservices applications</h4>
+    <p>Want to see an example? Check out Chris Richardson's example applications.
+      <a class="btn btn-info btn-xs" href="http://eventuate.io/exampleapps.html">See code</a>
+  </p>
+
+</div>
+
+<div class="panel panel-default">
+  <div class="panel-heading">
+     <h4>Virtual bootcamp: Distributed data patterns in a microservice architecture</h4>
+  </div>
+
+  <div class="panel-body">
+
+      <img src="/i/Chris_Speaking_Mucon_2018_a.jpg" class="img-responsive" style="margin-bottom: 5px" />
+
+      <p>My virtual bootcamp, distributed data patterns in a microservice architecture, is now open for enrollment!</p>
+      <p>It covers the key distributed data management patterns including Saga, API Composition, and CQRS.</p>
+      <p>It consists of video lectures, code labs, and a weekly ask-me-anything video conference repeated in multiple timezones.</p>
+      <p>The regular price is $395/person but use coupon OFFEFKCW to sign up for $95 (valid until Sept 30th, 2025).
+      There are deeper discounts for buying multiple seats.
+      </p>
+      <p><a class="btn btn-info btn-md" target="_blank" href="https://chrisrichardson.net/virtual-bootcamp-distributed-data-management.html">Learn more</a>
+      </p>
+
+  </div>
+
+</div>
+
+<div class="panel panel-default">
+  <div class="panel-heading">
+     <h4>Learn how to create a service template and microservice chassis</h4>
+  </div>
+
+  <div class="panel-body">
+      <p>
+        Take a look at my <a href="/post/patterns/2022/03/15/service-template-chassis-live-project.html">Manning LiveProject</a> that teaches you how to develop a service template and microservice chassis.
+      </p>
+      <img class="img-responsive" src="/i/patterns/microservice-template-and-chassis/Microservice_chassis.png" />
+  </div>
+</div>
+
+<!-- BEGIN: Constant Contact Email List Form Button -->
+<div align="center"><a href="http://visitor.r20.constantcontact.com/d.jsp?llr=ula8akwab&amp;p=oi&amp;m=1123470377332&amp;sit=l6ktajjkb&amp;f=15d9bba9-b33d-491f-b874-73a41bba8a76" class="button" style="border: 1px solid rgb(91, 91, 91); color: rgb(91, 91, 91); display: inline-block; padding: 8px 10px; text-shadow: none; border-radius: 20px; background-color: rgb(232, 232, 232);">Signup for the newsletter</a><!-- BEGIN: Email Marketing you can trust --><div id="ctct_button_footer" align="center" style="font-family:Arial,Helvetica,sans-serif;font-size:10px;color:#999999;margin-top: 10px;">For Email Marketing you can trust.</div></div>
+
+<p><br /></p>
+
+<div class="panel panel-default">
+  <div class="panel-heading">
+     <h4>BUILD microservices</h4>
+  </div>
+
+  <div class="panel-body">
+    Ready to start using the microservice architecture?
+
+    <h4>Consulting services</h4>
+
+    <p><a href="http://www.chrisrichardson.net/consulting.html">Engage Chris</a> to create a microservices adoption roadmap and help you define your microservice architecture, </p>
+
+    <hr />
+
+    <h4>The Eventuate platform</h4>
+
+    <p>Use the <a href="https://eventuate.io">Eventuate.io platform</a> to tackle distributed data management challenges in your microservices architecture.</p>
+
+    <a href="https://eventuate.io"><img style="width:66%" src="https://eventuate.io/i/logo.gif" /></a>
+
+    <p>Eventuate is Chris's latest startup. It makes it easy to use the Saga pattern to manage transactions and the CQRS pattern to implement queries.</p>
+
+
+  </div>
+</div>
+
+<!--- End: About -->
+
+<hr />
+
+<p>Join the <a href="https://groups.google.com/forum/#!forum/microservices">microservices google group</a></p>
+
+            </div>
+
+            <div class="hidden-print col-md-1 col-md-pull-8">
+            </div>
+
+            <div class="hidden-print col-md-1">
+
+            </div>
+
+
+        </div>
+    </div>
+
+
+</div>
+
+<script type="text/javascript">
+    /* * * CONFIGURATION VARIABLES * * */
+    var disqus_shortname = 'microservices';
+
+    /* * * DON'T EDIT BELOW THIS LINE * * */
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
+
+</body>
+</html>

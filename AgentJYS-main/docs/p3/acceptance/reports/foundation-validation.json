@@ -1,0 +1,292 @@
+{
+  "generated_at": "2026-09-19T05:48:29.827344+00:00",
+  "scope": "single_host_foundation_engineering_not_business_acceptance",
+  "passed": true,
+  "python": "3.13.15",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "checks": [
+    {
+      "name": "runtime_tests",
+      "passed": true,
+      "exit_code": 0
+    },
+    {
+      "name": "runtime_lint",
+      "passed": true,
+      "exit_code": 0
+    },
+    {
+      "name": "runtime_type_check",
+      "passed": true,
+      "exit_code": 0
+    },
+    {
+      "name": "contract_regression",
+      "passed": true,
+      "exit_code": 0
+    },
+    {
+      "name": "engineering_demo",
+      "passed": true,
+      "exit_code": 0
+    }
+  ],
+  "runtime_cases": [
+    {
+      "name": "test_normal_atomic_flow_and_trace",
+      "passed": true
+    },
+    {
+      "name": "test_rollback_includes_fact_task_and_event",
+      "passed": true
+    },
+    {
+      "name": "test_request_idempotency_and_content_conflict",
+      "passed": true
+    },
+    {
+      "name": "test_cross_user_and_cross_tenant_queries_rejected[bob]",
+      "passed": true
+    },
+    {
+      "name": "test_cross_user_and_cross_tenant_queries_rejected[carol]",
+      "passed": true
+    },
+    {
+      "name": "test_cross_user_and_cross_tenant_queries_rejected[david]",
+      "passed": true
+    },
+    {
+      "name": "test_identity_forgery_scope_selector_and_revocation",
+      "passed": true
+    },
+    {
+      "name": "test_same_tenant_grant_is_explicit_and_revocable",
+      "passed": true
+    },
+    {
+      "name": "test_cas_tombstone_scope_paging_and_poisoned_transaction",
+      "passed": true
+    },
+    {
+      "name": "test_nested_transaction_is_rejected",
+      "passed": true
+    },
+    {
+      "name": "test_expired_worker_fenced_and_recovered",
+      "passed": true
+    },
+    {
+      "name": "test_lease_expiring_during_commit_rolls_back",
+      "passed": true
+    },
+    {
+      "name": "test_renew_keeps_token_and_fences_old_revision",
+      "passed": true
+    },
+    {
+      "name": "test_outbox_pause_and_lost_ack_do_not_duplicate_effect",
+      "passed": true
+    },
+    {
+      "name": "test_consumer_effect_and_inbox_rollback_together",
+      "passed": true
+    },
+    {
+      "name": "test_mutated_event_is_rejected",
+      "passed": true
+    },
+    {
+      "name": "test_no_fake_success_or_unbounded_retry",
+      "passed": true
+    },
+    {
+      "name": "test_unknown_queries_original_action_without_resubmitting",
+      "passed": true
+    },
+    {
+      "name": "test_manual_recovery_authorization_revision_audit_and_result",
+      "passed": true
+    },
+    {
+      "name": "test_pending_deadline_never_runs_and_class_scope_limits",
+      "passed": true
+    },
+    {
+      "name": "test_health_does_not_claim_business_ready",
+      "passed": true
+    },
+    {
+      "name": "test_duplicate_consume_and_second_consumer_have_independent_inboxes",
+      "passed": true
+    },
+    {
+      "name": "test_tenant_backpressure_does_not_block_other_tenant",
+      "passed": true
+    },
+    {
+      "name": "test_background_task_does_not_take_online_class_slot",
+      "passed": true
+    },
+    {
+      "name": "test_query_cannot_switch_original_operation_id",
+      "passed": true
+    },
+    {
+      "name": "test_external_simulated_effect_survives_lost_response_and_converges",
+      "passed": true
+    },
+    {
+      "name": "test_long_async_handler_renews_lease",
+      "passed": true
+    },
+    {
+      "name": "test_real_deadline_cancels_inflight_work_without_success",
+      "passed": true
+    },
+    {
+      "name": "test_cli_configure_submit_worker_trace",
+      "passed": true
+    },
+    {
+      "name": "test_real_process_kill_and_restart[after_claim]",
+      "passed": true
+    },
+    {
+      "name": "test_real_process_kill_and_restart[before_commit]",
+      "passed": true
+    },
+    {
+      "name": "test_real_process_kill_and_restart[after_commit]",
+      "passed": true
+    },
+    {
+      "name": "test_two_processes_cannot_claim_same_task",
+      "passed": true
+    }
+  ],
+  "not_run": [
+    "real_remember",
+    "real_recall",
+    "real_operate",
+    "azure_deployment",
+    "aks",
+    "backup_restore",
+    "otel_export",
+    "production_metrics"
+  ],
+  "artifacts": [
+    {
+      "path": "contracts/p3/profiles/foundation.yaml",
+      "sha256": "6954010169afb0c4deb0a6cea469841e34b4ca18d59dbea90488edf3082b311f"
+    },
+    {
+      "path": "docs/p3/development/01_公共底座实现清单.md",
+      "sha256": "a7b1036fcc238b677f8d8030aa87b1af3f24d431f71553b7445588d3107a8280"
+    },
+    {
+      "path": "docs/p3/development/02_三流程接入与责任表.md",
+      "sha256": "97a3440f29310d52a88a52490e3209937c4b7140581c84f127a1261aa3bca39f"
+    },
+    {
+      "path": "docs/p3/development/03_现有代码复用与改造清单.md",
+      "sha256": "114372268440a5aaaef75df49a0ef137eb7d2b1b6fe748bb4e59963d4a42c131"
+    },
+    {
+      "path": "docs/p3/development/04_公共底座首批实现与运行.md",
+      "sha256": "5cc22290650816c1fa26fd4250c606775beae783bfd2089ffedcab5871dd0c6c"
+    },
+    {
+      "path": "scripts/p3/catalog.py",
+      "sha256": "7ff155fb12165ecec850616ae925ddbda21d49ba62740d445e958b741a2e6357"
+    },
+    {
+      "path": "scripts/p3/demo_foundation.py",
+      "sha256": "76228e847072606400d12a07d06782aad44289689f7d2e1563522039ac3a77dc"
+    },
+    {
+      "path": "scripts/p3/event_contract.py",
+      "sha256": "c0d0c8ccc62344127f6823c338e716fd50275793cad9ee0f960a9f561bfb254a"
+    },
+    {
+      "path": "scripts/p3/generate_schemas.py",
+      "sha256": "8379f2ad02ceb4770dd8a755d230e8fc03668ec27a68aa2ffbe021f173215783"
+    },
+    {
+      "path": "scripts/p3/mypy.ini",
+      "sha256": "476a2cb503403194470d498c32129a1bf02ce565355ecdc64ef71ca0b651938b"
+    },
+    {
+      "path": "scripts/p3/requirements.txt",
+      "sha256": "15302a7d773bbbb6cc26806f9c06442e74344559217d6ff33a333225d1884583"
+    },
+    {
+      "path": "scripts/p3/validate_contracts.py",
+      "sha256": "32cb72c5fd36befdcb346b797b629e6ae9c9f74f30c00e408408460e56c45f10"
+    },
+    {
+      "path": "scripts/p3/validate_foundation.py",
+      "sha256": "58637922afd5120cfff7431d116d5b53a50e5b0df956939af4ec0363f48a41c9"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/capability_store.py",
+      "sha256": "d84840ae8cf0699a24ae3fc655653237e1a8754d149a20282530e7603617fa61"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/__init__.py",
+      "sha256": "dcdf50c46bd03a0aab09ebf5e84f4948933b74404c0fe32a115048aa218052cf"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/__main__.py",
+      "sha256": "616a82380dc31554a2f042a9d09511451156e30c4303cbe03cb70401ece35e9e"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/common.py",
+      "sha256": "fbf827a8af4d101a60681bbc64b75a91af3d61074a773df5cab7dea86478af3b"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/diagnostics.py",
+      "sha256": "a4bb84e7127524e5d0f1b0316448e0d371430b7874df8e12cb31fc333f7b4b81"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/events.py",
+      "sha256": "4d0ec0fd5cafecbd91a3002cec6f3ffb6cce5496b77d02c136195a359a1be4b3"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/host.py",
+      "sha256": "3cad4d50c0c090a0358308fb4abf18740e48e27a5abb06347c9f87e81adc770b"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/identity.py",
+      "sha256": "2f69f4a669d861c05b29b064a1fd084b38a95f4d2a1080931840fa4bbd181b4a"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/sample.py",
+      "sha256": "32002e89b2fb1a652d5af948d762f528a6cba8d8e52fc62720760cb47c644307"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/storage.py",
+      "sha256": "5dcab359d62e97b88a2fce0f824201f8a64a2ad07076508f968a9118d2550dc3"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/tasks.py",
+      "sha256": "056b8d03fe7260126b2ab929a63378fac56a77e1d6f44f39c043b39882369823"
+    },
+    {
+      "path": "tests/runtime/p3/conftest.py",
+      "sha256": "0ccf3edc83bbe4f13d32b55e8302027fae14bd7776c6eb37d1cc9b600b6bcdc7"
+    },
+    {
+      "path": "tests/runtime/p3/process_worker.py",
+      "sha256": "bda78ed9854c69638d5e8c81f03a5e01f2d207b90e83fd732a46858bb61ae668"
+    },
+    {
+      "path": "tests/runtime/p3/pytest.ini",
+      "sha256": "e426e9d19abc292755ba0193e87e40a93f26b61e87db8e131fe90288610e9aa7"
+    },
+    {
+      "path": "tests/runtime/p3/test_foundation.py",
+      "sha256": "e925f39a794d5ce1088f7c6b684514ceae57f678271477f71c0794d5483362b6"
+    }
+  ]
+}

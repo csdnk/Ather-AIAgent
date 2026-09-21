@@ -1,0 +1,4 @@
+-r requirements-native.txt
+sentence-transformers>=5,<6
+pymilvus>=2.5,<3
+pytest-asyncio>=1.4,<2

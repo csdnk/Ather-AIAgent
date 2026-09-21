@@ -1,0 +1,520 @@
+{
+  "$defs": {
+    "ArtifactRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "content": {
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        },
+        "content_ref": {
+          "minLength": 1,
+          "title": "Content Ref",
+          "type": "string"
+        },
+        "memory": {
+          "$ref": "#/$defs/MemoryRef"
+        },
+        "original_bytes": {
+          "minimum": 1,
+          "title": "Original Bytes",
+          "type": "integer"
+        },
+        "output_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Output Hash",
+          "type": "string"
+        },
+        "quality": {
+          "enum": [
+            "pending",
+            "passed",
+            "failed"
+          ],
+          "title": "Quality",
+          "type": "string"
+        },
+        "quality_policy": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Quality Policy",
+          "type": "string"
+        },
+        "representation": {
+          "enum": [
+            "original",
+            "compressed"
+          ],
+          "title": "Representation",
+          "type": "string"
+        },
+        "source_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Hash",
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array"
+        },
+        "stored_bytes": {
+          "minimum": 1,
+          "title": "Stored Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "memory",
+        "representation",
+        "source_hash",
+        "output_hash",
+        "original_bytes",
+        "stored_bytes",
+        "quality",
+        "quality_policy",
+        "content_ref",
+        "content",
+        "sources"
+      ],
+      "title": "ArtifactRecord",
+      "type": "object"
+    },
+    "ConflictGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "explanation": {
+          "minLength": 1,
+          "title": "Explanation",
+          "type": "string"
+        },
+        "group_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Group Id",
+          "type": "string"
+        },
+        "members": {
+          "items": {
+            "$ref": "#/$defs/MemoryRef"
+          },
+          "minItems": 2,
+          "title": "Members",
+          "type": "array"
+        },
+        "state": {
+          "const": "unresolved",
+          "default": "unresolved",
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "group_id",
+        "members",
+        "explanation"
+      ],
+      "title": "ConflictGroup",
+      "type": "object"
+    },
+    "EligibilityBatch": {
+      "additionalProperties": false,
+      "properties": {
+        "authorization_epoch": {
+          "minimum": 1,
+          "title": "Authorization Epoch",
+          "type": "integer"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/EligibilityResult"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "items",
+        "authorization_epoch"
+      ],
+      "title": "EligibilityBatch",
+      "type": "object"
+    },
+    "EligibilityResult": {
+      "additionalProperties": false,
+      "properties": {
+        "checked_revision": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Checked Revision"
+        },
+        "decision": {
+          "enum": [
+            "allowed",
+            "excluded",
+            "unverifiable"
+          ],
+          "title": "Decision",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "ref": {
+          "$ref": "#/$defs/MemoryRef"
+        }
+      },
+      "required": [
+        "ref",
+        "decision",
+        "reason"
+      ],
+      "title": "EligibilityResult",
+      "type": "object"
+    },
+    "MemoryKind": {
+      "enum": [
+        "working",
+        "episodic",
+        "semantic"
+      ],
+      "title": "MemoryKind",
+      "type": "string"
+    },
+    "MemoryRef": {
+      "additionalProperties": false,
+      "properties": {
+        "memory_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Memory Id",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scope",
+        "memory_id",
+        "version"
+      ],
+      "title": "MemoryRef",
+      "type": "object"
+    },
+    "MemorySnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        },
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "title": "Created At",
+          "type": "string"
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expires At"
+        },
+        "kind": {
+          "$ref": "#/$defs/MemoryKind"
+        },
+        "model_space": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Space"
+        },
+        "object_revision": {
+          "minimum": 1,
+          "title": "Object Revision",
+          "type": "integer"
+        },
+        "projection_state": {
+          "$ref": "#/$defs/ProjectionState"
+        },
+        "ref": {
+          "$ref": "#/$defs/MemoryRef"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/MemoryStatus"
+        },
+        "supersedes": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MemoryRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "ref",
+        "revision",
+        "object_revision",
+        "kind",
+        "status",
+        "content",
+        "content_hash",
+        "sources",
+        "projection_state",
+        "created_at"
+      ],
+      "title": "MemorySnapshot",
+      "type": "object"
+    },
+    "MemoryStatus": {
+      "enum": [
+        "active",
+        "archived",
+        "superseded",
+        "expired",
+        "deleted"
+      ],
+      "title": "MemoryStatus",
+      "type": "string"
+    },
+    "ProjectionState": {
+      "enum": [
+        "not_required",
+        "pending",
+        "building",
+        "ready",
+        "failed",
+        "stale"
+      ],
+      "title": "ProjectionState",
+      "type": "string"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "application_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Application Id",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        },
+        "tenant_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "user_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenant_id",
+        "application_id",
+        "user_id",
+        "agent_id"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "locator": {
+          "minLength": 1,
+          "title": "Locator",
+          "type": "string"
+        },
+        "source_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_version": {
+          "minimum": 1,
+          "title": "Source Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_id",
+        "source_version",
+        "content_hash",
+        "locator"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifacts": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ArtifactRecord"
+      },
+      "title": "Artifacts",
+      "type": "array"
+    },
+    "conflicts": {
+      "items": {
+        "$ref": "#/$defs/ConflictGroup"
+      },
+      "title": "Conflicts",
+      "type": "array"
+    },
+    "eligibility": {
+      "$ref": "#/$defs/EligibilityBatch"
+    },
+    "items": {
+      "items": {
+        "$ref": "#/$defs/MemorySnapshot"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "next_cursor": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Next Cursor"
+    }
+  },
+  "required": [
+    "items",
+    "eligibility",
+    "conflicts"
+  ],
+  "title": "MemoryReadBatch",
+  "type": "object",
+  "x-contract-model": "remember.MemoryReadBatch"
+}

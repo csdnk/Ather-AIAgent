@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "owner_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Owner Id",
+      "type": "string"
+    },
+    "token": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Token",
+      "type": "string"
+    },
+    "until": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "title": "Until",
+      "type": "string"
+    }
+  },
+  "required": [
+    "owner_id",
+    "token",
+    "until"
+  ],
+  "title": "Lease",
+  "type": "object",
+  "x-contract-model": "runtime.Lease"
+}

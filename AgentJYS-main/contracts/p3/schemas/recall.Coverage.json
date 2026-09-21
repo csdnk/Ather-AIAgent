@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "long_term": {
+      "enum": [
+        "complete",
+        "partial",
+        "unavailable",
+        "not_requested"
+      ],
+      "title": "Long Term",
+      "type": "string"
+    },
+    "working": {
+      "enum": [
+        "complete",
+        "partial",
+        "unavailable",
+        "not_requested"
+      ],
+      "title": "Working",
+      "type": "string"
+    }
+  },
+  "required": [
+    "working",
+    "long_term"
+  ],
+  "title": "Coverage",
+  "type": "object",
+  "x-contract-model": "recall.Coverage"
+}

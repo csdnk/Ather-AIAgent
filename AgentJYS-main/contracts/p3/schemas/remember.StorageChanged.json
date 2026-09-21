@@ -1,0 +1,181 @@
+{
+  "$defs": {
+    "MemoryRef": {
+      "additionalProperties": false,
+      "properties": {
+        "memory_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Memory Id",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scope",
+        "memory_id",
+        "version"
+      ],
+      "title": "MemoryRef",
+      "type": "object"
+    },
+    "MemoryStatus": {
+      "enum": [
+        "active",
+        "archived",
+        "superseded",
+        "expired",
+        "deleted"
+      ],
+      "title": "MemoryStatus",
+      "type": "string"
+    },
+    "ProjectionState": {
+      "enum": [
+        "not_required",
+        "pending",
+        "building",
+        "ready",
+        "failed",
+        "stale"
+      ],
+      "title": "ProjectionState",
+      "type": "string"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "application_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Application Id",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        },
+        "tenant_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "user_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenant_id",
+        "application_id",
+        "user_id",
+        "agent_id"
+      ],
+      "title": "Scope",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "change": {
+      "enum": [
+        "saved",
+        "corrected",
+        "archived",
+        "activated",
+        "expired",
+        "deleted",
+        "processing",
+        "projection_ready",
+        "projection_stale",
+        "artifact_ready"
+      ],
+      "title": "Change",
+      "type": "string"
+    },
+    "content_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Content Hash",
+      "type": "string"
+    },
+    "memory": {
+      "$ref": "#/$defs/MemoryRef"
+    },
+    "object_revision": {
+      "minimum": 1,
+      "title": "Object Revision",
+      "type": "integer"
+    },
+    "projection_state": {
+      "$ref": "#/$defs/ProjectionState"
+    },
+    "source_count": {
+      "minimum": 0,
+      "title": "Source Count",
+      "type": "integer"
+    },
+    "status": {
+      "$ref": "#/$defs/MemoryStatus"
+    }
+  },
+  "required": [
+    "memory",
+    "object_revision",
+    "change",
+    "status",
+    "projection_state",
+    "content_hash",
+    "source_count"
+  ],
+  "title": "StorageChanged",
+  "type": "object",
+  "x-contract-model": "remember.StorageChanged"
+}

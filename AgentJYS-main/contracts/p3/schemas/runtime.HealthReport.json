@@ -1,0 +1,81 @@
+{
+  "$defs": {
+    "CapabilityHealth": {
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "enum": [
+            "save",
+            "working_read",
+            "long_term",
+            "context",
+            "scheduling"
+          ],
+          "title": "Capability",
+          "type": "string"
+        },
+        "checked_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "title": "Checked At",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "state": {
+          "enum": [
+            "available",
+            "degraded",
+            "unavailable",
+            "unknown"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "capability",
+        "state",
+        "checked_at"
+      ],
+      "title": "CapabilityHealth",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "capabilities": {
+      "items": {
+        "$ref": "#/$defs/CapabilityHealth"
+      },
+      "title": "Capabilities",
+      "type": "array"
+    },
+    "config_version": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Config Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "capabilities",
+    "config_version"
+  ],
+  "title": "HealthReport",
+  "type": "object",
+  "x-contract-model": "runtime.HealthReport"
+}

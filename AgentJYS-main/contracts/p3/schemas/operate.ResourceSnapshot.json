@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "available_bytes": {
+      "minimum": 0,
+      "title": "Available Bytes",
+      "type": "integer"
+    },
+    "epoch": {
+      "minimum": 0,
+      "title": "Epoch",
+      "type": "integer"
+    },
+    "observed_at": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "title": "Observed At",
+      "type": "string"
+    },
+    "provider_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Provider Id",
+      "type": "string"
+    },
+    "provider_instance_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Provider Instance Id",
+      "type": "string"
+    },
+    "supported_moves": {
+      "items": {
+        "enum": [
+          "promote",
+          "demote"
+        ],
+        "type": "string"
+      },
+      "title": "Supported Moves",
+      "type": "array"
+    }
+  },
+  "required": [
+    "provider_id",
+    "provider_instance_id",
+    "epoch",
+    "available_bytes",
+    "observed_at",
+    "supported_moves"
+  ],
+  "title": "ResourceSnapshot",
+  "type": "object",
+  "x-contract-model": "operate.ResourceSnapshot"
+}

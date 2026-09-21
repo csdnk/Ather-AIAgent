@@ -1,0 +1,2491 @@
+source:
+  file: 交付成果/PRD版本/AetherBrain_P3_PRD_框架修订版_V1.2.docx
+  version: '1.2'
+  document_date: '2026-09-18'
+  sha256: 2a51fb31a0e58f70d24b0e9086dc53b0663405725ceb2e3e93e89413f8db2dd1
+  location_scheme: one-based word/document.xml w:p, including table paragraphs
+  paragraph_count: 1436
+requirements:
+- id: PRD-1-1
+  title: 背景
+  kind: context
+  source:
+    section: '1.1'
+    paragraph_start: 48
+    paragraph_end: 50
+    excerpt: Agent在长周期任务中会持续积累目标、约束、事实、工具结果和阶段结论。单次对话结束后，这些信息仍可能影响下一轮任务；不同会话也可能需要复用历史信息。应用需要在合适的时间取回合适的记忆，并知道信息是否仍然有效。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: &id001
+  - runtime.UnitOfWork.transaction
+  - runtime.DiagnosticsPort.related
+  acceptance_scenarios:
+  - AC-PRD-1-1
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-1-2
+  title: 核心问题
+  kind: context
+  source:
+    section: '1.2'
+    paragraph_start: 51
+    paragraph_end: 72
+    excerpt: 问题；用户表现；P3需要提供的结果；当前任务容易失去上下文；应用需要反复提供目标、进度和约束；当前任务记忆可持续读取和更新；历史信息不能跨会话复用；新会话重复询问已经提供的背景
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-1-2
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-1-3
+  title: 产品价值
+  kind: context
+  source:
+    section: '1.3'
+    paragraph_start: 73
+    paragraph_end: 75
+    excerpt: 对应用开发者，P3提供统一的记忆和上下文服务，减少手工拼接历史。对终端业务，P3使历史事实更容易被正确复用，支持持续完成任务。对接入与部署团队，P3通过响应、查询和运行记录说明保存、可检索、已交付及调度生效情况，便于定位异常。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-1-3
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-2-1
+  title: 产品定位
+  kind: context
+  source:
+    section: '2.1'
+    paragraph_start: 77
+    paragraph_end: 78
+    excerpt: P3是应用与底层存储执行能力之间的记忆服务。它对外提供存储记忆和召回记忆，管理内容有效性及使用过程；内部基础算法依据两条流程的历史轨迹和状态进行调度。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-2-1
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-2-2
+  title: 产品目标
+  kind: context
+  source:
+    section: '2.2'
+    paragraph_start: 79
+    paragraph_end: 97
+    excerpt: 目标；用户获得的能力；完成判断；持续记住；保存当前任务和历史信息；已确认保存的内容可查询、可追踪；正确取用；根据当前问题获得有效记忆
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-2-2
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-2-3
+  title: 产品级指标
+  kind: context
+  source:
+    section: '2.3'
+    paragraph_start: 98
+    paragraph_end: 119
+    excerpt: 指标；目标；适用范围；当前记忆核心读写P99；小于10ms；MVP，端到端核心读写，不代表完整上下文延迟；语义向量计算能力；每秒不少于2000条有效内容
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-2-3
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user
+- id: PRD-2-4
+  title: 衡量原则
+  kind: context
+  source:
+    section: '2.4'
+    paragraph_start: 120
+    paragraph_end: 121
+    excerpt: 正确性优先于数量：保存量、候选量和上下文长度不能代替有效记忆的复用。压缩不能以遗漏关键事实换取比例；预热不能以损害当前业务换取命中率。指标定义见第10章，产品验收见第12章。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-2-4
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-3-1
+  title: 接入方与使用者
+  kind: context
+  source:
+    section: '3.1'
+    paragraph_start: 123
+    paragraph_end: 136
+    excerpt: 上表描述使用关系，不定义RBAC角色或独立后台账号。P3不承担聊天界面、Agent任务规划和业务审批；部署、配置及故障排查属于服务维护工作，不增加面向产品用户的管理员角色。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-3-1
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-3-2
+  title: 主要场景
+  kind: context
+  source:
+    section: '3.2'
+    paragraph_start: 137
+    paragraph_end: 158
+    excerpt: 场景；触发动作；预期结果；持续任务；存储新的目标、约束和进度；下一轮召回获得当前有效状态；跨会话复用；提交与历史相关的召回请求
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-3-2
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-3-3
+  title: 租户及记忆使用范围
+  kind: context
+  source:
+    section: '3.3'
+    paragraph_start: 159
+    paragraph_end: 161
+    excerpt: 租户是不同组织或客户的数据与资源归属边界。应用、Agent、用户、会话和任务用于限定租户内的记忆归属及可访问范围。Agent不等于租户，同租户下不同Agent也不默认共享全部记忆。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-3-3
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-3-4
+  title: 连续任务示例
+  kind: context
+  source:
+    section: '3.4'
+    paragraph_start: 162
+    paragraph_end: 190
+    excerpt: 以一个持续数周的项目助手为例。用户最初提供“本阶段预算上限为20万元”和“每周五汇总进度”，随后提交会议记录、更新预算，并在新会话要求总结当前执行风险。以下金额和内容仅用于说明产品行为。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-3-4
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-3-5
+  title: 用户需要看见什么
+  kind: context
+  source:
+    section: '3.5'
+    paragraph_start: 191
+    paragraph_end: 193
+    excerpt: 提交后需要看见“已保存”或明确失败；长文处理需要看见阶段与可检索状态；获取上下文需要看见有效内容、来源以及不完整原因；更正和删除需要看见对后续使用的影响。内部调度的依据和实际结果通过受控运行记录核对，不增加面向用户的调度操作入口。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-3-5
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-3-6
+  title: 场景完成标准
+  kind: context
+  source:
+    section: '3.6'
+    paragraph_start: 194
+    paragraph_end: 195
+    excerpt: 新会话能够基于当前有效预算和历史证据继续工作；更正前的预算不被默认为当前事实；删除的会议内容不再出现在新上下文中。后台调度能够改善后续访问准备，并且不阻塞正在进行的记忆写入和上下文返回。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-3-6
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-4-1
+  title: MVP范围
+  kind: requirement
+  source:
+    section: '4.1'
+    paragraph_start: 197
+    paragraph_end: 216
+    excerpt: 统一Recall接口，包含来源查询、核验、排序、冲突处理和长度控制
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-4-1
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-4-2
+  title: 后续增强
+  kind: requirement
+  source:
+    section: '4.2'
+    paragraph_start: 217
+    paragraph_end: 218
+    excerpt: MVP已包含基础调度算法及完整执行流程。后续阶段增加未来访问预测和预测驱动的提前预热，评价其相对基础算法的收益与资源成本，并支持退回基础算法。基础调度不会延后到预测阶段，也不以人工审核或模型采用回执作为启动条件。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P1
+  implementation_batch: P1
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-4-2
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-4-3
+  title: 本期不建设的能力
+  kind: requirement
+  source:
+    section: '4.3'
+    paragraph_start: 219
+    paragraph_end: 221
+    excerpt: 不建设独立Web管理端、管理员账号体系、RBAC角色配置与分配、独立身份管理系统或运维审计平台。必要的调用凭证配置、状态查询、运行日志和故障恢复随服务交付；已有身份或监控设施按部署环境可选对接。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-4-3
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-4-4
+  title: 完成边界
+  kind: requirement
+  source:
+    section: '4.4'
+    paragraph_start: 222
+    paragraph_end: 223
+    excerpt: MVP调度必须完成算法决策、实际执行和结果确认，不能只展示建议或模拟结果。新增来源、共享范围或自动行为时，应同步明确异常结果与验收条件。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-4-4
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-5-1
+  title: 对外功能与内部能力
+  kind: requirement
+  source:
+    section: '5.1'
+    paragraph_start: 225
+    paragraph_end: 246
+    excerpt: P3对外提供Remember存储记忆和Recall召回记忆。记忆组织、语义计算与Operate调度在内部支撑两个功能，接入方无需编排它们的执行顺序。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-5-1
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-5-2
+  title: 两个功能如何协作
+  kind: requirement
+  source:
+    section: '5.2'
+    paragraph_start: 247
+    paragraph_end: 249
+    excerpt: Remember确认保存后，适用的当前记忆可供下一轮使用，长期加工按内容要求继续进行。Recall收到请求后，选择当时可用的当前与长期记忆并返回。调用时机由应用或Agent决定，两种触发方式使用同一个Recall接口。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-5-2
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-5-3
+  title: 与外部的交接
+  kind: requirement
+  source:
+    section: '5.3'
+    paragraph_start: 250
+    paragraph_end: 263
+    excerpt: 已有身份和监控设施不是必须新建的依赖。P3仍须验证调用身份和租户范围，并输出必要运行记录。底层仅返回已接收时，不能报告保存或调整已经完成。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-5-3
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-5-4
+  title: 核心业务对象
+  kind: requirement
+  source:
+    section: '5.4'
+    paragraph_start: 264
+    paragraph_end: 282
+    excerpt: 对象；用户应理解的含义；必需信息；记忆；一条可持续管理和复用的信息；内容、来源、所属范围、有效版本和状态；处理任务；一次需要后台完成的记忆处理
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-5-4
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-5-5
+  title: 三类记忆
+  kind: requirement
+  source:
+    section: '5.5'
+    paragraph_start: 283
+    paragraph_end: 285
+    excerpt: Working当前记忆保存当前会话或任务的目标、约束和进度。Episodic事件记忆保存具有时间和来源的经历或过程。Semantic稳定事实记忆保存经证据校验的长期事实、规则和偏好。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-5-5
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-5-6
+  title: 用户可见阶段
+  kind: requirement
+  source:
+    section: '5.6'
+    paragraph_start: 286
+    paragraph_end: 307
+    excerpt: 阶段或状态；含义；使用限制；已保存；记忆内容与来源已经可靠保存；不代表所有后台处理都完成；处理中；长文、提纯或长期检索准备尚未完成
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/architecture/02_总体架构与模块职责.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-5-6
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-6-1
+  title: 对外功能
+  kind: requirement
+  source:
+    section: '6.1'
+    paragraph_start: 309
+    paragraph_end: 311
+    excerpt: 应用或Agent通过授权调用存储和召回。Recall的调用时机与编排由接入方负责，P3使用统一接口处理请求。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-6-1
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-6-2
+  title: 内部调度
+  kind: requirement
+  source:
+    section: '6.2'
+    paragraph_start: 312
+    paragraph_end: 315
+    excerpt: 存储与召回持续产生历史轨迹和当前状态，基础调度算法据此决策。执行结果影响后续存储和召回，并纳入下一轮判断，无需接入方另行调用调度。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-6-2
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-6-3
+  title: 记忆写入与长期化流程
+  kind: requirement
+  source:
+    section: '6.3'
+    paragraph_start: 316
+    paragraph_end: 338
+    excerpt: 调用方通过Remember提交新的任务状态、对话事件或文档，同时给出来源和合法使用范围。P3先判断是否可以接收并保存，再决定哪些处理需要后台完成。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-6-3
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-6-4
+  title: 上下文构建流程
+  kind: requirement
+  source:
+    section: '6.4'
+    paragraph_start: 339
+    paragraph_end: 358
+    excerpt: 应用或Agent通过统一Recall接口提交问题、合法范围、记忆来源和最大长度，调用时机由接入方决定。P3先确定本次必须查询哪些来源，再取回当时合格的内容；处理过程中不能通过悄悄减少来源把故障改报为完整结果。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-6-4
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-6-5
+  title: 历史状态驱动的内部调度
+  kind: requirement
+  source:
+    section: '6.5'
+    paragraph_start: 359
+    paragraph_end: 377
+    excerpt: MVP以基础算法完成自动调度。输入同时包括存储和召回两个流程的历史轨迹及当前状态，不只包括召回完成后的访问反馈。模型实际采用回执是可选信息，不是算法运行的必要条件。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-6-5
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-6-6
+  title: 更正到期与删除流程
+  kind: requirement
+  source:
+    section: '6.6'
+    paragraph_start: 378
+    paragraph_end: 399
+    excerpt: 内容保存后仍会发生变化。P3以当前有效信息决定能否使用，更正、到期与删除的结果应同时影响当前记忆、长期检索、压缩产物和历史上下文的再次获取。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-6-6
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-6-7
+  title: 从一次写入到下一次使用
+  kind: requirement
+  source:
+    section: '6.7'
+    paragraph_start: 400
+    paragraph_end: 438
+    excerpt: 沿用第3章项目助手的示例，下表按业务进展说明完整使用过程；内部调度持续运行，并非固定发生在第8步或等待召回结束后才启动。它说明P3如何将独立能力组成连续使用体验。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-6-7
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-6-8
+  title: 异常情况下流程如何继续
+  kind: requirement
+  source:
+    section: '6.8'
+    paragraph_start: 439
+    paragraph_end: 498
+    excerpt: P3按受影响能力处理异常，并清楚表达已经完成的部分。下表说明各场景、保留结果及处理方式；其中正常为空属于正常业务结果。用户可见结果指应用或Agent收到的接口状态，不要求新增管理页面。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-6-8
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-7-1
+  title: 功能索引
+  kind: requirement
+  source:
+    section: '7.1'
+    paragraph_start: 500
+    paragraph_end: 578
+    excerpt: 本章分解两个对外功能及内部支撑能力，不将每项功能编号定义成一个独立用户入口。P0为MVP能力；预测能力在P1交付。各功能共同遵守第6章流程，用户可见状态以实际完成结果为准。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: D0
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-7-1
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: FR01
+  title: FR01 保存事件与任务信息
+  kind: requirement
+  source:
+    section: '7.2'
+    paragraph_start: 579
+    paragraph_end: 600
+    excerpt: 当应用产生新的对话事件、工具结果、业务经历或任务状态时，将其保存为可查询、可持续管理的记忆。优先级P0。
+  owner: B
+  collaborators:
+  - RF
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  contract_interfaces: &id002
+  - remember.RememberPort.save
+  - remember.MemoryReadPort.final_guard
+  acceptance_scenarios:
+  - AC-FR01
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: FR02
+  title: FR02 当前任务记忆
+  kind: requirement
+  source:
+    section: '7.3'
+    paragraph_start: 601
+    paragraph_end: 622
+    excerpt: 当应用连续执行同一会话或业务任务时，持续维护当前目标、约束、进度和必要中间结果，供下一轮快速使用。优先级P0。
+  owner: B
+  collaborators:
+  - RF
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  contract_interfaces: *id002
+  acceptance_scenarios:
+  - AC-FR02
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: FR03
+  title: FR03 长文本与文档处理
+  kind: requirement
+  source:
+    section: '7.4'
+    paragraph_start: 623
+    paragraph_end: 644
+    excerpt: 当应用提交无法在一次同步请求内完成处理的长文本或文档时，先可靠接收内容，再以可追踪的后台任务完成长期处理。优先级P0。
+  owner: B
+  collaborators:
+  - RF
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  contract_interfaces: *id002
+  acceptance_scenarios:
+  - AC-FR03
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: FR04
+  title: FR04 记忆分类与生命周期
+  kind: requirement
+  source:
+    section: '7.5'
+    paragraph_start: 645
+    paragraph_end: 666
+    excerpt: 在内容进入P3以及后续发生变化时，明确其业务类型、有效状态和默认使用资格。优先级P0。
+  owner: B
+  collaborators:
+  - RF
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  contract_interfaces: *id002
+  acceptance_scenarios:
+  - AC-FR04
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: FR05
+  title: FR05 稳定事实与更正冲突
+  kind: requirement
+  source:
+    section: '7.6'
+    paragraph_start: 667
+    paragraph_end: 688
+    excerpt: 从事件与已有记忆中形成可持续复用的事实，并在信息变化时清楚表达更正、替代或尚未解决的冲突。优先级P0。
+  owner: B
+  collaborators:
+  - RF
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  contract_interfaces: *id002
+  acceptance_scenarios:
+  - AC-FR05
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: FR06
+  title: FR06 内容提纯与压缩
+  kind: requirement
+  source:
+    section: '7.7'
+    paragraph_start: 689
+    paragraph_end: 710
+    excerpt: 在长内容进入长期使用阶段时，减少重复和非必要表达，降低保存与上下文成本，同时保留业务需要的事实和条件。优先级P0。
+  owner: B
+  collaborators:
+  - RF
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  contract_interfaces: *id002
+  acceptance_scenarios:
+  - AC-FR06
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: FR07
+  title: FR07 长期检索就绪
+  kind: requirement
+  source:
+    section: '7.8'
+    paragraph_start: 711
+    paragraph_end: 732
+    excerpt: 在记忆完成必要加工后，使当前有效内容能够参与长期语义检索，并让应用清楚知道何时已经具备这种能力。优先级P0。
+  owner: B
+  collaborators:
+  - RF
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  contract_interfaces: *id002
+  acceptance_scenarios:
+  - AC-FR07
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: FR08
+  title: FR08 选择并查询记忆来源
+  kind: requirement
+  source:
+    section: '7.9'
+    paragraph_start: 733
+    paragraph_end: 754
+    excerpt: 应用自动调用或Agent通过工具调用统一Recall接口时，P4可指定当前记忆、长期记忆或两者共同作为来源；未指定时，由P3的Recall自动选择。优先级P0。
+  owner: A
+  collaborators:
+  - RF
+  - B
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  contract_interfaces: &id003
+  - recall.RecallPort.recall
+  - recall.RecallPort.result
+  acceptance_scenarios:
+  - AC-FR08
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: FR09
+  title: FR09 排序去重与冲突表达
+  kind: requirement
+  source:
+    section: '7.10'
+    paragraph_start: 755
+    paragraph_end: 776
+    excerpt: 在取得合格候选后，优先选择与当前问题有关的材料，减少重复，并保留理解结论所必需的分歧与限定。优先级P0。
+  owner: A
+  collaborators:
+  - RF
+  - B
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  contract_interfaces: *id003
+  acceptance_scenarios:
+  - AC-FR09
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: FR10
+  title: FR10 组装并交付上下文
+  kind: requirement
+  source:
+    section: '7.11'
+    paragraph_start: 777
+    paragraph_end: 798
+    excerpt: 在应用给定的长度内，交付可直接用于后续回答或任务的记忆材料，并准确表达本次结果是否完整、是否可用。优先级P0。
+  owner: A
+  collaborators:
+  - RF
+  - B
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  contract_interfaces: *id003
+  acceptance_scenarios:
+  - AC-FR10
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: FR11
+  title: FR11 查询处理与再次获取结果
+  kind: requirement
+  source:
+    section: '7.12'
+    paragraph_start: 799
+    paragraph_end: 820
+    excerpt: 应用在长任务处理中、网络中断后或需要核对历史请求时，能够找到原处理并获得准确状态。优先级P0。
+  owner: A
+  collaborators:
+  - RF
+  - B
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  contract_interfaces: *id003
+  acceptance_scenarios:
+  - AC-FR11
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: FR12
+  title: FR12 记录存储与召回轨迹
+  kind: requirement
+  source:
+    section: '7.13'
+    paragraph_start: 821
+    paragraph_end: 847
+    excerpt: 在存储和召回流程中记录真实历史轨迹及状态变化，为基础调度算法、结果解释和故障恢复提供依据。优先级P0，两个流程均需覆盖。
+  owner: C
+  collaborators:
+  - RF
+  - B
+  - A
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  contract_interfaces: &id004
+  - operate.SchedulingPort.consume
+  - operate.SchedulingPort.reconcile
+  acceptance_scenarios:
+  - AC-FR12
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: FR13
+  title: FR13 基础调度算法决策
+  kind: requirement
+  source:
+    section: '7.14'
+    paragraph_start: 848
+    paragraph_end: 869
+    excerpt: 在MVP阶段，根据存储和召回两个流程的历史轨迹与当前状态，自动决定哪些记忆需要升层、降层或保持。内容或访问状态变化及周期评估均可触发判断。优先级P0。
+  owner: C
+  collaborators:
+  - RF
+  - B
+  - A
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  contract_interfaces: *id004
+  acceptance_scenarios:
+  - AC-FR13
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: FR14
+  title: FR14 执行调整与结果确认
+  kind: requirement
+  source:
+    section: '7.15'
+    paragraph_start: 870
+    paragraph_end: 891
+    excerpt: 当基础算法生成的决策通过约束检查时，自动执行调整并确认真实结果，更新存储与访问状态。过程可通过受控运行记录追溯，无需人工审核或接入方发起调度。优先级P0。
+  owner: C
+  collaborators:
+  - RF
+  - B
+  - A
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  contract_interfaces: *id004
+  acceptance_scenarios:
+  - AC-FR14
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: FR15
+  title: FR15 租户隔离与访问授权
+  kind: requirement
+  source:
+    section: '7.16'
+    paragraph_start: 892
+    paragraph_end: 915
+    excerpt: 在存储、召回、更正、删除及结果查询时，校验调用身份、租户归属、记忆范围与操作权限。后台加工和调度沿用相同边界。优先级P0，不引入角色配置或成员管理功能。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-FR15
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: FR16
+  title: FR16 预测访问与预测预热
+  kind: requirement
+  source:
+    section: '7.17'
+    paragraph_start: 916
+    paragraph_end: 939
+    excerpt: 在MVP基础算法已能决策、执行和反馈的前提下，后续增加未来访问预测及预测驱动的预热，使内容在预计访问前准备完成。优先级P1。
+  owner: C
+  collaborators:
+  - RF
+  - B
+  - A
+  product_stage: P1
+  implementation_batch: P1
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  contract_interfaces: *id004
+  acceptance_scenarios:
+  - AC-FR16
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: FR17
+  title: FR17 删除与使用阻断
+  kind: requirement
+  source:
+    section: '7.18'
+    paragraph_start: 940
+    paragraph_end: 961
+    excerpt: 接入方通过授权请求删除合法范围内的记忆后，阻止其继续进入新的读取和上下文，并能够跟进相关内容清理。优先级P0。
+  owner: B
+  collaborators:
+  - RF
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  contract_interfaces: *id002
+  acceptance_scenarios:
+  - AC-FR17
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: FR18
+  title: FR18 运行查询与异常恢复
+  kind: requirement
+  source:
+    section: '7.19'
+    paragraph_start: 962
+    paragraph_end: 983
+    excerpt: 当用户需要判断服务是否可用，或某个请求、任务和操作发生异常时，提供明确影响范围与可跟进的恢复结果。优先级P0。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/architecture/03_三流程与异常时序.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-FR18
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-8-1
+  title: 存储记忆及配套操作
+  kind: requirement
+  source:
+    section: '8.1'
+    paragraph_start: 985
+    paragraph_end: 1004
+    excerpt: P3以服务接口承载存储与召回两个对外功能。下表是存储及其生命周期的配套操作，不代表独立页面或新的管理产品。终端用户动作由上层应用转换为授权请求。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-8-1
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-8-2
+  title: 统一身份与范围校验
+  kind: requirement
+  source:
+    section: '8.2'
+    paragraph_start: 1005
+    paragraph_end: 1007
+    excerpt: P3从有效凭证或可信上游身份确定租户和调用主体。接入方提供的应用、Agent、用户或任务范围必须处于已授权边界内。内容、派生结果、任务和历史响应均遵守同一租户及资源授权规则。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-8-2
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-8-3
+  title: 响应与错误处理
+  kind: requirement
+  source:
+    section: '8.3'
+    paragraph_start: 1008
+    paragraph_end: 1010
+    excerpt: 结果明确区分已保存、后台受理、处理中和目标完成。输入缺失、无权限、对象失效、冲突和服务故障应有可区分说明，使接入方知道应修正输入、查询原结果、等待恢复还是提交新请求。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-8-3
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-8-4
+  title: 接入完成条件
+  kind: requirement
+  source:
+    section: '8.4'
+    paragraph_start: 1011
+    paragraph_end: 1012
+    excerpt: 接入方能够从提交跟进到实际结果，完成合法更正和删除，并处理异常及网络中断。两个对外功能与配套查询均可通过接口完成，不以Web页面或人工调度作为接入条件。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-8-4
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-8-5
+  title: 统一Recall接口
+  kind: requirement
+  source:
+    section: '8.5'
+    paragraph_start: 1013
+    paragraph_end: 1035
+    excerpt: P3提供统一Recall接口，支持应用直接调用，也支持封装为工具供Agent调用。两种方式遵守相同输入、授权、处理和结果规则，不设置两套召回逻辑。何时调用、是否继续检索以及如何使用结果由接入方决定。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-8-5
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-8-6
+  title: 召回结果的使用
+  kind: requirement
+  source:
+    section: '8.6'
+    paragraph_start: 1036
+    paragraph_end: 1038
+    excerpt: 完整可用时，接入方使用记忆继续业务；正常为空时按无相关记忆处理。降级可用时保留缺失说明，不将有限材料表达为完整历史；不可用时依据原因修正条件或进行异常处理。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-8-6
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-8-7
+  title: 调用与调度的边界
+  kind: requirement
+  source:
+    section: '8.7'
+    paragraph_start: 1039
+    paragraph_end: 1041
+    excerpt: 存储和召回的历史与状态由P3记录，内部算法自动生成决策并执行。接入方不需要在Recall之后再发起调度请求，也不需要提交模型采用回执才能触发基础调度。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-8-7
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-8-8
+  title: 交互验收
+  kind: requirement
+  source:
+    section: '8.8'
+    paragraph_start: 1042
+    paragraph_end: 1043
+    excerpt: 应用直接调用与Agent工具调用在同一授权及输入条件下遵循相同产品规则。触发方式不能扩大权限。两种方式均能获得四类召回结果及可追踪请求；业务持续运行无需人工发起调度。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: B1
+  design_documents:
+  - docs/p3/contracts/01_协作接口与事件目录.md
+  - docs/p3/architecture/04_数据归属与一致性.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-8-8
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-9-1
+  title: 服务交付形态
+  kind: requirement
+  source:
+    section: '9.1'
+    paragraph_start: 1045
+    paragraph_end: 1064
+    excerpt: P3交付可运行记忆服务、接入说明、必要配置和运行诊断能力。本期不建设独立Web管理端，不设置管理员或审计员产品角色。状态通过接口、日志和监控输出提供；部署团队可使用现有工具维护服务。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: F1
+  design_documents:
+  - docs/p3/contracts/03_追溯检测与恢复接入.md
+  - docs/p3/architecture/05_部署安全与演进.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-9-1
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-9-2
+  title: 状态表达
+  kind: requirement
+  source:
+    section: '9.2'
+    paragraph_start: 1065
+    paragraph_end: 1066
+    excerpt: 同一记忆可以已保存但仍在长期加工，也可以已阻断读取但清理尚未结束。响应及查询保留这些区别，不能以单一成功标记掩盖未完成目标。调度决策生成、执行受理和实际生效同样分别记录。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: F1
+  design_documents:
+  - docs/p3/contracts/03_追溯检测与恢复接入.md
+  - docs/p3/architecture/05_部署安全与演进.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-9-2
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-9-3
+  title: 配置与维护边界
+  kind: requirement
+  source:
+    section: '9.3'
+    paragraph_start: 1067
+    paragraph_end: 1069
+    excerpt: 维护要求包括有效接入凭证与范围配置、基础算法配置、故障排查和版本回退。配置途径在部署说明中明确，不扩展为成员管理、角色审批、单条记忆人工升降层或人工决策审核流程。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: F1
+  design_documents:
+  - docs/p3/contracts/03_追溯检测与恢复接入.md
+  - docs/p3/architecture/05_部署安全与演进.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-9-3
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-9-4
+  title: 诊断信息保护
+  kind: requirement
+  source:
+    section: '9.4'
+    paragraph_start: 1070
+    paragraph_end: 1071
+    excerpt: 应用只获得其授权范围内的状态和结果，部署诊断按运行环境的访问控制保护。运行日志默认不输出完整敏感正文，不能通过任务编号、错误提示或调度记录泄露其他租户内容。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: F1
+  design_documents:
+  - docs/p3/contracts/03_追溯检测与恢复接入.md
+  - docs/p3/architecture/05_部署安全与演进.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-9-4
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-9-5
+  title: 持续运行与异常处理
+  kind: requirement
+  source:
+    section: '9.5'
+    paragraph_start: 1072
+    paragraph_end: 1094
+    excerpt: 接入方查询原任务，确认内容保存情况和失败阶段。P3在依赖恢复后继续适用的未完成处理，或给出明确失败与后续动作；恢复使用当前有效内容，不能以旧任务结果覆盖更正或删除。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: F1
+  design_documents:
+  - docs/p3/contracts/03_追溯检测与恢复接入.md
+  - docs/p3/architecture/05_部署安全与演进.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-9-5
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-10-1
+  title: 性能与产品效果
+  kind: requirement
+  source: &id005
+    section: '10.1'
+    paragraph_start: 1096
+    paragraph_end: 1114
+    excerpt: 指标；产品目标；评价边界；当前记忆核心读写；P99小于10ms；从P3接收有效请求到返回业务结果；语义计算吞吐；每秒不少于2000条有效内容
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  - docs/p3/architecture/05_部署安全与演进.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-10-1
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user
+- id: PRD-10-2
+  title: 质量约束
+  kind: requirement
+  source:
+    section: '10.2'
+    paragraph_start: 1115
+    paragraph_end: 1117
+    excerpt: 压缩需要保留关键事实、数字、时间、否定、条件和冲突。达到长度目标但失真不算完成；失败和无法压缩的内容应如实计入评价。来源和有效版本必须可追踪。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  - docs/p3/architecture/05_部署安全与演进.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-10-2
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-10-3
+  title: 指标解释
+  kind: requirement
+  source:
+    section: '10.3'
+    paragraph_start: 1118
+    paragraph_end: 1120
+    excerpt: 当前记忆读写延迟不代表完整上下文构建延迟，语义计算条数也不代表每秒上下文请求数。预测提升采用相对比例，同时报告百分点变化；基础命中率为0时不能计算有效的相对提升。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  - docs/p3/architecture/05_部署安全与演进.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-10-3
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user
+- id: PRD-10-4
+  title: 性能与业务的关系
+  kind: requirement
+  source:
+    section: '10.4'
+    paragraph_start: 1121
+    paragraph_end: 1122
+    excerpt: 后台加工、重试和访问准备不应无约束地挤占当前业务资源。出现影响时优先保障核心读写、删除生效和可用上下文；恢复稳定后再逐步恢复适用后台工作。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  - docs/p3/architecture/05_部署安全与演进.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-10-4
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-10-5
+  title: 可靠性与持续服务
+  kind: requirement
+  source:
+    section: '10.5'
+    paragraph_start: 1123
+    paragraph_end: 1138
+    excerpt: 已确认保存的记忆不因后台加工失败或服务重启而静默丢失。可查询内容、来源与当前有效性应保持一致；恢复后不能退回旧版本或使已删除记忆重新可用。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  - docs/p3/architecture/05_部署安全与演进.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-10-5
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-10-6
+  title: 容量与扩展
+  kind: requirement
+  source:
+    section: '10.6'
+    paragraph_start: 1139
+    paragraph_end: 1141
+    excerpt: P3应支持随着应用接入、记忆规模和后台处理量增长增加处理能力。扩展过程中业务对象身份、权限、有效版本和处理结果保持一致，不能要求应用因扩展重新提交全部记忆。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  - docs/p3/architecture/05_部署安全与演进.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-10-6
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-10-7
+  title: 长期运行与恢复
+  kind: requirement
+  source: &id006
+    section: '10.7'
+    paragraph_start: 1142
+    paragraph_end: 1144
+    excerpt: MVP连续稳定运行不少于24小时，Final连续72小时。期间不能出现重大数据正确性或范围隔离问题；错误、积压、资源影响与未完成操作可持续观察。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  - docs/p3/architecture/05_部署安全与演进.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-10-7
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user
+- id: PRD-11-1
+  title: 多租户边界
+  kind: requirement
+  source:
+    section: '11.1'
+    paragraph_start: 1146
+    paragraph_end: 1161
+    excerpt: 租户是组织或客户的数据及资源归属边界，不是RBAC角色，也不等于某个Agent。原记忆、派生内容、召回结果、任务、历史轨迹和调度操作均关联对应租户，查询与后台执行不能跨越授权边界。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/03_追溯检测与恢复接入.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-11-1
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-11-2
+  title: 授权机制范围
+  kind: requirement
+  source:
+    section: '11.2'
+    paragraph_start: 1162
+    paragraph_end: 1164
+    excerpt: 本期基于调用身份、租户归属、资源范围和操作类型授权，不建设角色配置、角色分配或成员管理。已有身份设施可以对接，但不作为必须新建的外部系统。无法可靠确认身份或授权时拒绝相应操作。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/03_追溯检测与恢复接入.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-11-2
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-11-3
+  title: 日志与删除
+  kind: requirement
+  source:
+    section: '11.3'
+    paragraph_start: 1165
+    paragraph_end: 1167
+    excerpt: 删除先阻断后续交付，再清理原文、派生内容及可再次获取结果。运行日志默认最小化记录敏感正文；删除、授权配置变化等关键操作保留主体、范围、时间与结果。必要记录可输出到已有设施，不要求独立审计平台。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/03_追溯检测与恢复接入.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-11-3
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-11-4
+  title: 安全验收
+  kind: requirement
+  source:
+    section: '11.4'
+    paragraph_start: 1168
+    paragraph_end: 1169
+    excerpt: 跨租户、伪造范围和超出操作权限的请求被拒绝；同租户未授权Agent不能读取私有内容。授权共享可用，更正、删除及撤权影响后续召回和后台执行。关键操作可追溯，日志不成为绕过隔离的入口。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/architecture/04_数据归属与一致性.md
+  - docs/p3/contracts/03_追溯检测与恢复接入.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-11-4
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-12-1
+  title: 记忆进入与维护验收
+  kind: requirement
+  source:
+    section: '12.1'
+    paragraph_start: 1171
+    paragraph_end: 1205
+    excerpt: 验收按连续业务场景确认结果。产品验收表描述用户应得到什么，实际测试方法由测试方案组织。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  - docs/p3/architecture/03_三流程与异常时序.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-12-1
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-12-2
+  title: 贯通检查
+  kind: requirement
+  source:
+    section: '12.2'
+    paragraph_start: 1206
+    paragraph_end: 1207
+    excerpt: 选择同一条记忆，验证从保存到当前读取、长期处理、跨会话使用，再到更正和删除的全过程。不同环节看到的来源、版本和有效状态应能相互对应。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  - docs/p3/architecture/03_三流程与异常时序.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-12-2
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-12-3
+  title: 失败判定
+  kind: requirement
+  source:
+    section: '12.3'
+    paragraph_start: 1208
+    paragraph_end: 1209
+    excerpt: 已经报告保存成功但内容丢失，已经报告可长期检索但无法读取正确内容，或删除后仍向新请求交付正文，均属于产品失败。后台任务开始执行、某个系统接收请求或响应仅表示受理，不能单独作为通过依据。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  - docs/p3/architecture/03_三流程与异常时序.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-12-3
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-12-4
+  title: 召回与内部调度验收
+  kind: requirement
+  source:
+    section: '12.4'
+    paragraph_start: 1210
+    paragraph_end: 1249
+    excerpt: 指定时按范围执行；未指定时自动选择。权限校验与完整性要求一致
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  - docs/p3/architecture/03_三流程与异常时序.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-12-4
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-12-5
+  title: 完整流程验收
+  kind: requirement
+  source:
+    section: '12.5'
+    paragraph_start: 1250
+    paragraph_end: 1252
+    excerpt: 先完成一次存储并查询状态，确认其轨迹进入内部算法；再发起Recall，核对实际读取和交付记录。算法结合两侧历史与当前状态决策、执行并更新状态，后续存储和召回继续遵守更新后的状态。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  - docs/p3/architecture/03_三流程与异常时序.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-12-5
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-12-6
+  title: 结果可信性
+  kind: requirement
+  source:
+    section: '12.6'
+    paragraph_start: 1253
+    paragraph_end: 1254
+    excerpt: 仅输出决策或底层受理不能算作调度生效。MVP必须验证实际调整、内容可用性及结果反馈；模拟结果只用于辅助验证异常分支。历史缺失和执行失败如实记录，不能计入成功收益。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  - docs/p3/architecture/03_三流程与异常时序.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-12-6
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-12-7
+  title: 阶段发布门槛
+  kind: requirement
+  source:
+    section: '12.7'
+    paragraph_start: 1255
+    paragraph_end: 1285
+    excerpt: 存在重大数据丢失、权限隔离错误、失效正文交付或调度导致原内容不可读时，不得发布。基础流程依赖尚未接通、关键范围仍不明确或只完成局部演示时，不能将对应能力记为已验收。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  - docs/p3/architecture/03_三流程与异常时序.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-12-7
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-13-1
+  title: 阶段计划
+  kind: requirement
+  source:
+    section: '13.1'
+    paragraph_start: 1287
+    paragraph_end: 1302
+    excerpt: 阶段；计划时间；产品重点；Phase 1；2026年6月5日至8月31日；明确范围、场景、核心流程和基础验证；Phase 2 MVP；2026年9月1日至12月1日
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-13-1
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-13-2
+  title: MVP推进顺序
+  kind: requirement
+  source:
+    section: '13.2'
+    paragraph_start: 1303
+    paragraph_end: 1305
+    excerpt: 优先贯通记忆保存、当前使用和基本上下文，随后完成长文、长期检索、事实维护及基础算法调度。存储和召回轨迹、租户隔离、访问授权、删除及异常结果应随对应能力一起验证，不能等主链演示完成后再补。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-13-2
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-13-3
+  title: 后续预测阶段
+  kind: requirement
+  source:
+    section: '13.3'
+    paragraph_start: 1306
+    paragraph_end: 1307
+    excerpt: 在MVP基础算法、自动执行和反馈已可用的前提下增加未来访问预测及预测预热。阶段完成需要证明在相同需求与资源条件下的实际收益，并验证预测不可用或影响在线服务时能够回退。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P1
+  implementation_batch: P1
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-13-3
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-13-4
+  title: Final阶段
+  kind: requirement
+  source:
+    section: '13.4'
+    paragraph_start: 1308
+    paragraph_end: 1309
+    excerpt: 完成约定运行环境接入、部署维护、版本升级与回退说明，并执行72小时稳定运行。持续修复已发现的正确性和使用问题，确保交付不仅能够部署，也能够被应用和运营团队持续使用。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: Final
+  implementation_batch: Final
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-13-4
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-13-5
+  title: 范围变化
+  kind: requirement
+  source:
+    section: '13.5'
+    paragraph_start: 1310
+    paragraph_end: 1311
+    excerpt: 新增来源、共享授权范围或自动行为时同步更新场景、功能、交互及验收。阶段调整需说明哪些用户结果提前或延后，不能只修改里程碑日期而保持对外承诺不变。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-13-5
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-13-6
+  title: 产品交付物
+  kind: requirement
+  source:
+    section: '13.6'
+    paragraph_start: 1312
+    paragraph_end: 1336
+    excerpt: 交付内容；使用者；完成要求；可运行版本；接入应用与平台团队；能在约定公司环境独立运行并完成对应业务；应用接入说明；应用开发者
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-13-6
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-13-7
+  title: 接入交付
+  kind: requirement
+  source:
+    section: '13.7'
+    paragraph_start: 1337
+    paragraph_end: 1338
+    excerpt: 应用开发者应能够按说明完成一次事件写入、一次长文处理跟进、一次跨会话上下文请求，以及更正和删除后的再次读取。说明中明确哪些返回表示受理、哪些表示已具备实际使用能力。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-13-7
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-13-8
+  title: 运行交付
+  kind: requirement
+  source:
+    section: '13.8'
+    paragraph_start: 1339
+    paragraph_end: 1340
+    excerpt: 部署维护团队能够配置可信接入身份及授权范围，核对内部算法的输入依据与实际结果，并依据运行记录定位和恢复故障。必要配置及诊断随服务交付，不要求建设独立管理端、角色管理或专用审计平台。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-13-8
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-13-9
+  title: 交付完整性
+  kind: requirement
+  source:
+    section: '13.9'
+    paragraph_start: 1341
+    paragraph_end: 1342
+    excerpt: 可运行版本、接入说明、操作说明和验收结果应对应同一发布版本。已知限制需能被使用者理解，重要产品待决策项在相关能力交付前关闭。项目科研或知识产权成果按既有项目清单单独管理，不代替产品功能验收。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-13-9
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-14-1
+  title: 主要产品风险
+  kind: requirement
+  source:
+    section: '14.1'
+    paragraph_start: 1344
+    paragraph_end: 1368
+    excerpt: 风险；用户影响；产品要求；阶段含义混淆；受理被误解为保存或加工完成；分别表达保存、处理与可检索状态；当前与历史混用；使用旧约束或失效内容
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-14-1
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-14-2
+  title: 交付前需确定的业务细则
+  kind: requirement
+  source:
+    section: '14.2'
+    paragraph_start: 1369
+    paragraph_end: 1388
+    excerpt: MVP基础算法、自动执行、两侧轨迹与状态输入，以及统一Recall接口属于已确定范围，不作为等待后续阶段决定的事项。独立Web管理端、RBAC角色体系及专用身份和审计平台不纳入本期交付。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-14-2
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: PRD-14-3
+  title: 变更要求
+  kind: requirement
+  source:
+    section: '14.3'
+    paragraph_start: 1389
+    paragraph_end: 1390
+    excerpt: 产品、研发、测试及接入团队明确上述业务细则，记录影响并同步更新场景、功能与验收。未来若增加角色管理或人工调度入口，应作为新增范围单独定义，不能由维护职责自动推导。
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/architecture/01_需求基线与阶段划分.md
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-PRD-14-3
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: NFR-LATENCY
+  title: 核心Working读写P99<10ms
+  kind: metric
+  source: *id005
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-NFR-LATENCY
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user
+- id: NFR-EMBEDDING
+  title: 实际语义计算≥2000条/秒
+  kind: metric
+  source: *id005
+  owner: A
+  collaborators:
+  - RF
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  contract_interfaces: *id003
+  acceptance_scenarios:
+  - AC-NFR-EMBEDDING
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user
+- id: NFR-COMPRESSION
+  title: 持久内容字节压缩比≥5且质量通过
+  kind: metric
+  source: *id005
+  owner: B
+  collaborators:
+  - RF
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  contract_interfaces: *id002
+  acceptance_scenarios:
+  - AC-NFR-COMPRESSION
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user
+- id: NFR-RULES
+  title: 基础规则正确率100%、错误降层0
+  kind: metric
+  source: *id005
+  owner: C
+  collaborators:
+  - RF
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  contract_interfaces: *id004
+  acceptance_scenarios:
+  - AC-NFR-RULES
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user
+- id: NFR-PREDICTION
+  title: 预测相对提升≥10%
+  kind: metric
+  source: *id005
+  owner: C
+  collaborators:
+  - RF
+  product_stage: P1
+  implementation_batch: P1
+  design_documents:
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  contract_interfaces: *id004
+  acceptance_scenarios:
+  - AC-NFR-PREDICTION
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user
+- id: NFR-MVP-SOAK
+  title: MVP连续稳定不少于24小时
+  kind: metric
+  source: *id006
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: P0
+  implementation_batch: M1
+  design_documents:
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-NFR-MVP-SOAK
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user
+- id: NFR-FINAL-SOAK
+  title: Final连续72小时
+  kind: metric
+  source: *id006
+  owner: RF
+  collaborators:
+  - B
+  - A
+  - C
+  product_stage: Final
+  implementation_batch: Final
+  design_documents:
+  - docs/p3/acceptance/01_验收场景与证据要求.md
+  contract_interfaces: *id001
+  acceptance_scenarios:
+  - AC-NFR-FINAL-SOAK
+  design_status: specified
+  runtime_status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user

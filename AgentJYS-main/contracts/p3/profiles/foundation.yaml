@@ -1,0 +1,33 @@
+profile_id: foundation-contract-v1
+contract_version: p3/1
+purpose: 工程基座接入验证，不是PRD产品验收
+storage: single-host SQLite local persistent volume
+execution: simulated_test_only
+product_acceptance: false
+recall:
+  deadline_seconds: 5
+  top_k_each_source: 20
+  max_items: 5
+  token_budget: 1024
+  rrf_k: 60
+  rank_base: 1
+tasks:
+  lease_seconds: 30
+  renew_seconds: 10
+  scan_seconds: 5
+  max_attempts: 3
+  query_max_attempts: 6
+  pending_limit_per_scope: 100
+  pending_limit_per_tenant: 300
+  running_limit_per_scope: 1
+  running_limit_per_tenant_class: 1
+  retry_seconds: 1
+  class_limits:
+    remember: 2
+    recall: 2
+    operate: 1
+    engineering: 1
+telemetry:
+  body_logging: false
+  unbounded_id_metric_labels: false
+deployment: Azure VM then AKS; no cloud resources provisioned in this delivery

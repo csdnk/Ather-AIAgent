@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "An allowlisted provider reference, never an unrestricted URL fetch.",
+  "properties": {
+    "document_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Document Id",
+      "type": "string"
+    },
+    "document_version": {
+      "minLength": 1,
+      "title": "Document Version",
+      "type": "string"
+    },
+    "expected_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Expected Hash",
+      "type": "string"
+    },
+    "kind": {
+      "const": "document",
+      "title": "Kind",
+      "type": "string"
+    },
+    "provider_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Provider Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "provider_id",
+    "document_id",
+    "document_version",
+    "expected_hash"
+  ],
+  "title": "DocumentInput",
+  "type": "object",
+  "x-contract-model": "remember.DocumentInput"
+}

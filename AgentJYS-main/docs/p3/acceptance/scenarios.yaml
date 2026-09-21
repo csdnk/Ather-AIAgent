@@ -1,0 +1,1709 @@
+version: p3/1
+scenarios:
+- id: AC-PRD-1-1
+  requirements:
+  - PRD-1-1
+  title: 背景
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 1.1“背景”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-1-2
+  requirements:
+  - PRD-1-2
+  title: 核心问题
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 1.2“核心问题”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-1-3
+  requirements:
+  - PRD-1-3
+  title: 产品价值
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 1.3“产品价值”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-2-1
+  requirements:
+  - PRD-2-1
+  title: 产品定位
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 2.1“产品定位”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-2-2
+  requirements:
+  - PRD-2-2
+  title: 产品目标
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 2.2“产品目标”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-2-3
+  requirements:
+  - PRD-2-3
+  title: 产品级指标
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 2.3“产品级指标”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user
+- id: AC-PRD-2-4
+  requirements:
+  - PRD-2-4
+  title: 衡量原则
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 2.4“衡量原则”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-3-1
+  requirements:
+  - PRD-3-1
+  title: 接入方与使用者
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 3.1“接入方与使用者”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-3-2
+  requirements:
+  - PRD-3-2
+  title: 主要场景
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 3.2“主要场景”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-3-3
+  requirements:
+  - PRD-3-3
+  title: 租户及记忆使用范围
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 3.3“租户及记忆使用范围”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-3-4
+  requirements:
+  - PRD-3-4
+  title: 连续任务示例
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 3.4“连续任务示例”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-3-5
+  requirements:
+  - PRD-3-5
+  title: 用户需要看见什么
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 3.5“用户需要看见什么”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-3-6
+  requirements:
+  - PRD-3-6
+  title: 场景完成标准
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 3.6“场景完成标准”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-4-1
+  requirements:
+  - PRD-4-1
+  title: MVP范围
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 4.1“MVP范围”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-4-2
+  requirements:
+  - PRD-4-2
+  title: 后续增强
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 4.2“后续增强”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-4-3
+  requirements:
+  - PRD-4-3
+  title: 本期不建设的能力
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 4.3“本期不建设的能力”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-4-4
+  requirements:
+  - PRD-4-4
+  title: 完成边界
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 4.4“完成边界”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-5-1
+  requirements:
+  - PRD-5-1
+  title: 对外功能与内部能力
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 5.1“对外功能与内部能力”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-5-2
+  requirements:
+  - PRD-5-2
+  title: 两个功能如何协作
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 5.2“两个功能如何协作”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-5-3
+  requirements:
+  - PRD-5-3
+  title: 与外部的交接
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 5.3“与外部的交接”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-5-4
+  requirements:
+  - PRD-5-4
+  title: 核心业务对象
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 5.4“核心业务对象”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-5-5
+  requirements:
+  - PRD-5-5
+  title: 三类记忆
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 5.5“三类记忆”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-5-6
+  requirements:
+  - PRD-5-6
+  title: 用户可见阶段
+  owner: RF
+  lane: review_only
+  steps:
+  - 对照PRD 5.6“用户可见阶段”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-6-1
+  requirements:
+  - PRD-6-1
+  title: 对外功能
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 6.1“对外功能”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-6-2
+  requirements:
+  - PRD-6-2
+  title: 内部调度
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 6.2“内部调度”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-6-3
+  requirements:
+  - PRD-6-3
+  title: 记忆写入与长期化流程
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 6.3“记忆写入与长期化流程”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-6-4
+  requirements:
+  - PRD-6-4
+  title: 上下文构建流程
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 6.4“上下文构建流程”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-6-5
+  requirements:
+  - PRD-6-5
+  title: 历史状态驱动的内部调度
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 6.5“历史状态驱动的内部调度”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-6-6
+  requirements:
+  - PRD-6-6
+  title: 更正到期与删除流程
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 6.6“更正到期与删除流程”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-6-7
+  requirements:
+  - PRD-6-7
+  title: 从一次写入到下一次使用
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 6.7“从一次写入到下一次使用”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-6-8
+  requirements:
+  - PRD-6-8
+  title: 异常情况下流程如何继续
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 6.8“异常情况下流程如何继续”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-7-1
+  requirements:
+  - PRD-7-1
+  title: 功能索引
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 7.1“功能索引”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-FR01
+  requirements:
+  - FR01
+  title: 事件可靠保存与重复识别
+  owner: B
+  lane: runtime_acceptance
+  steps:
+  - 保存后断开响应，再用同一幂等键查询/提交。
+  expected:
+  - 内容来源可查；一次正式效果；未确认提交不报保存成功。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-FR02
+  requirements:
+  - FR02
+  title: 当前任务隔离与恢复
+  owner: B
+  lane: runtime_acceptance
+  steps:
+  - 两会话两任务连续更新；丢失临时副本；长期依赖中断。
+  expected:
+  - 当前有效状态可恢复，任务不串读，长期故障不阻断独立Working。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-FR03
+  requirements:
+  - FR03
+  title: 长文和获准文档引用
+  owner: B
+  lane: runtime_acceptance
+  steps:
+  - 提交固定版本文档，在获取/解析/加工间中断；修改或删除源。
+  expected:
+  - 原文可恢复；不重复产物；阶段明确；迟到产物不能发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-FR04
+  requirements:
+  - FR04
+  title: 分类与生命周期
+  owner: B
+  lane: runtime_acceptance
+  steps:
+  - 经历、目标和事实分别输入；归档、恢复归档、到期及删除。
+  expected:
+  - 分类不被层级覆盖，归档退出默认召回，历史需权限，删除不可复活。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-FR05
+  requirements:
+  - FR05
+  title: 事实来源与冲突
+  owner: B
+  lane: runtime_acceptance
+  steps:
+  - 输入否定、引用他人、假设、有效相互矛盾来源；并发显式纠错。
+  expected:
+  - 不充分推断不正式化；纠错版本CAS；独立有效冲突保留完整证据。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-FR06
+  requirements:
+  - FR06
+  title: 压缩质量与字节口径
+  owner: B
+  lane: runtime_acceptance
+  steps:
+  - 冻结同一输入集合，包含数字、否定、时间、条件和冲突，处理所有样本。
+  expected:
+  - 真实持久字节比≥5且质量通过；失败不得从分母剔除；原文保留。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-FR07
+  requirements:
+  - FR07
+  title: 长期检索资格
+  owner: B
+  lane: runtime_acceptance
+  steps:
+  - 真实模型空间下投影；注入缺块/索引不可见/旧版本/错误正文。
+  expected:
+  - ready必须准确可读且可检索；版本或来源失效撤销资格；允许恢复。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-FR08
+  requirements:
+  - FR08
+  title: 来源选择与覆盖
+  owner: A
+  lane: runtime_acceptance
+  steps:
+  - working/long_term/both/auto四种请求；中断已选来源；应用与工具两种触发。
+  expected:
+  - 显式范围不扩缩；故障不装作完整；无可信材料失败，可信部分可降级。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-FR09
+  requirements:
+  - FR09
+  title: 排序去重与完整冲突
+  owner: A
+  lane: runtime_acceptance
+  steps:
+  - 同文独立来源、同一版本多块、旧新版本及冲突组；排序故障。
+  expected:
+  - 版本去重不丢必要来源；不静默裁决有效冲突；错误不报正常空。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-FR10
+  requirements:
+  - FR10
+  title: 上下文四结果与预算
+  owner: A
+  lane: runtime_acceptance
+  steps:
+  - 首组超长后组可用、全组超长、完整冲突组、确认无结果、最终撤权。
+  expected:
+  - 包括引用/提示/冲突的渲染文本在预算内；四结果真实；无残缺/失效正文。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-FR11
+  requirements:
+  - FR11
+  title: 状态查询及历史结果再取
+  owner: A
+  lane: runtime_acceptance
+  steps:
+  - Recall提交后丢响应，分别在内容不变、更正、删除、撤权后GET原结果。
+  expected:
+  - GET不执行新检索；不变可取，失效明确410；不可见对象404；无重复写。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-FR12
+  requirements:
+  - FR12
+  title: 两侧真实轨迹与去重
+  owner: C
+  lane: runtime_acceptance
+  steps:
+  - 只写入不Recall；再查询并产生候选/read/packed/delivered；重投事件。
+  expected:
+  - 两侧都进入算法；一个read只计一次；轨迹缺失显式；不要求模型采用回执。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-FR13
+  requirements:
+  - FR13
+  title: 确定规则与资源保护
+  owner: C
+  lane: runtime_acceptance
+  steps:
+  - 冻结规则、负载和预算，覆盖冷热变更、过期观察、容量不足、并发意图。
+  expected:
+  - 规则正确率100%、错误降层0；相邻层级；keep/defer无副作用；自动触发。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-FR14
+  requirements:
+  - FR14
+  title: 实际调度与不确定反馈
+  owner: C
+  lane: real_provider
+  steps:
+  - 真实执行后丢响应；延迟错误反馈；目标可读但清理失败；Provider实例更换。
+  expected:
+  - 原ID对账；目标精确内容可读才成功；原读取能力保留；清理单独恢复。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-FR15
+  requirements:
+  - FR15
+  title: 完整授权隔离
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 两tenant各两user/agent，伪造范围，显式同tenant共享/撤权，后台和GET再取。
+  expected:
+  - 无跨tenant/未授权共享；按操作授权；撤权及时生效；无角色后台依赖。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-FR16
+  requirements:
+  - FR16
+  title: 真实预测收益与回退
+  owner: C
+  lane: runtime_acceptance
+  steps:
+  - 相同访问需求/容量/预算，先预测后准备再访问；零基线；预测失败。
+  expected:
+  - 相对提升≥10%并报百分点/成本；零基线不算相对；回退基础算法不丢在途。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-FR17
+  requirements:
+  - FR17
+  title: 删除屏障与清理
+  owner: B
+  lane: runtime_acceptance
+  steps:
+  - 删除与提取/投影/Pack提交同时发生；历史Pack再取；删除部分失败。
+  expected:
+  - 阻断后新交付无正文，迟到结果不复活；清理和阻断独立；未决清理可查。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-FR18
+  requirements:
+  - FR18
+  title: 能力检测与业务恢复
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 按保存/当前/长期/Context/调度断依赖、强退Worker、断采集并恢复。
+  expected:
+  - 实际可用能力与报告一致；异常可定位；已保存存在；未知继续查证。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-8-1
+  requirements:
+  - PRD-8-1
+  title: 存储记忆及配套操作
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 8.1“存储记忆及配套操作”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-8-2
+  requirements:
+  - PRD-8-2
+  title: 统一身份与范围校验
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 8.2“统一身份与范围校验”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-8-3
+  requirements:
+  - PRD-8-3
+  title: 响应与错误处理
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 8.3“响应与错误处理”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-8-4
+  requirements:
+  - PRD-8-4
+  title: 接入完成条件
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 8.4“接入完成条件”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-8-5
+  requirements:
+  - PRD-8-5
+  title: 统一Recall接口
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 8.5“统一Recall接口”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-8-6
+  requirements:
+  - PRD-8-6
+  title: 召回结果的使用
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 8.6“召回结果的使用”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-8-7
+  requirements:
+  - PRD-8-7
+  title: 调用与调度的边界
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 8.7“调用与调度的边界”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-8-8
+  requirements:
+  - PRD-8-8
+  title: 交互验收
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 8.8“交互验收”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-9-1
+  requirements:
+  - PRD-9-1
+  title: 服务交付形态
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 9.1“服务交付形态”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-9-2
+  requirements:
+  - PRD-9-2
+  title: 状态表达
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 9.2“状态表达”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-9-3
+  requirements:
+  - PRD-9-3
+  title: 配置与维护边界
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 9.3“配置与维护边界”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-9-4
+  requirements:
+  - PRD-9-4
+  title: 诊断信息保护
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 9.4“诊断信息保护”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-9-5
+  requirements:
+  - PRD-9-5
+  title: 持续运行与异常处理
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 9.5“持续运行与异常处理”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-10-1
+  requirements:
+  - PRD-10-1
+  title: 性能与产品效果
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 10.1“性能与产品效果”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user
+- id: AC-PRD-10-2
+  requirements:
+  - PRD-10-2
+  title: 质量约束
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 10.2“质量约束”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-10-3
+  requirements:
+  - PRD-10-3
+  title: 指标解释
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 10.3“指标解释”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user
+- id: AC-PRD-10-4
+  requirements:
+  - PRD-10-4
+  title: 性能与业务的关系
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 10.4“性能与业务的关系”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-10-5
+  requirements:
+  - PRD-10-5
+  title: 可靠性与持续服务
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 10.5“可靠性与持续服务”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-10-6
+  requirements:
+  - PRD-10-6
+  title: 容量与扩展
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 10.6“容量与扩展”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-10-7
+  requirements:
+  - PRD-10-7
+  title: 长期运行与恢复
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 10.7“长期运行与恢复”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user
+- id: AC-PRD-11-1
+  requirements:
+  - PRD-11-1
+  title: 多租户边界
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 11.1“多租户边界”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-11-2
+  requirements:
+  - PRD-11-2
+  title: 授权机制范围
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 11.2“授权机制范围”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-11-3
+  requirements:
+  - PRD-11-3
+  title: 日志与删除
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 11.3“日志与删除”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-11-4
+  requirements:
+  - PRD-11-4
+  title: 安全验收
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 11.4“安全验收”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-12-1
+  requirements:
+  - PRD-12-1
+  title: 记忆进入与维护验收
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 12.1“记忆进入与维护验收”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-12-2
+  requirements:
+  - PRD-12-2
+  title: 贯通检查
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 12.2“贯通检查”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-12-3
+  requirements:
+  - PRD-12-3
+  title: 失败判定
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 12.3“失败判定”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-12-4
+  requirements:
+  - PRD-12-4
+  title: 召回与内部调度验收
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 12.4“召回与内部调度验收”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-12-5
+  requirements:
+  - PRD-12-5
+  title: 完整流程验收
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 12.5“完整流程验收”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-12-6
+  requirements:
+  - PRD-12-6
+  title: 结果可信性
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 12.6“结果可信性”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-12-7
+  requirements:
+  - PRD-12-7
+  title: 阶段发布门槛
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 12.7“阶段发布门槛”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-13-1
+  requirements:
+  - PRD-13-1
+  title: 阶段计划
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 13.1“阶段计划”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-13-2
+  requirements:
+  - PRD-13-2
+  title: MVP推进顺序
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 13.2“MVP推进顺序”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-13-3
+  requirements:
+  - PRD-13-3
+  title: 后续预测阶段
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 13.3“后续预测阶段”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-13-4
+  requirements:
+  - PRD-13-4
+  title: Final阶段
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 13.4“Final阶段”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-13-5
+  requirements:
+  - PRD-13-5
+  title: 范围变化
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 13.5“范围变化”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-13-6
+  requirements:
+  - PRD-13-6
+  title: 产品交付物
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 13.6“产品交付物”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-13-7
+  requirements:
+  - PRD-13-7
+  title: 接入交付
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 13.7“接入交付”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-13-8
+  requirements:
+  - PRD-13-8
+  title: 运行交付
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 13.8“运行交付”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-13-9
+  requirements:
+  - PRD-13-9
+  title: 交付完整性
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 13.9“交付完整性”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-14-1
+  requirements:
+  - PRD-14-1
+  title: 主要产品风险
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 14.1“主要产品风险”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-14-2
+  requirements:
+  - PRD-14-2
+  title: 交付前需确定的业务细则
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 14.2“交付前需确定的业务细则”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-PRD-14-3
+  requirements:
+  - PRD-14-3
+  title: 变更要求
+  owner: RF
+  lane: runtime_acceptance
+  steps:
+  - 对照PRD 14.3“变更要求”的逐项要求，使用冻结配置与对应连续业务场景，核对响应、持久事实和失败分支。
+  expected:
+  - 该节定义的结果与实际事实一致；不使用模拟/未执行记录代替真实验收；差异保留并阻止对应发布。
+  evidence:
+  - 版本/配置/模型/输入范围
+  - 请求和业务对象关联
+  - 实际结果与失败记录
+  status: not_run
+  current_gate: false
+  execution_policy: design_now_runtime_later
+- id: AC-NFR-LATENCY
+  requirements:
+  - NFR-LATENCY
+  title: 核心Working读写P99<10ms
+  owner: RF
+  lane: product_measurement
+  steps:
+  - 冻结评价协议、输入、环境、质量阈值和版本后执行。
+  expected:
+  - 真实目标环境端到端记录所有有效请求延迟；区分完整Recall延迟，不剔除慢请求。
+  evidence:
+  - 全部成功与失败样本
+  - 原始测量和指标计算
+  - 机器/模型/软件版本
+  - 实际业务正确性
+  status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user
+- id: AC-NFR-EMBEDDING
+  requirements:
+  - NFR-EMBEDDING
+  title: 实际语义计算≥2000条/秒
+  owner: A
+  lane: product_measurement
+  steps:
+  - 冻结评价协议、输入、环境、质量阈值和版本后执行。
+  expected:
+  - 冻结输入长度/硬件/批次；统计实际成功计算，缓存命中不得计入。
+  evidence:
+  - 全部成功与失败样本
+  - 原始测量和指标计算
+  - 机器/模型/软件版本
+  - 实际业务正确性
+  status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user
+- id: AC-NFR-COMPRESSION
+  requirements:
+  - NFR-COMPRESSION
+  title: 持久内容字节压缩比≥5且质量通过
+  owner: B
+  lane: product_measurement
+  steps:
+  - 冻结评价协议、输入、环境、质量阈值和版本后执行。
+  expected:
+  - 同一集合记录原/产物真实字节；失败样本保留，核对数字否定条件与来源。
+  evidence:
+  - 全部成功与失败样本
+  - 原始测量和指标计算
+  - 机器/模型/软件版本
+  - 实际业务正确性
+  status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user
+- id: AC-NFR-RULES
+  requirements:
+  - NFR-RULES
+  title: 基础规则正确率100%、错误降层0
+  owner: C
+  lane: product_measurement
+  steps:
+  - 冻结评价协议、输入、环境、质量阈值和版本后执行。
+  expected:
+  - 冻结规则集，运行每个边界和资源场景，对照预期动作并另查实际执行。
+  evidence:
+  - 全部成功与失败样本
+  - 原始测量和指标计算
+  - 机器/模型/软件版本
+  - 实际业务正确性
+  status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user
+- id: AC-NFR-PREDICTION
+  requirements:
+  - NFR-PREDICTION
+  title: 预测相对提升≥10%
+  owner: C
+  lane: product_measurement
+  steps:
+  - 冻结评价协议、输入、环境、质量阈值和版本后执行。
+  expected:
+  - 相同需求与资源；报相对比例和百分点，零基线标不可计算。
+  evidence:
+  - 全部成功与失败样本
+  - 原始测量和指标计算
+  - 机器/模型/软件版本
+  - 实际业务正确性
+  status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user
+- id: AC-NFR-MVP-SOAK
+  requirements:
+  - NFR-MVP-SOAK
+  title: MVP连续稳定不少于24小时
+  owner: RF
+  lane: product_measurement
+  steps:
+  - 冻结评价协议、输入、环境、质量阈值和版本后执行。
+  expected:
+  - 真实混合负载连续24小时；记录错误/积压/资源/未决；正确性或隔离错误阻止通过。
+  evidence:
+  - 全部成功与失败样本
+  - 原始测量和指标计算
+  - 机器/模型/软件版本
+  - 实际业务正确性
+  status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user
+- id: AC-NFR-FINAL-SOAK
+  requirements:
+  - NFR-FINAL-SOAK
+  title: Final连续72小时
+  owner: RF
+  lane: product_measurement
+  steps:
+  - 冻结评价协议、输入、环境、质量阈值和版本后执行。
+  expected:
+  - 生产纳管环境72小时，业务可用与故障恢复单列，非仅进程存活。
+  evidence:
+  - 全部成功与失败样本
+  - 原始测量和指标计算
+  - 机器/模型/软件版本
+  - 实际业务正确性
+  status: not_run
+  current_gate: false
+  execution_policy: deferred_metrics_by_user

@@ -1,0 +1,272 @@
+{
+  "purpose": "第三方中文注释研读版，仅新增注释；非独立安装包",
+  "repositories": [
+    {
+      "name": "langmem",
+      "repository": "langchain-ai/langmem",
+      "commit": "9d033b47d9ce53e37e92c92241b0496c0278932e"
+    },
+    {
+      "name": "llamaindex",
+      "repository": "run-llama/llama_index",
+      "commit": "c60937d3099b89e66ff9040f1c45030bc4e407e9"
+    },
+    {
+      "name": "controller-runtime",
+      "repository": "kubernetes-sigs/controller-runtime",
+      "commit": "6ab2188a1fb14a8c4837b418bc0a20049682cde4"
+    }
+  ],
+  "files": [
+    {
+      "file": "llamaindex/llama-index-core/llama_index/core/base/base_retriever.py",
+      "methods": 13,
+      "comment_lines": 67,
+      "original_sha256": "6bd60c18f31bdffb372e23cb1777d128b38832c2d1aa9661639dc17ee217f343",
+      "annotated_sha256": "61b5bf73caa83140b9dabad677f8f1972b1c2660770cd4638d36670d19b5d2c1",
+      "verification": "AST + Python token stream + exact original text after removing added comments"
+    },
+    {
+      "file": "llamaindex/llama-index-core/llama_index/core/indices/vector_store/retrievers/retriever.py",
+      "methods": 12,
+      "comment_lines": 70,
+      "original_sha256": "0f22a10a5d5dfee82afc526e3950cc877632e3c1e62b02dfadc7a616ac5fc746",
+      "annotated_sha256": "109f3385b389d3d10b858686e5fcc1f2ed393772d258715b0f4b3ff599b7e9b3",
+      "verification": "AST + Python token stream + exact original text after removing added comments"
+    },
+    {
+      "file": "llamaindex/llama-index-core/llama_index/core/retrievers/fusion_retriever.py",
+      "methods": 13,
+      "comment_lines": 74,
+      "original_sha256": "e125fb8666943f40c56cb9b4102fb3ca3a81db485304464b8cd196dc8cf516f9",
+      "annotated_sha256": "a8e31cdbd9920cf0aeb6417e29d9f2943e2bf7d9de87d121527cd7e4e3fa5361",
+      "verification": "AST + Python token stream + exact original text after removing added comments"
+    },
+    {
+      "file": "llamaindex/llama-index-core/llama_index/core/postprocessor/types.py",
+      "methods": 8,
+      "comment_lines": 39,
+      "original_sha256": "601ce5068496ada110cf4626d69f86f44937fcb087bf23dc8aadd95c1e8780fc",
+      "annotated_sha256": "a9c8440b069c36a270a48a18d48463c5ed031f011861cd61d545069a71b71682",
+      "verification": "AST + Python token stream + exact original text after removing added comments"
+    },
+    {
+      "file": "llamaindex/llama-index-core/llama_index/core/query_engine/retriever_query_engine.py",
+      "methods": 13,
+      "comment_lines": 63,
+      "original_sha256": "136c2476ce49d6647324cdd4b9633e293a41268d14966150691c710678a31c40",
+      "annotated_sha256": "f6037ddf29a0037195b33c8ae0c55a93810b1a863496fb11ee54e8bd56c02a49",
+      "verification": "AST + Python token stream + exact original text after removing added comments"
+    },
+    {
+      "file": "langmem/src/langmem/knowledge/extraction.py",
+      "methods": 41,
+      "comment_lines": 224,
+      "original_sha256": "165d4c019f55a365dba5a551e1af0c0313a2f4bab292e47493acc6f1cd62c13e",
+      "annotated_sha256": "9827803e5facdc988a8a9cc0188998767bba7c50d0c97d6072b880eb70220bf1",
+      "verification": "AST + Python token stream + exact original text after removing added comments"
+    },
+    {
+      "file": "langmem/src/langmem/knowledge/tools.py",
+      "methods": 10,
+      "comment_lines": 57,
+      "original_sha256": "0118d3623a19c9b6c8c3d477aead51f08eeb44771c3ae3f51cd32d8a800b78d7",
+      "annotated_sha256": "c0f546db59bbb6490f77afbf61a9bc5e8bdeed8e0e2e503d46c6dec882dad84f",
+      "verification": "AST + Python token stream + exact original text after removing added comments"
+    },
+    {
+      "file": "llamaindex/llama-index-core/llama_index/core/schema.py",
+      "methods": 117,
+      "comment_lines": 517,
+      "original_sha256": "690c751ff2e8372150b4cb7dc921221ed0ce57bbf44a31a3053f3dc14c9c56a4",
+      "annotated_sha256": "e2c8f92a8938569379be2060bbb4d758a88fa42a1aebfc06510d133385a08637",
+      "verification": "AST + Python token stream + exact original text after removing added comments"
+    },
+    {
+      "file": "llamaindex/llama-index-core/llama_index/core/vector_stores/types.py",
+      "methods": 26,
+      "comment_lines": 130,
+      "original_sha256": "139179d07687b026b8d764df0125c4bac7a9752cfa5913474962c2351825a7eb",
+      "annotated_sha256": "dd1e12caf5ab2ecba519451c8977672d8beac51f96221b2432678ab2d7a929a7",
+      "verification": "AST + Python token stream + exact original text after removing added comments"
+    },
+    {
+      "file": "llamaindex/llama-index-integrations/vector_stores/llama-index-vector-stores-milvus/llama_index/vector_stores/milvus/base.py",
+      "methods": 34,
+      "comment_lines": 181,
+      "original_sha256": "4251adbf344af342edadc7e62d2d66626e685eaf5d1900165be3b635cf3e2745",
+      "annotated_sha256": "e841b0a16cda2a63c5b03f4516f2e72896f9fee90789fa4547503118f3a89f9f",
+      "verification": "AST + Python token stream + exact original text after removing added comments"
+    },
+    {
+      "file": "controller-runtime/pkg/reconcile/reconcile.go",
+      "methods": 8,
+      "comment_lines": 31,
+      "original_sha256": "53513474e78cc57961b5131d79bddef1a24f9ec243c9b155af7d6a98ec05be40",
+      "annotated_sha256": "203a42eca6651b871b65827fadfd9760431c4a56043473f29cb76e2a8f9bd0a9",
+      "verification": "exact original bytes after removing added full-line comments; no Go compiler run"
+    },
+    {
+      "file": "controller-runtime/pkg/internal/controller/controller.go",
+      "methods": 16,
+      "comment_lines": 88,
+      "original_sha256": "5c29a5a2ce85eb1178d3f692fca5b0f06de7bb7fb760ead21209e90e6c6a7ef2",
+      "annotated_sha256": "df24db0b25eef33214e5739cb5602c99fa5e7d084ec7f7b68ce60395b1fb3b3a",
+      "verification": "exact original bytes after removing added full-line comments; no Go compiler run"
+    },
+    {
+      "file": "fastembed/text/text_embedding.py",
+      "methods": 10,
+      "comment_lines": 46,
+      "original_sha256": "de7c6c2bb8b0b05f70b02d0bb62308e1cef50cdb0c618ff74d0d75598ac326a7",
+      "annotated_sha256": "6aab76ef3e9bde4f66acddc955daf906fddfd53698cab48df20dba390aa2325d",
+      "verification": "AST + Python token stream + exact original text after removing added comments",
+      "distribution": "fastembed",
+      "version": "0.8.0",
+      "source_kind": "installed distribution source; not a verified Git commit",
+      "coverage": "all declared methods",
+      "distribution_record_verified": true
+    },
+    {
+      "file": "fastembed/text/text_embedding_base.py",
+      "methods": 7,
+      "comment_lines": 33,
+      "original_sha256": "1e3dd7639f40cf6db91e8cb9ce4021570d80a23db5a7045df61116af9b4410c8",
+      "annotated_sha256": "ddfa2ee4e4d9da71a527bedfc25bd3688c95113ac02e62461a7ecca8c0f2cb3d",
+      "verification": "AST + Python token stream + exact original text after removing added comments",
+      "distribution": "fastembed",
+      "version": "0.8.0",
+      "source_kind": "installed distribution source; not a verified Git commit",
+      "coverage": "all declared methods",
+      "distribution_record_verified": true
+    },
+    {
+      "file": "fastembed/text/onnx_embedding.py",
+      "methods": 9,
+      "comment_lines": 45,
+      "original_sha256": "c3752705280b27a74e34d2b75f48bcb4ac0e3ba96f4a8897f1273423e4508100",
+      "annotated_sha256": "15dc9eb48e047bfbc18fbe24856dfd664540b133290aea94dea27e68e49eee5d",
+      "verification": "AST + Python token stream + exact original text after removing added comments",
+      "distribution": "fastembed",
+      "version": "0.8.0",
+      "source_kind": "installed distribution source; not a verified Git commit",
+      "coverage": "all declared methods",
+      "distribution_record_verified": true
+    },
+    {
+      "file": "fastembed/text/onnx_text_model.py",
+      "methods": 11,
+      "comment_lines": 57,
+      "original_sha256": "f0867d16e0589dac8cc50427c53c2d1b1ff5c8423e031e64886a47f4cd7dc73f",
+      "annotated_sha256": "bd00e04a0740e43fb1326c663c4636731338f0c84a238ccf3e8119bf42560bf3",
+      "verification": "AST + Python token stream + exact original text after removing added comments",
+      "distribution": "fastembed",
+      "version": "0.8.0",
+      "source_kind": "installed distribution source; not a verified Git commit",
+      "coverage": "all declared methods",
+      "distribution_record_verified": true
+    },
+    {
+      "file": "fastembed/common/onnx_model.py",
+      "methods": 13,
+      "comment_lines": 63,
+      "original_sha256": "8b2d85430028dfc705fb368fbdf58f779eff3871dfc1f3b987e71302dddb566f",
+      "annotated_sha256": "56afbb2e77d7f4ab971614debeb9352802a5fb6d82edfecf61965a9125c06c91",
+      "verification": "AST + Python token stream + exact original text after removing added comments",
+      "distribution": "fastembed",
+      "version": "0.8.0",
+      "source_kind": "installed distribution source; not a verified Git commit",
+      "coverage": "all declared methods",
+      "distribution_record_verified": true
+    },
+    {
+      "file": "onnxruntime/capi/onnxruntime_inference_collection.py",
+      "methods": 15,
+      "comment_lines": 82,
+      "original_sha256": "412c602163a3c21ea9874280c1e5ce500feb263fb518de2050151e49c9c28c12",
+      "annotated_sha256": "51adc63f1c224238fdec286b733278465b5770873accd5df84763dd8df16bf43",
+      "verification": "AST + Python token stream + exact original text after removing added comments",
+      "distribution": "onnxruntime",
+      "version": "1.30.0",
+      "source_kind": "installed distribution source; not a verified Git commit",
+      "coverage": "selected inference methods",
+      "distribution_record_verified": true
+    },
+    {
+      "file": "sentence_transformers/cross_encoder/model.py",
+      "methods": 9,
+      "comment_lines": 52,
+      "original_sha256": "654564d9c5eb9bf0b5d1136ea0b365b2048d112dec50553ba4ccf622b5e08dd7",
+      "annotated_sha256": "bbbbd216f766a6ce4b9c02c131ec45cc91d0005de5e599c8b6370f26e4c73096",
+      "verification": "AST + Python token stream + exact original text after removing added comments",
+      "distribution": "sentence-transformers",
+      "version": "5.7.0",
+      "source_kind": "installed distribution source; not a verified Git commit",
+      "coverage": "selected inference methods",
+      "distribution_record_verified": true
+    },
+    {
+      "file": "tiktoken/registry.py",
+      "methods": 4,
+      "comment_lines": 23,
+      "original_sha256": "7b941fceffd6c3a76b54a93e7bcf8a37a7181e8d6f1bf6f9420e77821ff5a60d",
+      "annotated_sha256": "bd470d58add15000096ac683634602ba109b8800daa5a27498798804d6ca278e",
+      "verification": "AST + Python token stream + exact original text after removing added comments",
+      "distribution": "tiktoken",
+      "version": "0.14.0",
+      "source_kind": "installed distribution source; not a verified Git commit",
+      "coverage": "all declared methods",
+      "distribution_record_verified": true
+    },
+    {
+      "file": "tiktoken/core.py",
+      "methods": 7,
+      "comment_lines": 40,
+      "original_sha256": "fd279aa5d510e937a0e1ed48e9a2a346756aacae5d3533cbd27ce6261d728d18",
+      "annotated_sha256": "73bbdfbf9e3bd75ec3400268d65ed10587eb8a45a4139c757c5b05789ea7a377",
+      "verification": "AST + Python token stream + exact original text after removing added comments",
+      "distribution": "tiktoken",
+      "version": "0.14.0",
+      "source_kind": "installed distribution source; not a verified Git commit",
+      "coverage": "selected inference methods",
+      "distribution_record_verified": true
+    }
+  ],
+  "distributions": [
+    {
+      "distribution": "fastembed",
+      "version": "0.8.0",
+      "source_kind": "installed distribution",
+      "licenses": [
+        "fastembed/licenses/LICENSE",
+        "fastembed/licenses/NOTICE"
+      ]
+    },
+    {
+      "distribution": "onnxruntime",
+      "version": "1.30.0",
+      "source_kind": "installed distribution",
+      "licenses": [
+        "onnxruntime/licenses/LICENSE",
+        "onnxruntime/licenses/ThirdPartyNotices.txt"
+      ]
+    },
+    {
+      "distribution": "sentence-transformers",
+      "version": "5.7.0",
+      "source_kind": "installed distribution",
+      "licenses": [
+        "sentence_transformers/licenses/LICENSE",
+        "sentence_transformers/licenses/NOTICE.txt"
+      ]
+    },
+    {
+      "distribution": "tiktoken",
+      "version": "0.14.0",
+      "source_kind": "installed distribution",
+      "licenses": [
+        "tiktoken/licenses/LICENSE"
+      ]
+    }
+  ]
+}

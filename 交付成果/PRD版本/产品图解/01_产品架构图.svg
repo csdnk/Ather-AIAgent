@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1880" height="1440" viewBox="0 0 1880 1440" role="img"><title>AetherBrain P3 产品架构图</title><desc>依据 AetherBrain P3 PRD V1.2 绘制的产品设计图，并非当前实现或验收结果。</desc><defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#627d90"/></marker><marker id="teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#277e85"/></marker></defs>
+<text x="40" y="49" font-family="SimHei, Microsoft YaHei, sans-serif" font-size="32" fill="#293748" font-weight="700" text-anchor="start">AetherBrain P3 产品架构图</text>
+<g id="end-user">
+<rect x="40" y="85" width="290" height="115" rx="14" fill="#e2eee5" stroke="#627d90" stroke-width="1.5"/>
+<text x="60" y="120" font-family="SimHei, Microsoft YaHei, sans-serif" font-size="24" fill="#293748" font-weight="700" text-anchor="start">终端业务用户</text>
+<text x="60" y="155" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="22" fill="#293748" font-weight="400" text-anchor="start">持续对话与任务</text>
+</g>
+<g id="upstream-app">
+<rect x="420" y="85" width="1420" height="115" rx="14" fill="#dcecf3" stroke="#627d90" stroke-width="1.5"/>
+<text x="440" y="120" font-family="SimHei, Microsoft YaHei, sans-serif" font-size="24" fill="#293748" font-weight="700" text-anchor="start">上层应用／Agent · RAG · Workflow</text>
+<text x="440" y="155" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="22" fill="#293748" font-weight="400" text-anchor="start">决定何时存储、何时召回；使用 P3 返回的记忆材料，生成回答、执行工具并推进业务</text>
+</g>
+<path d="M330,142 L420,142" fill="none" stroke="#627d90" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arr)"/>
+<rect x="40" y="255" width="1800" height="985" rx="22" fill="#eeeee5" stroke="none" stroke-width="1.5"/>
+<rect x="70" y="280" width="1740" height="64" rx="12" fill="#293748" stroke="none" stroke-width="1.5"/>
+<text x="95" y="320" font-family="SimHei, Microsoft YaHei, sans-serif" font-size="27" fill="white" font-weight="700" text-anchor="start">P3 多租户记忆服务</text>
+<text x="420" y="319" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="22" fill="white" font-weight="400" text-anchor="start">可信身份 → 租户归属 → 资源范围 → 操作权限；校验贯穿请求、后台处理与再次获取</text>
+<path d="M680,200 L680,228 L305,228 L305,280" fill="none" stroke="#627d90" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arr)" marker-start="url(#arr)"/>
+<path d="M925,200 L925,280" fill="none" stroke="#627d90" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arr)" marker-start="url(#arr)"/>
+<text x="330" y="248" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="20" fill="#566879" font-weight="400" text-anchor="start">存储内容及来源</text>
+<text x="955" y="239" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="20" fill="#566879" font-weight="400" text-anchor="start">问题、范围、来源与长度预算</text>
+<path d="M305,344 L305,385" fill="none" stroke="#627d90" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arr)"/>
+<path d="M925,344 L925,385" fill="none" stroke="#627d90" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arr)"/>
+<g id="remember">
+<rect x="70" y="385" width="470" height="225" rx="14" fill="#dcecf3" stroke="#627d90" stroke-width="1.5"/>
+<text x="90" y="420" font-family="SimHei, Microsoft YaHei, sans-serif" font-size="24" fill="#293748" font-weight="700" text-anchor="start">01  Remember 存储记忆</text>
+<text x="90" y="455" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="22" fill="#293748" font-weight="400" text-anchor="start">接收事件、任务状态、长文本与文档</text>
+<text x="90" y="487" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="22" fill="#293748" font-weight="400" text-anchor="start">可靠保存内容和来源，维护有效版本</text>
+<text x="90" y="519" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="22" fill="#293748" font-weight="400" text-anchor="start">提供更正、删除及处理查询</text>
+<text x="90" y="551" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="22" fill="#293748" font-weight="400" text-anchor="start">返回：记忆引用、保存结果、处理状态</text>
+</g>
+<g id="recall">
+<rect x="590" y="385" width="670" height="225" rx="14" fill="#dcecf3" stroke="#627d90" stroke-width="1.5"/>
+<text x="610" y="420" font-family="SimHei, Microsoft YaHei, sans-serif" font-size="24" fill="#293748" font-weight="700" text-anchor="start">02  Recall 统一召回入口</text>
+<text x="610" y="455" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="22" fill="#293748" font-weight="400" text-anchor="start">应用直接调用与 Agent 工具调用共用同一规则</text>
+<text x="610" y="487" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="22" fill="#293748" font-weight="400" text-anchor="start">选来源 → 检索并核验 → 排序去重与冲突分组</text>
+<text x="610" y="519" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="22" fill="#293748" font-weight="400" text-anchor="start">按预算组装 → 交付前复核权限与有效性</text>
+<text x="610" y="551" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="22" fill="#293748" font-weight="400" text-anchor="start">返回：上下文、来源、冲突及完整性状态</text>
+</g>
+<g id="operate-panel">
+<rect x="1350" y="385" width="460" height="725" rx="20" fill="#eeeee5" stroke="none" stroke-width="1.5"/>
+<rect x="1366" y="368" width="428" height="48" rx="10" fill="#293748" stroke="none" stroke-width="1.5"/>
+<text x="1580.0" y="400" font-family="SimHei, Microsoft YaHei, sans-serif" font-size="25" fill="white" font-weight="700" text-anchor="middle">Operate 内部基础调度 · MVP</text>
+</g>
+<g id="trace-inputs">
+<rect x="1375" y="440" width="410" height="100" rx="14" fill="#f3edca" stroke="#627d90" stroke-width="1.5"/>
+<text x="1395" y="475" font-family="SimHei, Microsoft YaHei, sans-serif" font-size="24" fill="#293748" font-weight="700" text-anchor="start">两侧轨迹＋当前状态</text>
+<text x="1395" y="510" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="22" fill="#293748" font-weight="400" text-anchor="start">存储变化、召回记录、资源约束</text>
+</g>
+<g id="algorithm">
+<rect x="1375" y="585" width="410" height="100" rx="14" fill="#f3edca" stroke="#627d90" stroke-width="1.5"/>
+<text x="1395" y="620" font-family="SimHei, Microsoft YaHei, sans-serif" font-size="24" fill="#293748" font-weight="700" text-anchor="start">基础算法自动决策</text>
+<text x="1395" y="655" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="22" fill="#293748" font-weight="400" text-anchor="start">升层／降层／保持／暂缓</text>
+</g>
+<g id="execution">
+<rect x="1375" y="730" width="410" height="120" rx="14" fill="#f3edca" stroke="#627d90" stroke-width="1.5"/>
+<text x="1395" y="765" font-family="SimHei, Microsoft YaHei, sans-serif" font-size="24" fill="#293748" font-weight="700" text-anchor="start">约束校验与执行确认</text>
+<text x="1395" y="800" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="22" fill="#293748" font-weight="400" text-anchor="start">权限、有效性、容量与操作冲突</text>
+<text x="1395" y="832" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="22" fill="#293748" font-weight="400" text-anchor="start">自动执行；核对实际状态和可读性</text>
+</g>
+<g id="state-feedback">
+<rect x="1375" y="895" width="410" height="95" rx="14" fill="#e2eee5" stroke="#627d90" stroke-width="1.5"/>
+<text x="1395" y="930" font-family="SimHei, Microsoft YaHei, sans-serif" font-size="24" fill="#293748" font-weight="700" text-anchor="start">更新状态与历史</text>
+<text x="1395" y="965" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="22" fill="#293748" font-weight="400" text-anchor="start">影响下一轮决策及后续业务</text>
+</g>
+<rect x="1375" y="1030" width="410" height="55" rx="10" fill="white" stroke="#627d90" stroke-width="1.5" stroke-dasharray="7 5"/>
+<text x="1395" y="1065" font-family="SimHei, Microsoft YaHei, sans-serif" font-size="22" fill="#293748" font-weight="700" text-anchor="start">P1 后续：访问预测＋提前预热</text>
+<path d="M1580,540 L1580,585" fill="none" stroke="#627d90" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arr)"/>
+<path d="M1580,685 L1580,730" fill="none" stroke="#627d90" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arr)"/>
+<path d="M1580,850 L1580,895" fill="none" stroke="#627d90" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arr)"/>
+<path d="M1785,945 L1825,945 L1825,565 L1580,565 L1580,585" fill="none" stroke="#277e85" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="8 6" marker-end="url(#teal)"/>
+<path d="M540,480 L565,480 L565,655 L1315,655 L1315,485 L1375,485" fill="none" stroke="#627d90" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="8 6" marker-end="url(#arr)"/>
+<path d="M1260,480 L1315,480 L1315,485" fill="none" stroke="#627d90" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="8 6"/>
+<text x="825" y="644" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="20" fill="#566879" font-weight="400" text-anchor="start">存储与召回均持续提供调度依据</text>
+<g id="memory-support">
+<rect x="70" y="735" width="1190" height="370" rx="20" fill="#eeeee5" stroke="none" stroke-width="1.5"/>
+<rect x="86" y="718" width="1158" height="48" rx="10" fill="#293748" stroke="none" stroke-width="1.5"/>
+<text x="665.0" y="750" font-family="SimHei, Microsoft YaHei, sans-serif" font-size="25" fill="white" font-weight="700" text-anchor="middle">内部支撑：记忆组织、语义加工与业务状态</text>
+</g>
+<g id="semantic-processing">
+<rect x="95" y="795" width="365" height="245" rx="14" fill="#e2eee5" stroke="#627d90" stroke-width="1.5"/>
+<text x="115" y="830" font-family="SimHei, Microsoft YaHei, sans-serif" font-size="24" fill="#293748" font-weight="700" text-anchor="start">按内容执行适用加工</text>
+<text x="115" y="865" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="22" fill="#293748" font-weight="400" text-anchor="start">分类与来源关联</text>
+<text x="115" y="897" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="22" fill="#293748" font-weight="400" text-anchor="start">整理、提纯、压缩</text>
+<text x="115" y="929" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="22" fill="#293748" font-weight="400" text-anchor="start">证据校验与事实形成</text>
+<text x="115" y="961" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="22" fill="#293748" font-weight="400" text-anchor="start">语义计算与长期检索准备</text>
+</g>
+<g id="memory-objects">
+<rect x="500" y="795" width="735" height="245" rx="14" fill="#e2eee5" stroke="#627d90" stroke-width="1.5"/>
+<text x="520" y="830" font-family="SimHei, Microsoft YaHei, sans-serif" font-size="24" fill="#293748" font-weight="700" text-anchor="start">业务记忆 · 统一管理来源、版本与有效性</text>
+</g>
+<g id="working">
+<rect x="520" y="855" width="215" height="150" rx="14" fill="#dcecf3" stroke="#627d90" stroke-width="1.5"/>
+<text x="540" y="890" font-family="SimHei, Microsoft YaHei, sans-serif" font-size="24" fill="#293748" font-weight="700" text-anchor="start">Working</text>
+<text x="540" y="925" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="20" fill="#293748" font-weight="400" text-anchor="start">当前任务记忆</text>
+<text x="540" y="957" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="20" fill="#293748" font-weight="400" text-anchor="start">目标／约束／进度</text>
+</g>
+<g id="episodic">
+<rect x="755" y="855" width="215" height="150" rx="14" fill="#f1dfe5" stroke="#627d90" stroke-width="1.5"/>
+<text x="775" y="890" font-family="SimHei, Microsoft YaHei, sans-serif" font-size="24" fill="#293748" font-weight="700" text-anchor="start">Episodic</text>
+<text x="775" y="925" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="20" fill="#293748" font-weight="400" text-anchor="start">事件记忆</text>
+<text x="775" y="957" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="20" fill="#293748" font-weight="400" text-anchor="start">经历／过程／时间</text>
+</g>
+<g id="semantic">
+<rect x="990" y="855" width="225" height="150" rx="14" fill="#f3edca" stroke="#627d90" stroke-width="1.5"/>
+<text x="1010" y="890" font-family="SimHei, Microsoft YaHei, sans-serif" font-size="24" fill="#293748" font-weight="700" text-anchor="start">Semantic</text>
+<text x="1010" y="925" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="20" fill="#293748" font-weight="400" text-anchor="start">稳定事实</text>
+<text x="1010" y="957" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="20" fill="#293748" font-weight="400" text-anchor="start">证据／规则／偏好</text>
+</g>
+<path d="M305,610 L305,715" fill="none" stroke="#627d90" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M305,773 L305,795" fill="none" stroke="#627d90" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arr)"/>
+<path d="M305,675 L640,675 L640,715" fill="none" stroke="#627d90" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M640,773 L640,795" fill="none" stroke="#627d90" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arr)"/>
+<text x="440" y="705" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="20" fill="#566879" font-weight="400" text-anchor="start">当前状态更新</text>
+<text x="130" y="705" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="20" fill="#566879" font-weight="400" text-anchor="start">保存及适用加工</text>
+<path d="M460,910 L500,910" fill="none" stroke="#627d90" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arr)"/>
+<path d="M925,795 L925,773" fill="none" stroke="#627d90" stroke-width="2.2" stroke-linejoin="round" marker-start="url(#arr)"/>
+<path d="M925,715 L925,700 L1155,700 L1155,610" fill="none" stroke="#627d90" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arr)"/>
+<text x="950" y="687" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="20" fill="#566879" font-weight="400" text-anchor="start">查询／读取有效内容</text>
+<path d="M1375,945 L1295,945 L1295,1020 L1235,1020" fill="none" stroke="#277e85" stroke-width="2.2" stroke-linejoin="round" stroke-dasharray="8 6" marker-end="url(#teal)"/>
+<text x="1265" y="1095" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="19" fill="#566879" font-weight="400" text-anchor="start">状态反馈</text>
+<rect x="70" y="1150" width="1740" height="64" rx="12" fill="white" stroke="#627d90" stroke-width="1.5"/>
+<text x="95" y="1190" font-family="SimHei, Microsoft YaHei, sans-serif" font-size="24" fill="#293748" font-weight="700" text-anchor="start">贯穿全程</text>
+<text x="245" y="1190" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="23" fill="#293748" font-weight="400" text-anchor="start">更正／到期／归档／删除   ·   授权状态与结果查询   ·   任务恢复、运行记录和资源保护</text>
+<g id="storage-execution">
+<rect x="70" y="1310" width="1740" height="100" rx="14" fill="#dcecf3" stroke="#627d90" stroke-width="1.5"/>
+<text x="90" y="1345" font-family="SimHei, Microsoft YaHei, sans-serif" font-size="24" fill="#293748" font-weight="700" text-anchor="start">底层存储与执行服务</text>
+<text x="90" y="1380" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="22" fill="#293748" font-weight="400" text-anchor="start">实际保存、检索、读取、迁移与结果核对                    访问层级：热 ⇄ 温 ⇄ 冷（相邻升降层）</text>
+</g>
+<path d="M675,1105 L675,1150" fill="none" stroke="#627d90" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M675,1214 L675,1310" fill="none" stroke="#627d90" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arr)" marker-start="url(#arr)"/>
+<path d="M1580,1110 L1580,1150" fill="none" stroke="#627d90" stroke-width="2.2" stroke-linejoin="round"/>
+<path d="M1580,1214 L1580,1310" fill="none" stroke="#627d90" stroke-width="2.2" stroke-linejoin="round" marker-end="url(#arr)" marker-start="url(#arr)"/>
+<text x="700" y="1280" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="20" fill="#566879" font-weight="400" text-anchor="start">保存／查询／读取及实际结果</text>
+<text x="1595" y="1280" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="20" fill="#566879" font-weight="400" text-anchor="start">调整目标／核对结果</text>
+<text x="1220" y="49" font-family="Microsoft YaHei, SimSun, sans-serif" font-size="19" fill="#566879" font-weight="400" text-anchor="start">蓝：对外功能   黄：内部调度   虚线：轨迹或状态反馈</text></svg>

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "blocked": {
+      "const": true,
+      "title": "Blocked",
+      "type": "boolean"
+    },
+    "cleanup_state": {
+      "enum": [
+        "pending",
+        "running",
+        "completed",
+        "partial_failure",
+        "unknown"
+      ],
+      "title": "Cleanup State",
+      "type": "string"
+    },
+    "operation_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Operation Id",
+      "type": "string"
+    },
+    "remaining_targets": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "title": "Remaining Targets",
+      "type": "array"
+    },
+    "task_ids": {
+      "items": {
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9_-]+$",
+        "type": "string"
+      },
+      "title": "Task Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "operation_id",
+    "blocked",
+    "cleanup_state",
+    "task_ids",
+    "remaining_targets"
+  ],
+  "title": "DeleteReceipt",
+  "type": "object",
+  "x-contract-model": "remember.DeleteReceipt"
+}

@@ -1,0 +1,118 @@
+{
+  "$defs": {
+    "EffectStatus": {
+      "enum": [
+        "not_started",
+        "no_effect",
+        "unknown",
+        "confirmed"
+      ],
+      "title": "EffectStatus",
+      "type": "string"
+    },
+    "ErrorCode": {
+      "enum": [
+        "UNAUTHENTICATED",
+        "FORBIDDEN",
+        "NOT_FOUND",
+        "INVALID_ARGUMENT",
+        "VERSION_CONFLICT",
+        "IDEMPOTENCY_CONFLICT",
+        "REQUEST_IN_PROGRESS",
+        "RESULT_INVALIDATED",
+        "MEMORY_GONE",
+        "CAPACITY_EXCEEDED",
+        "BUDGET_TOO_SMALL",
+        "DEPENDENCY_UNAVAILABLE",
+        "COMMIT_UNCONFIRMED",
+        "DEADLINE_EXCEEDED",
+        "EXECUTION_INTERRUPTED",
+        "CONTRACT_VIOLATION",
+        "TASK_STILL_RUNNING"
+      ],
+      "title": "ErrorCode",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "attempt": {
+      "minimum": 1,
+      "title": "Attempt",
+      "type": "integer"
+    },
+    "effect_status": {
+      "$ref": "#/$defs/EffectStatus"
+    },
+    "error_code": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ErrorCode"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "finished_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Finished At"
+    },
+    "lease_token": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Lease Token",
+      "type": "string"
+    },
+    "request_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "started_at": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "title": "Started At",
+      "type": "string"
+    },
+    "task_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "trace_id": {
+      "pattern": "^[0-9a-f]{32}$",
+      "title": "Trace Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_id",
+    "attempt",
+    "lease_token",
+    "request_id",
+    "trace_id",
+    "started_at",
+    "effect_status"
+  ],
+  "title": "AttemptRecord",
+  "type": "object",
+  "x-contract-model": "runtime.AttemptRecord"
+}

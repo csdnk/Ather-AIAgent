@@ -1,0 +1,4452 @@
+[
+  {
+    "id": "positive-runtime.Scope",
+    "model": "runtime.Scope",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "tenant_id": "id_1",
+      "application_id": "id_1",
+      "user_id": "id_1",
+      "agent_id": "id_1"
+    }
+  },
+  {
+    "id": "extra-field-runtime.Scope",
+    "model": "runtime.Scope",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "tenant_id": "id_1",
+      "application_id": "id_1",
+      "user_id": "id_1",
+      "agent_id": "id_1",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.ScopeSelector",
+    "model": "runtime.ScopeSelector",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {}
+  },
+  {
+    "id": "extra-field-runtime.ScopeSelector",
+    "model": "runtime.ScopeSelector",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.Principal",
+    "model": "runtime.Principal",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "principal_id": "id_1",
+      "home_scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1"
+      },
+      "permissions": [],
+      "auth_epoch": 1
+    }
+  },
+  {
+    "id": "extra-field-runtime.Principal",
+    "model": "runtime.Principal",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "principal_id": "id_1",
+      "home_scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1"
+      },
+      "permissions": [],
+      "auth_epoch": 1,
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.TrustedContext",
+    "model": "runtime.TrustedContext",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "principal": {
+        "principal_id": "id_1",
+        "home_scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "permissions": [],
+        "auth_epoch": 1
+      },
+      "request_id": "id_1",
+      "operation_id": "id_1",
+      "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "span_id": "aaaaaaaaaaaaaaaa",
+      "deadline_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-runtime.TrustedContext",
+    "model": "runtime.TrustedContext",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "principal": {
+        "principal_id": "id_1",
+        "home_scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "permissions": [],
+        "auth_epoch": 1
+      },
+      "request_id": "id_1",
+      "operation_id": "id_1",
+      "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "span_id": "aaaaaaaaaaaaaaaa",
+      "deadline_at": "2026-09-19T08:00:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.RecordRef",
+    "model": "runtime.RecordRef",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "owner": "runtime",
+      "object_type": "id_1",
+      "object_id": "id_1",
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1"
+      }
+    }
+  },
+  {
+    "id": "extra-field-runtime.RecordRef",
+    "model": "runtime.RecordRef",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "owner": "runtime",
+      "object_type": "id_1",
+      "object_id": "id_1",
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1"
+      },
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.AuthorizationGrant",
+    "model": "runtime.AuthorizationGrant",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "grant_id": "id_1",
+      "grantee_id": "id_1",
+      "grantee_tenant_id": "id_1",
+      "resource": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "permissions": [
+        "memory:read"
+      ],
+      "revision": 1
+    }
+  },
+  {
+    "id": "extra-field-runtime.AuthorizationGrant",
+    "model": "runtime.AuthorizationGrant",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "grant_id": "id_1",
+      "grantee_id": "id_1",
+      "grantee_tenant_id": "id_1",
+      "resource": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "permissions": [
+        "memory:read"
+      ],
+      "revision": 1,
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.ErrorResponse",
+    "model": "runtime.ErrorResponse",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "code": "UNAUTHENTICATED",
+      "message": "id_1",
+      "retryable": true,
+      "request_id": "id_1"
+    }
+  },
+  {
+    "id": "extra-field-runtime.ErrorResponse",
+    "model": "runtime.ErrorResponse",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "code": "UNAUTHENTICATED",
+      "message": "id_1",
+      "retryable": true,
+      "request_id": "id_1",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.EventEnvelope",
+    "model": "runtime.EventEnvelope",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "event_id": "id_1",
+      "event_type": "id_1",
+      "producer": "runtime",
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "subject_revision": 1,
+      "occurred_at": "2026-09-19T08:00:00.000Z",
+      "request_id": "id_1",
+      "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "initiator_id": "id_1",
+      "initiator_auth_epoch": 1,
+      "payload": {},
+      "payload_hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    }
+  },
+  {
+    "id": "extra-field-runtime.EventEnvelope",
+    "model": "runtime.EventEnvelope",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "event_id": "id_1",
+      "event_type": "id_1",
+      "producer": "runtime",
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "subject_revision": 1,
+      "occurred_at": "2026-09-19T08:00:00.000Z",
+      "request_id": "id_1",
+      "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "initiator_id": "id_1",
+      "initiator_auth_epoch": 1,
+      "payload": {},
+      "payload_hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.Lease",
+    "model": "runtime.Lease",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "owner_id": "id_1",
+      "token": "id_1",
+      "until": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-runtime.Lease",
+    "model": "runtime.Lease",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "owner_id": "id_1",
+      "token": "id_1",
+      "until": "2026-09-19T08:00:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.TaskSpec",
+    "model": "runtime.TaskSpec",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "task_id": "id_1",
+      "owner_flow": "runtime",
+      "kind": "id_1",
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "input_ref": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "idempotency_key": "id_1",
+      "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "initiator_id": "id_1",
+      "initiator_auth_epoch": 1,
+      "deadline_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-runtime.TaskSpec",
+    "model": "runtime.TaskSpec",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "task_id": "id_1",
+      "owner_flow": "runtime",
+      "kind": "id_1",
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "input_ref": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "idempotency_key": "id_1",
+      "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "initiator_id": "id_1",
+      "initiator_auth_epoch": 1,
+      "deadline_at": "2026-09-19T08:00:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.TaskRecord",
+    "model": "runtime.TaskRecord",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "task_id": "id_1",
+      "owner_flow": "runtime",
+      "kind": "id_1",
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "input_ref": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "idempotency_key": "id_1",
+      "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "initiator_id": "id_1",
+      "initiator_auth_epoch": 1,
+      "deadline_at": "2026-09-19T08:00:00.000Z",
+      "state": "pending",
+      "revision": 1,
+      "attempt": 1,
+      "effect_status": "not_started"
+    }
+  },
+  {
+    "id": "extra-field-runtime.TaskRecord",
+    "model": "runtime.TaskRecord",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "task_id": "id_1",
+      "owner_flow": "runtime",
+      "kind": "id_1",
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "input_ref": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "idempotency_key": "id_1",
+      "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "initiator_id": "id_1",
+      "initiator_auth_epoch": 1,
+      "deadline_at": "2026-09-19T08:00:00.000Z",
+      "state": "pending",
+      "revision": 1,
+      "attempt": 1,
+      "effect_status": "not_started",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.AttemptRecord",
+    "model": "runtime.AttemptRecord",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "task_id": "id_1",
+      "attempt": 1,
+      "lease_token": "id_1",
+      "request_id": "id_1",
+      "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "started_at": "2026-09-19T08:00:00.000Z",
+      "effect_status": "not_started"
+    }
+  },
+  {
+    "id": "extra-field-runtime.AttemptRecord",
+    "model": "runtime.AttemptRecord",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "task_id": "id_1",
+      "attempt": 1,
+      "lease_token": "id_1",
+      "request_id": "id_1",
+      "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "started_at": "2026-09-19T08:00:00.000Z",
+      "effect_status": "not_started",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.RecoveryDecision",
+    "model": "runtime.RecoveryDecision",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "action": "resume",
+      "effect_status": "not_started",
+      "reason": "id_1",
+      "evidence": [
+        {
+          "owner": "runtime",
+          "object_type": "id_1",
+          "object_id": "id_1",
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "extra-field-runtime.RecoveryDecision",
+    "model": "runtime.RecoveryDecision",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "action": "resume",
+      "effect_status": "not_started",
+      "reason": "id_1",
+      "evidence": [
+        {
+          "owner": "runtime",
+          "object_type": "id_1",
+          "object_id": "id_1",
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1"
+          }
+        }
+      ],
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.RunResult",
+    "model": "runtime.RunResult",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "outcome": "retryable_no_effect",
+      "effect_status": "not_started",
+      "reason": "id_1"
+    }
+  },
+  {
+    "id": "extra-field-runtime.RunResult",
+    "model": "runtime.RunResult",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "outcome": "retryable_no_effect",
+      "effect_status": "not_started",
+      "reason": "id_1",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.DeliveryRecord",
+    "model": "runtime.DeliveryRecord",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "event_id": "id_1",
+      "consumer_id": "id_1",
+      "state": "pending",
+      "attempt": 1,
+      "revision": 1
+    }
+  },
+  {
+    "id": "extra-field-runtime.DeliveryRecord",
+    "model": "runtime.DeliveryRecord",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "event_id": "id_1",
+      "consumer_id": "id_1",
+      "state": "pending",
+      "attempt": 1,
+      "revision": 1,
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.RecoveryRequest",
+    "model": "runtime.RecoveryRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "operation_id": "id_1",
+      "task_id": "id_1",
+      "expected_revision": 1,
+      "reason": "id_1"
+    }
+  },
+  {
+    "id": "extra-field-runtime.RecoveryRequest",
+    "model": "runtime.RecoveryRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "operation_id": "id_1",
+      "task_id": "id_1",
+      "expected_revision": 1,
+      "reason": "id_1",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.OperationRecord",
+    "model": "runtime.OperationRecord",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "operation_id": "id_1",
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "phase": "id_1",
+      "state": "accepted"
+    }
+  },
+  {
+    "id": "extra-field-runtime.OperationRecord",
+    "model": "runtime.OperationRecord",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "operation_id": "id_1",
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "phase": "id_1",
+      "state": "accepted",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.MaintenanceRecord",
+    "model": "runtime.MaintenanceRecord",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "record_id": "id_1",
+      "actor_id": "id_1",
+      "operation_id": "id_1",
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "reason": "id_1",
+      "occurred_at": "2026-09-19T08:00:00.000Z",
+      "phase": "accepted",
+      "config_version": "id_1"
+    }
+  },
+  {
+    "id": "extra-field-runtime.MaintenanceRecord",
+    "model": "runtime.MaintenanceRecord",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "record_id": "id_1",
+      "actor_id": "id_1",
+      "operation_id": "id_1",
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "reason": "id_1",
+      "occurred_at": "2026-09-19T08:00:00.000Z",
+      "phase": "accepted",
+      "config_version": "id_1",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.DiagnosticRecord",
+    "model": "runtime.DiagnosticRecord",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "record_id": "id_1",
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "request_id": "id_1",
+      "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "stage": "id_1",
+      "occurred_at": "2026-09-19T08:00:00.000Z",
+      "coverage": "complete"
+    }
+  },
+  {
+    "id": "extra-field-runtime.DiagnosticRecord",
+    "model": "runtime.DiagnosticRecord",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "record_id": "id_1",
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "request_id": "id_1",
+      "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "stage": "id_1",
+      "occurred_at": "2026-09-19T08:00:00.000Z",
+      "coverage": "complete",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.CapabilityHealth",
+    "model": "runtime.CapabilityHealth",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "capability": "save",
+      "state": "available",
+      "checked_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-runtime.CapabilityHealth",
+    "model": "runtime.CapabilityHealth",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "capability": "save",
+      "state": "available",
+      "checked_at": "2026-09-19T08:00:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.HealthReport",
+    "model": "runtime.HealthReport",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "capabilities": [],
+      "config_version": "id_1"
+    }
+  },
+  {
+    "id": "extra-field-runtime.HealthReport",
+    "model": "runtime.HealthReport",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "capabilities": [],
+      "config_version": "id_1",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.PageRequest",
+    "model": "runtime.PageRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {}
+  },
+  {
+    "id": "extra-field-runtime.PageRequest",
+    "model": "runtime.PageRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.RecordPage",
+    "model": "runtime.RecordPage",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "records": []
+    }
+  },
+  {
+    "id": "extra-field-runtime.RecordPage",
+    "model": "runtime.RecordPage",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "records": [],
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.RelatedRecords",
+    "model": "runtime.RelatedRecords",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "records": []
+    }
+  },
+  {
+    "id": "extra-field-runtime.RelatedRecords",
+    "model": "runtime.RelatedRecords",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "records": [],
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.MemoryRef",
+    "model": "remember.MemoryRef",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1"
+      },
+      "memory_id": "id_1",
+      "version": 1
+    }
+  },
+  {
+    "id": "extra-field-remember.MemoryRef",
+    "model": "remember.MemoryRef",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1"
+      },
+      "memory_id": "id_1",
+      "version": 1,
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.SourceRef",
+    "model": "remember.SourceRef",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "source_id": "id_1",
+      "source_version": 1,
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "locator": "id_1"
+    }
+  },
+  {
+    "id": "extra-field-remember.SourceRef",
+    "model": "remember.SourceRef",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "source_id": "id_1",
+      "source_version": 1,
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "locator": "id_1",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.SourceInput",
+    "model": "remember.SourceInput",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "kind": "conversation",
+      "external_id": "id_1",
+      "external_version": "id_1",
+      "occurred_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-remember.SourceInput",
+    "model": "remember.SourceInput",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "kind": "conversation",
+      "external_id": "id_1",
+      "external_version": "id_1",
+      "occurred_at": "2026-09-19T08:00:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.TextInput",
+    "model": "remember.TextInput",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "kind": "text",
+      "text": "id_1"
+    }
+  },
+  {
+    "id": "extra-field-remember.TextInput",
+    "model": "remember.TextInput",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "kind": "text",
+      "text": "id_1",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.DocumentInput",
+    "model": "remember.DocumentInput",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "kind": "document",
+      "provider_id": "id_1",
+      "document_id": "id_1",
+      "document_version": "id_1",
+      "expected_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "id": "extra-field-remember.DocumentInput",
+    "model": "remember.DocumentInput",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "kind": "document",
+      "provider_id": "id_1",
+      "document_id": "id_1",
+      "document_version": "id_1",
+      "expected_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.SourceAcquisition",
+    "model": "remember.SourceAcquisition",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "document": {
+        "kind": "document",
+        "provider_id": "id_1",
+        "document_id": "id_1",
+        "document_version": "id_1",
+        "expected_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "original_storage_ref": "id_1",
+      "original_bytes": 1,
+      "verified_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "acquired_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-remember.SourceAcquisition",
+    "model": "remember.SourceAcquisition",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "document": {
+        "kind": "document",
+        "provider_id": "id_1",
+        "document_id": "id_1",
+        "document_version": "id_1",
+        "expected_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "original_storage_ref": "id_1",
+      "original_bytes": 1,
+      "verified_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "acquired_at": "2026-09-19T08:00:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.DocumentContent",
+    "model": "remember.DocumentContent",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "document": {
+        "kind": "document",
+        "provider_id": "id_1",
+        "document_id": "id_1",
+        "document_version": "id_1",
+        "expected_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "original_storage_ref": "id_1",
+      "media_type": "id_1",
+      "extracted_text": "id_1",
+      "extracted_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "parser_version": "id_1"
+    }
+  },
+  {
+    "id": "extra-field-remember.DocumentContent",
+    "model": "remember.DocumentContent",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "document": {
+        "kind": "document",
+        "provider_id": "id_1",
+        "document_id": "id_1",
+        "document_version": "id_1",
+        "expected_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "original_storage_ref": "id_1",
+      "media_type": "id_1",
+      "extracted_text": "id_1",
+      "extracted_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "parser_version": "id_1",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.RememberRequest",
+    "model": "remember.RememberRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "source": {
+        "kind": "conversation",
+        "external_id": "id_1",
+        "external_version": "id_1",
+        "occurred_at": "2026-09-19T08:00:00.000Z"
+      },
+      "selection": {},
+      "content": {
+        "kind": "text",
+        "text": "id_1"
+      }
+    }
+  },
+  {
+    "id": "extra-field-remember.RememberRequest",
+    "model": "remember.RememberRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "source": {
+        "kind": "conversation",
+        "external_id": "id_1",
+        "external_version": "id_1",
+        "occurred_at": "2026-09-19T08:00:00.000Z"
+      },
+      "selection": {},
+      "content": {
+        "kind": "text",
+        "text": "id_1"
+      },
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.RememberReceipt",
+    "model": "remember.RememberReceipt",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "operation_id": "id_1",
+      "saved": true,
+      "source": {
+        "source_id": "id_1",
+        "source_version": 1,
+        "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "locator": "id_1"
+      },
+      "memories": [],
+      "task_ids": [],
+      "phase": "saved"
+    }
+  },
+  {
+    "id": "extra-field-remember.RememberReceipt",
+    "model": "remember.RememberReceipt",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "operation_id": "id_1",
+      "saved": true,
+      "source": {
+        "source_id": "id_1",
+        "source_version": 1,
+        "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "locator": "id_1"
+      },
+      "memories": [],
+      "task_ids": [],
+      "phase": "saved",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.MemorySnapshot",
+    "model": "remember.MemorySnapshot",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "ref": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "revision": 1,
+      "object_revision": 1,
+      "kind": "working",
+      "status": "active",
+      "content": "id_1",
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sources": [
+        {
+          "source_id": "id_1",
+          "source_version": 1,
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "locator": "id_1"
+        }
+      ],
+      "projection_state": "not_required",
+      "created_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-remember.MemorySnapshot",
+    "model": "remember.MemorySnapshot",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "ref": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "revision": 1,
+      "object_revision": 1,
+      "kind": "working",
+      "status": "active",
+      "content": "id_1",
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sources": [
+        {
+          "source_id": "id_1",
+          "source_version": 1,
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "locator": "id_1"
+        }
+      ],
+      "projection_state": "not_required",
+      "created_at": "2026-09-19T08:00:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.CorrectionRequest",
+    "model": "remember.CorrectionRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "expected_version": 1,
+      "content": "id_1",
+      "source": {
+        "kind": "conversation",
+        "external_id": "id_1",
+        "external_version": "id_1",
+        "occurred_at": "2026-09-19T08:00:00.000Z"
+      },
+      "reason": "id_1"
+    }
+  },
+  {
+    "id": "extra-field-remember.CorrectionRequest",
+    "model": "remember.CorrectionRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "expected_version": 1,
+      "content": "id_1",
+      "source": {
+        "kind": "conversation",
+        "external_id": "id_1",
+        "external_version": "id_1",
+        "occurred_at": "2026-09-19T08:00:00.000Z"
+      },
+      "reason": "id_1",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.LifecycleRequest",
+    "model": "remember.LifecycleRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "expected_version": 1,
+      "target": "archived",
+      "reason": "id_1"
+    }
+  },
+  {
+    "id": "extra-field-remember.LifecycleRequest",
+    "model": "remember.LifecycleRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "expected_version": 1,
+      "target": "archived",
+      "reason": "id_1",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.DeleteRequest",
+    "model": "remember.DeleteRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "expected_revision": 1,
+      "reason": "id_1"
+    }
+  },
+  {
+    "id": "extra-field-remember.DeleteRequest",
+    "model": "remember.DeleteRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "expected_revision": 1,
+      "reason": "id_1",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.DeleteReceipt",
+    "model": "remember.DeleteReceipt",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "operation_id": "id_1",
+      "blocked": true,
+      "cleanup_state": "pending",
+      "task_ids": [],
+      "remaining_targets": []
+    }
+  },
+  {
+    "id": "extra-field-remember.DeleteReceipt",
+    "model": "remember.DeleteReceipt",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "operation_id": "id_1",
+      "blocked": true,
+      "cleanup_state": "pending",
+      "task_ids": [],
+      "remaining_targets": [],
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.ArtifactRecord",
+    "model": "remember.ArtifactRecord",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "artifact_id": "id_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "representation": "original",
+      "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "output_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "original_bytes": 1,
+      "stored_bytes": 1,
+      "quality": "pending",
+      "quality_policy": "id_1",
+      "content_ref": "id_1",
+      "content": "id_1",
+      "sources": [
+        {
+          "source_id": "id_1",
+          "source_version": 1,
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "locator": "id_1"
+        }
+      ]
+    }
+  },
+  {
+    "id": "extra-field-remember.ArtifactRecord",
+    "model": "remember.ArtifactRecord",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "artifact_id": "id_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "representation": "original",
+      "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "output_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "original_bytes": 1,
+      "stored_bytes": 1,
+      "quality": "pending",
+      "quality_policy": "id_1",
+      "content_ref": "id_1",
+      "content": "id_1",
+      "sources": [
+        {
+          "source_id": "id_1",
+          "source_version": 1,
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "locator": "id_1"
+        }
+      ],
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.CandidateFact",
+    "model": "remember.CandidateFact",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "text": "id_1",
+      "sources": [
+        {
+          "source_id": "id_1",
+          "source_version": 1,
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "locator": "id_1"
+        }
+      ],
+      "evidence_status": "candidate"
+    }
+  },
+  {
+    "id": "extra-field-remember.CandidateFact",
+    "model": "remember.CandidateFact",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "text": "id_1",
+      "sources": [
+        {
+          "source_id": "id_1",
+          "source_version": 1,
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "locator": "id_1"
+        }
+      ],
+      "evidence_status": "candidate",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.ExtractionRequest",
+    "model": "remember.ExtractionRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "source": {
+        "source_id": "id_1",
+        "source_version": 1,
+        "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "locator": "id_1"
+      },
+      "text": "id_1",
+      "existing": [],
+      "policy_version": "id_1"
+    }
+  },
+  {
+    "id": "extra-field-remember.ExtractionRequest",
+    "model": "remember.ExtractionRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "source": {
+        "source_id": "id_1",
+        "source_version": 1,
+        "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "locator": "id_1"
+      },
+      "text": "id_1",
+      "existing": [],
+      "policy_version": "id_1",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.ExtractionResult",
+    "model": "remember.ExtractionResult",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "candidates": [],
+      "model_id": "id_1",
+      "policy_version": "id_1"
+    }
+  },
+  {
+    "id": "extra-field-remember.ExtractionResult",
+    "model": "remember.ExtractionResult",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "candidates": [],
+      "model_id": "id_1",
+      "policy_version": "id_1",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.EligibilityResult",
+    "model": "remember.EligibilityResult",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "ref": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "decision": "allowed",
+      "reason": "id_1"
+    }
+  },
+  {
+    "id": "extra-field-remember.EligibilityResult",
+    "model": "remember.EligibilityResult",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "ref": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "decision": "allowed",
+      "reason": "id_1",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.EligibilityBatch",
+    "model": "remember.EligibilityBatch",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "items": [],
+      "authorization_epoch": 1
+    }
+  },
+  {
+    "id": "extra-field-remember.EligibilityBatch",
+    "model": "remember.EligibilityBatch",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "items": [],
+      "authorization_epoch": 1,
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.ConflictGroup",
+    "model": "remember.ConflictGroup",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "group_id": "id_1",
+      "members": [
+        {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1"
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1"
+          },
+          "memory_id": "memory_2",
+          "version": 1
+        }
+      ],
+      "explanation": "id_1"
+    }
+  },
+  {
+    "id": "extra-field-remember.ConflictGroup",
+    "model": "remember.ConflictGroup",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "group_id": "id_1",
+      "members": [
+        {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1"
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1"
+          },
+          "memory_id": "memory_2",
+          "version": 1
+        }
+      ],
+      "explanation": "id_1",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.MemoryReadBatch",
+    "model": "remember.MemoryReadBatch",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "items": [],
+      "eligibility": {
+        "items": [],
+        "authorization_epoch": 1
+      },
+      "conflicts": []
+    }
+  },
+  {
+    "id": "extra-field-remember.MemoryReadBatch",
+    "model": "remember.MemoryReadBatch",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "items": [],
+      "eligibility": {
+        "items": [],
+        "authorization_epoch": 1
+      },
+      "conflicts": [],
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.StorageChanged",
+    "model": "remember.StorageChanged",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "object_revision": 1,
+      "change": "saved",
+      "status": "active",
+      "projection_state": "not_required",
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_count": 1
+    }
+  },
+  {
+    "id": "extra-field-remember.StorageChanged",
+    "model": "remember.StorageChanged",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "object_revision": 1,
+      "change": "saved",
+      "status": "active",
+      "projection_state": "not_required",
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_count": 1,
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.RecallRequest",
+    "model": "recall.RecallRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "query": "id_1",
+      "selection": {}
+    }
+  },
+  {
+    "id": "extra-field-recall.RecallRequest",
+    "model": "recall.RecallRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "query": "id_1",
+      "selection": {},
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.Coverage",
+    "model": "recall.Coverage",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "working": "complete",
+      "long_term": "complete"
+    }
+  },
+  {
+    "id": "extra-field-recall.Coverage",
+    "model": "recall.Coverage",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "working": "complete",
+      "long_term": "complete",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.ContextItem",
+    "model": "recall.ContextItem",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "content": "id_1",
+      "sources": [
+        {
+          "source_id": "id_1",
+          "source_version": 1,
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "locator": "id_1"
+        }
+      ],
+      "representation": "original"
+    }
+  },
+  {
+    "id": "extra-field-recall.ContextItem",
+    "model": "recall.ContextItem",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "content": "id_1",
+      "sources": [
+        {
+          "source_id": "id_1",
+          "source_version": 1,
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "locator": "id_1"
+        }
+      ],
+      "representation": "original",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.ContextGroup",
+    "model": "recall.ContextGroup",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "group_id": "id_1",
+      "items": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "content": "id_1",
+          "sources": [
+            {
+              "source_id": "id_1",
+              "source_version": 1,
+              "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "locator": "id_1"
+            }
+          ],
+          "representation": "original"
+        }
+      ]
+    }
+  },
+  {
+    "id": "extra-field-recall.ContextGroup",
+    "model": "recall.ContextGroup",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "group_id": "id_1",
+      "items": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "content": "id_1",
+          "sources": [
+            {
+              "source_id": "id_1",
+              "source_version": 1,
+              "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "locator": "id_1"
+            }
+          ],
+          "representation": "original"
+        }
+      ],
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.ContextPack",
+    "model": "recall.ContextPack",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "recall_id": "id_1",
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1"
+      },
+      "outcome": "available",
+      "selected_sources": [
+        "working"
+      ],
+      "coverage": {
+        "working": "complete",
+        "long_term": "not_requested"
+      },
+      "groups": [
+        {
+          "group_id": "id_1",
+          "items": [
+            {
+              "memory": {
+                "scope": {
+                  "tenant_id": "id_1",
+                  "application_id": "id_1",
+                  "user_id": "id_1",
+                  "agent_id": "id_1"
+                },
+                "memory_id": "id_1",
+                "version": 1
+              },
+              "content": "id_1",
+              "sources": [
+                {
+                  "source_id": "id_1",
+                  "source_version": 1,
+                  "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "locator": "id_1"
+                }
+              ],
+              "representation": "original"
+            }
+          ]
+        }
+      ],
+      "rendered_context": "id_1",
+      "token_budget": 1,
+      "tokens_used": 1,
+      "tokenizer_id": "id_1",
+      "policy_version": "id_1",
+      "degradation_reasons": [],
+      "committed_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-recall.ContextPack",
+    "model": "recall.ContextPack",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "recall_id": "id_1",
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1"
+      },
+      "outcome": "available",
+      "selected_sources": [
+        "working"
+      ],
+      "coverage": {
+        "working": "complete",
+        "long_term": "not_requested"
+      },
+      "groups": [
+        {
+          "group_id": "id_1",
+          "items": [
+            {
+              "memory": {
+                "scope": {
+                  "tenant_id": "id_1",
+                  "application_id": "id_1",
+                  "user_id": "id_1",
+                  "agent_id": "id_1"
+                },
+                "memory_id": "id_1",
+                "version": 1
+              },
+              "content": "id_1",
+              "sources": [
+                {
+                  "source_id": "id_1",
+                  "source_version": 1,
+                  "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "locator": "id_1"
+                }
+              ],
+              "representation": "original"
+            }
+          ]
+        }
+      ],
+      "rendered_context": "id_1",
+      "token_budget": 1,
+      "tokens_used": 1,
+      "tokenizer_id": "id_1",
+      "policy_version": "id_1",
+      "degradation_reasons": [],
+      "committed_at": "2026-09-19T08:00:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.RecallRecord",
+    "model": "recall.RecallRecord",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "recall_id": "id_1",
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1"
+      },
+      "state": "accepted",
+      "stage": "validate",
+      "revision": 1,
+      "deadline_at": "2026-09-19T08:00:00.000Z",
+      "result_available": false
+    }
+  },
+  {
+    "id": "extra-field-recall.RecallRecord",
+    "model": "recall.RecallRecord",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "recall_id": "id_1",
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1"
+      },
+      "state": "accepted",
+      "stage": "validate",
+      "revision": 1,
+      "deadline_at": "2026-09-19T08:00:00.000Z",
+      "result_available": false,
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.EmbeddingRequest",
+    "model": "recall.EmbeddingRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "operation_id": "id_1",
+      "usage": "query",
+      "texts": [
+        "id_1"
+      ],
+      "model_space": "id_1",
+      "deadline_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-recall.EmbeddingRequest",
+    "model": "recall.EmbeddingRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "operation_id": "id_1",
+      "usage": "query",
+      "texts": [
+        "id_1"
+      ],
+      "model_space": "id_1",
+      "deadline_at": "2026-09-19T08:00:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.EmbeddingItem",
+    "model": "recall.EmbeddingItem",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "index": 0,
+      "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "vector": [
+        0.5
+      ]
+    }
+  },
+  {
+    "id": "extra-field-recall.EmbeddingItem",
+    "model": "recall.EmbeddingItem",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "index": 0,
+      "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "vector": [
+        0.5
+      ],
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.EmbeddingResult",
+    "model": "recall.EmbeddingResult",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "operation_id": "id_1",
+      "usage": "query",
+      "model_space": "id_1",
+      "dimensions": 1,
+      "items": [
+        {
+          "index": 0,
+          "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "vector": [
+            0.5
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "extra-field-recall.EmbeddingResult",
+    "model": "recall.EmbeddingResult",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "operation_id": "id_1",
+      "usage": "query",
+      "model_space": "id_1",
+      "dimensions": 1,
+      "items": [
+        {
+          "index": 0,
+          "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "vector": [
+            0.5
+          ]
+        }
+      ],
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.ProjectionTarget",
+    "model": "recall.ProjectionTarget",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "model_space": "id_1",
+      "chunk_index": 1,
+      "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "id": "extra-field-recall.ProjectionTarget",
+    "model": "recall.ProjectionTarget",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "model_space": "id_1",
+      "chunk_index": 1,
+      "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.ProjectionRequest",
+    "model": "recall.ProjectionRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "operation_id": "id_1",
+      "target": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1"
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "model_space": "id_1",
+        "chunk_index": 1,
+        "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "vector": [
+        0.5
+      ],
+      "deadline_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-recall.ProjectionRequest",
+    "model": "recall.ProjectionRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "operation_id": "id_1",
+      "target": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1"
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "model_space": "id_1",
+        "chunk_index": 1,
+        "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "vector": [
+        0.5
+      ],
+      "deadline_at": "2026-09-19T08:00:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.ProjectionResult",
+    "model": "recall.ProjectionResult",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "operation_id": "id_1",
+      "target": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1"
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "model_space": "id_1",
+        "chunk_index": 1,
+        "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "state": "accepted",
+      "payload_matches": true,
+      "searchable": true,
+      "observed_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-recall.ProjectionResult",
+    "model": "recall.ProjectionResult",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "operation_id": "id_1",
+      "target": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1"
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "model_space": "id_1",
+        "chunk_index": 1,
+        "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "state": "accepted",
+      "payload_matches": true,
+      "searchable": true,
+      "observed_at": "2026-09-19T08:00:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.VectorSearchRequest",
+    "model": "recall.VectorSearchRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "selection": {},
+      "vector": [
+        0.5
+      ],
+      "model_space": "id_1",
+      "deadline_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-recall.VectorSearchRequest",
+    "model": "recall.VectorSearchRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "selection": {},
+      "vector": [
+        0.5
+      ],
+      "model_space": "id_1",
+      "deadline_at": "2026-09-19T08:00:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.VectorCandidate",
+    "model": "recall.VectorCandidate",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "target": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1"
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "model_space": "id_1",
+        "chunk_index": 1,
+        "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "rank": 1
+    }
+  },
+  {
+    "id": "extra-field-recall.VectorCandidate",
+    "model": "recall.VectorCandidate",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "target": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1"
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "model_space": "id_1",
+        "chunk_index": 1,
+        "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "rank": 1,
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.VectorSearchResult",
+    "model": "recall.VectorSearchResult",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "candidates": [],
+      "coverage": "complete"
+    }
+  },
+  {
+    "id": "extra-field-recall.VectorSearchResult",
+    "model": "recall.VectorSearchResult",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "candidates": [],
+      "coverage": "complete",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.AccessObserved",
+    "model": "recall.AccessObserved",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "recall_id": "id_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "stage": "candidate",
+      "outcome": "succeeded",
+      "access_key": "id_1",
+      "representation": "original",
+      "elapsed_ms": 0.5
+    }
+  },
+  {
+    "id": "extra-field-recall.AccessObserved",
+    "model": "recall.AccessObserved",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "recall_id": "id_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "stage": "candidate",
+      "outcome": "succeeded",
+      "access_key": "id_1",
+      "representation": "original",
+      "elapsed_ms": 0.5,
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-operate.SchedulingInput",
+    "model": "operate.SchedulingInput",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "object_revision": 1,
+      "storage_watermark": 1,
+      "access_watermark": 1,
+      "successful_reads": 1,
+      "current_tier": "cold",
+      "importance": 0.5,
+      "available_bytes": 1,
+      "content_bytes": 1,
+      "coverage": "complete",
+      "observed_at": "2026-09-19T08:00:00.000Z",
+      "policy_version": "id_1"
+    }
+  },
+  {
+    "id": "extra-field-operate.SchedulingInput",
+    "model": "operate.SchedulingInput",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "object_revision": 1,
+      "storage_watermark": 1,
+      "access_watermark": 1,
+      "successful_reads": 1,
+      "current_tier": "cold",
+      "importance": 0.5,
+      "available_bytes": 1,
+      "content_bytes": 1,
+      "coverage": "complete",
+      "observed_at": "2026-09-19T08:00:00.000Z",
+      "policy_version": "id_1",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-operate.PlacementDecision",
+    "model": "operate.PlacementDecision",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "decision_id": "id_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "outcome": "promote",
+      "current_tier": "cold",
+      "target_tier": "warm",
+      "reason": "id_1",
+      "policy_version": "id_1",
+      "storage_watermark": 1,
+      "access_watermark": 1
+    }
+  },
+  {
+    "id": "extra-field-operate.PlacementDecision",
+    "model": "operate.PlacementDecision",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "decision_id": "id_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "outcome": "promote",
+      "current_tier": "cold",
+      "target_tier": "warm",
+      "reason": "id_1",
+      "policy_version": "id_1",
+      "storage_watermark": 1,
+      "access_watermark": 1,
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-operate.ActionIntent",
+    "model": "operate.ActionIntent",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "action_id": "id_1",
+      "decision": {
+        "decision_id": "id_1",
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1"
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "outcome": "promote",
+        "current_tier": "cold",
+        "target_tier": "warm",
+        "reason": "id_1",
+        "policy_version": "id_1",
+        "storage_watermark": 1,
+        "access_watermark": 1
+      },
+      "representation_id": "id_1",
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "provider_id": "id_1",
+      "provider_instance_id": "id_1",
+      "expected_epoch": 1,
+      "provider_mode": "simulated",
+      "created_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-operate.ActionIntent",
+    "model": "operate.ActionIntent",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "action_id": "id_1",
+      "decision": {
+        "decision_id": "id_1",
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1"
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "outcome": "promote",
+        "current_tier": "cold",
+        "target_tier": "warm",
+        "reason": "id_1",
+        "policy_version": "id_1",
+        "storage_watermark": 1,
+        "access_watermark": 1
+      },
+      "representation_id": "id_1",
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "provider_id": "id_1",
+      "provider_instance_id": "id_1",
+      "expected_epoch": 1,
+      "provider_mode": "simulated",
+      "created_at": "2026-09-19T08:00:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-operate.PlacementObservation",
+    "model": "operate.PlacementObservation",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "representation_id": "id_1",
+      "provider_instance_id": "id_1",
+      "tier": "cold",
+      "epoch": 1,
+      "readable": true,
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "observed_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-operate.PlacementObservation",
+    "model": "operate.PlacementObservation",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "representation_id": "id_1",
+      "provider_instance_id": "id_1",
+      "tier": "cold",
+      "epoch": 1,
+      "readable": true,
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "observed_at": "2026-09-19T08:00:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-operate.ReadProof",
+    "model": "operate.ReadProof",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "action_id": "id_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "provider_instance_id": "id_1",
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "readable": true,
+      "verified_at": "2026-09-19T08:00:00.000Z",
+      "provider_mode": "simulated"
+    }
+  },
+  {
+    "id": "extra-field-operate.ReadProof",
+    "model": "operate.ReadProof",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "action_id": "id_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "provider_instance_id": "id_1",
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "readable": true,
+      "verified_at": "2026-09-19T08:00:00.000Z",
+      "provider_mode": "simulated",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-operate.ResourceSnapshot",
+    "model": "operate.ResourceSnapshot",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "provider_id": "id_1",
+      "provider_instance_id": "id_1",
+      "epoch": 1,
+      "available_bytes": 1,
+      "observed_at": "2026-09-19T08:00:00.000Z",
+      "supported_moves": []
+    }
+  },
+  {
+    "id": "extra-field-operate.ResourceSnapshot",
+    "model": "operate.ResourceSnapshot",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "provider_id": "id_1",
+      "provider_instance_id": "id_1",
+      "epoch": 1,
+      "available_bytes": 1,
+      "observed_at": "2026-09-19T08:00:00.000Z",
+      "supported_moves": [],
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-operate.ExecutionFeedback",
+    "model": "operate.ExecutionFeedback",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "action_id": "id_1",
+      "provider_instance_id": "id_1",
+      "state": "accepted",
+      "observed_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-operate.ExecutionFeedback",
+    "model": "operate.ExecutionFeedback",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "action_id": "id_1",
+      "provider_instance_id": "id_1",
+      "state": "accepted",
+      "observed_at": "2026-09-19T08:00:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-operate.ActionRecord",
+    "model": "operate.ActionRecord",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "intent": {
+        "action_id": "id_1",
+        "decision": {
+          "decision_id": "id_1",
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "outcome": "promote",
+          "current_tier": "cold",
+          "target_tier": "warm",
+          "reason": "id_1",
+          "policy_version": "id_1",
+          "storage_watermark": 1,
+          "access_watermark": 1
+        },
+        "representation_id": "id_1",
+        "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "provider_id": "id_1",
+        "provider_instance_id": "id_1",
+        "expected_epoch": 1,
+        "provider_mode": "simulated",
+        "created_at": "2026-09-19T08:00:00.000Z"
+      },
+      "state": "generated",
+      "revision": 1,
+      "cleanup_state": "not_required"
+    }
+  },
+  {
+    "id": "extra-field-operate.ActionRecord",
+    "model": "operate.ActionRecord",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "intent": {
+        "action_id": "id_1",
+        "decision": {
+          "decision_id": "id_1",
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "outcome": "promote",
+          "current_tier": "cold",
+          "target_tier": "warm",
+          "reason": "id_1",
+          "policy_version": "id_1",
+          "storage_watermark": 1,
+          "access_watermark": 1
+        },
+        "representation_id": "id_1",
+        "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "provider_id": "id_1",
+        "provider_instance_id": "id_1",
+        "expected_epoch": 1,
+        "provider_mode": "simulated",
+        "created_at": "2026-09-19T08:00:00.000Z"
+      },
+      "state": "generated",
+      "revision": 1,
+      "cleanup_state": "not_required",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-operate.ActionChanged",
+    "model": "operate.ActionChanged",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "action_id": "id_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "state": "generated",
+      "provider_mode": "simulated",
+      "reason": "id_1"
+    }
+  },
+  {
+    "id": "extra-field-operate.ActionChanged",
+    "model": "operate.ActionChanged",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "action_id": "id_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "state": "generated",
+      "provider_mode": "simulated",
+      "reason": "id_1",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "reject-client-tenant",
+    "model": "remember.RememberRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "source": {
+        "kind": "conversation",
+        "external_id": "id_1",
+        "external_version": "id_1",
+        "occurred_at": "2026-09-19T08:00:00.000Z"
+      },
+      "selection": {
+        "tenant_id": "other"
+      },
+      "content": {
+        "kind": "text",
+        "text": "id_1"
+      }
+    }
+  },
+  {
+    "id": "reject-negative-version",
+    "model": "remember.MemoryRef",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1"
+      },
+      "memory_id": "id_1",
+      "version": 0
+    }
+  },
+  {
+    "id": "reject-bool-version",
+    "model": "remember.MemoryRef",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1"
+      },
+      "memory_id": "id_1",
+      "version": true
+    }
+  },
+  {
+    "id": "reject-zero-trace",
+    "model": "runtime.TrustedContext",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "principal": {
+        "principal_id": "id_1",
+        "home_scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "permissions": [],
+        "auth_epoch": 1
+      },
+      "request_id": "id_1",
+      "operation_id": "id_1",
+      "trace_id": "00000000000000000000000000000000",
+      "span_id": "aaaaaaaaaaaaaaaa",
+      "deadline_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "reject-event-payload-tampering",
+    "model": "runtime.EventEnvelope",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "event_id": "id_1",
+      "event_type": "id_1",
+      "producer": "runtime",
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "subject_revision": 1,
+      "occurred_at": "2026-09-19T08:00:00.000Z",
+      "request_id": "id_1",
+      "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "initiator_id": "id_1",
+      "initiator_auth_epoch": 1,
+      "payload": {
+        "changed": true
+      },
+      "payload_hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    }
+  },
+  {
+    "id": "reject-calendar-date",
+    "model": "runtime.TrustedContext",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "principal": {
+        "principal_id": "id_1",
+        "home_scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "permissions": [],
+        "auth_epoch": 1
+      },
+      "request_id": "id_1",
+      "operation_id": "id_1",
+      "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "span_id": "aaaaaaaaaaaaaaaa",
+      "deadline_at": "2026-02-30T00:00:00.000Z"
+    }
+  },
+  {
+    "id": "reject-cross-tenant-grant",
+    "model": "runtime.AuthorizationGrant",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "grant_id": "id_1",
+      "grantee_id": "id_1",
+      "grantee_tenant_id": "tenant_other",
+      "resource": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "permissions": [
+        "memory:read"
+      ],
+      "revision": 1
+    }
+  },
+  {
+    "id": "reject-running-without-lease",
+    "model": "runtime.TaskRecord",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "task_id": "id_1",
+      "owner_flow": "runtime",
+      "kind": "id_1",
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "input_ref": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "idempotency_key": "id_1",
+      "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "initiator_id": "id_1",
+      "initiator_auth_epoch": 1,
+      "deadline_at": "2026-09-19T08:00:00.000Z",
+      "state": "running",
+      "revision": 1,
+      "attempt": 1,
+      "effect_status": "not_started"
+    }
+  },
+  {
+    "id": "reject-unknown-failed",
+    "model": "runtime.TaskRecord",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "task_id": "id_1",
+      "owner_flow": "runtime",
+      "kind": "id_1",
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "input_ref": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "idempotency_key": "id_1",
+      "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "initiator_id": "id_1",
+      "initiator_auth_epoch": 1,
+      "deadline_at": "2026-09-19T08:00:00.000Z",
+      "state": "failed",
+      "revision": 1,
+      "attempt": 1,
+      "effect_status": "unknown"
+    }
+  },
+  {
+    "id": "reject-unknown-blind-retry",
+    "model": "runtime.RecoveryDecision",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "action": "resume",
+      "effect_status": "unknown",
+      "reason": "id_1",
+      "evidence": [
+        {
+          "owner": "runtime",
+          "object_type": "id_1",
+          "object_id": "id_1",
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "reject-query-without-original-id",
+    "model": "runtime.RecoveryDecision",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "action": "query_only",
+      "effect_status": "unknown",
+      "reason": "id_1",
+      "evidence": [
+        {
+          "owner": "runtime",
+          "object_type": "id_1",
+          "object_id": "id_1",
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "accept-unknown-query",
+    "model": "runtime.RecoveryDecision",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "action": "query_only",
+      "effect_status": "unknown",
+      "reason": "id_1",
+      "evidence": [
+        {
+          "owner": "runtime",
+          "object_type": "id_1",
+          "object_id": "id_1",
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1"
+          }
+        }
+      ],
+      "original_operation_id": "original_1"
+    }
+  },
+  {
+    "id": "reject-attempt-over-budget",
+    "model": "runtime.TaskRecord",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "task_id": "id_1",
+      "owner_flow": "runtime",
+      "kind": "id_1",
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "input_ref": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "idempotency_key": "id_1",
+      "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "initiator_id": "id_1",
+      "initiator_auth_epoch": 1,
+      "deadline_at": "2026-09-19T08:00:00.000Z",
+      "state": "pending",
+      "revision": 1,
+      "attempt": 4,
+      "effect_status": "not_started",
+      "max_attempts": 3
+    }
+  },
+  {
+    "id": "reject-false-ready",
+    "model": "remember.MemorySnapshot",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "ref": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "revision": 1,
+      "object_revision": 1,
+      "kind": "working",
+      "status": "active",
+      "content": "id_1",
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sources": [
+        {
+          "source_id": "id_1",
+          "source_version": 1,
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "locator": "id_1"
+        }
+      ],
+      "projection_state": "ready",
+      "created_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "reject-resurrect-ready",
+    "model": "remember.MemorySnapshot",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "ref": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "revision": 1,
+      "object_revision": 1,
+      "kind": "working",
+      "status": "deleted",
+      "content": "id_1",
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sources": [
+        {
+          "source_id": "id_1",
+          "source_version": 1,
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "locator": "id_1"
+        }
+      ],
+      "projection_state": "ready",
+      "created_at": "2026-09-19T08:00:00.000Z",
+      "model_space": "model_1"
+    }
+  },
+  {
+    "id": "reject-unfinished-cleanup",
+    "model": "remember.DeleteReceipt",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "operation_id": "id_1",
+      "blocked": true,
+      "cleanup_state": "completed",
+      "task_ids": [],
+      "remaining_targets": [
+        "target_1"
+      ]
+    }
+  },
+  {
+    "id": "reject-source-coverage-hide",
+    "model": "recall.ContextPack",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "recall_id": "id_1",
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1"
+      },
+      "outcome": "available",
+      "selected_sources": [
+        "working"
+      ],
+      "coverage": {
+        "working": "complete",
+        "long_term": "unavailable"
+      },
+      "groups": [
+        {
+          "group_id": "id_1",
+          "items": [
+            {
+              "memory": {
+                "scope": {
+                  "tenant_id": "id_1",
+                  "application_id": "id_1",
+                  "user_id": "id_1",
+                  "agent_id": "id_1"
+                },
+                "memory_id": "id_1",
+                "version": 1
+              },
+              "content": "id_1",
+              "sources": [
+                {
+                  "source_id": "id_1",
+                  "source_version": 1,
+                  "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "locator": "id_1"
+                }
+              ],
+              "representation": "original"
+            }
+          ]
+        }
+      ],
+      "rendered_context": "id_1",
+      "token_budget": 1,
+      "tokens_used": 1,
+      "tokenizer_id": "id_1",
+      "policy_version": "id_1",
+      "degradation_reasons": [],
+      "committed_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "reject-over-budget",
+    "model": "recall.ContextPack",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "recall_id": "id_1",
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1"
+      },
+      "outcome": "available",
+      "selected_sources": [
+        "working"
+      ],
+      "coverage": {
+        "working": "complete",
+        "long_term": "not_requested"
+      },
+      "groups": [
+        {
+          "group_id": "id_1",
+          "items": [
+            {
+              "memory": {
+                "scope": {
+                  "tenant_id": "id_1",
+                  "application_id": "id_1",
+                  "user_id": "id_1",
+                  "agent_id": "id_1"
+                },
+                "memory_id": "id_1",
+                "version": 1
+              },
+              "content": "id_1",
+              "sources": [
+                {
+                  "source_id": "id_1",
+                  "source_version": 1,
+                  "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "locator": "id_1"
+                }
+              ],
+              "representation": "original"
+            }
+          ]
+        }
+      ],
+      "rendered_context": "id_1",
+      "token_budget": 1,
+      "tokens_used": 2,
+      "tokenizer_id": "id_1",
+      "policy_version": "id_1",
+      "degradation_reasons": [],
+      "committed_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "reject-degraded-without-reason",
+    "model": "recall.ContextPack",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "recall_id": "id_1",
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1"
+      },
+      "outcome": "degraded",
+      "selected_sources": [
+        "working"
+      ],
+      "coverage": {
+        "working": "complete",
+        "long_term": "not_requested"
+      },
+      "groups": [
+        {
+          "group_id": "id_1",
+          "items": [
+            {
+              "memory": {
+                "scope": {
+                  "tenant_id": "id_1",
+                  "application_id": "id_1",
+                  "user_id": "id_1",
+                  "agent_id": "id_1"
+                },
+                "memory_id": "id_1",
+                "version": 1
+              },
+              "content": "id_1",
+              "sources": [
+                {
+                  "source_id": "id_1",
+                  "source_version": 1,
+                  "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "locator": "id_1"
+                }
+              ],
+              "representation": "original"
+            }
+          ]
+        }
+      ],
+      "rendered_context": "id_1",
+      "token_budget": 1,
+      "tokens_used": 1,
+      "tokenizer_id": "id_1",
+      "policy_version": "id_1",
+      "degradation_reasons": [],
+      "committed_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "reject-empty-with-content",
+    "model": "recall.ContextPack",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "recall_id": "id_1",
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1"
+      },
+      "outcome": "empty",
+      "selected_sources": [
+        "working"
+      ],
+      "coverage": {
+        "working": "complete",
+        "long_term": "not_requested"
+      },
+      "groups": [
+        {
+          "group_id": "id_1",
+          "items": [
+            {
+              "memory": {
+                "scope": {
+                  "tenant_id": "id_1",
+                  "application_id": "id_1",
+                  "user_id": "id_1",
+                  "agent_id": "id_1"
+                },
+                "memory_id": "id_1",
+                "version": 1
+              },
+              "content": "id_1",
+              "sources": [
+                {
+                  "source_id": "id_1",
+                  "source_version": 1,
+                  "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "locator": "id_1"
+                }
+              ],
+              "representation": "original"
+            }
+          ]
+        }
+      ],
+      "rendered_context": "id_1",
+      "token_budget": 1,
+      "tokens_used": 1,
+      "tokenizer_id": "id_1",
+      "policy_version": "id_1",
+      "degradation_reasons": [],
+      "committed_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "reject-cross-tenant-pack",
+    "model": "recall.ContextPack",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "recall_id": "id_1",
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1"
+      },
+      "outcome": "available",
+      "selected_sources": [
+        "working"
+      ],
+      "coverage": {
+        "working": "complete",
+        "long_term": "not_requested"
+      },
+      "groups": [
+        {
+          "group_id": "id_1",
+          "items": [
+            {
+              "memory": {
+                "scope": {
+                  "tenant_id": "other",
+                  "application_id": "id_1",
+                  "user_id": "id_1",
+                  "agent_id": "id_1"
+                },
+                "memory_id": "id_1",
+                "version": 1
+              },
+              "content": "id_1",
+              "sources": [
+                {
+                  "source_id": "id_1",
+                  "source_version": 1,
+                  "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "locator": "id_1"
+                }
+              ],
+              "representation": "original"
+            }
+          ]
+        }
+      ],
+      "rendered_context": "id_1",
+      "token_budget": 1,
+      "tokens_used": 1,
+      "tokenizer_id": "id_1",
+      "policy_version": "id_1",
+      "degradation_reasons": [],
+      "committed_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "accept-confirmed-empty",
+    "model": "recall.ContextPack",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "recall_id": "id_1",
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1"
+      },
+      "outcome": "empty",
+      "selected_sources": [
+        "working"
+      ],
+      "coverage": {
+        "working": "complete",
+        "long_term": "not_requested"
+      },
+      "groups": [],
+      "rendered_context": "",
+      "token_budget": 1,
+      "tokens_used": 0,
+      "tokenizer_id": "id_1",
+      "policy_version": "id_1",
+      "degradation_reasons": [],
+      "committed_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "accept-source-degraded",
+    "model": "recall.ContextPack",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "recall_id": "id_1",
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1"
+      },
+      "outcome": "degraded",
+      "selected_sources": [
+        "working",
+        "long_term"
+      ],
+      "coverage": {
+        "working": "complete",
+        "long_term": "unavailable"
+      },
+      "groups": [
+        {
+          "group_id": "id_1",
+          "items": [
+            {
+              "memory": {
+                "scope": {
+                  "tenant_id": "id_1",
+                  "application_id": "id_1",
+                  "user_id": "id_1",
+                  "agent_id": "id_1"
+                },
+                "memory_id": "id_1",
+                "version": 1
+              },
+              "content": "id_1",
+              "sources": [
+                {
+                  "source_id": "id_1",
+                  "source_version": 1,
+                  "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "locator": "id_1"
+                }
+              ],
+              "representation": "original"
+            }
+          ]
+        }
+      ],
+      "rendered_context": "id_1",
+      "token_budget": 1,
+      "tokens_used": 1,
+      "tokenizer_id": "id_1",
+      "policy_version": "id_1",
+      "degradation_reasons": [
+        "long_term_unavailable"
+      ],
+      "committed_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "accept-long-document-reference",
+    "model": "remember.RememberRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "source": {
+        "kind": "conversation",
+        "external_id": "id_1",
+        "external_version": "id_1",
+        "occurred_at": "2026-09-19T08:00:00.000Z"
+      },
+      "selection": {},
+      "content": {
+        "kind": "document",
+        "provider_id": "id_1",
+        "document_id": "id_1",
+        "document_version": "id_1",
+        "expected_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    }
+  },
+  {
+    "id": "reject-query-multiple-inputs",
+    "model": "recall.EmbeddingRequest",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "operation_id": "id_1",
+      "usage": "query",
+      "texts": [
+        "one",
+        "two"
+      ],
+      "model_space": "id_1",
+      "deadline_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "reject-embedding-dimensions",
+    "model": "recall.EmbeddingResult",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "operation_id": "id_1",
+      "usage": "query",
+      "model_space": "id_1",
+      "dimensions": 2,
+      "items": [
+        {
+          "index": 0,
+          "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "vector": [
+            0.5
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "reject-unverified-projection",
+    "model": "recall.ProjectionResult",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "operation_id": "id_1",
+      "target": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1"
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "model_space": "id_1",
+        "chunk_index": 1,
+        "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "state": "verified",
+      "payload_matches": true,
+      "searchable": false,
+      "observed_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "reject-tier-jump",
+    "model": "operate.PlacementDecision",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "decision_id": "id_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "outcome": "promote",
+      "current_tier": "cold",
+      "target_tier": "hot",
+      "reason": "id_1",
+      "policy_version": "id_1",
+      "storage_watermark": 1,
+      "access_watermark": 1
+    }
+  },
+  {
+    "id": "reject-keep-external-action",
+    "model": "operate.ActionIntent",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "action_id": "id_1",
+      "decision": {
+        "decision_id": "id_1",
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1"
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "outcome": "keep",
+        "current_tier": "cold",
+        "target_tier": "cold",
+        "reason": "id_1",
+        "policy_version": "id_1",
+        "storage_watermark": 1,
+        "access_watermark": 1
+      },
+      "representation_id": "id_1",
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "provider_id": "id_1",
+      "provider_instance_id": "id_1",
+      "expected_epoch": 1,
+      "provider_mode": "simulated",
+      "created_at": "2026-09-19T08:00:00.000Z"
+    }
+  },
+  {
+    "id": "reject-success-without-feedback",
+    "model": "operate.ActionRecord",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "intent": {
+        "action_id": "id_1",
+        "decision": {
+          "decision_id": "id_1",
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "outcome": "promote",
+          "current_tier": "cold",
+          "target_tier": "warm",
+          "reason": "id_1",
+          "policy_version": "id_1",
+          "storage_watermark": 1,
+          "access_watermark": 1
+        },
+        "representation_id": "id_1",
+        "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "provider_id": "id_1",
+        "provider_instance_id": "id_1",
+        "expected_epoch": 1,
+        "provider_mode": "simulated",
+        "created_at": "2026-09-19T08:00:00.000Z"
+      },
+      "state": "succeeded",
+      "revision": 1,
+      "cleanup_state": "not_required"
+    }
+  },
+  {
+    "id": "accept-complete-conflict",
+    "model": "recall.ContextGroup",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "group_id": "id_1",
+      "items": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "content": "id_1",
+          "sources": [
+            {
+              "source_id": "id_1",
+              "source_version": 1,
+              "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "locator": "id_1"
+            }
+          ],
+          "representation": "original"
+        },
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "memory_2",
+            "version": 1
+          },
+          "content": "id_1",
+          "sources": [
+            {
+              "source_id": "id_1",
+              "source_version": 1,
+              "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "locator": "id_1"
+            }
+          ],
+          "representation": "original"
+        }
+      ],
+      "conflict": {
+        "group_id": "id_1",
+        "members": [
+          {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "memory_2",
+            "version": 1
+          }
+        ],
+        "explanation": "id_1"
+      }
+    }
+  },
+  {
+    "id": "reject-partial-conflict",
+    "model": "recall.ContextGroup",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "group_id": "id_1",
+      "items": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "content": "id_1",
+          "sources": [
+            {
+              "source_id": "id_1",
+              "source_version": 1,
+              "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "locator": "id_1"
+            }
+          ],
+          "representation": "original"
+        }
+      ],
+      "conflict": {
+        "group_id": "id_1",
+        "members": [
+          {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "memory_2",
+            "version": 1
+          }
+        ],
+        "explanation": "id_1"
+      }
+    }
+  },
+  {
+    "id": "accept-real-evidence-shape",
+    "model": "operate.ActionRecord",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "intent": {
+        "action_id": "id_1",
+        "decision": {
+          "decision_id": "id_1",
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "outcome": "promote",
+          "current_tier": "cold",
+          "target_tier": "warm",
+          "reason": "id_1",
+          "policy_version": "id_1",
+          "storage_watermark": 1,
+          "access_watermark": 1
+        },
+        "representation_id": "id_1",
+        "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "provider_id": "id_1",
+        "provider_instance_id": "id_1",
+        "expected_epoch": 1,
+        "provider_mode": "real",
+        "created_at": "2026-09-19T08:00:00.000Z"
+      },
+      "state": "succeeded",
+      "revision": 1,
+      "cleanup_state": "not_required",
+      "feedback": {
+        "action_id": "id_1",
+        "provider_instance_id": "id_1",
+        "state": "succeeded",
+        "observed_at": "2026-09-19T08:00:00.000Z",
+        "observation": {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "representation_id": "id_1",
+          "provider_instance_id": "id_1",
+          "tier": "warm",
+          "epoch": 2,
+          "readable": true,
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observed_at": "2026-09-19T08:00:00.000Z"
+        },
+        "read_proof": {
+          "action_id": "id_1",
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "provider_instance_id": "id_1",
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "readable": true,
+          "verified_at": "2026-09-19T08:00:00.000Z",
+          "provider_mode": "real"
+        }
+      }
+    }
+  },
+  {
+    "id": "reject-simulated-proof-for-real",
+    "model": "operate.ActionRecord",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "intent": {
+        "action_id": "id_1",
+        "decision": {
+          "decision_id": "id_1",
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "outcome": "promote",
+          "current_tier": "cold",
+          "target_tier": "warm",
+          "reason": "id_1",
+          "policy_version": "id_1",
+          "storage_watermark": 1,
+          "access_watermark": 1
+        },
+        "representation_id": "id_1",
+        "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "provider_id": "id_1",
+        "provider_instance_id": "id_1",
+        "expected_epoch": 1,
+        "provider_mode": "real",
+        "created_at": "2026-09-19T08:00:00.000Z"
+      },
+      "state": "succeeded",
+      "revision": 1,
+      "cleanup_state": "not_required",
+      "feedback": {
+        "action_id": "id_1",
+        "provider_instance_id": "id_1",
+        "state": "succeeded",
+        "observed_at": "2026-09-19T08:00:00.000Z",
+        "observation": {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "representation_id": "id_1",
+          "provider_instance_id": "id_1",
+          "tier": "warm",
+          "epoch": 2,
+          "readable": true,
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observed_at": "2026-09-19T08:00:00.000Z"
+        },
+        "read_proof": {
+          "action_id": "id_1",
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "provider_instance_id": "id_1",
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "readable": true,
+          "verified_at": "2026-09-19T08:00:00.000Z",
+          "provider_mode": "simulated"
+        }
+      }
+    }
+  },
+  {
+    "id": "reject-proof-after-restart",
+    "model": "operate.ActionRecord",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "intent": {
+        "action_id": "id_1",
+        "decision": {
+          "decision_id": "id_1",
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "outcome": "promote",
+          "current_tier": "cold",
+          "target_tier": "warm",
+          "reason": "id_1",
+          "policy_version": "id_1",
+          "storage_watermark": 1,
+          "access_watermark": 1
+        },
+        "representation_id": "id_1",
+        "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "provider_id": "id_1",
+        "provider_instance_id": "id_1",
+        "expected_epoch": 1,
+        "provider_mode": "real",
+        "created_at": "2026-09-19T08:00:00.000Z"
+      },
+      "state": "succeeded",
+      "revision": 1,
+      "cleanup_state": "not_required",
+      "feedback": {
+        "action_id": "id_1",
+        "provider_instance_id": "restarted",
+        "state": "succeeded",
+        "observed_at": "2026-09-19T08:00:00.000Z",
+        "observation": {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "representation_id": "id_1",
+          "provider_instance_id": "id_1",
+          "tier": "warm",
+          "epoch": 2,
+          "readable": true,
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observed_at": "2026-09-19T08:00:00.000Z"
+        },
+        "read_proof": {
+          "action_id": "id_1",
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "provider_instance_id": "id_1",
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "readable": true,
+          "verified_at": "2026-09-19T08:00:00.000Z",
+          "provider_mode": "real"
+        }
+      }
+    }
+  },
+  {
+    "id": "reject-wrong-content-proof",
+    "model": "operate.ActionRecord",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "intent": {
+        "action_id": "id_1",
+        "decision": {
+          "decision_id": "id_1",
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "outcome": "promote",
+          "current_tier": "cold",
+          "target_tier": "warm",
+          "reason": "id_1",
+          "policy_version": "id_1",
+          "storage_watermark": 1,
+          "access_watermark": 1
+        },
+        "representation_id": "id_1",
+        "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "provider_id": "id_1",
+        "provider_instance_id": "id_1",
+        "expected_epoch": 1,
+        "provider_mode": "real",
+        "created_at": "2026-09-19T08:00:00.000Z"
+      },
+      "state": "succeeded",
+      "revision": 1,
+      "cleanup_state": "not_required",
+      "feedback": {
+        "action_id": "id_1",
+        "provider_instance_id": "id_1",
+        "state": "succeeded",
+        "observed_at": "2026-09-19T08:00:00.000Z",
+        "observation": {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "representation_id": "id_1",
+          "provider_instance_id": "id_1",
+          "tier": "warm",
+          "epoch": 2,
+          "readable": true,
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "observed_at": "2026-09-19T08:00:00.000Z"
+        },
+        "read_proof": {
+          "action_id": "id_1",
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1"
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "provider_instance_id": "id_1",
+          "content_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "readable": true,
+          "verified_at": "2026-09-19T08:00:00.000Z",
+          "provider_mode": "real"
+        }
+      }
+    }
+  }
+]

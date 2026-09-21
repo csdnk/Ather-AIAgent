@@ -1,0 +1,86 @@
+{
+  "$defs": {
+    "DocumentInput": {
+      "additionalProperties": false,
+      "description": "An allowlisted provider reference, never an unrestricted URL fetch.",
+      "properties": {
+        "document_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Document Id",
+          "type": "string"
+        },
+        "document_version": {
+          "minLength": 1,
+          "title": "Document Version",
+          "type": "string"
+        },
+        "expected_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Expected Hash",
+          "type": "string"
+        },
+        "kind": {
+          "const": "document",
+          "title": "Kind",
+          "type": "string"
+        },
+        "provider_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Provider Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "provider_id",
+        "document_id",
+        "document_version",
+        "expected_hash"
+      ],
+      "title": "DocumentInput",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "acquired_at": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "title": "Acquired At",
+      "type": "string"
+    },
+    "document": {
+      "$ref": "#/$defs/DocumentInput"
+    },
+    "original_bytes": {
+      "minimum": 1,
+      "title": "Original Bytes",
+      "type": "integer"
+    },
+    "original_storage_ref": {
+      "minLength": 1,
+      "title": "Original Storage Ref",
+      "type": "string"
+    },
+    "verified_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Verified Hash",
+      "type": "string"
+    }
+  },
+  "required": [
+    "document",
+    "original_storage_ref",
+    "original_bytes",
+    "verified_hash",
+    "acquired_at"
+  ],
+  "title": "SourceAcquisition",
+  "type": "object",
+  "x-contract-model": "remember.SourceAcquisition"
+}

@@ -1,0 +1,35 @@
+name: p3-native-embedding
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'AgentJYS-main/src/aether_agent_memory/recall/embedding/**'
+      - 'AgentJYS-main/src/aether_agent_memory/recall/basic/**'
+      - 'AgentJYS-main/src/aether_agent_memory/runtime/flows/**'
+      - 'AgentJYS-main/tests/runtime/native/**'
+      - 'AgentJYS-main/scripts/p3/**'
+      - '.github/workflows/p3-native.yml'
+  pull_request:
+    paths:
+      - 'AgentJYS-main/src/aether_agent_memory/recall/embedding/**'
+      - 'AgentJYS-main/src/aether_agent_memory/recall/basic/**'
+      - 'AgentJYS-main/src/aether_agent_memory/runtime/flows/**'
+      - 'AgentJYS-main/tests/runtime/native/**'
+      - 'AgentJYS-main/scripts/p3/**'
+defaults:
+  run:
+    working-directory: AgentJYS-main
+jobs:
+  adapter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r scripts/p3/requirements-native.txt
+      - run: python -m pytest -c tests/runtime/p3/pytest.ini tests/runtime/native -q
+      - run: python -m ruff check src/aether_agent_memory/recall/embedding/p3.py tests/runtime/native scripts/p3/validate_native_flows.py
+      - run: python -m mypy --config-file scripts/p3/mypy.ini src/aether_agent_memory/recall/embedding/p3.py
+      - if: github.event_name == 'workflow_dispatch'
+        run: python scripts/p3/validate_native_flows.py

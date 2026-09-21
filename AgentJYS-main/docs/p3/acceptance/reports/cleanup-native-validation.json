@@ -1,0 +1,96 @@
+{
+  "passed": true,
+  "mode": "real_native_cpu_with_p3_foundation",
+  "model_binding": {
+    "dimension": 512,
+    "dtype": "float32",
+    "embedding_schema_version": "bge-cls-l2-float32-v1",
+    "model_contract_ref": "p3-native-bge-local-v1",
+    "model_id": "BAAI/bge-small-zh-v1.5",
+    "model_version": "1294ea4b6331115a353d81f96b85e8c8d7fdcc284453d5b2fab5b016230aad38",
+    "preprocessing_version": "3e5cec43cd946067852ebbc37d3f0fe9011002cee1f5c111a9f59e9e32751ed9",
+    "retrieval_space_ref": "bge_db0df9ff28dc3acbb40bf9193bc49d415f873d47246279217ed0f642e61f4135"
+  },
+  "query_passage_differ": true,
+  "dimensions": 512,
+  "native_attempts": 10,
+  "backend_evidence_count": 10,
+  "native_health": "available",
+  "trace_verified": true,
+  "restart_binding_verified": true,
+  "flow_demo": true,
+  "not_implemented": [
+    "milvus",
+    "live_langmem_model",
+    "production_storage_tiers",
+    "target_llm_tokenizer",
+    "http_host",
+    "azure_deployment"
+  ],
+  "generated_at": "2026-09-19T08:17:34.059659+00:00",
+  "python": "3.13.15",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "adapter_tests_passed": true,
+  "artifacts": [
+    {
+      "path": "src/aether_agent_memory/recall/embedding/backends.py",
+      "sha256": "97821bf30c7291a5c7ea02dd19e4e50d33efe2c22c7495851a6de4b6e036a181"
+    },
+    {
+      "path": "src/aether_agent_memory/recall/embedding/fastembed_client.py",
+      "sha256": "1da1d5f4ea3d9df08c16fb5e8dac5ab79ad0aa84cc2342ed122fc9968de43bff"
+    },
+    {
+      "path": "src/aether_agent_memory/recall/embedding/models.py",
+      "sha256": "9f9f2914a995d9b3d1780b6a660b72d30ae5780aa92628cdea4c097f73bf4ca2"
+    },
+    {
+      "path": "src/aether_agent_memory/recall/embedding/native.py",
+      "sha256": "f91a86cd6c96aa15bf80653bf3e0b3d0d19f43930b45981809041a822bab6cc8"
+    },
+    {
+      "path": "src/aether_agent_memory/recall/embedding/p3.py",
+      "sha256": "4577764fb36e48258fd8cd9e5ad027e8ad30c14b1951062ca8785a7c6be82162"
+    },
+    {
+      "path": "src/aether_agent_memory/recall/embedding/service.py",
+      "sha256": "72f281548bbcdd5246ee5e31896b07c3ddc69169ca2cfd5d734b169178054329"
+    },
+    {
+      "path": "src/aether_agent_memory/recall/embedding/__init__.py",
+      "sha256": "15651e7b2c517a4124699c00ea6880c48a84442a6522502ee21a7363f804577f"
+    },
+    {
+      "path": "src/aether_agent_memory/recall/embedding/__main__.py",
+      "sha256": "30ada1efdc71fdca2377ffe22f5535edc8b1309f4f4805315757faf9254f6154"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/flows/health.py",
+      "sha256": "03f4c9f46540edfeddeb82fd0873152ecd30f329c225b8ab0cbf62c3a83d3f11"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/flows/host.py",
+      "sha256": "c7bfb6c8bf67301d3d8f98ca40fb3dab36185f167518b9b35f7d8a20e89851e0"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/flows/__init__.py",
+      "sha256": "c5563f0bfbe977d1e778465ffb99bfdfea49c7a68eb85770f6f222298aeacaf2"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/flows/__main__.py",
+      "sha256": "c54ce259eb607443f799dec3bcd28b2e8342c57d629b86f741a7ba0237187525"
+    },
+    {
+      "path": "src/aether_agent_memory/recall/basic/adapters.py",
+      "sha256": "e70301ce6b732663f026a3cfc315b4b9e7f3b34cacc4e02c77c470c833c3a315"
+    },
+    {
+      "path": "src/aether_agent_memory/recall/basic/service.py",
+      "sha256": "0ce898b57dfd98f4857d93512d111afb03b49a3ea5a8053d3e3e96f4e5c806d4"
+    },
+    {
+      "path": "src/aether_agent_memory/recall/basic/__init__.py",
+      "sha256": "0af9b207120945ad474e985af512934213414d79ea0d6830a276a210ced282b9"
+    }
+  ]
+}

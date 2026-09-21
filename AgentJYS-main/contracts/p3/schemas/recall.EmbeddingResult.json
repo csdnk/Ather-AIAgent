@@ -1,0 +1,83 @@
+{
+  "$defs": {
+    "EmbeddingItem": {
+      "additionalProperties": false,
+      "properties": {
+        "index": {
+          "minimum": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "input_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Hash",
+          "type": "string"
+        },
+        "vector": {
+          "items": {
+            "type": "number"
+          },
+          "minItems": 1,
+          "title": "Vector",
+          "type": "array"
+        }
+      },
+      "required": [
+        "index",
+        "input_hash",
+        "vector"
+      ],
+      "title": "EmbeddingItem",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "dimensions": {
+      "minimum": 1,
+      "title": "Dimensions",
+      "type": "integer"
+    },
+    "items": {
+      "items": {
+        "$ref": "#/$defs/EmbeddingItem"
+      },
+      "minItems": 1,
+      "title": "Items",
+      "type": "array"
+    },
+    "model_space": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Model Space",
+      "type": "string"
+    },
+    "operation_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Operation Id",
+      "type": "string"
+    },
+    "usage": {
+      "enum": [
+        "query",
+        "passage"
+      ],
+      "title": "Usage",
+      "type": "string"
+    }
+  },
+  "required": [
+    "operation_id",
+    "usage",
+    "model_space",
+    "dimensions",
+    "items"
+  ],
+  "title": "EmbeddingResult",
+  "type": "object",
+  "x-contract-model": "recall.EmbeddingResult"
+}

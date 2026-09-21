@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "index": {
+      "minimum": 0,
+      "title": "Index",
+      "type": "integer"
+    },
+    "input_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Hash",
+      "type": "string"
+    },
+    "vector": {
+      "items": {
+        "type": "number"
+      },
+      "minItems": 1,
+      "title": "Vector",
+      "type": "array"
+    }
+  },
+  "required": [
+    "index",
+    "input_hash",
+    "vector"
+  ],
+  "title": "EmbeddingItem",
+  "type": "object",
+  "x-contract-model": "recall.EmbeddingItem"
+}

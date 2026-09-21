@@ -1,0 +1,2096 @@
+ <!DOCTYPE html>
+		<html
+			class="layout layout-holy-grail   show-table-of-contents conceptual show-breadcrumb default-focus"
+			lang="en-us"
+			dir="ltr"
+			data-authenticated="false"
+			data-auth-status-determined="false"
+			data-target="docs"
+			x-ms-format-detection="none"
+		>
+			
+		<head>
+			<title>Deployment and Cluster Reliability Best Practices for Azure Kubernetes Service (AKS) - Azure Kubernetes Service | Microsoft Learn</title>
+			<meta charset="utf-8" />
+			<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+			<meta name="color-scheme" content="light dark" />
+
+			<meta name="description" content="Learn the best practices for deployment and cluster reliability for Azure Kubernetes Service (AKS), including guidance for AKS Automatic and AKS Standard cluster modes." />
+			<link rel="canonical" href="https://learn.microsoft.com/en-us/azure/aks/best-practices-app-cluster-reliability" /> 
+
+			<!-- Non-customizable open graph and sharing-related metadata -->
+			<meta name="twitter:card" content="summary_large_image" />
+			<meta name="twitter:site" content="@MicrosoftLearn" />
+			<meta property="og:type" content="website" />
+			<meta property="og:image:alt" content="Microsoft Learn" />
+			<meta property="og:image" content="https://learn.microsoft.com/en-us/media/open-graph-image.png" />
+			<!-- Page specific open graph and sharing-related metadata -->
+			<meta property="og:title" content="Deployment and Cluster Reliability Best Practices for Azure Kubernetes Service (AKS) - Azure Kubernetes Service" />
+			<meta property="og:url" content="https://learn.microsoft.com/en-us/azure/aks/best-practices-app-cluster-reliability" />
+			<meta property="og:description" content="Learn the best practices for deployment and cluster reliability for Azure Kubernetes Service (AKS), including guidance for AKS Automatic and AKS Standard cluster modes." />
+			<meta name="platform_id" content="9a426c71-0aa6-c874-68f2-40bc512328d4" /> <meta name="scope" content="Azure,Azure Kubernetes Service" />
+			<meta name="locale" content="en-us" />
+			 
+			<meta name="uhfHeaderId" content="azure" />
+
+			<meta name="page_type" content="conceptual" />
+
+			<!--page specific meta tags-->
+			
+
+			<!-- custom meta tags -->
+			
+		<meta name="breadcrumb_path" content="/azure/breadcrumb/azure-aks/toc.json" />
+	
+		<meta name="feedback_help_link_url" content="https://learn.microsoft.com/answers/tags/200/azure-kubernetes-service/" />
+	
+		<meta name="feedback_help_link_type" content="get-help-at-qna" />
+	
+		<meta name="feedback_product_url" content="https://feedback.azure.com/d365community/forum/aabe212a-f724-ec11-b6e6-000d3a4f0da0" />
+	
+		<meta name="feedback_system" content="Standard" />
+	
+		<meta name="permissioned-type" content="public" />
+	
+		<meta name="recommendations" content="true" />
+	
+		<meta name="recommendation_types" content="Training" />
+	
+		<meta name="recommendation_types" content="Certification" />
+	
+		<meta name="ms.suite" content="office" />
+	
+		<meta name="adobe-target" content="true" />
+	
+		<meta name="manager" content="kumud" />
+	
+		<meta name="learn_banner_products" content="azure" />
+	
+		<meta name="ms.service" content="azure-kubernetes-service" />
+	
+		<meta name="ms.topic" content="best-practice" />
+	
+		<meta name="ms.date" content="2026-08-20T00:00:00Z" />
+	
+		<meta name="ms.custom" content="aks-reliability, aeo-round-2" />
+	
+		<meta name="author" content="schaffererin" />
+	
+		<meta name="ms.author" content="schaffererin" />
+	
+		<meta name="document_id" content="c7e7cf87-6e97-0e0d-84f3-598c68bea971" />
+	
+		<meta name="document_version_independent_id" content="cd04fa8c-dbd9-0d4c-ac76-8321def86ef4" />
+	
+		<meta name="updated_at" content="2026-08-20T22:09:00Z" />
+	
+		<meta name="original_content_git_url" content="https://github.com/MicrosoftDocs/azure-aks-docs-pr/blob/live/articles/aks/best-practices-app-cluster-reliability.md" />
+	
+		<meta name="gitcommit" content="https://github.com/MicrosoftDocs/azure-aks-docs-pr/blob/d804019ba438831747bda6554eaba89edd667c75/articles/aks/best-practices-app-cluster-reliability.md" />
+	
+		<meta name="git_commit_id" content="d804019ba438831747bda6554eaba89edd667c75" />
+	
+		<meta name="site_name" content="Docs" />
+	
+		<meta name="depot_name" content="Learn.azure-aks" />
+	
+		<meta name="schema" content="Conceptual" />
+	
+		<meta name="interactive_type" content="azurecli" />
+	
+		<meta name="toc_rel" content="toc.json" />
+	
+		<meta name="word_count" content="5547" />
+	
+		<meta name="asset_id" content="aks/best-practices-app-cluster-reliability" />
+	
+		<meta name="moniker_range_name" content="" />
+	
+		<meta name="item_type" content="Content" />
+	
+		<meta name="source_path" content="articles/aks/best-practices-app-cluster-reliability.md" />
+	
+		<meta name="previous_tlsh_hash" content="970876E2E91DC710FFE25F97B63B5608A5F4D14CEBF01BC8003171A7D30D1E7B4794EA96F353B28223264E5303D6695F92E28F3D816D235226A9987D855C23826A863FB6ED" />
+	
+		<meta name="github_feedback_content_git_url" content="https://github.com/MicrosoftDocs/azure-aks-docs/blob/main/articles/aks/best-practices-app-cluster-reliability.md" />
+	
+		<meta name="markdown_url" content="https://learn.microsoft.com/en-us/azure/aks/best-practices-app-cluster-reliability?accept=text/markdown" />
+	 
+		<meta name="cmProducts" content="https://authoring-docs-microsoft.poolparty.biz/devrel/d44a5346-5de4-439c-b804-7b2a536cbb55" data-source="generated" />
+	
+		<meta name="spProducts" content="https://authoring-docs-microsoft.poolparty.biz/devrel/da41a22b-b7a0-42d3-9c35-50da1c2b7b87" data-source="generated" />
+	
+
+			<!-- Apply persisted/system theme before first paint to prevent wrong-theme flash when scripts are deferred. -->
+			<script id="theme-preference">
+				(function () {
+			try {
+				var stored = localStorage.getItem('theme');
+				var theme = /^(light|dark|high-contrast)$/.test(stored)
+					? stored
+					: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+				document.documentElement.classList.add('theme-' + theme);
+			} catch (e) {}
+		})();;
+			</script>
+
+			<script id="atlas-layout-preferences">
+				(function () {
+			try {
+				var state = JSON.parse(localStorage.getItem('atlas-layout-preferences') || '{}');
+				var view = state["docs-layout-persistence"] || {};
+				var excludesKey = "";
+				var blocked = {};
+				if (excludesKey) {
+					var exclusions = JSON.parse(localStorage.getItem('atlas-layout-exclusions') || '{}');
+					if (Object.prototype.hasOwnProperty.call(exclusions, excludesKey)) {
+						var scoped = exclusions[excludesKey];
+						if (scoped) {
+							if (typeof scoped === 'object') blocked = scoped;
+						}
+					}
+				}
+				var html = document.documentElement;
+				for (var c in view) {
+					if (Object.prototype.hasOwnProperty.call(blocked, c)) continue;
+					if (view[c]) html.classList.add(c);
+					else html.classList.remove(c);
+				}
+			} catch (e) {}
+		})();;
+			</script>
+
+			<!-- assets and js globals -->
+			
+			<link rel="stylesheet" href="/static/assets/0.4.03547.8249-7a3b4850/styles/site.css" />
+			
+			<script src="https://wcpstatic.microsoft.com/mscc/lib/v2/wcp-consent.js"></script>
+			<!-- Keep this URL in sync with oneDSScriptSelector in instrumentation/one-ds.ts. -->
+			<script async src="https://js.monitor.azure.com/scripts/c/ms.jsll-4.min.js"></script>
+			
+
+			<!-- msdocs global object -->
+			<script id="msdocs-script">
+		var msDocs = {
+  "environment": {
+    "accessLevel": "online",
+    "azurePortalHostname": "portal.azure.com",
+    "reviewFeatures": false,
+    "supportLevel": "production",
+    "systemContent": true,
+    "siteName": "learn",
+    "legacyHosting": false
+  },
+  "data": {
+    "contentLocale": "en-us",
+    "contentDir": "ltr",
+    "userLocale": "en-us",
+    "userDir": "ltr",
+    "pageTemplate": "Conceptual",
+    "layoutStateStorageKey": "docs-layout-persistence",
+    "brand": "azure",
+    "context": {},
+    "standardFeedback": true,
+    "showFeedbackReport": false,
+    "feedbackHelpLinkType": "get-help-at-qna",
+    "feedbackHelpLinkUrl": "https://learn.microsoft.com/answers/tags/200/azure-kubernetes-service/",
+    "feedbackSystem": "Standard",
+    "feedbackGitHubRepo": "",
+    "feedbackProductUrl": "https://feedback.azure.com/d365community/forum/aabe212a-f724-ec11-b6e6-000d3a4f0da0",
+    "extendBreadcrumb": false,
+    "isEditDisplayable": true,
+    "isPrivateUnauthorized": false,
+    "hideViewSource": false,
+    "isPermissioned": false,
+    "hasRecommendations": true
+  },
+  "functions": {}
+};;
+	</script>
+
+			<!-- base scripts, msdocs global should be before this -->
+			<script
+				src="/static/assets/0.4.03547.8249-7a3b4850/scripts/en-us/index-docs.js"
+				async
+			></script>
+			
+
+			<!-- json-ld -->
+			
+		<script >bazadebezolkohpepadr="1848166972"</script><script type="text/javascript" src="https://learn.microsoft.com/akam/13/6e28c88e"  defer></script></head>
+	
+			<body
+				id="body"
+				data-bi-name="body"
+				class="layout-body "
+				lang="en-us"
+				dir="ltr"
+			>
+				<header class="layout-body-header background-color-body-medium">
+		<div class="header-holder has-default-focus">
+			
+		<a
+			href="#main"
+			
+			style="z-index: 1070"
+			class="outline-color-text visually-hidden-until-focused position-fixed inner-focus focus-visible top-0 left-0 right-0 padding-xs text-align-center background-color-body"
+			
+		>
+			Skip to main content
+		</a>
+	
+		<a
+			href="#"
+			data-skip-to-ask-learn
+			style="z-index: 1070"
+			class="outline-color-text visually-hidden-until-focused position-fixed inner-focus focus-visible top-0 left-0 right-0 padding-xs text-align-center background-color-body"
+			hidden
+		>
+			Skip to Ask Learn chat experience
+		</a>
+	
+
+			<div hidden id="cookie-consent-holder" data-test-id="cookie-consent-container"></div>
+			<!-- Unsupported browser warning -->
+			<div
+				id="unsupported-browser"
+				style="background-color: white; color: black; padding: 16px; border-bottom: 1px solid grey;"
+				hidden
+			>
+				<div style="max-width: 800px; margin: 0 auto;">
+					<p style="font-size: 24px">This browser is no longer supported.</p>
+					<p style="font-size: 16px; margin-top: 16px;">
+						Upgrade to Microsoft Edge to take advantage of the latest features, security updates, and technical support.
+					</p>
+					<div style="margin-top: 12px;">
+						<a
+							href="https://go.microsoft.com/fwlink/p/?LinkID=2092881 "
+							style="background-color: #0078d4; border: 1px solid #0078d4; color: white; padding: 6px 12px; border-radius: 2px; display: inline-block;"
+						>
+							Download Microsoft Edge
+						</a>
+						<a
+							href="https://learn.microsoft.com/en-us/lifecycle/faq/internet-explorer-microsoft-edge"
+							style="background-color: white; padding: 6px 12px; border: 1px solid #505050; color: #171717; border-radius: 2px; display: inline-block;"
+						>
+							More info about Internet Explorer and Microsoft Edge
+						</a>
+					</div>
+				</div>
+			</div>
+			<!-- site header -->
+			<div
+				id="ms--site-header"
+				data-test-id="site-header-wrapper"
+				itemscope="itemscope"
+				itemtype="http://schema.org/Organization"
+			>
+				<div
+					id="ms--mobile-nav"
+					class="site-header display-none-tablet padding-inline-none gap-none"
+					data-bi-name="mobile-header"
+					data-test-id="mobile-header"
+				></div>
+				<div
+					id="ms--primary-nav"
+					class="site-header display-none display-flex-tablet"
+					data-bi-name="L1-header"
+					data-test-id="primary-header"
+				></div>
+				<div
+					id="ms--secondary-nav"
+					class="site-header display-none display-flex-tablet"
+					data-bi-name="L2-header"
+					data-test-id="secondary-header"
+					
+				></div>
+			</div>
+			
+		<!-- banner -->
+		<div data-banner>
+			<div id="disclaimer-holder"></div>
+			
+		</div>
+		<!-- banner end -->
+	
+		</div>
+	</header>
+				 <section
+					id="layout-body-menu"
+					class="layout-body-menu border-right display-flex background-color-body-medium"
+					data-bi-name="menu"
+			  >
+					
+		<div
+			id="left-container"
+			class="left-container display-none padding-none display-block-tablet width-full display-none-until-layout-restored"
+			data-toc-container="true"
+		>
+			<div
+				id="ms--toc-content"
+				class="padding-left-sm padding-right-none padding-bottom-sm height-full"
+			>
+				<nav
+					id="affixed-left-container"
+					class="margin-top-xxs-tablet position-sticky display-flex flex-direction-column width-full"
+					aria-label="Primary"
+					data-bi-name="left-toc"
+					role="navigation"
+				>
+					<div
+						id="ms--collapsible-toc-header"
+						class="display-flex flex-direction-row-reverse justify-content-center align-items-center margin-bottom-xxs margin-right-xxs"
+					>
+						<button
+							type="button"
+							class="button button-clear button-sm inner-focus"
+							data-collapsible-toc-toggle
+							aria-expanded="true"
+							hidden
+							aria-controls="ms--toc-content"
+							aria-label="Table of contents"
+						>
+							<span class="icon icon-mirrored-rtl" aria-hidden="true">
+								<span
+									class="docon docon-panel-left-contract display-none-layout-menu-collapsed"
+								></span>
+								<span
+									class="docon docon-panel-left-expand display-none display-inline-layout-menu-collapsed"
+								></span>
+							</span>
+						</button>
+						<div
+							id="ms--collapsible-toc-moniker-slot"
+							class="flex-grow-1 display-none-layout-menu-collapsed"
+						></div>
+					</div>
+				</nav>
+			</div>
+		</div>
+	
+			  </section>
+
+				<main
+					id="main"
+					role="main"
+					class="layout-body-main "
+					data-bi-name="content"
+					lang="en-us"
+					dir="ltr"
+				>
+					
+			<div
+		id="ms--content-header"
+		class="content-header default-focus border-bottom-none"
+		data-bi-name="content-header"
+	>
+		<div class="content-header-controls margin-xxs margin-inline-sm-tablet">
+			<button
+				type="button"
+				class="contents-button button button-sm margin-right-xxs"
+				data-bi-name="contents-expand"
+				aria-haspopup="true"
+				data-contents-button
+			>
+				<span class="icon" aria-hidden="true"><span class="docon docon-menu"></span></span>
+				<span class="contents-expand-title"> Table of contents </span>
+			</button>
+			<button
+				type="button"
+				class="ap-collapse-behavior ap-expanded button button-sm"
+				data-bi-name="ap-collapse"
+				aria-controls="action-panel"
+			>
+				<span class="icon" aria-hidden="true"><span class="docon docon-exit-mode"></span></span>
+				<span>Exit editor mode</span>
+			</button>
+		</div>
+	</div> 
+		<div
+			id="action-panel"
+			role="region"
+			aria-label="Action Panel"
+			class="action-panel"
+			tabindex="-1"
+		></div>
+	
+			<div
+				data-main-column
+				class="reading-width margin-inline-auto layout-padding padding-top-none padding-top-sm-tablet padding-bottom-sm"
+			>
+				<div>
+					
+		<div id="article-header" class="background-color-body margin-bottom-xs display-none-print">
+			<div class="display-flex align-items-center justify-content-space-between">
+				
+		<details
+			id="article-header-breadcrumbs-overflow-popover"
+			class="popover popover-left"
+			data-for="article-header-breadcrumbs"
+		>
+			<summary
+				class="button button-clear button-primary button-sm inner-focus"
+				aria-label="All breadcrumbs"
+			>
+				<span class="icon" aria-hidden="true">
+					<span class="docon docon-more"></span>
+				</span>
+			</summary>
+			<div id="article-header-breadcrumbs-overflow" class="popover-content"></div>
+		</details>
+
+		<bread-crumbs
+			id="article-header-breadcrumbs"
+			role="group"
+			aria-label="Breadcrumbs"
+			data-test-id="article-header-breadcrumbs"
+			class="overflow-hidden flex-grow-1 margin-right-sm margin-right-md-tablet margin-right-lg-desktop margin-left-negative-xxs padding-left-xxs"
+		></bread-crumbs>
+	 
+		<div
+			id="article-header-page-actions"
+			class="opacity-none margin-left-auto display-flex flex-wrap-no-wrap align-items-stretch"
+		>
+			
+		<button
+			class="button button-sm border-none inner-focus display-none-tablet flex-shrink-0 "
+			data-bi-name="ask-learn-assistant-entry"
+			data-test-id="ask-learn-assistant-modal-entry-mobile"
+			data-ask-learn-modal-entry
+			
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			aria-label="Ask Learn"
+			hidden
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+		</button>
+		<button
+			class="button button-sm display-none display-inline-flex-tablet display-none-desktop flex-shrink-0 margin-right-xxs border-color-ask-learn "
+			data-bi-name="ask-learn-assistant-entry"
+			
+			data-test-id="ask-learn-assistant-modal-entry-tablet"
+			data-ask-learn-modal-entry
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			hidden
+		>
+			<span class="icon font-size-lg" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+			<span>Ask Learn</span>
+		</button>
+		<button
+			class="button button-sm display-none flex-shrink-0 display-inline-flex-desktop margin-right-xxs border-color-ask-learn "
+			data-bi-name="ask-learn-assistant-entry"
+			
+			data-test-id="ask-learn-assistant-flyout-entry"
+			data-ask-learn-flyout-entry
+			data-flyout-button="toggle"
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			aria-controls="ask-learn-flyout"
+			hidden
+		>
+			<span class="icon font-size-lg" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+			<span>Ask Learn</span>
+		</button>
+	 
+
+			<details class="popover popover-right" id="article-header-page-actions-overflow">
+				<summary
+					class="justify-content-flex-start button button-clear button-sm button-primary inner-focus"
+					aria-label="More actions"
+					title="More actions"
+				>
+					<span class="icon" aria-hidden="true">
+						<span class="docon docon-more-vertical"></span>
+					</span>
+				</summary>
+				<div class="popover-content">
+					
+		<button
+			type="button"
+			id="ms--focus-mode-button"
+			data-focus-mode
+			data-bi-name="focus-mode-entry"
+			data-page-action-item="overflow-all"
+			data-popover-close
+			class="button button-clear button-sm button-block justify-content-flex-start text-align-left inner-focus display-none display-inline-flex-tablet"
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-glasses"></span>
+			</span>
+			<span>Reading mode</span>
+		</button>
+	 
+		<button
+			data-page-action-item="overflow-mobile"
+			type="button"
+			class="display-block-layout-menu-collapsed button-block button-sm inner-focus button button-clear display-none-tablet justify-content-flex-start text-align-left"
+			data-bi-name="contents-expand"
+			data-contents-button
+			data-popover-close
+		>
+			<span class="icon" aria-hidden="true"
+				><span class="docon docon-editor-list-bullet"></span
+			></span>
+			<span class="contents-expand-title">Table of contents</span>
+		</button>
+	 
+		<a
+			id="lang-link-overflow"
+			class="button-sm inner-focus button button-clear button-block justify-content-flex-start text-align-left"
+			data-bi-name="language-toggle"
+			data-page-action-item="overflow-all"
+			data-check-hidden="true"
+			data-read-in-link
+			href="#"
+			hidden
+		>
+			<span class="icon" aria-hidden="true" data-read-in-link-icon>
+				<span class="docon docon-locale-globe"></span>
+			</span>
+			<span data-read-in-link-text>Read in English</span>
+		</a>
+	
+					
+		<button
+			type="button"
+			class="collection button button-clear button-sm button-block justify-content-flex-start text-align-left inner-focus"
+			data-list-type="collection"
+			data-bi-name="collection"
+			data-page-action-item="overflow-all"
+			data-check-hidden="true"
+			data-popover-close
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-circle-addition"></span>
+			</span>
+			<span class="collection-status">Add</span>
+		</button>
+	 
+		<button
+			type="button"
+			class="collection button button-block button-clear button-sm justify-content-flex-start text-align-left inner-focus"
+			data-list-type="plan"
+			data-bi-name="plan"
+			data-page-action-item="overflow-all"
+			data-check-hidden="true"
+			data-popover-close
+			hidden
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-circle-addition"></span>
+			</span>
+			<span class="plan-status">Add to Plans</span>
+		</button>
+	 
+					
+		<a
+			data-contenteditbtn
+			class="button button-clear button-block button-sm inner-focus justify-content-flex-start text-align-left text-decoration-none"
+			data-bi-name="edit"
+			data-page-action-item="overflow-all"
+			data-check-hidden="true"
+			
+			href="https://github.com/MicrosoftDocs/azure-aks-docs/blob/main/articles/aks/best-practices-app-cluster-reliability.md"
+			data-original_content_git_url="https://github.com/MicrosoftDocs/azure-aks-docs-pr/blob/live/articles/aks/best-practices-app-cluster-reliability.md"
+			data-original_content_git_url_template="{repo}/blob/{branch}/articles/aks/best-practices-app-cluster-reliability.md"
+			data-pr_repo=""
+			data-pr_branch=""
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-edit-outline"></span>
+			</span>
+			<span>Edit</span>
+		</a>
+	  
+		<hr class="margin-block-xxs" />
+		
+				<button
+					class="button button-block button-clear button-sm justify-content-flex-start text-align-left inner-focus"
+					type="button"
+					data-bi-name="copy-markdown"
+					data-page-action-item="overflow-all"
+					data-copy-markdown
+					data-copy-state="idle"
+					data-check-hidden="true"
+				>
+					<span class="icon color-primary" aria-hidden="true">
+						<span data-show-when="idle" class="docon docon-code-lang"></span>
+						<span data-show-when="loading" class="loader" hidden></span>
+						<span data-show-when="success" class="docon docon-check-mark" hidden></span>
+					</span>
+					<span>Copy Markdown</span>
+				</button>
+		   
+				<button
+					class="button button-block button-clear button-sm justify-content-flex-start text-align-left inner-focus"
+					type="button"
+					data-bi-name="print"
+					data-page-action-item="overflow-all"
+					data-popover-close
+					data-print-page
+					data-check-hidden="true"
+				>
+					<span class="icon color-primary" aria-hidden="true">
+						<span class="docon docon-print"></span>
+					</span>
+					<span>Print</span>
+				</button>
+		  
+	
+				</div>
+			</details>
+		</div>
+	
+			</div>
+		</div>
+	  
+		<!-- privateUnauthorizedTemplate is hidden by default -->
+		<div unauthorized-private-section data-bi-name="permission-content-unauthorized-private" hidden>
+			<hr class="hr margin-top-xs margin-bottom-sm" />
+			<div class="notification notification-info">
+				<div class="notification-content">
+					<p class="margin-top-none notification-title">
+						<span class="icon" aria-hidden="true"
+							><span class="docon docon-exclamation-circle-solid"></span
+						></span>
+						<span>Note</span>
+					</p>
+					<p class="margin-top-none authentication-determined not-authenticated">
+						Access to this page requires authorization. You can try <a class="docs-sign-in" href="#" data-bi-name="permission-content-sign-in">signing in</a> or <a  class="docs-change-directory" data-bi-name="permisson-content-change-directory">changing directories</a>.
+					</p>
+					<p class="margin-top-none authentication-determined authenticated">
+						Access to this page requires authorization. You can try <a class="docs-change-directory" data-bi-name="permisson-content-change-directory">changing directories</a>.
+					</p>
+				</div>
+			</div>
+		</div>
+	
+					<div class="content"><h1 id="deployment-and-cluster-reliability-best-practices-for-azure-kubernetes-service-aks">Deployment and cluster reliability best practices for Azure Kubernetes Service (AKS)</h1></div>
+					
+		<div
+			id="article-metadata"
+			data-bi-name="article-metadata"
+			data-test-id="article-metadata"
+			class="page-metadata-container display-flex gap-xxs justify-content-space-between align-items-center flex-wrap-wrap"
+		>
+			 
+				<div
+					id="user-feedback"
+					class="margin-block-xxs display-none display-none-print"
+					hidden
+					data-hide-on-archived
+				>
+					
+		<button
+			id="user-feedback-button"
+			data-test-id="conceptual-feedback-button"
+			class="button button-sm button-clear button-primary display-none"
+			type="button"
+			data-bi-name="user-feedback-button"
+			data-user-feedback-button
+			hidden
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-like"></span>
+			</span>
+			<span>Feedback</span>
+		</button>
+	
+				</div>
+		  
+		</div>
+	 
+		<div data-id="ai-summary" class="display-none-print">
+			<div id="ms--ai-summary-cta" class="margin-top-xs display-flex align-items-center">
+				<span class="icon" aria-hidden="true">
+					<span class="docon docon-sparkle-fill gradient-text-vivid"></span>
+				</span>
+				<button
+					id="ms--ai-summary"
+					type="button"
+					class="tag tag-sm tag-suggestion margin-left-xxs"
+					data-test-id="ai-summary-cta"
+					data-bi-name="ai-summary-cta"
+					data-an="ai-summary"
+				>
+					<span class="ai-summary-cta-text">
+						Summarize this article for me
+					</span>
+				</button>
+			</div>
+			<!-- Slot where the client will render the summary card after the user clicks the CTA -->
+			<div id="ms--ai-summary-header" class="margin-top-xs"></div>
+		</div>
+	 
+		<nav
+			id="center-doc-outline"
+			class="doc-outline display-none-desktop display-none-print margin-bottom-sm"
+			data-bi-name="intopic toc"
+			aria-label="In this article"
+		>
+			<h2 id="ms--in-this-article" class="title is-6 margin-block-xs">
+				In this article
+			</h2>
+		</nav>
+	 <div class="content"><p><strong>Applies to</strong>: ✔️ AKS Automatic ✔️ AKS Standard</p>
+<p>AKS cluster reliability refers to the ability of an Azure Kubernetes Service cluster to maintain availability, recover from failures, and handle disruptions with minimal downtime. This article provides best practices for cluster reliability implemented both at a deployment and cluster level for your Azure Kubernetes Service (AKS) workloads. The article is intended for cluster operators and developers who are responsible for deploying and managing applications in AKS.</p>
+<h2 id="key-takeaways">Key Takeaways</h2>
+<ul>
+<li><strong>Set CPU and memory limits for all pods</strong> to prevent resource exhaustion and protect against service threats such as DDoS attacks.</li>
+<li><strong>Use Pod Disruption Budgets (PDBs)</strong> to ensure minimum pod availability during voluntary disruptions like upgrades or accidental deletions.</li>
+<li><strong>Enable availability zones</strong> during cluster creation to ensure high availability in zone-down scenarios (cannot be changed after creation).</li>
+<li><strong>Deploy at least two replicas</strong> of your application to ensure high availability and resiliency in node-down scenarios.</li>
+<li><strong>Configure readiness, liveness, and startup probes</strong> to improve application resiliency and reduce unnecessary container restarts.</li>
+<li><strong>Use Standard Load Balancer</strong> for production workloads to support multiple availability zones and high resiliency.</li>
+<li><strong>Enable Container Insights</strong> to monitor and diagnose the performance of your containerized applications.</li>
+</ul>
+<p>This article provides best practices for cluster reliability implemented both at a deployment and cluster level for your Azure Kubernetes Service (AKS) workloads. The article is intended for cluster operators and developers who are responsible for deploying and managing applications in AKS.</p>
+<p>The best practices in this article are organized into the following categories:</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Best practices</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#deployment-level-best-practices" data-linktype="self-bookmark">Deployment level best practices</a></td>
+<td>• <a href="#pod-cpu-and-memory-limits" data-linktype="self-bookmark">Pod CPU and memory limits</a> <br> • <a href="#vertical-pod-autoscaler-vpa" data-linktype="self-bookmark">Vertical Pod Autoscaler (VPA)</a> <br> • <a href="#pod-disruption-budgets-pdbs" data-linktype="self-bookmark">Pod Disruption Budgets (PDBs)</a> <br> • <a href="#high-availability-during-upgrades" data-linktype="self-bookmark">High availability during upgrades</a> <br>• <a href="#pod-topology-spread-constraints" data-linktype="self-bookmark">Pod topology spread constraints</a> <br> • <a href="#readiness-liveness-and-startup-probes" data-linktype="self-bookmark">Readiness, liveness, and startup probes</a> <br> • <a href="#multi-replica-applications" data-linktype="self-bookmark">Multi-replica applications</a></td>
+</tr>
+<tr>
+<td><a href="#cluster-and-node-pool-level-best-practices" data-linktype="self-bookmark">Cluster and node pool level best practices</a></td>
+<td>• <a href="#availability-zones" data-linktype="self-bookmark">Availability zones</a> <br> • <a href="#cluster-autoscaling" data-linktype="self-bookmark">Cluster autoscaling</a> <br> • <a href="#standard-load-balancer" data-linktype="self-bookmark">Standard Load Balancer</a> <br> • <a href="#system-node-pools" data-linktype="self-bookmark">System node pools</a> <br> • <a href="#upgrade-configurations-for-node-pools" data-linktype="self-bookmark">Upgrade configurations for node pools</a> <br>  • <a href="#image-versions" data-linktype="self-bookmark">Image versions</a> <br> • <a href="#azure-cni-for-dynamic-ip-allocation" data-linktype="self-bookmark">Azure CNI for dynamic IP allocation</a> <br> • <a href="#v5-sku-vms" data-linktype="self-bookmark">v5 SKU VMs</a> <br> • <a href="#do-not-use-b-series-vms" data-linktype="self-bookmark">Do <em>not</em> use B series VMs</a> <br> • <a href="#azure-premium-ssd" data-linktype="self-bookmark">Azure Premium SSD</a> <br> • <a href="#container-insights" data-linktype="self-bookmark">Container Insights</a> <br> • <a href="#azure-policy" data-linktype="self-bookmark">Azure Policy</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="aks-cluster-modes-and-reliability">AKS cluster modes and reliability</h2>
+<p>AKS supports two cluster modes: <a href="intro-aks-automatic" data-linktype="relative-path"><strong>AKS Automatic</strong></a> and AKS Standard. Many workload-level reliability practices apply equally to both modes, such as setting resource requests, defining Pod Disruption Budgets (PDBs), configuring probes, and running multiple replicas. However, cluster-level responsibilities differ by mode:</p>
+<ul>
+<li><strong>AKS Automatic</strong> provides more preconfigured reliability defaults, including managed system node pools, node autoprovisioning (NAP), automatic cluster upgrades, automatic node OS image upgrades, Standard tier, and LocalDNS.</li>
+<li><strong>AKS Standard</strong> provides broader direct configuration control and requires operators to explicitly enable and manage more cluster-level reliability features.</li>
+</ul>
+<p>For more information, see <a href="intro-aks-automatic" data-linktype="relative-path">What is AKS Automatic?</a></p>
+<h2 id="deployment-level-best-practices">Deployment level best practices</h2>
+<p>The following deployment level best practices help ensure high availability and reliability for your AKS workloads. These best practices are local configurations that you can implement in the YAML files for your pods and deployments.</p>
+<blockquote>
+<p><strong>Quick Reference Checklist:</strong></p>
+<ul>
+<li>Configure PDBs for all production workloads</li>
+<li>Set CPU and memory limits for all pods</li>
+<li>Deploy at least 2 replicas for zone-resilient workloads</li>
+<li>Configure readiness, liveness, and startup probes for all containers</li>
+<li>Use pod topology spread constraints for critical applications</li>
+</ul>
+</blockquote>
+<div class="NOTE">
+<p>Note</p>
+<p>Make sure you implement these best practices every time you deploy an update to your application. If not, you might experience issues with your application's availability and reliability, such as unintentional application downtime.</p>
+</div>
+<div class="NOTE">
+<p>Note</p>
+<p>Even when AKS Automatic provides reliability defaults at the cluster level, workload manifests still need application-specific reliability settings such as probes, replica counts, disruption budgets, and topology rules.</p>
+</div>
+<h3 id="pod-cpu-and-memory-limits">Pod CPU and memory limits</h3>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Set pod CPU and memory limits for all pods to ensure that pods don't consume all resources on a node and to provide protection during service threats, such as DDoS attacks.</p>
+</blockquote>
+<p>Pod CPU and memory limits define the maximum amount of CPU and memory a pod can use. When a pod exceeds its defined limits, it gets marked for removal. For more information, see <a href="https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#meaning-of-cpu" data-linktype="external">CPU resource units in Kubernetes</a> and <a href="https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#meaning-of-memory" data-linktype="external">Memory resource units in Kubernetes</a>.</p>
+<p>Setting CPU and memory limits helps you maintain node health and minimizes impact to other pods on the node. Avoid setting a pod limit higher than your nodes can support. Each AKS node reserves a set amount of CPU and memory for the core Kubernetes components. If you set a pod limit higher than the node can support, your application might try to consume too many resources and negatively impact other pods on the node. Cluster administrators need to set resource quotas on a namespace that requires setting resource requests and limits. For more information, see <a href="operator-best-practices-scheduler#enforce-resource-quotas" data-linktype="relative-path">Enforce resource quotas in AKS</a>.</p>
+<p>Cluster administrators can also reinforce these settings with namespace-level quotas and policy controls. In AKS Automatic, Deployment Safeguards can help enforce resource-related best practices, but operators should still define workload-appropriate requests and limits explicitly. For more information, see <a href="operator-best-practices-scheduler#enforce-resource-quotas" data-linktype="relative-path">Enforce resource quotas in AKS</a>.</p>
+<p>In the following example pod definition file, the <code>resources</code> section sets the CPU and memory limits for the pod:</p>
+<pre><code class="lang-yaml">kind: Pod
+apiVersion: v1
+metadata:
+  name: mypod
+spec:
+  containers:
+  - name: mypod
+    image: mcr.microsoft.com/oss/nginx/nginx:1.15.5-alpine
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+</code></pre>
+<div class="TIP">
+<p>Tip</p>
+<p>You can use the <code>kubectl describe node</code> command to view the CPU and memory capacity of your nodes, as shown in the following example:</p>
+<pre><code class="lang-bash">kubectl describe node &lt;node-name&gt;
+
+# Example output
+Capacity:
+ cpu:                8
+ ephemeral-storage:  129886128Ki
+ hugepages-1Gi:      0
+ hugepages-2Mi:      0
+ memory:             32863116Ki
+ pods:               110
+Allocatable:
+ cpu:                7820m
+ ephemeral-storage:  119703055367
+ hugepages-1Gi:      0
+ hugepages-2Mi:      0
+ memory:             28362636Ki
+ pods:               110
+</code></pre>
+</div>
+<p>For more information, see <a href="https://kubernetes.io/docs/tasks/configure-pod-container/assign-cpu-resource/" data-linktype="external">Assign CPU Resources to Containers and Pods</a> and <a href="https://kubernetes.io/docs/tasks/configure-pod-container/assign-memory-resource/" data-linktype="external">Assign Memory Resources to Containers and Pods</a>.</p>
+<h3 id="vertical-pod-autoscaler-vpa">Vertical Pod Autoscaler (VPA)</h3>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Use Vertical Pod Autoscaler (VPA) to automatically adjust CPU and memory requests for your pods based on their actual usage.</p>
+</blockquote>
+<p>While not directly implemented through the pod YAML, the Vertical Pod Autoscaler (VPA) helps optimize resource allocation by automatically adjusting the CPU and memory requests for your pods. This ensures that your applications have the resources they need to run efficiently without overprovisioning or underprovisioning.</p>
+<p>In AKS Automatic, VPA is enabled on the cluster by default. In AKS Standard, operators choose whether to enable it.</p>
+<p>VPA operates in three modes:</p>
+<ul>
+<li><strong>Off</strong>: Only provides recommendations without applying changes.</li>
+<li><strong>Auto</strong>: Automatically updates pod resource requests during pod restarts.</li>
+<li><strong>Initial</strong>: Sets resource requests only during pod creation.</li>
+</ul>
+<p>The following example shows how to configure a VPA resource in Kubernetes:</p>
+<pre><code class="lang-yaml">apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: my-vpa
+spec:
+  targetRef:
+    apiVersion: "apps/v1"
+    kind: Deployment
+    name: my-deployment
+  updatePolicy:
+    updateMode: "Auto" # Options: Off, Auto, Initial
+</code></pre>
+<p>For more information, see <a href="https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler" data-linktype="external">Vertical Pod Autoscaler documentation</a>.</p>
+<hr>
+<h3 id="pod-disruption-budgets-pdbs">Pod Disruption Budgets (PDBs)</h3>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Use Pod Disruption Budgets (PDBs) to ensure that a minimum number of pods remain available during <em>voluntary disruptions</em>, such as upgrade operations or accidental pod deletions.</p>
+</blockquote>
+<p><a href="https://kubernetes.io/docs/concepts/workloads/pods/disruptions/#pod-disruption-budgets" data-linktype="external">Pod Disruption Budgets (PDBs)</a> allow you to define how deployments or replica sets respond during voluntary disruptions, such as upgrade operations or accidental pod deletions. Using PDBs, you can define a minimum or maximum unavailable resource count. PDBs only affect the Eviction API for voluntary disruptions.</p>
+<p>For example, let's say you need to perform a cluster upgrade and already have a PDB defined. Before performing the cluster upgrade, the Kubernetes scheduler ensures that the minimum number of pods defined in the PDB are available. If the upgrade would cause the number of available pods to fall below the minimum defined in the PDBs, the scheduler schedules extra pods on other nodes before allowing the upgrade to proceed. If you don't set a PDB, the scheduler doesn't have any constraints on the number of pods that can be unavailable during the upgrade, which can lead to a lack of resources and potential cluster outages.</p>
+<p>Cluster-level upgrade automation in AKS Automatic reduces some operational burden, but workload availability during disruption still depends on application-level controls such as PDBs.</p>
+<p>In the following example PDB definition file, the <code>minAvailable</code> field sets the minimum number of pods that must remain available during voluntary disruptions. The value can be an absolute number (for example, <em>3</em>) or a percentage of the desired number of pods (for example, <em>10%</em>).</p>
+<pre><code class="lang-yaml">apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+   name: mypdb
+spec:
+   minAvailable: 3 # Minimum number of pods that must remain available during voluntary disruptions
+   selector:
+    matchLabels:
+      app: myapp
+</code></pre>
+<p>For more information, see <a href="operator-best-practices-scheduler#limit-disruption-impact-by-using-pod-disruption-budgets-pdbs" data-linktype="relative-path">Plan for availability using PDBs</a> and <a href="https://kubernetes.io/docs/tasks/run-application/configure-pdb/" data-linktype="external">Specifying a Disruption Budget for your Application</a>.</p>
+<p>To automate PDB creation for unprotected deployments and prevent PDB-related drain failures during upgrades, see <a href="automatic-pod-disruption-budget-management" data-linktype="relative-path">Automatic PDB management for AKS (preview)</a>.</p>
+<h3 id="graceful-termination-for-pods">Graceful termination for pods</h3>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Utilize <code>PreStop</code> hooks and configure an appropriate <code>terminationGracePeriodSeconds</code> value to ensure pods are terminated gracefully.</p>
+</blockquote>
+<p>Graceful termination ensures that pods are given enough time to clean up resources, complete ongoing tasks, or notify dependent services before being terminated. This is particularly important for stateful applications or services that require proper shutdown procedures.</p>
+<h4 id="using-prestop-hooks">Using <code>PreStop</code> hooks</h4>
+<p>A <code>PreStop</code> hook is called immediately before a container is terminated due to an API request or management event, such as preemption, resource contention, or a liveness/startup probe failure. The <code>PreStop</code> hook allows you to define custom commands or scripts to execute before the container is stopped. For example, you can use it to flush logs, close database connections, or notify other services of the shutdown.</p>
+<p>The following example pod definition file shows how to use a <code>PreStop</code> hook to ensure graceful termination of a container:</p>
+<pre><code class="lang-yaml">apiVersion: v1
+kind: Pod
+metadata:
+  name: lifecycle-demo
+spec:
+  containers:
+  - name: lifecycle-demo-container
+    image: nginx
+    lifecycle:
+      preStop:
+        exec:
+          command: ["/bin/sh", "-c", "nginx -s quit; while killall -0 nginx; do sleep 1; done"]
+</code></pre>
+<h4 id="configuring-terminationgraceperiodseconds">Configuring <code>terminationGracePeriodSeconds</code></h4>
+<p>The <code>terminationGracePeriodSeconds</code> field specifies the amount of time Kubernetes waits before forcefully terminating a pod. This period includes the time taken to execute the <code>PreStop</code> hook. If the <code>PreStop</code> hook doesn't complete within the grace period, the pod is forcefully terminated.</p>
+<p>For example, the following pod definition sets a termination grace period of 30 seconds:</p>
+<pre><code class="lang-yaml">apiVersion: v1
+kind: Pod
+metadata:
+  name: example-pod
+spec:
+  terminationGracePeriodSeconds: 30
+  containers:
+  - name: example-container
+    image: nginx
+</code></pre>
+<p>For more information, see <a href="https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#container-hooks" data-linktype="external">Container lifecycle hooks</a> and <a href="https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination" data-linktype="external">Termination of Pods</a>.</p>
+<h3 id="high-availability-during-upgrades">High availability during upgrades</h3>
+<h4 id="using-maxsurge-for-faster-updates">Using <code>maxSurge</code> for faster updates</h4>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Configure the <code>maxSurge</code> field to allow additional pods to be created during rolling updates, enabling faster updates with minimal downtime.</p>
+</blockquote>
+<p>The <code>maxSurge</code> field specifies the maximum number of additional pods that can be created beyond the desired number of pods during a rolling update. This allows new pods to be created and become ready before old pods are terminated, ensuring faster updates and reducing the risk of downtime.</p>
+<p>The following example deployment manifest demonstrates how to configure <code>maxSurge</code>:</p>
+<pre><code class="lang-yaml">apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 33% # Maximum number of additional pods created during the update
+</code></pre>
+<p>By setting <code>maxSurge</code> to 3, this configuration ensures that up to three additional pods can be created during the rolling update, speeding up the deployment process while maintaining availability of your application.
+For more information, see <a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#rolling-update-deployment" data-linktype="external">Rolling Updates in Kubernetes</a>.</p>
+<h4 id="using-maxunavailable-for-controlled-updates">Using <code>maxUnavailable</code> for controlled updates</h4>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Configure the <code>maxUnavailable</code> field to limit the number of pods that can be unavailable during rolling updates, ensuring your application remains operational with minimal disruption.</p>
+</blockquote>
+<p>The <code>maxUnavailable</code> field is particularly useful for applications that require are compute intensive or have specific infrastructure needs. It specifies the maximum number of pods that can be unavailable at any given time during a rolling update. This ensures that a portion of your application remains functional while new pods are being deployed and old ones are terminated.</p>
+<p>You can set <code>maxUnavailable</code> as an absolute number (e.g., <code>1</code>) or a percentage of the desired number of pods (e.g., <code>25%</code>). For example, if your application has four replicas and you set <code>maxUnavailable</code> to <code>1</code>, Kubernetes ensures that at least three pods remain available during the update process.</p>
+<p>The following example deployment manifest demonstrates how to configure <code>maxUnavailable</code>:</p>
+<pre><code class="lang-yaml">apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1 # Maximum number of pods that can be unavailable during the update
+</code></pre>
+<p>In this example, setting <code>maxUnavailable</code> to <code>1</code> ensures that no more than one pod is unavailable at any given time during the rolling update. This configuration is ideal for applications which require specialized compute, where maintaining a minimum level of service availability is critical.</p>
+<p>For more information, see <a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#rolling-update-deployment" data-linktype="external">Rolling Updates in Kubernetes</a>.</p>
+<h3 id="pod-topology-spread-constraints">Pod topology spread constraints</h3>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Use pod topology spread constraints to ensure that pods are spread across different nodes or zones to improve availability and reliability.</p>
+</blockquote>
+<p>You can use pod topology spread constraints to control how pods are spread across your cluster based on the topology of the nodes and spread pods across different nodes or zones to improve availability and reliability.</p>
+<p>In AKS Automatic, Deployment Safeguards can help apply some workload distribution best practices, but application-specific topology requirements should still be defined explicitly in workload manifests.</p>
+<p>The following example pod definition file shows how to use the <code>topologySpreadConstraints</code> field to spread pods across different nodes:</p>
+<pre><code class="lang-yaml">apiVersion: v1
+kind: Pod
+metadata:
+  name: example-pod
+spec:
+  # Configure a topology spread constraint
+  topologySpreadConstraints:
+    - maxSkew: &lt;integer&gt;
+      minDomains: &lt;integer&gt; # optional
+      topologyKey: &lt;string&gt;
+      whenUnsatisfiable: &lt;string&gt;
+      labelSelector: &lt;object&gt;
+      matchLabelKeys: &lt;list&gt; # optional
+      nodeAffinityPolicy: [Honor|Ignore] # optional
+      nodeTaintsPolicy: [Honor|Ignore] # optional
+</code></pre>
+<p>For more information, see <a href="https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/" data-linktype="external">Pod Topology Spread Constraints</a>.</p>
+<h3 id="readiness-liveness-and-startup-probes">Readiness, liveness, and startup probes</h3>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Configure readiness, liveness, and startup probes when applicable to improve resiliency for high loads and lower container restarts.</p>
+</blockquote>
+<p>Even when AKS Automatic provides baseline safeguards, probe configuration remains workload-specific and should still be authored in application manifests.</p>
+<h4 id="readiness-probes">Readiness probes</h4>
+<p>In Kubernetes, the kubelet uses readiness probes to know when a container is ready to start accepting traffic. A pod is considered <em>ready</em> when all of its containers are ready. When a pod is <em>not ready</em>, it's removed from service load balancers. For more information, see <a href="https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-readiness-probes" data-linktype="external">Readiness Probes in Kubernetes</a>.</p>
+<p>The following example pod definition file shows a readiness probe configuration:</p>
+<pre><code class="lang-yaml">readinessProbe:
+  exec:
+    command:
+    - cat
+    - /tmp/healthy
+  initialDelaySeconds: 5
+  periodSeconds: 5
+</code></pre>
+<p>For more information, see <a href="/en-us/azure/container-instances/container-instances-readiness-probe" data-linktype="absolute-path">Configure readiness probes</a>.</p>
+<h4 id="liveness-probes">Liveness probes</h4>
+<p>In Kubernetes, the kubelet uses liveness probes to know when to restart a container. If a container fails its liveness probe, the container is restarted. For more information, see <a href="https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/" data-linktype="external">Liveness Probes in Kubernetes</a>.</p>
+<p>The following example pod definition file shows a liveness probe configuration:</p>
+<pre><code class="lang-yaml">livenessProbe:
+  exec:
+    command:
+    - cat
+    - /tmp/healthy
+</code></pre>
+<p>Another kind of liveness probe uses an HTTP GET request. The following example pod definition file shows an HTTP GET request liveness probe configuration:</p>
+<pre><code class="lang-yaml">apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    test: liveness
+  name: liveness-http
+spec:
+  containers:
+  - name: liveness
+    image: registry.k8s.io/liveness
+    args:
+    - /server
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+        httpHeaders:
+        - name: Custom-Header
+          value: Awesome
+      initialDelaySeconds: 3
+      periodSeconds: 3
+</code></pre>
+<p>For more information, see <a href="/en-us/azure/container-instances/container-instances-liveness-probe" data-linktype="absolute-path">Configure liveness probes</a> and <a href="https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-a-liveness-http-request" data-linktype="external">Define a liveness HTTP request</a>.</p>
+<h4 id="startup-probes">Startup probes</h4>
+<p>In Kubernetes, the kubelet uses startup probes to know when a container application has started. When you configure a startup probe, readiness and liveness probes don't start until the startup probe succeeds, ensuring the readiness and liveness probes don't interfere with application startup. For more information, see <a href="https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-startup-probes" data-linktype="external">Startup Probes in Kubernetes</a>.</p>
+<p>The following example pod definition file shows a startup probe configuration:</p>
+<pre><code class="lang-yaml">startupProbe:
+  httpGet:
+    path: /healthz
+    port: 8080
+  failureThreshold: 30
+  periodSeconds: 10
+</code></pre>
+<h3 id="multi-replica-applications">Multi-replica applications</h3>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Deploy at least two replicas of your application to ensure high availability and resiliency in node-down scenarios.</p>
+</blockquote>
+<p>In Kubernetes, you can use the <code>replicas</code> field in your deployment to specify the number of pods you want to run. Running multiple instances of your application helps ensure high availability and resiliency in node-down scenarios. AKS Automatic improves operational readiness and scaling behavior, but availability still depends on running enough replicas and using appropriate placement controls. If you have <a href="#availability-zones" data-linktype="self-bookmark">availability zones</a> enabled, you can use the <code>replicas</code> field to specify the number of pods you want to run across multiple availability zones.</p>
+<p>The following example pod definition file shows how to use the <code>replicas</code> field to specify the number of pods you want to run:</p>
+<pre><code class="lang-yaml">apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+
+</code></pre>
+<p>For more information, see <a href="active-active-solution" data-linktype="relative-path">Recommended active-active high availability solution overview for AKS</a> and <a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#replicas" data-linktype="external">Replicas in Deployment Specs</a>.</p>
+<h2 id="cluster-and-node-pool-level-best-practices">Cluster and node pool level best practices</h2>
+<p>The following cluster and node pool level best practices help ensure high availability and reliability for your AKS clusters. You can implement these best practices when creating or updating your AKS clusters. Compared with deployment-level settings, responsibility differs more significantly between AKS Automatic and AKS Standard.</p>
+<blockquote>
+<p><strong>Quick Reference Checklist:</strong></p>
+<ul>
+<li>Enable availability zones at cluster creation (<strong>3 availability zones recommended</strong>)</li>
+<li>Use Standard Load Balancer for all production workloads</li>
+<li>Configure <strong>minimum 2 nodes per system node pool</strong></li>
+<li>Enable Container Insights for monitoring</li>
+<li>Use Standard or Premium pricing tier for production</li>
+</ul>
+</blockquote>
+<h3 id="availability-zones">Availability zones</h3>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Use multiple availability zones when creating an AKS cluster to ensure high availability in zone-down scenarios. Keep in mind that you can't change the availability zone configuration after creating the cluster.</p>
+</blockquote>
+<p><a href="/en-us/azure/reliability/availability-zones-overview" data-linktype="absolute-path">Availability zones</a> are separated groups of datacenters within a region. These zones are close enough to have low-latency connections to each other, but far enough apart to reduce the likelihood that more than one zone is affected by local outages or weather. Using availability zones helps your data stay synchronized and accessible in zone-down scenarios. For more information, see <a href="https://kubernetes.io/docs/setup/best-practices/multiple-zones/" data-linktype="external">Running in multiple zones</a>.</p>
+<p>AKS Automatic simplifies day-2 operations, but it doesn't remove the need to plan topology during cluster creation where zonal deployment is part of the design.</p>
+<h3 id="cluster-autoscaling">Cluster autoscaling</h3>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Use cluster autoscaling to ensure that your cluster can handle increased load and to reduce costs during low load.</p>
+</blockquote>
+<p>To keep up with application demands in AKS, you might need to adjust the number of nodes that run your workloads. The cluster autoscaler component watches for pods in your cluster that can't be scheduled because of resource constraints. When the cluster autoscaler detects issues, it scales up the number of nodes in the node pool to meet the application demand. It also regularly checks nodes for a lack of running pods and scales down the number of nodes as needed. For more information, see <a href="cluster-autoscaler-overview" data-linktype="relative-path">Cluster autoscaling in AKS</a>.</p>
+<p>Scaling behavior differs by cluster mode:</p>
+<ul>
+<li><strong>AKS Automatic</strong>: Node autoprovisioning is preconfigured and workload scaling features such as HPA, KEDA, and VPA are enabled by default.</li>
+<li><strong>AKS Standard</strong>: Operators explicitly enable and tune cluster autoscaler, node autoprovisioning, and workload autoscaling features.</li>
+</ul>
+<p>For AKS Standard, you can use the <code>--enable-cluster-autoscaler</code> parameter when creating a cluster:</p>
+<pre><code class="lang-azurecli" data-interactive="azurecli">az aks create \
+    --resource-group myResourceGroup \
+    --name myAKSCluster \
+    --node-count 2 \
+    --vm-set-type VirtualMachineScaleSets \
+    --load-balancer-sku standard \
+    --enable-cluster-autoscaler  \
+    --min-count 1 \
+    --max-count 3 \
+    --generate-ssh-keys
+</code></pre>
+<p>You can also enable the cluster autoscaler on an existing node pool and configure more granular details of the cluster autoscaler by changing the default values in the cluster-wide autoscaler profile.</p>
+<p>For more information, see <a href="cluster-autoscaler" data-linktype="relative-path">Use the cluster autoscaler in AKS</a>.</p>
+<h3 id="ingress-and-egress-reliability">Ingress and egress reliability</h3>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Use the cluster networking model that matches your AKS cluster mode and reliability requirements.</p>
+</blockquote>
+<p>For AKS Standard, <a href="#standard-load-balancer" data-linktype="self-bookmark">Standard Load Balancer</a> remains a common and recommended reliability choice for inbound and outbound traffic scenarios.</p>
+<p>For AKS Automatic, ingress and egress defaults are more managed:</p>
+<ul>
+<li>Managed virtual network is preconfigured by default.</li>
+<li>Managed NAT gateway is preconfigured for supported managed virtual network scenarios.</li>
+<li>Managed ingress through application routing is preconfigured for supported cluster versions.</li>
+</ul>
+<p>If you're using AKS Standard, the following <a href="#standard-load-balancer" data-linktype="self-bookmark">Standard Load Balancer guidance</a> still applies:</p>
+<h3 id="standard-load-balancer">Standard Load Balancer</h3>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Use the Standard Load Balancer to provide greater reliability and resources, support for multiple availability zones, HTTP probes, and functionality across multiple data centers.</p>
+</blockquote>
+<p>In Azure, the <a href="/en-us/azure/load-balancer/skus" data-linktype="absolute-path">Standard Load Balancer</a> SKU is designed to be equipped for load balancing network layer traffic when high performance and low latency are needed. The Standard Load Balancer routes traffic within and across regions and to availability zones for high resiliency. The Standard SKU is the recommended and default SKU to use when creating an AKS cluster.</p>
+<div class="IMPORTANT">
+<p>Important</p>
+<p>Starting on <strong>September 30, 2025</strong>, Azure Kubernetes Service (AKS) no longer supports Basic Load Balancer. To avoid any potential service disruptions, we recommend using Standard Load Balancer for new deployments and <a href="/en-us/azure/load-balancer/load-balancer-basic-upgrade-guidance" data-linktype="absolute-path">upgrading any existing deployments to the Standard Load Balancer</a>. For more information on this retirement, see the <a href="https://github.com/Azure/AKS/issues/5020" data-linktype="external">Retirement GitHub issue</a> and the <a href="https://azure.microsoft.com/updates/azure-basic-load-balancer-will-be-retired-on-30-september-2025-upgrade-to-standard-load-balancer/" data-linktype="external">Azure Updates retirement announcement</a>. To stay informed on announcements and updates, follow the <a href="https://github.com/Azure/AKS/releases" data-linktype="external">AKS release notes</a>.</p>
+</div>
+<p>The following example shows a <code>LoadBalancer</code> service manifest that uses the Standard Load Balancer:</p>
+<pre><code class="lang-yaml">apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-ipv4 # Service annotation for an IPv4 address
+  name: azure-load-balancer
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+  selector:
+    app: azure-load-balancer
+</code></pre>
+<p>For more information, see <a href="load-balancer-standard" data-linktype="relative-path">Use a standard load balancer in AKS</a>.</p>
+<div class="TIP">
+<p>Tip</p>
+<p>You can also use an <a href="app-routing" data-linktype="relative-path">ingress controller</a> or a <a href="istio-deploy-ingress" data-linktype="relative-path">service mesh</a> to manage network traffic, with each option providing different features and capabilities.</p>
+</div>
+<h3 id="system-node-pools">System node pools</h3>
+<h4 id="use-dedicated-system-node-pools">Use dedicated system node pools</h4>
+<p>AKS Automatic uses managed system node pools that are created, scaled, upgraded, and operated by AKS. Operator focus shifts from building system pool topology manually to validating workload placement, capacity behavior, and namespace-level controls.</p>
+<p>The following guidance still applies for AKS Standard:</p>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Use system node pools to ensure no other user applications run on the same nodes, which can cause resource scarcity and impact system pods.</p>
+</blockquote>
+<p>Use dedicated system node pools to ensure no other user application runs on the same nodes, which can cause scarcity of resources and potential cluster outages because of race conditions. To use a dedicated system node pool, you can use the <code>CriticalAddonsOnly</code> taint on the system node pool. For more information, see <a href="use-system-pools#system-and-user-node-pools" data-linktype="relative-path">Use system node pools in AKS</a>.</p>
+<h4 id="autoscaling-for-system-node-pools">Autoscaling for system node pools</h4>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Configure the autoscaler for system node pools to set minimum and maximum scale limits for the node pool.</p>
+</blockquote>
+<p>In AKS Automatic, system node pool capacity is managed by AKS. In AKS Standard, use autoscaler configuration so that the system node pool can always scale to meet the needs of system pods.</p>
+<p>Use the autoscaler on node pools to configure the minimum and maximum scale limits for the node pool. The system node pool should always be able to scale to meet the demands of system pods. If the system node pool is unable to scale, the cluster runs out of resources to help manage scheduling, scaling, and load balancing, which can lead to an unresponsive cluster.</p>
+<p>For more information, see <a href="cluster-autoscaler#enable-or-disable-the-cluster-autoscaler-on-node-pools" data-linktype="relative-path">Use the cluster autoscaler on node pools</a>.</p>
+<h4 id="at-least-two-nodes-per-system-node-pool">At least two nodes per system node pool</h4>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Ensure that system node pools have at least two nodes to ensure resiliency against freeze/upgrade scenarios, which can lead to nodes being restarted or shut down.</p>
+</blockquote>
+<p>In AKS Standard, system node pools should have at least two nodes to improve resilience during restart or upgrade events. In AKS Automatic, system node pool resiliency is service-managed, but workload design should still assume system components can be upgraded or moved as part of platform operations.</p>
+<p>System node pools are used to run system pods, such as the kube-proxy, coredns, and the Azure CNI plugin. We recommend that you <strong>ensure that system node pools have at least two nodes</strong> to ensure resiliency against freeze/upgrade scenarios, which can lead to nodes being restarted or shut down. For more information, see <a href="use-system-pools" data-linktype="relative-path">Manage system node pools in AKS</a>.</p>
+<h3 id="upgrade-configurations-for-node-pools">Upgrade configurations for node pools</h3>
+<p>Upgrade ownership differs by cluster mode:</p>
+<ul>
+<li><strong>AKS Automatic</strong>: Cluster upgrades use the stable channel by default, and node OS image upgrades use the NodeImage channel by default. Operator focus is on workload readiness, disruption controls, maintenance schedules, and safe rollout validation.</li>
+<li><strong>AKS Standard</strong>: Operators explicitly configure upgrade channels and node pool settings such as maxSurge and maxUnavailable.</li>
+</ul>
+<h4 id="using-maxsurge-for-node-pool-upgrades">Using <code>maxSurge</code> for node pool upgrades</h4>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Configure the <code>maxSurge</code> setting for node pool upgrades to improve reliability and minimize downtime during upgrade operations.</p>
+</blockquote>
+<p>The <code>maxSurge</code> setting specifies the maximum number of additional nodes that can be created during an upgrade. This ensures that new nodes are provisioned and ready before old nodes are drained and removed, reducing the risk of application downtime.</p>
+<p>For example, the following Azure CLI command sets <code>maxSurge</code> to 1 for a node pool:</p>
+<pre><code class="lang-azurecli" data-interactive="azurecli">az aks nodepool update \
+  --resource-group myResourceGroup \
+  --cluster-name myAKSCluster \
+  --name myNodePool \
+  --max-surge 1
+</code></pre>
+<p>By configuring <code>maxSurge</code>, you can ensure that upgrades are performed faster while maintaining application availability.</p>
+<p>For more information, see <a href="upgrade-cluster" data-linktype="relative-path">Upgrade node pools in AKS</a>.</p>
+<hr>
+<h4 id="using-maxunavailable-for-node-pool-upgrades">Using <code>maxUnavailable</code> for node pool upgrades</h4>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Configure the <code>maxUnavailable</code> setting for node pool upgrades to ensure application availability during upgrade operations.</p>
+</blockquote>
+<p>The <code>maxUnavailable</code> setting specifies the maximum number of nodes that can be unavailable during an upgrade. This ensures that a portion of your node pool remains operational while nodes are being upgraded.</p>
+<p>For example, the following Azure CLI command sets <code>maxUnavailable</code> to 1 for a node pool:</p>
+<pre><code class="lang-azurecli" data-interactive="azurecli">az aks nodepool update \
+  --resource-group myResourceGroup \
+  --cluster-name myAKSCluster \
+  --name myNodePool \
+  --max-unavailable 1
+</code></pre>
+<p>By configuring <code>maxUnavailable</code>, you can control the impact of upgrades on your workloads, ensuring that sufficient resources remain available during the process.</p>
+<p>For more information, see <a href="upgrade-cluster" data-linktype="relative-path">Upgrade node pools in AKS</a>.</p>
+<h4 id="accelerated-networking">Accelerated Networking</h4>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Use Accelerated Networking to provide lower latency, reduced jitter, and decreased CPU utilization on your VMs.</p>
+</blockquote>
+<p>Accelerated Networking enables <a href="/en-us/windows-hardware/drivers/network/overview-of-single-root-i-o-virtualization--sr-iov-" data-linktype="absolute-path">single root I/O virtualization (SR-IOV)</a> on <a href="/en-us/azure/virtual-network/accelerated-networking-overview#supported-vm-instances" data-linktype="absolute-path">supported VM types</a>, greatly improving networking performance.</p>
+<p>The following diagram illustrates how two VMs communicate with and without Accelerated Networking:</p>
+<p><span class="mx-imgBorder">
+<img src="../reusable-content/ce-skilling/azure/media/virtual-network/accelerated-networking.png" alt="Screenshot that shows communication between Azure VMs with and without Accelerated Networking." data-linktype="relative-path">
+</span>
+</p>
+<p>For more information, see <a href="/en-us/azure/virtual-network/accelerated-networking-overview" data-linktype="absolute-path">Accelerated Networking overview</a>.</p>
+<h3 id="image-versions">Image versions</h3>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Images shouldn't use the <code>latest</code> tag.</p>
+</blockquote>
+<h4 id="container-image-tags">Container image tags</h4>
+<p>Using the <code>latest</code> tag for <a href="https://kubernetes.io/docs/concepts/containers/images/" data-linktype="external">container images</a> can lead to unpredictable behavior and makes it difficult to track which version of the image is running in your cluster. You can minimize these risks by integrating and running scan and remediation tools in your containers at build and runtime. For more information, see <a href="operator-best-practices-container-image-management" data-linktype="relative-path">Best practices for container image management in AKS</a>.</p>
+<h4 id="node-image-upgrades">Node image upgrades</h4>
+<p>Node image upgrade behavior differs by cluster mode:</p>
+<ul>
+<li><strong>AKS Automatic</strong>: Node OS image upgrades are preconfigured through the <code>NodeImage</code> channel.</li>
+<li><strong>AKS Standard</strong>: Operators choose manual management or an auto-upgrade channel.</li>
+</ul>
+<p>AKS provides multiple auto-upgrade channels for node OS image upgrades. You can use these channels to control the timing of upgrades. We recommend joining these auto-upgrade channels to ensure that your nodes are running the latest security patches and updates. For more information, see <a href="auto-upgrade-node-os-image" data-linktype="relative-path">Auto-upgrade node OS images in AKS</a>.</p>
+<h3 id="standard-pricing-tier-for-production-workloads">Standard pricing tier for production workloads</h3>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Use the Standard pricing tier for product workloads for greater cluster reliability and resources, support for up to 5,000 nodes in a cluster, and Uptime SLA enabled by default. If you need LTS, consider using the Premium tier.</p>
+</blockquote>
+<p>The Standard tier for Azure Kubernetes Service (AKS) provides a financially backed 99.9% uptime <a href="free-standard-pricing-tiers#uptime-sla-terms-and-conditions" data-linktype="relative-path">service-level agreement (SLA)</a> for your production workloads. The standard tier also provides greater cluster reliability and resources, support for up to 5,000 nodes in a cluster, and Uptime SLA enabled by default. For more information, see <a href="free-standard-pricing-tiers" data-linktype="relative-path">Pricing tiers for AKS cluster management</a>.</p>
+<p>Cluster mode note:</p>
+<ul>
+<li>AKS Automatic is preconfigured with Standard tier, uptime SLA, and pod readiness SLA.</li>
+<li>AKS Standard defaults to Free tier unless you explicitly choose Standard or Premium.</li>
+</ul>
+<h3 id="localdns-for-dns-reliability">LocalDNS for DNS reliability</h3>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Enable <a href="localdns-custom" data-linktype="relative-path">LocalDNS</a> on your node pools to improve DNS resolution reliability and maintain service connectivity during transient DNS outages.</p>
+</blockquote>
+<p><a href="dns-concepts" data-linktype="relative-path">LocalDNS</a> deploys a DNS proxy on each AKS node, providing low-latency, resilient DNS resolution. By resolving queries locally, LocalDNS reduces your dependence on centralized CoreDNS pods and avoids <code>conntrack</code> table exhaustion, which is a common cause of dropped DNS queries in high-throughput environments. LocalDNS also supports serving stale cached responses for a configurable duration when upstream DNS is unavailable, helping maintain pod connectivity during disruptions. For configuration instructions and best practices, see <a href="localdns-custom" data-linktype="relative-path">Configure LocalDNS in AKS</a>.</p>
+<p>Cluster mode note:</p>
+<ul>
+<li><strong>AKS Automatic</strong>: LocalDNS is preconfigured.</li>
+<li><strong>AKS Standard</strong>: LocalDNS is optional and must be enabled explicitly.</li>
+</ul>
+<h3 id="azure-cni-for-dynamic-ip-allocation">Azure CNI for dynamic IP allocation</h3>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Configure Azure CNI for dynamic IP allocation for better IP utilization and to prevent IP exhaustion for AKS clusters.</p>
+</blockquote>
+<p>For AKS Standard, Azure CNI dynamic IP allocation helps improve IP utilization and prevent IP exhaustion. For AKS Automatic, the default networking path is managed virtual network using Azure CNI Overlay powered by Cilium, with optional custom virtual network configurations in supported scenarios.</p>
+<p>The dynamic IP allocation capability in Azure CNI allocates pod IPs from a subnet separate from the subnet hosting the AKS cluster and offers the following benefits:</p>
+<ul>
+<li><strong>Better IP utilization</strong>: IPs are dynamically allocated to cluster Pods from the Pod subnet. This leads to better utilization of IPs in the cluster compared to the traditional CNI solution, which does static allocation of IPs for every node.</li>
+<li><strong>Scalable and flexible</strong>: Node and pod subnets can be scaled independently. A single pod subnet can be shared across multiple node pools of a cluster or across multiple AKS clusters deployed in the same VNet. You can also configure a separate pod subnet for a node pool.</li>
+<li><strong>High performance</strong>: Since pods are assigned virtual network IPs, they have direct connectivity to other cluster pod and resources in the VNet. The solution supports very large clusters without any degradation in performance.</li>
+<li><strong>Separate VNet policies for pods</strong>: Since pods have a separate subnet, you can configure separate VNet policies for them that are different from node policies. This enables many useful scenarios such as allowing internet connectivity only for pods and not for nodes, fixing the source IP for pod in a node pool using an Azure NAT Gateway, and using NSGs to filter traffic between node pools.</li>
+<li><strong>Kubernetes network policies</strong>: Both the Azure Network Policies and Calico work with this solution.</li>
+</ul>
+<p>For more information, see <a href="configure-azure-cni-dynamic-ip-allocation" data-linktype="relative-path">Configure Azure CNI networking for dynamic allocation of IPs and enhanced subnet support</a>.</p>
+<h3 id="v5-sku-vms">v5 SKU VMs</h3>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Use v5 VM SKUs for improved performance during and after updates, less overall impact, and a more reliable connection for your applications.</p>
+</blockquote>
+<p>For node pools in AKS, use v5 SKU VMs with ephemeral OS disks to provide sufficient compute resources for kube-system pods. For more information, see <a href="best-practices-performance-scale-large" data-linktype="relative-path">Best practices for performance and scaling large workloads in AKS</a>.</p>
+<h3 id="do-not-use-b-series-vms">Do <em>not</em> use B series VMs</h3>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Don't use B series VMs for AKS clusters because they're low performance and don't work well with AKS.</p>
+</blockquote>
+<p>B series VMs are low performance and don't work well with AKS. Instead, we recommend using <a href="#v5-sku-vms" data-linktype="self-bookmark">v5 SKU VMs</a>.</p>
+<h3 id="azure-premium-ssd">Azure Premium SSD</h3>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Use Premium SSDs to achieve 99.9% availability in one virtual machine (VM).</p>
+</blockquote>
+<p><a href="/en-us/azure/virtual-machines/disks-types#premium-ssd-v2" data-linktype="absolute-path">Azure Premium SSD managed disks</a> offer a consistent submillisecond disk latency and high IOPS and throughput. Premium SSDs are designed to provide low-latency, high-performance, and consistent disk performance for VMs.</p>
+<p>The following example YAML manifest shows a <a href="https://kubernetes.io/docs/concepts/storage/storage-classes/" data-linktype="external">storage class definition</a> for a premium disk:</p>
+<pre><code class="lang-yaml">apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+   name: premium2-disk-sc
+parameters:
+   cachingMode: None
+   skuName: PremiumV2_LRS
+   DiskIOPSReadWrite: "4000"
+   DiskMBpsReadWrite: "1000"
+provisioner: disk.csi.azure.com
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
+</code></pre>
+<p>For more information, see <a href="use-premium-v2-disks" data-linktype="relative-path">Use Azure Premium SSD v2 disks on AKS</a>.</p>
+<h3 id="container-insights">Container Insights</h3>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Enable Container Insights to monitor and diagnose the performance of your containerized applications.</p>
+</blockquote>
+<p><a href="/en-us/azure/azure-monitor/containers/container-insights-overview" data-linktype="absolute-path">Container Insights</a> is a feature of Azure Monitor that collects and analyzes container logs from AKS. You can analyze the collected data with a collection of <a href="/en-us/azure/azure-monitor/containers/container-insights-analyze" data-linktype="absolute-path">views</a> and prebuilt <a href="/en-us/azure/azure-monitor/containers/container-insights-reports" data-linktype="absolute-path">workbooks</a>.</p>
+<p>Cluster mode note:</p>
+<ul>
+<li><strong>AKS Automatic</strong>: Container Insights is enabled by default in supported Azure CLI and Azure portal create flows.</li>
+<li><strong>AKS Standard</strong>: Container Insights is optional and enabled explicitly.</li>
+</ul>
+<p>You can enable Container Insights monitoring on your AKS cluster using various methods. The following example shows how to enable Container Insights monitoring on an existing AKS Standard cluster using the Azure CLI:</p>
+<pre><code class="lang-azurecli" data-interactive="azurecli">az aks enable-addons -a monitoring --name myAKSCluster --resource-group myResourceGroup
+</code></pre>
+<p>For more information, see <a href="/en-us/azure/azure-monitor/containers/kubernetes-monitoring-enable" data-linktype="absolute-path">Enable monitoring for Kubernetes clusters</a>.</p>
+<h3 id="azure-policy">Azure Policy</h3>
+<blockquote>
+<p><strong>Best practice guidance</strong></p>
+<p>Apply and enforce security and compliance requirements for your AKS clusters using Azure Policy.</p>
+</blockquote>
+<p>You can apply and enforce built-in security policies on your AKS clusters using <a href="/en-us/azure/governance/policy/overview" data-linktype="absolute-path">Azure Policy</a>. Azure Policy helps enforce organizational standards and assess compliance at-scale. After you install the <a href="/en-us/azure/governance/policy/concepts/policy-for-kubernetes" data-linktype="absolute-path">Azure Policy add-on for AKS</a>, you can apply individual policy definitions or groups of policy definitions called initiatives to your clusters.</p>
+<p>Cluster mode note:</p>
+<ul>
+<li><strong>AKS Automatic</strong>: Deployment Safeguards and baseline Pod Security Standards are preconfigured in enforce mode.</li>
+<li><strong>AKS Standard</strong>: Azure Policy and Deployment Safeguards are optional and require explicit configuration.</li>
+</ul>
+<p>For more information, see <a href="use-azure-policy" data-linktype="relative-path">Secure your AKS clusters with Azure Policy</a>.</p>
+<h2 id="related-content">Related content</h2>
+<p>This article focused on best practices for deployment and cluster reliability for Azure Kubernetes Service (AKS) clusters. For more information on related topics, see the following articles:</p>
+<ul>
+<li><a href="intro-aks-automatic" data-linktype="relative-path">What is AKS Automatic?</a></li>
+<li><a href="ha-dr-overview" data-linktype="relative-path">High availability and disaster recovery overview for AKS</a></li>
+<li><a href="best-practices-performance-scale-large" data-linktype="relative-path">Run AKS clusters at scale</a></li>
+<li><a href="/en-us/azure/architecture/reference-architectures/containers/aks/baseline-aks" data-linktype="absolute-path">Baseline architecture for an AKS cluster</a></li>
+</ul>
+</div>
+					
+		<div
+			id="ms--inline-notifications"
+			class="margin-block-xs"
+			data-bi-name="inline-notification"
+		></div>
+	 
+		<div
+			id="assertive-live-region"
+			role="alert"
+			aria-live="assertive"
+			class="visually-hidden"
+			aria-relevant="additions"
+			aria-atomic="true"
+		></div>
+		<div
+			id="polite-live-region"
+			role="status"
+			aria-live="polite"
+			class="visually-hidden"
+			aria-relevant="additions"
+			aria-atomic="true"
+		></div>
+	
+					
+		<!-- feedback section -->
+		<section
+			id="site-user-feedback-footer"
+			class="font-size-sm margin-top-md display-none-print display-none-desktop"
+			data-test-id="site-user-feedback-footer"
+			data-bi-name="site-feedback-section"
+		>
+			<hr class="hr" />
+			<h2 id="ms--feedback" class="title is-3">Feedback</h2>
+			<div class="display-flex flex-wrap-wrap align-items-center">
+				<p class="font-weight-semibold margin-xxs margin-left-none">
+					Was this page helpful?
+				</p>
+				<div class="buttons">
+					<button
+						class="thumb-rating-button like button button-primary button-sm"
+						data-test-id="footer-rating-yes"
+						data-binary-rating-response="rating-yes"
+						type="button"
+						title="This article is helpful"
+						data-bi-name="button-rating-yes"
+						aria-pressed="false"
+					>
+						<span class="icon" aria-hidden="true">
+							<span class="docon docon-like"></span>
+						</span>
+						<span>Yes</span>
+					</button>
+					<button
+						class="thumb-rating-button dislike button button-primary button-sm"
+						id="standard-rating-no-button"
+						hidden
+						data-test-id="footer-rating-no"
+						data-binary-rating-response="rating-no"
+						type="button"
+						title="This article is not helpful"
+						data-bi-name="button-rating-no"
+						aria-pressed="false"
+					>
+						<span class="icon" aria-hidden="true">
+							<span class="docon docon-dislike"></span>
+						</span>
+						<span>No</span>
+					</button>
+					<details
+						class="popover popover-top"
+						id="mobile-help-popover"
+						data-test-id="footer-feedback-popover"
+					>
+						<summary
+							class="thumb-rating-button dislike button button-primary button-sm"
+							data-test-id="details-footer-rating-no"
+							data-binary-rating-response="rating-no"
+							title="This article is not helpful"
+							data-bi-name="button-rating-no"
+							aria-pressed="false"
+							data-bi-an="feedback-unhelpful-popover"
+						>
+							<span class="icon" aria-hidden="true">
+								<span class="docon docon-dislike"></span>
+							</span>
+							<span>No</span>
+						</summary>
+						<div
+							class="popover-content width-200 width-300-tablet"
+							role="dialog"
+							aria-labelledby="popover-heading"
+							aria-describedby="popover-description"
+						>
+							<p id="popover-heading" class="font-size-lg margin-bottom-xxs font-weight-semibold">
+								Need help with this topic?
+							</p>
+							<p id="popover-description" class="font-size-sm margin-bottom-xs">
+								Want to try using Ask Learn to clarify or guide you through this topic?
+							</p>
+							
+		<div class="buttons flex-direction-row flex-wrap justify-content-center gap-xxs">
+			<div>
+		<button
+			class="button button-sm border inner-focus display-none margin-right-xxs"
+			data-bi-name="ask-learn-assistant-entry-troubleshoot"
+			data-test-id="ask-learn-assistant-modal-entry-mobile-feedback"
+			data-ask-learn-modal-entry-feedback
+			data-bi-an=feedback-unhelpful-popover
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			aria-label="Ask Learn"
+			hidden
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+		</button>
+		<button
+			class="button button-sm display-inline-flex display-none-desktop flex-shrink-0 margin-right-xxs border-color-ask-learn margin-right-xxs"
+			data-bi-name="ask-learn-assistant-entry-troubleshoot"
+			data-bi-an=feedback-unhelpful-popover
+			data-test-id="ask-learn-assistant-modal-entry-tablet-feedback"
+			data-ask-learn-modal-entry-feedback
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			hidden
+		>
+			<span class="icon font-size-lg" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+			<span>Ask Learn</span>
+		</button>
+		<button
+			class="button button-sm display-none flex-shrink-0 display-inline-flex-desktop margin-right-xxs border-color-ask-learn margin-right-xxs"
+			data-bi-name="ask-learn-assistant-entry-troubleshoot"
+			data-bi-an=feedback-unhelpful-popover
+			data-test-id="ask-learn-assistant-flyout-entry-feedback"
+			data-ask-learn-flyout-entry-show-only
+			data-flyout-button="toggle"
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			aria-controls="ask-learn-flyout"
+			hidden
+		>
+			<span class="icon font-size-lg" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+			<span>Ask Learn</span>
+		</button>
+	</div>
+			<button
+				type="button"
+				class="button button-sm margin-right-xxs"
+				data-help-option="suggest-fix"
+				data-bi-name="feedback-suggest"
+				data-bi-an="feedback-unhelpful-popover"
+				data-test-id="suggest-fix"
+			>
+				<span class="icon" aria-hidden="true">
+					<span class="docon docon-feedback"></span>
+				</span>
+				<span> Suggest a fix? </span>
+			</button>
+		</div>
+	
+						</div>
+					</details>
+				</div>
+			</div>
+		</section>
+		<!-- end feedback section -->
+	
+				</div>
+				
+		<div id="ms--additional-resources-mobile" class="display-none-print">
+			<hr class="hr" hidden />
+			<h2 id="ms--additional-resources-mobile-heading" class="title is-3" hidden>
+				Additional resources
+			</h2>
+			
+		<section
+			id="right-rail-recommendations-mobile"
+			class=""
+			data-bi-name="recommendations"
+			hidden
+		></section>
+	 
+		<section
+			id="right-rail-training-mobile"
+			class=""
+			data-bi-name="learning-resource-card"
+			hidden
+		></section>
+	 
+		<section
+			id="right-rail-events-mobile"
+			class=""
+			data-bi-name="events-card"
+			hidden
+		></section>
+	
+		</div>
+	 
+		<div
+			id="article-metadata-footer"
+			data-bi-name="article-metadata-footer"
+			data-test-id="article-metadata-footer"
+			class="page-metadata-container"
+		>
+			<hr class="hr" />
+			<ul class="metadata page-metadata" data-bi-name="page info" lang="en-us" dir="ltr">
+				<li class="visibility-hidden-visual-diff">
+			<span class="badge badge-sm text-wrap-pretty">
+				<span>Last updated on <local-time format="twoDigitNumeric"
+		datetime="2026-08-20T08:00:00.000Z"
+		data-article-date-source="calculated"
+		class="is-invisible"
+	>
+		2026-08-20
+	</local-time></span>
+			</span>
+		</li>
+			</ul>
+		</div>
+	
+			</div>
+		
+				</main>
+				<aside
+					id="layout-body-aside"
+					class="layout-body-aside  "
+					data-bi-name="aside"
+					aria-label="Additional resources"
+			  >
+					
+		<div
+			id="ms--additional-resources"
+			class="right-container padding-sm display-none display-block-desktop height-full"
+			data-bi-name="pageactions"
+		>
+			<div id="affixed-right-container" data-bi-name="right-column">
+				
+		<nav
+			id="side-doc-outline"
+			class="doc-outline border-bottom padding-bottom-xs margin-bottom-xs scrollbar-width-thin"
+			data-bi-name="intopic toc"
+			aria-label="In this article"
+		>
+			<h3>In this article</h3>
+		</nav>
+	
+				<!-- Feedback -->
+				
+		<section
+			id="ms--site-user-feedback-right-rail"
+			class="font-size-sm display-none-print"
+			data-test-id="site-user-feedback-right-rail"
+			data-bi-name="site-feedback-right-rail"
+		>
+			<div class="display-flex flex-wrap-wrap align-items-center">
+				<p class="font-weight-semibold margin-xxs margin-left-none">
+					Was this page helpful?
+				</p>
+				<div class="display-flex flex-wrap-nowrap">
+					<button
+						class="thumb-rating-button like inner-focus"
+						data-test-id="right-rail-rating-yes"
+						data-binary-rating-response="rating-yes"
+						type="button"
+						title="This article is helpful"
+						aria-label="This article is helpful"
+						data-bi-name="button-rating-yes"
+						aria-pressed="false"
+					>
+						<span class="icon" aria-hidden="true">
+							<span class="docon docon-like"></span>
+						</span>
+					</button>
+					<button
+						class="thumb-rating-button dislike inner-focus"
+						id="right-rail-no-button"
+						hidden
+						data-test-id="right-rail-rating-no"
+						data-binary-rating-response="rating-no"
+						type="button"
+						title="This article is not helpful"
+						aria-label="This article is not helpful"
+						data-bi-name="button-rating-no"
+						aria-pressed="false"
+					>
+						<span class="icon" aria-hidden="true">
+							<span class="docon docon-dislike"></span>
+						</span>
+					</button>
+					<details class="popover popover-right" id="help-popover" data-test-id="feedback-popover">
+						<summary
+							tabindex="0"
+							class="thumb-rating-button dislike inner-focus"
+							data-test-id="details-right-rail-rating-no"
+							data-binary-rating-response="rating-no"
+							title="This article is not helpful"
+							aria-label="This article is not helpful"
+							data-bi-name="button-rating-no"
+							aria-pressed="false"
+							data-bi-an="feedback-unhelpful-popover"
+						>
+							<span class="icon" aria-hidden="true">
+								<span class="docon docon-dislike"></span>
+							</span>
+						</summary>
+						<div
+							class="popover-content width-200 width-300-tablet"
+							role="dialog"
+							aria-labelledby="popover-heading-right-rail"
+							aria-describedby="popover-description-right-rail"
+						>
+							<p
+								id="popover-heading-right-rail"
+								class="font-size-lg margin-bottom-xxs font-weight-semibold"
+							>
+								Need help with this topic?
+							</p>
+							<p id="popover-description-right-rail" class="font-size-sm margin-bottom-xs">
+								Want to try using Ask Learn to clarify or guide you through this topic?
+							</p>
+							
+		<div class="buttons flex-direction-row flex-wrap justify-content-center gap-xxs">
+			<div>
+		<button
+			class="button button-sm border inner-focus display-none margin-right-xxs"
+			data-bi-name="ask-learn-assistant-entry-troubleshoot"
+			data-test-id="ask-learn-assistant-modal-entry-mobile-feedback"
+			data-ask-learn-modal-entry-feedback
+			data-bi-an=feedback-unhelpful-popover
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			aria-label="Ask Learn"
+			hidden
+		>
+			<span class="icon" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+		</button>
+		<button
+			class="button button-sm display-inline-flex display-none-desktop flex-shrink-0 margin-right-xxs border-color-ask-learn margin-right-xxs"
+			data-bi-name="ask-learn-assistant-entry-troubleshoot"
+			data-bi-an=feedback-unhelpful-popover
+			data-test-id="ask-learn-assistant-modal-entry-tablet-feedback"
+			data-ask-learn-modal-entry-feedback
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			hidden
+		>
+			<span class="icon font-size-lg" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+			<span>Ask Learn</span>
+		</button>
+		<button
+			class="button button-sm display-none flex-shrink-0 display-inline-flex-desktop margin-right-xxs border-color-ask-learn margin-right-xxs"
+			data-bi-name="ask-learn-assistant-entry-troubleshoot"
+			data-bi-an=feedback-unhelpful-popover
+			data-test-id="ask-learn-assistant-flyout-entry-feedback"
+			data-ask-learn-flyout-entry-show-only
+			data-flyout-button="toggle"
+			type="button"
+			style="min-width: max-content;"
+			aria-expanded="false"
+			aria-controls="ask-learn-flyout"
+			hidden
+		>
+			<span class="icon font-size-lg" aria-hidden="true">
+				<span class="docon docon-chat-sparkle-fill gradient-ask-learn-logo"></span>
+			</span>
+			<span>Ask Learn</span>
+		</button>
+	</div>
+			<button
+				type="button"
+				class="button button-sm margin-right-xxs"
+				data-help-option="suggest-fix"
+				data-bi-name="feedback-suggest"
+				data-bi-an="feedback-unhelpful-popover"
+				data-test-id="suggest-fix"
+			>
+				<span class="icon" aria-hidden="true">
+					<span class="docon docon-feedback"></span>
+				</span>
+				<span> Suggest a fix? </span>
+			</button>
+		</div>
+	
+						</div>
+					</details>
+				</div>
+			</div>
+		</section>
+	
+			</div>
+		</div>
+	
+			  </aside> <section
+					id="layout-body-flyout"
+					class="layout-body-flyout "
+					data-bi-name="flyout"
+			  >
+					 <div
+	class="height-full border-left background-color-body-medium"
+	id="ask-learn-flyout"
+></div>
+			  </section> <div class="layout-body-footer " data-bi-name="layout-footer">
+		<footer
+			id="footer"
+			data-test-id="footer"
+			data-bi-name="footer"
+			class="footer-layout padding-xs padding-sm-desktop has-default-focus border-top"
+			role="contentinfo"
+		>
+			<div class="display-flex gap-xs flex-wrap-wrap is-full-height padding-right-lg-desktop">
+				
+		<a
+			data-mscc-ic="false"
+			href="#"
+			data-bi-name="select-locale"
+			class="locale-selector-link flex-shrink-0 button button-sm button-clear external-link-indicator"
+			id=""
+			title=""
+			><span class="icon" aria-hidden="true"
+				><span class="docon docon-world"></span></span
+			><span class="local-selector-link-text">en-us</span></a
+		>
+	 <div class="ccpa-privacy-link" data-ccpa-privacy-link hidden>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://aka.ms/yourcaliforniaprivacychoices"
+			data-bi-name="your-privacy-choices"
+			class="button button-sm button-clear flex-shrink-0 external-link-indicator"
+			id=""
+			title=""
+			>
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			viewBox="0 0 30 14"
+			xml:space="preserve"
+			height="16"
+			width="43"
+			aria-hidden="true"
+			focusable="false"
+		>
+			<path
+				d="M7.4 12.8h6.8l3.1-11.6H7.4C4.2 1.2 1.6 3.8 1.6 7s2.6 5.8 5.8 5.8z"
+				style="fill-rule:evenodd;clip-rule:evenodd;fill:#fff"
+			></path>
+			<path
+				d="M22.6 0H7.4c-3.9 0-7 3.1-7 7s3.1 7 7 7h15.2c3.9 0 7-3.1 7-7s-3.2-7-7-7zm-21 7c0-3.2 2.6-5.8 5.8-5.8h9.9l-3.1 11.6H7.4c-3.2 0-5.8-2.6-5.8-5.8z"
+				style="fill-rule:evenodd;clip-rule:evenodd;fill:#06f"
+			></path>
+			<path
+				d="M24.6 4c.2.2.2.6 0 .8L22.5 7l2.2 2.2c.2.2.2.6 0 .8-.2.2-.6.2-.8 0l-2.2-2.2-2.2 2.2c-.2.2-.6.2-.8 0-.2-.2-.2-.6 0-.8L20.8 7l-2.2-2.2c-.2-.2-.2-.6 0-.8.2-.2.6-.2.8 0l2.2 2.2L23.8 4c.2-.2.6-.2.8 0z"
+				style="fill:#fff"
+			></path>
+			<path
+				d="M12.7 4.1c.2.2.3.6.1.8L8.6 9.8c-.1.1-.2.2-.3.2-.2.1-.5.1-.7-.1L5.4 7.7c-.2-.2-.2-.6 0-.8.2-.2.6-.2.8 0L8 8.6l3.8-4.5c.2-.2.6-.2.9 0z"
+				style="fill:#06f"
+			></path>
+		</svg>
+	
+			<span>Your Privacy Choices</span></a
+		>
+	
+	</div>
+				<div class="flex-shrink-0">
+		<div class="dropdown has-caret-up">
+			<button
+				data-test-id="theme-selector-button"
+				class="dropdown-trigger button button-clear button-sm inner-focus theme-dropdown-trigger"
+				aria-controls="{{ themeMenuId }}"
+				aria-haspopup="true"
+				aria-expanded="false"
+				data-bi-name="theme"
+			>
+				<span class="icon" aria-hidden="true"><span class="docon docon-sun"></span></span>
+				<span>Theme</span>
+				<span class="icon expanded-indicator" aria-hidden="true">
+					<span class="docon docon-chevron-down-light"></span>
+				</span>
+			</button>
+			<div class="dropdown-menu" id="{{ themeMenuId }}" role="menu">
+				<ul class="theme-selector padding-xxs" data-test-id="theme-dropdown-menu" role="none">
+					<li class="theme display-block" role="none">
+						<button
+							class="button button-clear button-sm theme-control button-block justify-content-flex-start text-align-left"
+							role="menuitemradio"
+							aria-checked="false"
+							data-theme-to="light"
+							tabindex="-1"
+						>
+							<span class="theme-light margin-right-xxs">
+								<span
+									class="theme-selector-icon border display-inline-block has-body-background"
+									aria-hidden="true"
+								>
+									<svg class="svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 14">
+										<rect width="22" height="14" class="has-fill-body-background" />
+										<rect x="5" y="5" width="12" height="4" class="has-fill-secondary" />
+										<rect x="5" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="8" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="11" y="2" width="3" height="1" class="has-fill-secondary" />
+										<rect x="1" y="1" width="2" height="2" class="has-fill-secondary" />
+										<rect x="5" y="10" width="7" height="2" rx="0.3" class="has-fill-primary" />
+										<rect x="19" y="1" width="2" height="2" rx="1" class="has-fill-secondary" />
+									</svg>
+								</span>
+							</span>
+							<span> Light </span>
+						</button>
+					</li>
+					<li class="theme display-block" role="none">
+						<button
+							class="button button-clear button-sm theme-control button-block justify-content-flex-start text-align-left"
+							role="menuitemradio"
+							aria-checked="false"
+							data-theme-to="dark"
+							tabindex="-1"
+						>
+							<span class="theme-dark margin-right-xxs">
+								<span
+									class="border theme-selector-icon display-inline-block has-body-background"
+									aria-hidden="true"
+								>
+									<svg class="svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 14">
+										<rect width="22" height="14" class="has-fill-body-background" />
+										<rect x="5" y="5" width="12" height="4" class="has-fill-secondary" />
+										<rect x="5" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="8" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="11" y="2" width="3" height="1" class="has-fill-secondary" />
+										<rect x="1" y="1" width="2" height="2" class="has-fill-secondary" />
+										<rect x="5" y="10" width="7" height="2" rx="0.3" class="has-fill-primary" />
+										<rect x="19" y="1" width="2" height="2" rx="1" class="has-fill-secondary" />
+									</svg>
+								</span>
+							</span>
+							<span> Dark </span>
+						</button>
+					</li>
+					<li class="theme display-block" role="none">
+						<button
+							class="button button-clear button-sm theme-control button-block justify-content-flex-start text-align-left"
+							role="menuitemradio"
+							aria-checked="false"
+							data-theme-to="high-contrast"
+							tabindex="-1"
+						>
+							<span class="theme-high-contrast margin-right-xxs">
+								<span
+									class="border theme-selector-icon display-inline-block has-body-background"
+									aria-hidden="true"
+								>
+									<svg class="svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 14">
+										<rect width="22" height="14" class="has-fill-body-background" />
+										<rect x="5" y="5" width="12" height="4" class="has-fill-secondary" />
+										<rect x="5" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="8" y="2" width="2" height="1" class="has-fill-secondary" />
+										<rect x="11" y="2" width="3" height="1" class="has-fill-secondary" />
+										<rect x="1" y="1" width="2" height="2" class="has-fill-secondary" />
+										<rect x="5" y="10" width="7" height="2" rx="0.3" class="has-fill-primary" />
+										<rect x="19" y="1" width="2" height="2" rx="1" class="has-fill-secondary" />
+									</svg>
+								</span>
+							</span>
+							<span> High contrast </span>
+						</button>
+					</li>
+				</ul>
+			</div>
+		</div>
+	</div>
+			</div>
+			<ul class="links" data-bi-name="footerlinks">
+				<li class="manage-cookies-holder" hidden=""></li>
+				<li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://learn.microsoft.com/en-us/principles-for-ai-generated-content"
+			data-bi-name="aiDisclaimer"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>AI Disclaimer</a
+		>
+	
+	</li><li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://learn.microsoft.com/en-us/previous-versions/"
+			data-bi-name="archivelink"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Previous Versions</a
+		>
+	
+	</li> <li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://techcommunity.microsoft.com/t5/microsoft-learn-blog/bg-p/MicrosoftLearnBlog"
+			data-bi-name="bloglink"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Blog</a
+		>
+	
+	</li> <li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://learn.microsoft.com/en-us/contribute"
+			data-bi-name="contributorGuide"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Contribute</a
+		>
+	
+	</li><li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://go.microsoft.com/fwlink/?LinkId=521839"
+			data-bi-name="privacy"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Privacy</a
+		>
+	
+	</li><li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://go.microsoft.com/fwlink/?linkid=2259814"
+			data-bi-name="consumer-health-privacy"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Consumer Health Privacy</a
+		>
+	
+	</li><li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://learn.microsoft.com/en-us/legal/termsofuse"
+			data-bi-name="termsofuse"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Terms of Use</a
+		>
+	
+	</li><li>
+		
+		<a
+			data-mscc-ic="false"
+			href="https://www.microsoft.com/legal/intellectualproperty/Trademarks/"
+			data-bi-name="trademarks"
+			class=" external-link-indicator"
+			id=""
+			title=""
+			>Trademarks</a
+		>
+	
+	</li>
+				<li>&copy; Microsoft 2026</li>
+			</ul>
+		</footer>
+	</footer>
+			<noscript><img src="https://learn.microsoft.com/akam/13/pixel_6e28c88e?a=dD0zYWZmOTQ0MzIyYWVkNDJhNWIyOGM4Njg5ZTQwOTM2NjI1OWExMTk5JmpzPW9mZg==" style="visibility: hidden; position: absolute; left: -999px; top: -999px;" /></noscript></body>
+		</html>

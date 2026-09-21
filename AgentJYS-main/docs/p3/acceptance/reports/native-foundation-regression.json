@@ -1,0 +1,326 @@
+{
+  "generated_at": "2026-09-19T08:05:04.944737+00:00",
+  "profile": "basic_local",
+  "passed": true,
+  "python": "3.13.15",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "checks": [
+    {
+      "name": "flow_tests",
+      "passed": true
+    },
+    {
+      "name": "flow_lint",
+      "passed": true
+    },
+    {
+      "name": "flow_types",
+      "passed": true
+    },
+    {
+      "name": "foundation_and_contract_regression",
+      "passed": true
+    },
+    {
+      "name": "three_flow_demo",
+      "passed": true
+    }
+  ],
+  "flow_cases": [
+    {
+      "name": "test_write_recall_and_automatic_real_cache",
+      "passed": true
+    },
+    {
+      "name": "test_correct_filters_old_vectors_and_invalidates_old_pack",
+      "passed": true
+    },
+    {
+      "name": "test_delete_blocks_old_pack_and_cleans_cache",
+      "passed": true
+    },
+    {
+      "name": "test_scope_isolation_across_all_flows[bob]",
+      "passed": true
+    },
+    {
+      "name": "test_scope_isolation_across_all_flows[carol]",
+      "passed": true
+    },
+    {
+      "name": "test_scope_isolation_across_all_flows[david]",
+      "passed": true
+    },
+    {
+      "name": "test_vector_outage_is_degraded_or_failed_not_fake_empty",
+      "passed": true
+    },
+    {
+      "name": "test_context_budget_is_measured_and_too_small_fails",
+      "passed": true
+    },
+    {
+      "name": "test_duplicate_read_events_do_not_double_heat",
+      "passed": true
+    },
+    {
+      "name": "test_lost_execution_response_queries_original_action",
+      "passed": true
+    },
+    {
+      "name": "test_archive_and_reactivate",
+      "passed": true
+    },
+    {
+      "name": "test_delete_source_blocks_working_and_derived",
+      "passed": true
+    },
+    {
+      "name": "test_inflight_extraction_cannot_resurrect_deleted_working",
+      "passed": true
+    },
+    {
+      "name": "test_save_idempotency_same_operation_rejects_different_input",
+      "passed": true
+    },
+    {
+      "name": "test_read_only_user_can_recall_and_feed_internal_operate",
+      "passed": true
+    },
+    {
+      "name": "test_delete_original_working_also_blocks_derived_facts",
+      "passed": true
+    },
+    {
+      "name": "test_restart_preserves_context_and_executor_evidence",
+      "passed": true
+    },
+    {
+      "name": "test_lost_executor_history_stays_unknown",
+      "passed": true
+    },
+    {
+      "name": "test_tampered_embedding_never_marks_projection_ready",
+      "passed": true
+    },
+    {
+      "name": "test_langmem_adapter_rejects_unsubstantiated_candidate",
+      "passed": true
+    },
+    {
+      "name": "test_cache_verification_preserves_exact_crlf_bytes",
+      "passed": true
+    },
+    {
+      "name": "test_cli_repeat_operation_is_idempotent",
+      "passed": true
+    },
+    {
+      "name": "test_trace_survives_restart_and_reaches_automatic_operate",
+      "passed": true
+    },
+    {
+      "name": "test_trace_query_does_not_cross_users_or_tenants",
+      "passed": true
+    },
+    {
+      "name": "test_failed_transaction_keeps_redacted_failure_log",
+      "passed": true
+    },
+    {
+      "name": "test_diagnostics_require_maintenance_permission",
+      "passed": true
+    },
+    {
+      "name": "test_cli_failure_exposes_trace_id_and_health_is_live_probe",
+      "passed": true
+    },
+    {
+      "name": "test_process_kill_leaves_open_span_not_success",
+      "passed": true
+    },
+    {
+      "name": "test_async_cancellation_is_logged",
+      "passed": true
+    },
+    {
+      "name": "test_health_observes_dependencies_worker_staleness_and_no_recovery",
+      "passed": true
+    },
+    {
+      "name": "test_health_timeout_and_unconfigured_provider",
+      "passed": true
+    },
+    {
+      "name": "test_recall_trace_keeps_dependency_failure_and_degraded_outcome",
+      "passed": true
+    },
+    {
+      "name": "test_log_failure_does_not_rollback_business_and_is_unhealthy",
+      "passed": true
+    },
+    {
+      "name": "test_retention_and_pagination_report_partial_coverage",
+      "passed": true
+    }
+  ],
+  "not_run": [
+    "live_langmem_model",
+    "semantic_embedding_model",
+    "milvus",
+    "production_storage_tiers",
+    "http_host",
+    "azure_aks",
+    "metrics_and_soak"
+  ],
+  "artifacts": [
+    {
+      "path": "src/aether_agent_memory/remember/basic/extraction.py",
+      "sha256": "428df981b087c9791c18baa9bfd4c129da670de0b94879c0436c56896c5bee72"
+    },
+    {
+      "path": "src/aether_agent_memory/remember/basic/service.py",
+      "sha256": "252c43334f357e550b7f472758326c0570ea592d7d83b1104242c0020f2df2aa"
+    },
+    {
+      "path": "src/aether_agent_memory/remember/basic/__init__.py",
+      "sha256": "01a3ece8fa2773f72650076d83557ef9bb97fedbe2de0bea7c5880ea9675d0ac"
+    },
+    {
+      "path": "src/aether_agent_memory/recall/basic/adapters.py",
+      "sha256": "e70301ce6b732663f026a3cfc315b4b9e7f3b34cacc4e02c77c470c833c3a315"
+    },
+    {
+      "path": "src/aether_agent_memory/recall/basic/service.py",
+      "sha256": "0ce898b57dfd98f4857d93512d111afb03b49a3ea5a8053d3e3e96f4e5c806d4"
+    },
+    {
+      "path": "src/aether_agent_memory/recall/basic/__init__.py",
+      "sha256": "0af9b207120945ad474e985af512934213414d79ea0d6830a276a210ced282b9"
+    },
+    {
+      "path": "src/aether_agent_memory/operate/basic/executor.py",
+      "sha256": "4fc317dbb54f31be73e15d2dbf96ff3457b00cb492054083e85f883d5403c1b8"
+    },
+    {
+      "path": "src/aether_agent_memory/operate/basic/service.py",
+      "sha256": "dab40456acc3e2f02dea3320cda2bd2e8c41a753904c818b339865dbe6001b01"
+    },
+    {
+      "path": "src/aether_agent_memory/operate/basic/__init__.py",
+      "sha256": "d4047aabffb65c27752798c4c1eaab3664e3c41f966f35c8bd17f48409ffa4d1"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/flows/health.py",
+      "sha256": "03f4c9f46540edfeddeb82fd0873152ecd30f329c225b8ab0cbf62c3a83d3f11"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/flows/host.py",
+      "sha256": "c7bfb6c8bf67301d3d8f98ca40fb3dab36185f167518b9b35f7d8a20e89851e0"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/flows/__init__.py",
+      "sha256": "c5563f0bfbe977d1e778465ffb99bfdfea49c7a68eb85770f6f222298aeacaf2"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/flows/__main__.py",
+      "sha256": "c54ce259eb607443f799dec3bcd28b2e8342c57d629b86f741a7ba0237187525"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/common.py",
+      "sha256": "fbf827a8af4d101a60681bbc64b75a91af3d61074a773df5cab7dea86478af3b"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/diagnostics.py",
+      "sha256": "b4815e15508a4710d64638d9e57831541691d9daf037eed2f934be5cada7a394"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/events.py",
+      "sha256": "82ce78352df69fc8b9c9fef22ac2a78f232d3469e9fea3abb9700f2200bfc078"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/host.py",
+      "sha256": "f6bd84cb411aa76760510e34d368195583c13ab21ae5944ab54e176188d915a4"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/identity.py",
+      "sha256": "1f085d8c47d68d9a2baa4d62fd671e5b291a7088083d879ec8e4af0ba94d37ce"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/requests.py",
+      "sha256": "9fc203a86c98d97f978f2c80cde03c56bcfdf8c8b8b3fb9bfdb879552d22968e"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/sample.py",
+      "sha256": "32002e89b2fb1a652d5af948d762f528a6cba8d8e52fc62720760cb47c644307"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/storage.py",
+      "sha256": "08354e9b9b0445cf2da362fea467c546a92c006c94217e541944b508b87f7aac"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/tasks.py",
+      "sha256": "cd959000dd56b38e41f9c812e20779e756ba3e5fac91c3b6d35f2c1c95a16f5a"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/telemetry.py",
+      "sha256": "cbca827f556755c7d3d704552179a6e76f6248c663d3aa011f41a756078d66de"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/__init__.py",
+      "sha256": "dcdf50c46bd03a0aab09ebf5e84f4948933b74404c0fe32a115048aa218052cf"
+    },
+    {
+      "path": "src/aether_agent_memory/runtime/foundation/__main__.py",
+      "sha256": "616a82380dc31554a2f042a9d09511451156e30c4303cbe03cb70401ece35e9e"
+    },
+    {
+      "path": "tests/runtime/flows/conftest.py",
+      "sha256": "0ccf3edc83bbe4f13d32b55e8302027fae14bd7776c6eb37d1cc9b600b6bcdc7"
+    },
+    {
+      "path": "tests/runtime/flows/test_flows.py",
+      "sha256": "995c8f1e8499edc9ff1d32767fc4d10e93d45f859b12e381f55aeb05c8dca0ee"
+    },
+    {
+      "path": "tests/runtime/flows/test_observability.py",
+      "sha256": "7a591abe567828cb1866bb33471ee0425d143b319e93127371d64d30263c895b"
+    },
+    {
+      "path": "scripts/p3/catalog.py",
+      "sha256": "7ff155fb12165ecec850616ae925ddbda21d49ba62740d445e958b741a2e6357"
+    },
+    {
+      "path": "scripts/p3/demo_flows.py",
+      "sha256": "eca0516828961bf40b527e76f8b3c1045ee465a71da730dcd10bb2ed69cec1c8"
+    },
+    {
+      "path": "scripts/p3/demo_foundation.py",
+      "sha256": "76228e847072606400d12a07d06782aad44289689f7d2e1563522039ac3a77dc"
+    },
+    {
+      "path": "scripts/p3/event_contract.py",
+      "sha256": "c0d0c8ccc62344127f6823c338e716fd50275793cad9ee0f960a9f561bfb254a"
+    },
+    {
+      "path": "scripts/p3/generate_schemas.py",
+      "sha256": "8379f2ad02ceb4770dd8a755d230e8fc03668ec27a68aa2ffbe021f173215783"
+    },
+    {
+      "path": "scripts/p3/validate_contracts.py",
+      "sha256": "32cb72c5fd36befdcb346b797b629e6ae9c9f74f30c00e408408460e56c45f10"
+    },
+    {
+      "path": "scripts/p3/validate_flows.py",
+      "sha256": "b5391501ea71a2ac7169aea1894d2293a7ce460dc4a21d908593c6239ace606a"
+    },
+    {
+      "path": "scripts/p3/validate_foundation.py",
+      "sha256": "58637922afd5120cfff7431d116d5b53a50e5b0df956939af4ec0363f48a41c9"
+    },
+    {
+      "path": "scripts/p3/validate_native_flows.py",
+      "sha256": "7c413ef73bbb45b7986dd58f37318d71526251f167494272962390e0ef506c98"
+    }
+  ]
+}

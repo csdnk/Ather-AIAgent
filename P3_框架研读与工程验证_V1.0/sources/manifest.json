@@ -1,0 +1,247 @@
+{
+  "retrieved_at": "2026-09-18T10:52:29.479089+00:00",
+  "repositories": [
+    {
+      "name": "langmem",
+      "repository": "langchain-ai/langmem",
+      "commit": "9d033b47d9ce53e37e92c92241b0496c0278932e",
+      "files": [
+        {
+          "path": "sources/langmem/README.md",
+          "upstream_path": "README.md",
+          "sha256": "e1edd000d263bfea842c34273add82421340c2caf2d7b87edd285daf02156ca3",
+          "url": "https://github.com/langchain-ai/langmem/blob/9d033b47d9ce53e37e92c92241b0496c0278932e/README.md"
+        },
+        {
+          "path": "sources/langmem/LICENSE",
+          "upstream_path": "LICENSE",
+          "sha256": "98af1351ea856e008c835bc89a312905960a318072f950732bf346c741027c7d",
+          "url": "https://github.com/langchain-ai/langmem/blob/9d033b47d9ce53e37e92c92241b0496c0278932e/LICENSE"
+        },
+        {
+          "path": "sources/langmem/src/langmem/knowledge/extraction.py",
+          "upstream_path": "src/langmem/knowledge/extraction.py",
+          "sha256": "165d4c019f55a365dba5a551e1af0c0313a2f4bab292e47493acc6f1cd62c13e",
+          "url": "https://github.com/langchain-ai/langmem/blob/9d033b47d9ce53e37e92c92241b0496c0278932e/src/langmem/knowledge/extraction.py"
+        },
+        {
+          "path": "sources/langmem/src/langmem/knowledge/tools.py",
+          "upstream_path": "src/langmem/knowledge/tools.py",
+          "sha256": "0118d3623a19c9b6c8c3d477aead51f08eeb44771c3ae3f51cd32d8a800b78d7",
+          "url": "https://github.com/langchain-ai/langmem/blob/9d033b47d9ce53e37e92c92241b0496c0278932e/src/langmem/knowledge/tools.py"
+        }
+      ]
+    },
+    {
+      "name": "llamaindex",
+      "repository": "run-llama/llama_index",
+      "commit": "c60937d3099b89e66ff9040f1c45030bc4e407e9",
+      "files": [
+        {
+          "path": "sources/llamaindex/README.md",
+          "upstream_path": "README.md",
+          "sha256": "c2738208d11688fc21e087a72b0ac9bafed02a2ac18e3794e01982972a291c29",
+          "url": "https://github.com/run-llama/llama_index/blob/c60937d3099b89e66ff9040f1c45030bc4e407e9/README.md"
+        },
+        {
+          "path": "sources/llamaindex/LICENSE",
+          "upstream_path": "LICENSE",
+          "sha256": "24f40b5190fdacabc24ddbb5f76364d15e4f030925220ea300d8a2dd4993c8cb",
+          "url": "https://github.com/run-llama/llama_index/blob/c60937d3099b89e66ff9040f1c45030bc4e407e9/LICENSE"
+        },
+        {
+          "path": "sources/llamaindex/llama-index-core/llama_index/core/base/base_retriever.py",
+          "upstream_path": "llama-index-core/llama_index/core/base/base_retriever.py",
+          "sha256": "6bd60c18f31bdffb372e23cb1777d128b38832c2d1aa9661639dc17ee217f343",
+          "url": "https://github.com/run-llama/llama_index/blob/c60937d3099b89e66ff9040f1c45030bc4e407e9/llama-index-core/llama_index/core/base/base_retriever.py"
+        },
+        {
+          "path": "sources/llamaindex/llama-index-core/llama_index/core/indices/vector_store/retrievers/retriever.py",
+          "upstream_path": "llama-index-core/llama_index/core/indices/vector_store/retrievers/retriever.py",
+          "sha256": "0f22a10a5d5dfee82afc526e3950cc877632e3c1e62b02dfadc7a616ac5fc746",
+          "url": "https://github.com/run-llama/llama_index/blob/c60937d3099b89e66ff9040f1c45030bc4e407e9/llama-index-core/llama_index/core/indices/vector_store/retrievers/retriever.py"
+        },
+        {
+          "path": "sources/llamaindex/llama-index-core/llama_index/core/retrievers/fusion_retriever.py",
+          "upstream_path": "llama-index-core/llama_index/core/retrievers/fusion_retriever.py",
+          "sha256": "e125fb8666943f40c56cb9b4102fb3ca3a81db485304464b8cd196dc8cf516f9",
+          "url": "https://github.com/run-llama/llama_index/blob/c60937d3099b89e66ff9040f1c45030bc4e407e9/llama-index-core/llama_index/core/retrievers/fusion_retriever.py"
+        },
+        {
+          "path": "sources/llamaindex/llama-index-core/llama_index/core/postprocessor/types.py",
+          "upstream_path": "llama-index-core/llama_index/core/postprocessor/types.py",
+          "sha256": "601ce5068496ada110cf4626d69f86f44937fcb087bf23dc8aadd95c1e8780fc",
+          "url": "https://github.com/run-llama/llama_index/blob/c60937d3099b89e66ff9040f1c45030bc4e407e9/llama-index-core/llama_index/core/postprocessor/types.py"
+        },
+        {
+          "path": "sources/llamaindex/llama-index-core/llama_index/core/schema.py",
+          "upstream_path": "llama-index-core/llama_index/core/schema.py",
+          "sha256": "690c751ff2e8372150b4cb7dc921221ed0ce57bbf44a31a3053f3dc14c9c56a4",
+          "url": "https://github.com/run-llama/llama_index/blob/c60937d3099b89e66ff9040f1c45030bc4e407e9/llama-index-core/llama_index/core/schema.py"
+        },
+        {
+          "path": "sources/llamaindex/llama-index-core/llama_index/core/vector_stores/types.py",
+          "upstream_path": "llama-index-core/llama_index/core/vector_stores/types.py",
+          "sha256": "139179d07687b026b8d764df0125c4bac7a9752cfa5913474962c2351825a7eb",
+          "url": "https://github.com/run-llama/llama_index/blob/c60937d3099b89e66ff9040f1c45030bc4e407e9/llama-index-core/llama_index/core/vector_stores/types.py"
+        },
+        {
+          "path": "sources/llamaindex/llama-index-core/llama_index/core/query_engine/retriever_query_engine.py",
+          "upstream_path": "llama-index-core/llama_index/core/query_engine/retriever_query_engine.py",
+          "sha256": "136c2476ce49d6647324cdd4b9633e293a41268d14966150691c710678a31c40",
+          "url": "https://github.com/run-llama/llama_index/blob/c60937d3099b89e66ff9040f1c45030bc4e407e9/llama-index-core/llama_index/core/query_engine/retriever_query_engine.py"
+        },
+        {
+          "path": "sources/llamaindex/llama-index-integrations/vector_stores/llama-index-vector-stores-milvus/llama_index/vector_stores/milvus/base.py",
+          "upstream_path": "llama-index-integrations/vector_stores/llama-index-vector-stores-milvus/llama_index/vector_stores/milvus/base.py",
+          "sha256": "4251adbf344af342edadc7e62d2d66626e685eaf5d1900165be3b635cf3e2745",
+          "url": "https://github.com/run-llama/llama_index/blob/c60937d3099b89e66ff9040f1c45030bc4e407e9/llama-index-integrations/vector_stores/llama-index-vector-stores-milvus/llama_index/vector_stores/milvus/base.py"
+        }
+      ]
+    },
+    {
+      "name": "controller-runtime",
+      "repository": "kubernetes-sigs/controller-runtime",
+      "commit": "6ab2188a1fb14a8c4837b418bc0a20049682cde4",
+      "files": [
+        {
+          "path": "sources/controller-runtime/README.md",
+          "upstream_path": "README.md",
+          "sha256": "0788356b37bd683fd8e6304d8a2ddb6aeb94aae535a0450ac6a8d79cd5f7eb31",
+          "url": "https://github.com/kubernetes-sigs/controller-runtime/blob/6ab2188a1fb14a8c4837b418bc0a20049682cde4/README.md"
+        },
+        {
+          "path": "sources/controller-runtime/LICENSE",
+          "upstream_path": "LICENSE",
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+          "url": "https://github.com/kubernetes-sigs/controller-runtime/blob/6ab2188a1fb14a8c4837b418bc0a20049682cde4/LICENSE"
+        },
+        {
+          "path": "sources/controller-runtime/pkg/reconcile/reconcile.go",
+          "upstream_path": "pkg/reconcile/reconcile.go",
+          "sha256": "53513474e78cc57961b5131d79bddef1a24f9ec243c9b155af7d6a98ec05be40",
+          "url": "https://github.com/kubernetes-sigs/controller-runtime/blob/6ab2188a1fb14a8c4837b418bc0a20049682cde4/pkg/reconcile/reconcile.go"
+        },
+        {
+          "path": "sources/controller-runtime/pkg/internal/controller/controller.go",
+          "upstream_path": "pkg/internal/controller/controller.go",
+          "sha256": "5c29a5a2ce85eb1178d3f692fca5b0f06de7bb7fb760ead21209e90e6c6a7ef2",
+          "url": "https://github.com/kubernetes-sigs/controller-runtime/blob/6ab2188a1fb14a8c4837b418bc0a20049682cde4/pkg/internal/controller/controller.go"
+        }
+      ]
+    },
+    {
+      "name": "temporal-python",
+      "repository": "temporalio/sdk-python",
+      "commit": "5a1703a30295291f9c944c26ec193d468e200a3b",
+      "files": [
+        {
+          "path": "sources/temporal-python/README.md",
+          "upstream_path": "README.md",
+          "sha256": "7117e0b9bfe81412c5026657957d709b430a129498cbe5880217697a6e799fcd",
+          "url": "https://github.com/temporalio/sdk-python/blob/5a1703a30295291f9c944c26ec193d468e200a3b/README.md"
+        },
+        {
+          "path": "sources/temporal-python/LICENSE",
+          "upstream_path": "LICENSE",
+          "sha256": "d7706f28d144dabf07e4946553a4d117d1dab5cda6bf34a602959b4a2fa86b38",
+          "url": "https://github.com/temporalio/sdk-python/blob/5a1703a30295291f9c944c26ec193d468e200a3b/LICENSE"
+        }
+      ]
+    }
+  ],
+  "documents": [
+    {
+      "name": "outbox",
+      "url": "https://microservices.io/patterns/data/transactional-outbox.html",
+      "path": "sources/standards/outbox.html",
+      "sha256": "4a86d3fb29ea43f67802cbe0ed94763ab0691684525e394d8e6619842b8cc3a5",
+      "kind": "documentation_snapshot_not_versioned_spec_claim"
+    },
+    {
+      "name": "sqlite-atomic",
+      "url": "https://www.sqlite.org/atomiccommit.html",
+      "path": "sources/standards/sqlite-atomic.html",
+      "sha256": "5a5be7b660217c9408c8a81eaf2faa2d08832ed3790f895a0a713916ad856ea1",
+      "kind": "documentation_snapshot_not_versioned_spec_claim"
+    },
+    {
+      "name": "sqlite-backup",
+      "url": "https://www.sqlite.org/backup.html",
+      "path": "sources/standards/sqlite-backup.html",
+      "sha256": "306b6cca5c7c2f93b648040ae139f14d7d3221c0d16d79b5749e69d808382e04",
+      "kind": "documentation_snapshot_not_versioned_spec_claim"
+    },
+    {
+      "name": "otel-signals",
+      "url": "https://opentelemetry.io/docs/concepts/signals/",
+      "path": "sources/standards/otel-signals.html",
+      "sha256": "318f217bb8abeda8d968abd44d372813b886bf20335bff0c818231c4d1a65291",
+      "kind": "documentation_snapshot_not_versioned_spec_claim"
+    },
+    {
+      "name": "prometheus-instrumentation",
+      "url": "https://prometheus.io/docs/practices/instrumentation/",
+      "path": "sources/standards/prometheus-instrumentation.html",
+      "sha256": "a040765734f9b8a166c89aca607c063c1b829930f871d949ddadc3898345216a",
+      "kind": "documentation_snapshot_not_versioned_spec_claim"
+    },
+    {
+      "name": "w3c-trace-context",
+      "url": "https://www.w3.org/TR/trace-context/",
+      "path": "sources/standards/w3c-trace-context.html",
+      "sha256": "9e7228d2a91c5aa4bef6e7f610366a2000274ee51699053e10c8ac3f0b8965be",
+      "kind": "documentation_snapshot_not_versioned_spec_claim"
+    },
+    {
+      "name": "owasp-authorization",
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html",
+      "path": "sources/standards/owasp-authorization.html",
+      "sha256": "368296f7add7ffd6f175d4de8f2e03dbbd287f6eda75e85603b2d39919913c30",
+      "kind": "documentation_snapshot_not_versioned_spec_claim"
+    },
+    {
+      "name": "openfga-modeling",
+      "url": "https://openfga.dev/docs/modeling/getting-started",
+      "path": "sources/standards/openfga-modeling.html",
+      "sha256": "4f242c8ffa58006ea6b1b19c9b6844d30b8848c98b63d9237915f293a32511ba",
+      "kind": "documentation_snapshot_not_versioned_spec_claim"
+    },
+    {
+      "name": "azure-multitenancy",
+      "url": "https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/overview",
+      "path": "sources/standards/azure-multitenancy.html",
+      "sha256": "7ebbe6e86cbf6a1adc33c969606e7339ba995cd6880b19f51b21de79a0b54a14",
+      "kind": "documentation_snapshot_not_versioned_spec_claim"
+    },
+    {
+      "name": "aks-baseline",
+      "url": "https://learn.microsoft.com/en-us/azure/architecture/reference-architectures/containers/aks/baseline-aks",
+      "path": "sources/standards/aks-baseline.html",
+      "sha256": "f15ea0297d8c1ccff0ddc05addf3fb2967c1300201ac6cd964976aa584567a94",
+      "kind": "documentation_snapshot_not_versioned_spec_claim"
+    },
+    {
+      "name": "aks-identity",
+      "url": "https://learn.microsoft.com/en-us/azure/aks/workload-identity-overview",
+      "path": "sources/standards/aks-identity.html",
+      "sha256": "29dc19add9048ce729721d66e0baec753735f90a5217aa500a4dbb96c3c6bb7f",
+      "kind": "documentation_snapshot_not_versioned_spec_claim"
+    },
+    {
+      "name": "aks-monitoring",
+      "url": "https://learn.microsoft.com/en-us/azure/azure-monitor/containers/kubernetes-monitoring-overview",
+      "path": "sources/standards/aks-monitoring.html",
+      "sha256": "8e5f66c7ef86f90984a2e4648aec825ad0b58a1f157dd8e5c3f832200b4dcd80",
+      "kind": "documentation_snapshot_not_versioned_spec_claim"
+    },
+    {
+      "name": "aks-reliability",
+      "url": "https://learn.microsoft.com/en-us/azure/aks/best-practices-app-cluster-reliability",
+      "path": "sources/standards/aks-reliability.html",
+      "sha256": "5dc0927aed86f19aa3a63a256405d11002403b5cd0167f68a4dc30739d08a776",
+      "kind": "documentation_snapshot_not_versioned_spec_claim"
+    }
+  ],
+  "errors": []
+}

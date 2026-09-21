@@ -1,2 +1,0 @@
-PYTEST_STATUS=SKIPPED_BY_DEFAULT
-Use --with-pytest to attempt the network-dependent unit suite.

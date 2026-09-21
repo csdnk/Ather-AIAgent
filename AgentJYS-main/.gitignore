@@ -1,0 +1,78 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# uv
+.venv/
+.venv-b1/
+uv.lock
+
+# B1 local runtime (created by scripts/install_b1.ps1)
+.aether/
+runtime/b1/
+runtime/test-runtime/
+benchmarks/b1/rust_matmul/target/
+
+# Generated from engine/proto/aether_engine.proto
+src/aether_agent_memory/p2/generated/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Public benchmark payloads stay local. Keep manifests and builders in Git.
+datasets/p3/*_v0.1/*.jsonl
+
+# Mypy
+.mypy_cache/
+
+# Ruff
+.ruff_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local package-manager output accidentally written to the project root
+0.86.0
+
+# Web frontend
+web/node_modules/
+web/dist/
+web/.vite/
+output/
+artifacts/p4-local/
+artifacts/server_*/
+artifacts/web-local/
+artifacts/memory.db
+artifacts/operate-actions.db*
+.playwright-cli/
+*.bak
+
+# AGENTS
+opencode.json
+.agent/
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+.claude
+.codex
+.cursor
+
+docs/superpowers
