@@ -13,7 +13,7 @@ from aether_agent_memory.recall.contracts.models import (
     RecallRecord,
     RecallRequest,
 )
-from aether_agent_memory.recall.contracts.ports import EmbeddingPort, VectorPort
+from aether_agent_memory.recall.contracts.ports import EmbeddingPort, VectorSearchPort
 from aether_agent_memory.remember.contracts.models import MemoryRef
 from aether_agent_memory.remember.contracts.ports import MemoryReadPort
 from aether_agent_memory.runtime.contracts.models import (
@@ -48,7 +48,7 @@ class Recall:
         events: Events,
         memories: MemoryReadPort,
         embedding: EmbeddingPort,
-        vectors: VectorPort,
+        vectors: VectorSearchPort,
         model_space: str,
         settings: RecallSettings | None = None,
         tokenizer: TokenCounter | None = None,

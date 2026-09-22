@@ -141,10 +141,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
-    "observed_at": {
+    "deadline_at": {
       "format": "date-time",
       "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
-      "title": "Observed At",
+      "title": "Deadline At",
       "type": "string"
     },
     "operation_id": {
@@ -154,39 +154,25 @@
       "title": "Operation Id",
       "type": "string"
     },
-    "payload_matches": {
-      "title": "Payload Matches",
-      "type": "boolean"
-    },
-    "searchable": {
-      "title": "Searchable",
-      "type": "boolean"
-    },
-    "state": {
-      "enum": [
-        "accepted",
-        "pending",
-        "verified",
-        "failed",
-        "unknown",
-        "absent"
-      ],
-      "title": "State",
-      "type": "string"
-    },
     "target": {
       "$ref": "#/$defs/ProjectionTarget"
+    },
+    "vector": {
+      "items": {
+        "type": "number"
+      },
+      "minItems": 1,
+      "title": "Vector",
+      "type": "array"
     }
   },
   "required": [
     "operation_id",
     "target",
-    "state",
-    "payload_matches",
-    "searchable",
-    "observed_at"
+    "vector",
+    "deadline_at"
   ],
-  "title": "ProjectionResult",
+  "title": "ProjectionRequest",
   "type": "object",
-  "x-contract-model": "recall.ProjectionResult"
+  "x-contract-model": "remember.ProjectionRequest"
 }

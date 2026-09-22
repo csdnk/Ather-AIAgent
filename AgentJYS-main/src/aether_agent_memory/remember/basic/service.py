@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from aether_agent_memory.recall.contracts.models import EmbeddingRequest, ProjectionRequest
-from aether_agent_memory.recall.contracts.ports import EmbeddingPort, VectorPort
+from aether_agent_memory.recall.contracts.models import EmbeddingRequest
+from aether_agent_memory.recall.contracts.ports import EmbeddingPort
 from aether_agent_memory.remember.contracts.models import (
     CorrectionRequest,
     DeleteReceipt,
@@ -19,13 +19,14 @@ from aether_agent_memory.remember.contracts.models import (
     MemoryRef,
     MemorySnapshot,
     MemoryStatus,
+    ProjectionRequest,
     ProjectionState,
     RememberReceipt,
     RememberRequest,
     SourceRef,
     StorageChanged,
 )
-from aether_agent_memory.remember.contracts.ports import ExtractionPort
+from aether_agent_memory.remember.contracts.ports import ExtractionPort, ProjectionPort
 from aether_agent_memory.runtime.contracts.models import (
     EffectStatus,
     ErrorCode,
@@ -82,14 +83,14 @@ class Remember:
         events: Events,
         extraction: ExtractionPort,
         embedding: EmbeddingPort,
-        vectors: VectorPort,
+        projections: ProjectionPort,
         model_space: str,
     ) -> None:
         self.uow, self.identity, self.tasks, self.events = uow, identity, tasks, events
-        self.extraction, self.embedding, self.vectors, self.model_space = (
+        self.extraction, self.embedding, self.projections, self.model_space = (
             extraction,
             embedding,
-            vectors,
+            projections,
             model_space,
         )
         for kind in ("remember.extract", "remember.project", "remember.cleanup"):
@@ -659,7 +660,7 @@ class Remember:
             return SourceRef.model_validate(row["ref"])
 
     async def run(self, ctx: TrustedContext, task: TaskRecord) -> RunResult:
-        from aether_agent_memory.recall.basic.adapters import projection_target
+        from aether_agent_memory.remember.basic.projection import projection_target
 
         with self.uow.transaction() as tx:
             self.tasks.guard(tx, task)
@@ -736,7 +737,7 @@ class Remember:
                     )
                 if raw:
                     old = MemorySnapshot.model_validate(raw)
-                    cleaned = await self.vectors.delete(
+                    cleaned = await self.projections.delete(
                         ctx,
                         projection_target(old.ref, old.content_hash, self.model_space),
                         task.task_id,
@@ -774,7 +775,7 @@ class Remember:
             or embedded.items[0].input_hash != item.content_hash
         ):
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "embedding input binding mismatch")
-        projected = await self.vectors.project(
+        projected = await self.projections.project(
             ctx,
             ProjectionRequest(
                 operation_id=task.task_id,
@@ -849,9 +850,9 @@ class Remember:
         if not valid:
             effect = EffectStatus.NO_EFFECT
             if task.kind == "remember.project":
-                from aether_agent_memory.recall.basic.adapters import projection_target
+                from aether_agent_memory.remember.basic.projection import projection_target
 
-                observed = await self.vectors.inspect(
+                observed = await self.projections.inspect(
                     ctx,
                     projection_target(original.ref, original.content_hash, self.model_space),
                     task.task_id,
@@ -876,10 +877,10 @@ class Remember:
                 evidence=(task.input_ref,),
             )
         if task.kind == "remember.project":
-            from aether_agent_memory.recall.basic.adapters import projection_target
+            from aether_agent_memory.remember.basic.projection import projection_target
 
             target = projection_target(item.ref, item.content_hash, self.model_space)
-            observed = await self.vectors.inspect(ctx, target, task.task_id)
+            observed = await self.projections.inspect(ctx, target, task.task_id)
             if observed.state == "verified":
                 with self.uow.transaction() as tx:
                     self.tasks.guard(tx, task)

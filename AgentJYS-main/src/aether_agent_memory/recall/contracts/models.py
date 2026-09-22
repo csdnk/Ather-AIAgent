@@ -7,6 +7,15 @@ from typing import Annotated, Literal, Self
 from pydantic import Field, model_validator
 
 from aether_agent_memory.remember.contracts.models import ConflictGroup, MemoryRef, SourceRef
+from aether_agent_memory.remember.contracts.models import (
+    ProjectionRequest as ProjectionRequest,
+)
+from aether_agent_memory.remember.contracts.models import (
+    ProjectionResult as ProjectionResult,
+)
+from aether_agent_memory.remember.contracts.models import (
+    ProjectionTarget as ProjectionTarget,
+)
 from aether_agent_memory.runtime.contracts.models import (
     ContractModel,
     Count,
@@ -162,36 +171,6 @@ class EmbeddingResult(ContractModel):
             raise ValueError("indices must cover each input exactly once")
         if any(len(item.vector) != self.dimensions for item in self.items):
             raise ValueError("dimension mismatch")
-        return self
-
-
-class ProjectionTarget(ContractModel):
-    memory: MemoryRef
-    model_space: Identifier
-    chunk_index: Count
-    vector_id: Digest
-    input_hash: Digest
-
-
-class ProjectionRequest(ContractModel):
-    operation_id: Identifier
-    target: ProjectionTarget
-    vector: tuple[float, ...] = Field(min_length=1)
-    deadline_at: Timestamp
-
-
-class ProjectionResult(ContractModel):
-    operation_id: Identifier
-    target: ProjectionTarget
-    state: Literal["accepted", "pending", "verified", "failed", "unknown", "absent"]
-    payload_matches: bool
-    searchable: bool
-    observed_at: Timestamp
-
-    @model_validator(mode="after")
-    def verified_evidence(self) -> Self:
-        if self.state == "verified" and not (self.payload_matches and self.searchable):
-            raise ValueError("verified requires exact payload and query visibility")
         return self
 
 

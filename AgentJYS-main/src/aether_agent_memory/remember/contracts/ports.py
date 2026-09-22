@@ -10,6 +10,8 @@ from aether_agent_memory.runtime.contracts.models import (
 from aether_agent_memory.runtime.contracts.ports import Transaction
 
 from .foundation import (
+    ChunkProjectionRequest,
+    ChunkProjectionResult,
     FullBodyReadResult,
     MemoryRecord,
     ProjectionManifest,
@@ -29,6 +31,9 @@ from .models import (
     MemoryReadBatch,
     MemoryRef,
     MemorySnapshot,
+    ProjectionRequest,
+    ProjectionResult,
+    ProjectionTarget,
     RememberReceipt,
     RememberRequest,
     SourceAcquisition,
@@ -129,3 +134,39 @@ class DocumentReaderPort(Protocol):
         ctx: TrustedContext,
         acquired: SourceAcquisition,
     ) -> DocumentContent: ...
+
+
+class ProjectionPort(Protocol):
+    async def project(
+        self,
+        ctx: TrustedContext,
+        request: ProjectionRequest,
+    ) -> ProjectionResult: ...
+
+    async def inspect(
+        self,
+        ctx: TrustedContext,
+        target: ProjectionTarget,
+        operation_id: str,
+    ) -> ProjectionResult: ...
+
+    async def delete(
+        self,
+        ctx: TrustedContext,
+        target: ProjectionTarget,
+        operation_id: str,
+    ) -> ProjectionResult: ...
+
+
+class GenerationProjectionPort(Protocol):
+    async def project(
+        self,
+        ctx: TrustedContext,
+        request: ChunkProjectionRequest,
+    ) -> ChunkProjectionResult: ...
+
+    async def inspect(
+        self,
+        ctx: TrustedContext,
+        request: ChunkProjectionRequest,
+    ) -> ChunkProjectionResult: ...

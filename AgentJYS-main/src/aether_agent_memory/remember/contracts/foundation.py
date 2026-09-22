@@ -385,3 +385,38 @@ class CleanupReceipt(ContractModel):
         if self.observed_at < self.request.blocked_at:
             raise ValueError("cleanup evidence precedes eligibility blocking")
         return self
+
+
+class ChunkProjectionRequest(ContractModel):
+    operation_id: Identifier
+    manifest: ProjectionManifest
+    chunk_index: Count
+    vector: tuple[float, ...] = Field(min_length=1)
+    deadline_at: Timestamp
+
+    @model_validator(mode="after")
+    def exact_chunk_projection(self) -> Self:
+        if self.manifest.state != "building":
+            raise ValueError("projection writes require an unpublished build generation")
+        if self.chunk_index >= self.manifest.expected_chunk_count:
+            raise ValueError("chunk must be declared in the build manifest")
+        if len(self.vector) != self.manifest.dimensions:
+            raise ValueError("projection vector does not match the model space dimensions")
+        return self
+
+
+class ChunkProjectionResult(ContractModel):
+    request: ChunkProjectionRequest
+    state: Literal["accepted", "verified", "failed", "unknown", "absent"]
+    payload_matches: bool
+    searchable: bool
+    observed_at: Timestamp
+    reason_code: Identifier
+
+    @model_validator(mode="after")
+    def generation_evidence(self) -> Self:
+        if self.state == "verified" and not (self.payload_matches and self.searchable):
+            raise ValueError("verified requires exact generation payload and search visibility")
+        if self.state == "absent" and (self.payload_matches or self.searchable):
+            raise ValueError("absent chunk cannot claim a matching searchable payload")
+        return self

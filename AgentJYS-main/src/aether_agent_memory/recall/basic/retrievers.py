@@ -10,7 +10,7 @@ from aether_agent_memory.recall.contracts.models import (
     RecallRequest,
     VectorSearchRequest,
 )
-from aether_agent_memory.recall.contracts.ports import EmbeddingPort, VectorPort
+from aether_agent_memory.recall.contracts.ports import EmbeddingPort, VectorSearchPort
 from aether_agent_memory.remember.contracts.models import MemoryRef, MemorySnapshot, ProjectionState
 from aether_agent_memory.remember.contracts.ports import MemoryReadPort
 from aether_agent_memory.runtime.contracts.models import ErrorCode, PageRequest, TrustedContext
@@ -40,7 +40,7 @@ class Sources:
         uow: SQLiteUnitOfWork,
         memories: MemoryReadPort,
         embedding: EmbeddingPort,
-        vectors: VectorPort,
+        vectors: VectorSearchPort,
         model_space: str,
         settings: RecallSettings,
     ) -> None:

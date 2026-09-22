@@ -15,8 +15,8 @@ interfaces:
 - id: runtime.Transaction.put_if_revision
   provider: RF
   consumers: *id001
-  signature: '(self, ref: ''RecordRef'', value: ''dict[str, JsonValue]'', expected_revision:
-    ''int | None'') -> ''int'''
+  signature: '(self, ref: ''RecordRef'', value: ''dict[str, JsonValue]'', expected_revision: ''int | None'')
+    -> ''int'''
   rules: scope和namespace双重约束；CAS失败拒绝覆盖；分页游标绑定查询范围。
   examples:
   - positive-runtime.RecordRef
@@ -69,8 +69,8 @@ interfaces:
 - id: runtime.IdentityPort.authorize
   provider: RF
   consumers: *id002
-  signature: '(self, tx: ''Transaction'', ctx: ''TrustedContext'', permission: ''Permission'',
-    target: ''RecordRef'') -> ''None'''
+  signature: '(self, tx: ''Transaction'', ctx: ''TrustedContext'', permission: ''Permission'', target:
+    ''RecordRef'') -> ''None'''
   rules: 默认拒绝；验证当前epoch及对象授权；共享必须显式授权。
   examples:
   - positive-runtime.TrustedContext
@@ -114,8 +114,7 @@ interfaces:
   consumers: &id004
   - B
   - C
-  signature: '(self, kind: ''str'', execution_class: ''str'', handler: ''TaskHandler'')
-    -> ''None'''
+  signature: '(self, kind: ''str'', execution_class: ''str'', handler: ''TaskHandler'') -> ''None'''
   rules: 注册受控kind；同事务提交；同键异载荷拒绝；领取和配额原子检查。
   examples:
   - positive-runtime.TrustedContext
@@ -124,8 +123,7 @@ interfaces:
 - id: runtime.TaskPort.enqueue
   provider: RF
   consumers: *id004
-  signature: '(self, tx: ''Transaction'', ctx: ''TrustedContext'', spec: ''TaskSpec'')
-    -> ''TaskRecord'''
+  signature: '(self, tx: ''Transaction'', ctx: ''TrustedContext'', spec: ''TaskSpec'') -> ''TaskRecord'''
   rules: 注册受控kind；同事务提交；同键异载荷拒绝；领取和配额原子检查。
   examples:
   - positive-runtime.TrustedContext
@@ -136,8 +134,7 @@ interfaces:
 - id: runtime.TaskPort.claim
   provider: RF
   consumers: *id004
-  signature: '(self, worker_id: ''str'', execution_class: ''str'', now: ''str'') ->
-    ''TaskRecord | None'''
+  signature: '(self, worker_id: ''str'', execution_class: ''str'', now: ''str'') -> ''TaskRecord | None'''
   rules: 注册受控kind；同事务提交；同键异载荷拒绝；领取和配额原子检查。
   examples:
   - positive-runtime.TaskRecord
@@ -146,8 +143,7 @@ interfaces:
 - id: runtime.TaskPort.renew
   provider: RF
   consumers: *id004
-  signature: '(self, tx: ''Transaction'', task_id: ''str'', lease: ''Lease'', revision:
-    ''int'') -> ''TaskRecord'''
+  signature: '(self, tx: ''Transaction'', task_id: ''str'', lease: ''Lease'', revision: ''int'') -> ''TaskRecord'''
   rules: 注册受控kind；同事务提交；同键异载荷拒绝；领取和配额原子检查。
   examples:
   - positive-runtime.Lease
@@ -157,8 +153,8 @@ interfaces:
 - id: runtime.TaskPort.complete
   provider: RF
   consumers: *id004
-  signature: '(self, tx: ''Transaction'', ctx: ''TrustedContext'', task: ''TaskRecord'',
-    result: ''RecordRef'') -> ''None'''
+  signature: '(self, tx: ''Transaction'', ctx: ''TrustedContext'', task: ''TaskRecord'', result: ''RecordRef'')
+    -> ''None'''
   rules: 注册受控kind；同事务提交；同键异载荷拒绝；领取和配额原子检查。
   examples:
   - positive-runtime.TrustedContext
@@ -169,8 +165,7 @@ interfaces:
 - id: runtime.TaskPort.request_recovery
   provider: RF
   consumers: *id004
-  signature: '(self, tx: ''Transaction'', ctx: ''TrustedContext'', request: ''RecoveryRequest'')
-    -> ''OperationRecord'''
+  signature: '(self, tx: ''Transaction'', ctx: ''TrustedContext'', request: ''RecoveryRequest'') -> ''OperationRecord'''
   rules: 注册受控kind；同事务提交；同键异载荷拒绝；领取和配额原子检查。
   examples:
   - positive-runtime.TrustedContext
@@ -184,8 +179,7 @@ interfaces:
   - B
   - A
   - C
-  signature: '(self, tx: ''Transaction'', ctx: ''TrustedContext'', event: ''EventEnvelope'')
-    -> ''None'''
+  signature: '(self, tx: ''Transaction'', ctx: ''TrustedContext'', event: ''EventEnvelope'') -> ''None'''
   rules: 事实与Outbox同事务；Inbox+领域效果+待办同事务后确认；至少一次交接。
   examples:
   - positive-runtime.TrustedContext
@@ -195,8 +189,8 @@ interfaces:
 - id: runtime.EventPort.consume
   provider: RF
   consumers: *id005
-  signature: '(self, tx: ''Transaction'', consumer_id: ''str'', event: ''EventEnvelope'',
-    apply: ''Callable[[Transaction, EventEnvelope], None]'') -> ''bool'''
+  signature: '(self, tx: ''Transaction'', consumer_id: ''str'', event: ''EventEnvelope'', apply: ''Callable[[Transaction,
+    EventEnvelope], None]'') -> ''bool'''
   rules: 事实与Outbox同事务；Inbox+领域效果+待办同事务后确认；至少一次交接。
   examples:
   - positive-runtime.EventEnvelope
@@ -227,8 +221,7 @@ interfaces:
 - id: runtime.DiagnosticsPort.related
   provider: RF
   consumers: *id006
-  signature: '(self, ctx: ''TrustedContext'', subject: ''RecordRef'', page: ''PageRequest'')
-    -> ''RelatedRecords'''
+  signature: '(self, ctx: ''TrustedContext'', subject: ''RecordRef'', page: ''PageRequest'') -> ''RelatedRecords'''
   rules: 查询重验对象授权；诊断最小正文；维护记录与操作意图原子保存。
   examples:
   - positive-runtime.TrustedContext
@@ -271,8 +264,8 @@ interfaces:
   provider: B
   consumers: &id007
   - Host
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    request: aether_agent_memory.remember.contracts.models.RememberRequest) -> aether_agent_memory.remember.contracts.models.RememberReceipt'
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, request: aether_agent_memory.remember.contracts.models.RememberRequest)
+    -> aether_agent_memory.remember.contracts.models.RememberReceipt'
   rules: 保存与加工分开；显式纠错CAS；删除先阻断；原正文保留受控历史规则。
   examples:
   - positive-runtime.TrustedContext
@@ -283,8 +276,8 @@ interfaces:
 - id: remember.RememberPort.get
   provider: B
   consumers: *id007
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    memory_id: str) -> aether_agent_memory.remember.contracts.models.MemorySnapshot'
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, memory_id: str)
+    -> aether_agent_memory.remember.contracts.models.MemorySnapshot'
   rules: 保存与加工分开；显式纠错CAS；删除先阻断；原正文保留受控历史规则。
   examples:
   - positive-runtime.TrustedContext
@@ -294,9 +287,8 @@ interfaces:
 - id: remember.RememberPort.correct
   provider: B
   consumers: *id007
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    memory_id: str, request: aether_agent_memory.remember.contracts.models.CorrectionRequest)
-    -> aether_agent_memory.remember.contracts.models.RememberReceipt'
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, memory_id: str,
+    request: aether_agent_memory.remember.contracts.models.CorrectionRequest) -> aether_agent_memory.remember.contracts.models.RememberReceipt'
   rules: 保存与加工分开；显式纠错CAS；删除先阻断；原正文保留受控历史规则。
   examples:
   - positive-runtime.TrustedContext
@@ -307,9 +299,8 @@ interfaces:
 - id: remember.RememberPort.lifecycle
   provider: B
   consumers: *id007
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    memory_id: str, request: aether_agent_memory.remember.contracts.models.LifecycleRequest)
-    -> aether_agent_memory.remember.contracts.models.MemorySnapshot'
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, memory_id: str,
+    request: aether_agent_memory.remember.contracts.models.LifecycleRequest) -> aether_agent_memory.remember.contracts.models.MemorySnapshot'
   rules: 保存与加工分开；显式纠错CAS；删除先阻断；原正文保留受控历史规则。
   examples:
   - positive-runtime.TrustedContext
@@ -320,9 +311,8 @@ interfaces:
 - id: remember.RememberPort.delete
   provider: B
   consumers: *id007
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    memory_id: str, request: aether_agent_memory.remember.contracts.models.DeleteRequest)
-    -> aether_agent_memory.remember.contracts.models.DeleteReceipt'
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, memory_id: str,
+    request: aether_agent_memory.remember.contracts.models.DeleteRequest) -> aether_agent_memory.remember.contracts.models.DeleteReceipt'
   rules: 保存与加工分开；显式纠错CAS；删除先阻断；原正文保留受控历史规则。
   examples:
   - positive-runtime.TrustedContext
@@ -333,9 +323,8 @@ interfaces:
 - id: remember.RememberPort.delete_source
   provider: B
   consumers: *id007
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    source_id: str, request: aether_agent_memory.remember.contracts.models.DeleteRequest)
-    -> aether_agent_memory.remember.contracts.models.DeleteReceipt'
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, source_id: str,
+    request: aether_agent_memory.remember.contracts.models.DeleteRequest) -> aether_agent_memory.remember.contracts.models.DeleteReceipt'
   rules: 保存与加工分开；显式纠错CAS；删除先阻断；原正文保留受控历史规则。
   examples:
   - positive-runtime.TrustedContext
@@ -348,9 +337,8 @@ interfaces:
   consumers: &id008
   - A
   - C
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    selection: aether_agent_memory.runtime.contracts.models.ScopeSelector, page: aether_agent_memory.runtime.contracts.models.PageRequest)
-    -> aether_agent_memory.remember.contracts.models.MemoryReadBatch'
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, selection: aether_agent_memory.runtime.contracts.models.ScopeSelector,
+    page: aether_agent_memory.runtime.contracts.models.PageRequest) -> aether_agent_memory.remember.contracts.models.MemoryReadBatch'
   rules: 精确版本逐项对应；final_guard使用调用方同一事务；未知不当排除。
   examples:
   - positive-runtime.ScopeSelector
@@ -362,9 +350,8 @@ interfaces:
 - id: remember.MemoryReadPort.load
   provider: B
   consumers: *id008
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    refs: tuple[aether_agent_memory.remember.contracts.models.MemoryRef, ...]) ->
-    aether_agent_memory.remember.contracts.models.MemoryReadBatch'
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, refs: tuple[aether_agent_memory.remember.contracts.models.MemoryRef,
+    ...]) -> aether_agent_memory.remember.contracts.models.MemoryReadBatch'
   rules: 精确版本逐项对应；final_guard使用调用方同一事务；未知不当排除。
   examples:
   - positive-runtime.TrustedContext
@@ -375,10 +362,9 @@ interfaces:
 - id: remember.MemoryReadPort.final_guard
   provider: B
   consumers: *id008
-  signature: '(self, tx: aether_agent_memory.runtime.contracts.ports.Transaction,
-    ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, refs: tuple[aether_agent_memory.remember.contracts.models.MemoryRef,
-    ...], purpose: Literal[''recall'', ''history'', ''actuate'', ''cleanup'']) ->
-    aether_agent_memory.remember.contracts.models.EligibilityBatch'
+  signature: '(self, tx: aether_agent_memory.runtime.contracts.ports.Transaction, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    refs: tuple[aether_agent_memory.remember.contracts.models.MemoryRef, ...], purpose: Literal[''recall'',
+    ''history'', ''actuate'', ''cleanup'']) -> aether_agent_memory.remember.contracts.models.EligibilityBatch'
   rules: 精确版本逐项对应；final_guard使用调用方同一事务；未知不当排除。
   examples:
   - positive-runtime.TrustedContext
@@ -389,9 +375,8 @@ interfaces:
 - id: remember.MemoryReadPort.history
   provider: B
   consumers: *id008
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    memory_id: str, page: aether_agent_memory.runtime.contracts.models.PageRequest)
-    -> aether_agent_memory.remember.contracts.models.MemoryReadBatch'
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, memory_id: str,
+    page: aether_agent_memory.runtime.contracts.models.PageRequest) -> aether_agent_memory.remember.contracts.models.MemoryReadBatch'
   rules: 精确版本逐项对应；final_guard使用调用方同一事务；未知不当排除。
   examples:
   - positive-runtime.TrustedContext
@@ -402,8 +387,8 @@ interfaces:
 - id: remember.MemoryReadPort.source
   provider: B
   consumers: *id008
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    source_id: str) -> aether_agent_memory.remember.contracts.models.SourceRef'
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, source_id: str)
+    -> aether_agent_memory.remember.contracts.models.SourceRef'
   rules: 精确版本逐项对应；final_guard使用调用方同一事务；未知不当排除。
   examples:
   - positive-runtime.TrustedContext
@@ -414,8 +399,8 @@ interfaces:
   provider: B
   consumers:
   - Remember Handler
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    request: aether_agent_memory.remember.contracts.models.ExtractionRequest) -> aether_agent_memory.remember.contracts.models.ExtractionResult'
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, request: aether_agent_memory.remember.contracts.models.ExtractionRequest)
+    -> aether_agent_memory.remember.contracts.models.ExtractionResult'
   rules: LangMem只产候选；输入和来源授权；正式ID和版本服务端确定。
   examples:
   - positive-runtime.TrustedContext
@@ -427,8 +412,8 @@ interfaces:
   provider: B适配器
   consumers: &id009
   - Remember Handler
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    document: aether_agent_memory.remember.contracts.models.DocumentInput) -> aether_agent_memory.remember.contracts.models.SourceAcquisition'
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, document: aether_agent_memory.remember.contracts.models.DocumentInput)
+    -> aether_agent_memory.remember.contracts.models.SourceAcquisition'
   rules: 仅访问获准Provider及文档版本；核对原文件摘要、持久保存和解析来源，不任意抓取URL。
   examples:
   - positive-runtime.TrustedContext
@@ -439,9 +424,8 @@ interfaces:
 - id: remember.DocumentReaderPort.parse
   provider: B适配器
   consumers: *id009
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    acquired: aether_agent_memory.remember.contracts.models.SourceAcquisition) ->
-    aether_agent_memory.remember.contracts.models.DocumentContent'
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, acquired: aether_agent_memory.remember.contracts.models.SourceAcquisition)
+    -> aether_agent_memory.remember.contracts.models.DocumentContent'
   rules: 仅访问获准Provider及文档版本；核对原文件摘要、持久保存和解析来源，不任意抓取URL。
   examples:
   - positive-runtime.TrustedContext
@@ -454,8 +438,8 @@ interfaces:
   consumers: &id010
   - Host
   - Agent工具适配
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    request: aether_agent_memory.recall.contracts.models.RecallRequest) -> aether_agent_memory.recall.contracts.models.ContextPack'
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, request: aether_agent_memory.recall.contracts.models.RecallRequest)
+    -> aether_agent_memory.recall.contracts.models.ContextPack'
   rules: 一个入口；来源选择受控；结果再取重验授权和有效性，不隐式重新检索。
   examples:
   - positive-runtime.TrustedContext
@@ -466,8 +450,8 @@ interfaces:
 - id: recall.RecallPort.status
   provider: A
   consumers: *id010
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    recall_id: str) -> aether_agent_memory.recall.contracts.models.RecallRecord'
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, recall_id: str)
+    -> aether_agent_memory.recall.contracts.models.RecallRecord'
   rules: 一个入口；来源选择受控；结果再取重验授权和有效性，不隐式重新检索。
   examples:
   - positive-runtime.TrustedContext
@@ -477,8 +461,8 @@ interfaces:
 - id: recall.RecallPort.result
   provider: A
   consumers: *id010
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    recall_id: str) -> aether_agent_memory.recall.contracts.models.ContextPack'
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, recall_id: str)
+    -> aether_agent_memory.recall.contracts.models.ContextPack'
   rules: 一个入口；来源选择受控；结果再取重验授权和有效性，不隐式重新检索。
   examples:
   - positive-runtime.TrustedContext
@@ -490,8 +474,8 @@ interfaces:
   consumers:
   - B
   - A
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    request: aether_agent_memory.recall.contracts.models.EmbeddingRequest) -> aether_agent_memory.recall.contracts.models.EmbeddingResult'
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, request: aether_agent_memory.recall.contracts.models.EmbeddingRequest)
+    -> aether_agent_memory.recall.contracts.models.EmbeddingResult'
   rules: Query/Passage共享模型空间、独立配额；返回每个输入摘要；不可补零向量。
   examples:
   - positive-runtime.TrustedContext
@@ -499,52 +483,52 @@ interfaces:
   - positive-recall.EmbeddingResult
   evidence_level: contract_only
   implemented: false
-- id: recall.VectorPort.project
-  provider: A
-  consumers: &id011
+- id: remember.ProjectionPort.project
+  provider: B
+  consumers:
   - B
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, request: aether_agent_memory.remember.contracts.models.ProjectionRequest)
+    -> aether_agent_memory.remember.contracts.models.ProjectionResult'
+  rules: B负责投影写入、原操作核验和清理；编码由Embedding提供。写入与模型空间、精确记忆版本及指纹绑定；新多块接口另绑定未发布批次和块清单。核验不得盲目重发写入。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-remember.ProjectionRequest
+  - positive-remember.ProjectionResult
+  evidence_level: contract_only
+  implemented: false
+- id: remember.ProjectionPort.inspect
+  provider: B
+  consumers:
+  - B
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, target: aether_agent_memory.remember.contracts.models.ProjectionTarget,
+    operation_id: str) -> aether_agent_memory.remember.contracts.models.ProjectionResult'
+  rules: B负责投影写入、原操作核验和清理；编码由Embedding提供。写入与模型空间、精确记忆版本及指纹绑定；新多块接口另绑定未发布批次和块清单。核验不得盲目重发写入。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-remember.ProjectionTarget
+  - positive-remember.ProjectionResult
+  evidence_level: contract_only
+  implemented: false
+- id: remember.ProjectionPort.delete
+  provider: B
+  consumers:
+  - B
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, target: aether_agent_memory.remember.contracts.models.ProjectionTarget,
+    operation_id: str) -> aether_agent_memory.remember.contracts.models.ProjectionResult'
+  rules: B负责投影写入、原操作核验和清理；编码由Embedding提供。写入与模型空间、精确记忆版本及指纹绑定；新多块接口另绑定未发布批次和块清单。核验不得盲目重发写入。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-remember.ProjectionTarget
+  - positive-remember.ProjectionResult
+  evidence_level: contract_only
+  implemented: false
+- id: recall.VectorSearchPort.search
+  provider: A
+  consumers:
   - A
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    request: aether_agent_memory.recall.contracts.models.ProjectionRequest) -> aether_agent_memory.recall.contracts.models.ProjectionResult'
-  rules: 服务端追加授权过滤；精确目标绑定；verified仅是机制结果，B判ready。
-  examples:
-  - positive-runtime.TrustedContext
-  - positive-recall.ProjectionRequest
-  - positive-recall.ProjectionResult
-  evidence_level: contract_only
-  implemented: false
-- id: recall.VectorPort.inspect
-  provider: A
-  consumers: *id011
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    target: aether_agent_memory.recall.contracts.models.ProjectionTarget, operation_id:
-    str) -> aether_agent_memory.recall.contracts.models.ProjectionResult'
-  rules: 服务端追加授权过滤；精确目标绑定；verified仅是机制结果，B判ready。
-  examples:
-  - positive-runtime.TrustedContext
-  - positive-recall.ProjectionTarget
-  - positive-recall.ProjectionResult
-  evidence_level: contract_only
-  implemented: false
-- id: recall.VectorPort.delete
-  provider: A
-  consumers: *id011
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    target: aether_agent_memory.recall.contracts.models.ProjectionTarget, operation_id:
-    str) -> aether_agent_memory.recall.contracts.models.ProjectionResult'
-  rules: 服务端追加授权过滤；精确目标绑定；verified仅是机制结果，B判ready。
-  examples:
-  - positive-runtime.TrustedContext
-  - positive-recall.ProjectionTarget
-  - positive-recall.ProjectionResult
-  evidence_level: contract_only
-  implemented: false
-- id: recall.VectorPort.search
-  provider: A
-  consumers: *id011
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    request: aether_agent_memory.recall.contracts.models.VectorSearchRequest) -> aether_agent_memory.recall.contracts.models.VectorSearchResult'
-  rules: 服务端追加授权过滤；精确目标绑定；verified仅是机制结果，B判ready。
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, request: aether_agent_memory.recall.contracts.models.VectorSearchRequest)
+    -> aether_agent_memory.recall.contracts.models.VectorSearchResult'
+  rules: 只读搜索接口，不提供project/inspect/delete；按可信范围和编码空间检索，返回命中证据交B复核资格。新块搜索保留精确版本、批次和指纹。
   examples:
   - positive-runtime.TrustedContext
   - positive-recall.VectorSearchRequest
@@ -553,10 +537,10 @@ interfaces:
   implemented: false
 - id: operate.SchedulingPort.consume
   provider: C
-  consumers: &id012
+  consumers: &id011
   - 内部Worker
-  signature: '(self, tx: aether_agent_memory.runtime.contracts.ports.Transaction,
-    event: aether_agent_memory.runtime.contracts.models.EventEnvelope) -> None'
+  signature: '(self, tx: aether_agent_memory.runtime.contracts.ports.Transaction, event: aether_agent_memory.runtime.contracts.models.EventEnvelope)
+    -> None'
   rules: 存储和读取共同触发；周期重读状态；keep/defer不提交动作；未知查原ID。
   examples:
   - positive-runtime.EventEnvelope
@@ -564,9 +548,9 @@ interfaces:
   implemented: false
 - id: operate.SchedulingPort.decide
   provider: C
-  consumers: *id012
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    inputs: aether_agent_memory.operate.contracts.models.SchedulingInput) -> aether_agent_memory.operate.contracts.models.PlacementDecision'
+  consumers: *id011
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, inputs: aether_agent_memory.operate.contracts.models.SchedulingInput)
+    -> aether_agent_memory.operate.contracts.models.PlacementDecision'
   rules: 存储和读取共同触发；周期重读状态；keep/defer不提交动作；未知查原ID。
   examples:
   - positive-runtime.TrustedContext
@@ -576,9 +560,9 @@ interfaces:
   implemented: false
 - id: operate.SchedulingPort.execute
   provider: C
-  consumers: *id012
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    intent: aether_agent_memory.operate.contracts.models.ActionIntent) -> aether_agent_memory.operate.contracts.models.ActionRecord'
+  consumers: *id011
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, intent: aether_agent_memory.operate.contracts.models.ActionIntent)
+    -> aether_agent_memory.operate.contracts.models.ActionRecord'
   rules: 存储和读取共同触发；周期重读状态；keep/defer不提交动作；未知查原ID。
   examples:
   - positive-runtime.TrustedContext
@@ -588,9 +572,9 @@ interfaces:
   implemented: false
 - id: operate.SchedulingPort.reconcile
   provider: C
-  consumers: *id012
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    action_id: str) -> aether_agent_memory.operate.contracts.models.ActionRecord'
+  consumers: *id011
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, action_id: str)
+    -> aether_agent_memory.operate.contracts.models.ActionRecord'
   rules: 存储和读取共同触发；周期重读状态；keep/defer不提交动作；未知查原ID。
   examples:
   - positive-runtime.TrustedContext
@@ -599,10 +583,10 @@ interfaces:
   implemented: false
 - id: operate.ExecutorPort.submit
   provider: C接口/Provider实现
-  consumers: &id013
+  consumers: &id012
   - C
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    intent: aether_agent_memory.operate.contracts.models.ActionIntent) -> aether_agent_memory.operate.contracts.models.ExecutionFeedback'
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, intent: aether_agent_memory.operate.contracts.models.ActionIntent)
+    -> aether_agent_memory.operate.contracts.models.ExecutionFeedback'
   rules: 稳定action_id和同载荷；实际反馈+内容读取证据；404不证明未执行。
   examples:
   - positive-runtime.TrustedContext
@@ -612,9 +596,9 @@ interfaces:
   implemented: false
 - id: operate.ExecutorPort.query
   provider: C接口/Provider实现
-  consumers: *id013
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    action_id: str) -> aether_agent_memory.operate.contracts.models.ExecutionFeedback'
+  consumers: *id012
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, action_id: str)
+    -> aether_agent_memory.operate.contracts.models.ExecutionFeedback'
   rules: 稳定action_id和同载荷；实际反馈+内容读取证据；404不证明未执行。
   examples:
   - positive-runtime.TrustedContext
@@ -623,10 +607,9 @@ interfaces:
   implemented: false
 - id: operate.ExecutorPort.observe
   provider: C接口/Provider实现
-  consumers: *id013
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    memory: aether_agent_memory.remember.contracts.models.MemoryRef, representation_id:
-    str) -> aether_agent_memory.operate.contracts.models.PlacementObservation'
+  consumers: *id012
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, memory: aether_agent_memory.remember.contracts.models.MemoryRef,
+    representation_id: str) -> aether_agent_memory.operate.contracts.models.PlacementObservation'
   rules: 稳定action_id和同载荷；实际反馈+内容读取证据；404不证明未执行。
   examples:
   - positive-runtime.TrustedContext
@@ -636,9 +619,9 @@ interfaces:
   implemented: false
 - id: operate.ExecutorPort.verify_read
   provider: C接口/Provider实现
-  consumers: *id013
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
-    intent: aether_agent_memory.operate.contracts.models.ActionIntent) -> aether_agent_memory.operate.contracts.models.ReadProof'
+  consumers: *id012
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, intent: aether_agent_memory.operate.contracts.models.ActionIntent)
+    -> aether_agent_memory.operate.contracts.models.ReadProof'
   rules: 稳定action_id和同载荷；实际反馈+内容读取证据；404不证明未执行。
   examples:
   - positive-runtime.TrustedContext
@@ -648,9 +631,8 @@ interfaces:
   implemented: false
 - id: operate.ExecutorPort.resources
   provider: C接口/Provider实现
-  consumers: *id013
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext)
-    -> aether_agent_memory.operate.contracts.models.ResourceSnapshot'
+  consumers: *id012
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext) -> aether_agent_memory.operate.contracts.models.ResourceSnapshot'
   rules: 稳定action_id和同载荷；实际反馈+内容读取证据；404不证明未执行。
   examples:
   - positive-runtime.TrustedContext
@@ -792,45 +774,41 @@ interfaces:
   - positive-remember.CleanupReceipt
   evidence_level: contract_only
   implemented: false
-- id: recall.GenerationVectorPort.project
-  provider: A
+- id: remember.GenerationProjectionPort.project
+  provider: B
   consumers:
   - B
-  - A
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, request: aether_agent_memory.recall.contracts.foundation.ChunkProjectionRequest)
-    -> aether_agent_memory.recall.contracts.foundation.ChunkProjectionResult'
-  rules: 底层向量接口；B按索引批次写入，A按兼容模型空间搜索。输入/输出保留精确Memory版本、批次、正文与块指纹；inspect只查询原操作，不重发写入；cursor绑定可信租户与查询。
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, request: aether_agent_memory.remember.contracts.foundation.ChunkProjectionRequest)
+    -> aether_agent_memory.remember.contracts.foundation.ChunkProjectionResult'
+  rules: B负责投影写入、原操作核验和清理；编码由Embedding提供。写入与模型空间、精确记忆版本及指纹绑定；新多块接口另绑定未发布批次和块清单。核验不得盲目重发写入。
   examples:
-  - positive-recall.ChunkProjectionRequest
-  - positive-recall.ChunkProjectionResult
+  - positive-remember.ChunkProjectionRequest
+  - positive-remember.ChunkProjectionResult
   - positive-recall.ChunkSearchResult
   evidence_level: contract_only
   implemented: false
-- id: recall.GenerationVectorPort.inspect
-  provider: A
+- id: remember.GenerationProjectionPort.inspect
+  provider: B
   consumers:
   - B
-  - A
-  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, request: aether_agent_memory.recall.contracts.foundation.ChunkProjectionRequest)
-    -> aether_agent_memory.recall.contracts.foundation.ChunkProjectionResult'
-  rules: 底层向量接口；B按索引批次写入，A按兼容模型空间搜索。输入/输出保留精确Memory版本、批次、正文与块指纹；inspect只查询原操作，不重发写入；cursor绑定可信租户与查询。
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, request: aether_agent_memory.remember.contracts.foundation.ChunkProjectionRequest)
+    -> aether_agent_memory.remember.contracts.foundation.ChunkProjectionResult'
+  rules: B负责投影写入、原操作核验和清理；编码由Embedding提供。写入与模型空间、精确记忆版本及指纹绑定；新多块接口另绑定未发布批次和块清单。核验不得盲目重发写入。
   examples:
-  - positive-recall.ChunkProjectionRequest
-  - positive-recall.ChunkProjectionResult
+  - positive-remember.ChunkProjectionRequest
+  - positive-remember.ChunkProjectionResult
   - positive-recall.ChunkSearchResult
   evidence_level: contract_only
   implemented: false
-- id: recall.GenerationVectorPort.search
+- id: recall.GenerationSearchPort.search
   provider: A
   consumers:
-  - B
   - A
   signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, request: aether_agent_memory.recall.contracts.foundation.ChunkSearchRequest)
     -> aether_agent_memory.recall.contracts.foundation.ChunkSearchResult'
-  rules: 底层向量接口；B按索引批次写入，A按兼容模型空间搜索。输入/输出保留精确Memory版本、批次、正文与块指纹；inspect只查询原操作，不重发写入；cursor绑定可信租户与查询。
+  rules: 只读搜索接口，不提供project/inspect/delete；按可信范围和编码空间检索，返回命中证据交B复核资格。新块搜索保留精确版本、批次和指纹。
   examples:
-  - positive-recall.ChunkProjectionRequest
-  - positive-recall.ChunkProjectionResult
+  - positive-recall.ChunkSearchRequest
   - positive-recall.ChunkSearchResult
   evidence_level: contract_only
   implemented: false

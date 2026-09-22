@@ -361,5 +361,5 @@
   ],
   "title": "ChunkProjectionRequest",
   "type": "object",
-  "x-contract-model": "recall.ChunkProjectionRequest"
+  "x-contract-model": "remember.ChunkProjectionRequest"
 }

@@ -341,22 +341,22 @@ objects:
   definition: src/aether_agent_memory/recall/contracts/foundation.py
   status: validated_contract_not_service_wired
   meaning: 向量命中块携带记忆版本、索引批次和正文/输入指纹
-- model: recall.ChunkProjectionRequest
-  owner: A
+- model: remember.ChunkProjectionRequest
+  owner: B
   consumers:
   - B
   nodes:
   - B.6
-  definition: src/aether_agent_memory/recall/contracts/foundation.py
+  definition: src/aether_agent_memory/remember/contracts/foundation.py
   status: validated_contract_not_service_wired
-  meaning: 共享向量写入请求，绑定未发布批次、块和向量维度
-- model: recall.ChunkProjectionResult
-  owner: A
+  meaning: B的多块投影请求，绑定未发布批次、块和向量维度
+- model: remember.ChunkProjectionResult
+  owner: B
   consumers:
   - B
   nodes:
   - B.6
-  definition: src/aether_agent_memory/recall/contracts/foundation.py
+  definition: src/aether_agent_memory/remember/contracts/foundation.py
   status: validated_contract_not_service_wired
   meaning: 原写操作的核验结果，不把已受理当作已可搜
 - model: recall.ChunkSearchRequest

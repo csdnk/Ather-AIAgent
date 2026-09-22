@@ -27,6 +27,45 @@
       "title": "MemoryRef",
       "type": "object"
     },
+    "ProjectionTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "chunk_index": {
+          "minimum": 0,
+          "title": "Chunk Index",
+          "type": "integer"
+        },
+        "input_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Hash",
+          "type": "string"
+        },
+        "memory": {
+          "$ref": "#/$defs/MemoryRef"
+        },
+        "model_space": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Model Space",
+          "type": "string"
+        },
+        "vector_id": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Vector Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "memory",
+        "model_space",
+        "chunk_index",
+        "vector_id",
+        "input_hash"
+      ],
+      "title": "ProjectionTarget",
+      "type": "object"
+    },
     "Scope": {
       "additionalProperties": false,
       "properties": {
@@ -102,40 +141,52 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
-    "chunk_index": {
-      "minimum": 0,
-      "title": "Chunk Index",
-      "type": "integer"
-    },
-    "input_hash": {
-      "pattern": "^[0-9a-f]{64}$",
-      "title": "Input Hash",
+    "observed_at": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "title": "Observed At",
       "type": "string"
     },
-    "memory": {
-      "$ref": "#/$defs/MemoryRef"
-    },
-    "model_space": {
+    "operation_id": {
       "maxLength": 128,
       "minLength": 1,
       "pattern": "^[A-Za-z0-9_-]+$",
-      "title": "Model Space",
+      "title": "Operation Id",
       "type": "string"
     },
-    "vector_id": {
-      "pattern": "^[0-9a-f]{64}$",
-      "title": "Vector Id",
+    "payload_matches": {
+      "title": "Payload Matches",
+      "type": "boolean"
+    },
+    "searchable": {
+      "title": "Searchable",
+      "type": "boolean"
+    },
+    "state": {
+      "enum": [
+        "accepted",
+        "pending",
+        "verified",
+        "failed",
+        "unknown",
+        "absent"
+      ],
+      "title": "State",
       "type": "string"
+    },
+    "target": {
+      "$ref": "#/$defs/ProjectionTarget"
     }
   },
   "required": [
-    "memory",
-    "model_space",
-    "chunk_index",
-    "vector_id",
-    "input_hash"
+    "operation_id",
+    "target",
+    "state",
+    "payload_matches",
+    "searchable",
+    "observed_at"
   ],
-  "title": "ProjectionTarget",
+  "title": "ProjectionResult",
   "type": "object",
-  "x-contract-model": "recall.ProjectionTarget"
+  "x-contract-model": "remember.ProjectionResult"
 }

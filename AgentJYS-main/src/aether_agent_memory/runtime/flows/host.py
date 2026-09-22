@@ -11,13 +11,15 @@ from typing import TYPE_CHECKING
 
 from aether_agent_memory.operate.basic.executor import LocalCacheExecutor
 from aether_agent_memory.operate.basic.service import Operate
-from aether_agent_memory.recall.basic.adapters import SPACE, LexicalEmbedding, SQLiteVectors
+from aether_agent_memory.recall.basic.adapters import SPACE, LexicalEmbedding
 from aether_agent_memory.recall.basic.config import RecallSettings
 from aether_agent_memory.recall.basic.reranking import CrossEncoderReranker, Reranker
 from aether_agent_memory.recall.basic.service import Recall
 from aether_agent_memory.recall.basic.tokenization import ModelTokenizer, TokenCounter
-from aether_agent_memory.recall.contracts.ports import EmbeddingPort, VectorPort
+from aether_agent_memory.recall.basic.vector_search import SearchAccess
+from aether_agent_memory.recall.contracts.ports import EmbeddingPort
 from aether_agent_memory.remember.basic.extraction import LiteralExtraction
+from aether_agent_memory.remember.basic.projection import ProjectionAccess
 from aether_agent_memory.remember.basic.service import Remember
 from aether_agent_memory.remember.contracts.models import ExtractionRequest, SourceRef
 from aether_agent_memory.remember.contracts.ports import ExtractionPort
@@ -28,6 +30,7 @@ from aether_agent_memory.runtime.foundation.requests import text_hash
 from aether_agent_memory.runtime.foundation.telemetry import attach_provider
 
 from .health import Health, sqlite_probe
+from .vector_adapters import MilvusVectors, SQLiteVectors, VectorBackend
 
 if TYPE_CHECKING:
     from aether_agent_memory.recall.embedding.p3 import NativeP3Embedding
@@ -41,7 +44,7 @@ class ThreeFlows:
         *,
         extraction: ExtractionPort | None = None,
         embedding: EmbeddingPort | None = None,
-        vectors: VectorPort | None = None,
+        vectors: VectorBackend | None = None,
         model_space: str | None = None,
         embedding_profile: str = "native",
         embedding_config: str | Path | None = None,
@@ -102,8 +105,6 @@ class ThreeFlows:
                     "injected embedding needs dimensions or an explicit vector adapter"
                 )
             if vectors is None and self.recall_settings.milvus_uri:
-                from aether_agent_memory.recall.basic.milvus import MilvusVectors
-
                 self.owned_vectors = MilvusVectors(
                     self.foundation.uow,
                     self.foundation.identity,
@@ -153,6 +154,8 @@ class ThreeFlows:
         self.embedding_profile = (
             "native" if self.native_embedding else "injected" if embedding else "lexical"
         )
+        self.projections = ProjectionAccess(self.vectors)
+        self.vector_search = SearchAccess(self.vectors)
         self.remember = Remember(
             self.foundation.uow,
             self.foundation.identity,
@@ -160,7 +163,7 @@ class ThreeFlows:
             self.foundation.events,
             extraction or LiteralExtraction(),
             self.embedding,
-            self.vectors,
+            self.projections,
             self.model_space,
         )
         if reranker is None and self.recall_settings.rerank_policy != "disabled":
@@ -177,7 +180,7 @@ class ThreeFlows:
             self.foundation.events,
             self.remember,
             self.embedding,
-            self.vectors,
+            self.vector_search,
             self.model_space,
             settings=self.recall_settings,
             tokenizer=selected_tokenizer,

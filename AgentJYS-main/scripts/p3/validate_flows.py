@@ -13,6 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGETS = [
+    "src/aether_agent_memory/runtime/vector_backend.py",
     "src/aether_agent_memory/remember/basic",
     "src/aether_agent_memory/recall/basic",
     "src/aether_agent_memory/operate/basic",

@@ -2172,8 +2172,8 @@
     }
   },
   {
-    "id": "positive-recall.ProjectionTarget",
-    "model": "recall.ProjectionTarget",
+    "id": "positive-remember.ProjectionTarget",
+    "model": "remember.ProjectionTarget",
     "valid": true,
     "schema_valid": true,
     "payload": {
@@ -2194,8 +2194,8 @@
     }
   },
   {
-    "id": "extra-field-recall.ProjectionTarget",
-    "model": "recall.ProjectionTarget",
+    "id": "extra-field-remember.ProjectionTarget",
+    "model": "remember.ProjectionTarget",
     "valid": false,
     "schema_valid": false,
     "payload": {
@@ -2217,8 +2217,8 @@
     }
   },
   {
-    "id": "positive-recall.ProjectionRequest",
-    "model": "recall.ProjectionRequest",
+    "id": "positive-remember.ProjectionRequest",
+    "model": "remember.ProjectionRequest",
     "valid": true,
     "schema_valid": true,
     "payload": {
@@ -2246,8 +2246,8 @@
     }
   },
   {
-    "id": "extra-field-recall.ProjectionRequest",
-    "model": "recall.ProjectionRequest",
+    "id": "extra-field-remember.ProjectionRequest",
+    "model": "remember.ProjectionRequest",
     "valid": false,
     "schema_valid": false,
     "payload": {
@@ -2276,8 +2276,8 @@
     }
   },
   {
-    "id": "positive-recall.ProjectionResult",
-    "model": "recall.ProjectionResult",
+    "id": "positive-remember.ProjectionResult",
+    "model": "remember.ProjectionResult",
     "valid": true,
     "schema_valid": true,
     "payload": {
@@ -2305,8 +2305,8 @@
     }
   },
   {
-    "id": "extra-field-recall.ProjectionResult",
-    "model": "recall.ProjectionResult",
+    "id": "extra-field-remember.ProjectionResult",
+    "model": "remember.ProjectionResult",
     "valid": false,
     "schema_valid": false,
     "payload": {
@@ -3843,7 +3843,7 @@
   },
   {
     "id": "reject-unverified-projection",
-    "model": "recall.ProjectionResult",
+    "model": "remember.ProjectionResult",
     "valid": false,
     "schema_valid": true,
     "payload": {
@@ -6983,8 +6983,8 @@
     }
   },
   {
-    "id": "positive-recall.ChunkProjectionRequest",
-    "model": "recall.ChunkProjectionRequest",
+    "id": "positive-remember.ChunkProjectionRequest",
+    "model": "remember.ChunkProjectionRequest",
     "valid": true,
     "schema_valid": true,
     "payload": {
@@ -7042,8 +7042,8 @@
     }
   },
   {
-    "id": "extra-field-recall.ChunkProjectionRequest",
-    "model": "recall.ChunkProjectionRequest",
+    "id": "extra-field-remember.ChunkProjectionRequest",
+    "model": "remember.ChunkProjectionRequest",
     "valid": false,
     "schema_valid": false,
     "payload": {
@@ -7102,8 +7102,8 @@
     }
   },
   {
-    "id": "positive-recall.ChunkProjectionResult",
-    "model": "recall.ChunkProjectionResult",
+    "id": "positive-remember.ChunkProjectionResult",
+    "model": "remember.ChunkProjectionResult",
     "valid": true,
     "schema_valid": true,
     "payload": {
@@ -7168,8 +7168,8 @@
     }
   },
   {
-    "id": "extra-field-recall.ChunkProjectionResult",
-    "model": "recall.ChunkProjectionResult",
+    "id": "extra-field-remember.ChunkProjectionResult",
+    "model": "remember.ChunkProjectionResult",
     "valid": false,
     "schema_valid": false,
     "payload": {

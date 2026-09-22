@@ -2,12 +2,14 @@
 
 from typing import Protocol
 
+from aether_agent_memory.remember.contracts.ports import (
+    GenerationProjectionPort,
+    ProjectionPort,
+)
 from aether_agent_memory.runtime.contracts.models import RecordRef, TrustedContext
 from aether_agent_memory.runtime.contracts.ports import Transaction
 
 from .foundation import (
-    ChunkProjectionRequest,
-    ChunkProjectionResult,
     ChunkSearchRequest,
     ChunkSearchResult,
     ContextAssemblyPlan,
@@ -20,32 +22,11 @@ from .models import (
     ContextPack,
     EmbeddingRequest,
     EmbeddingResult,
-    ProjectionRequest,
-    ProjectionResult,
-    ProjectionTarget,
     RecallRecord,
     RecallRequest,
     VectorSearchRequest,
     VectorSearchResult,
 )
-
-
-class GenerationVectorPort(Protocol):
-    async def project(
-        self,
-        ctx: TrustedContext,
-        request: ChunkProjectionRequest,
-    ) -> ChunkProjectionResult: ...
-    async def inspect(
-        self,
-        ctx: TrustedContext,
-        request: ChunkProjectionRequest,
-    ) -> ChunkProjectionResult: ...
-    async def search(
-        self,
-        ctx: TrustedContext,
-        request: ChunkSearchRequest,
-    ) -> ChunkSearchResult: ...
 
 
 class MemoryCandidatePort(Protocol):
@@ -84,26 +65,25 @@ class EmbeddingPort(Protocol):
     ) -> EmbeddingResult: ...
 
 
-class VectorPort(Protocol):
-    async def project(
-        self,
-        ctx: TrustedContext,
-        request: ProjectionRequest,
-    ) -> ProjectionResult: ...
-    async def inspect(
-        self,
-        ctx: TrustedContext,
-        target: ProjectionTarget,
-        operation_id: str,
-    ) -> ProjectionResult: ...
-    async def delete(
-        self,
-        ctx: TrustedContext,
-        target: ProjectionTarget,
-        operation_id: str,
-    ) -> ProjectionResult: ...
+class VectorSearchPort(Protocol):
     async def search(
         self,
         ctx: TrustedContext,
         request: VectorSearchRequest,
     ) -> VectorSearchResult: ...
+
+
+class GenerationSearchPort(Protocol):
+    async def search(
+        self,
+        ctx: TrustedContext,
+        request: ChunkSearchRequest,
+    ) -> ChunkSearchResult: ...
+
+
+class VectorPort(ProjectionPort, VectorSearchPort, Protocol):
+    """Legacy combined injection contract. New flows receive one role-specific port."""
+
+
+class GenerationVectorPort(GenerationProjectionPort, GenerationSearchPort, Protocol):
+    """Legacy import only; generation writes belong to B and searches to A."""

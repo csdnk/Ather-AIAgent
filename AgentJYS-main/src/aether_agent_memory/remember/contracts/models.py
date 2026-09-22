@@ -272,3 +272,33 @@ class StorageChanged(ContractModel):
     projection_state: ProjectionState
     content_hash: Digest
     source_count: Count
+
+
+class ProjectionTarget(ContractModel):
+    memory: MemoryRef
+    model_space: Identifier
+    chunk_index: Count
+    vector_id: Digest
+    input_hash: Digest
+
+
+class ProjectionRequest(ContractModel):
+    operation_id: Identifier
+    target: ProjectionTarget
+    vector: tuple[float, ...] = Field(min_length=1)
+    deadline_at: Timestamp
+
+
+class ProjectionResult(ContractModel):
+    operation_id: Identifier
+    target: ProjectionTarget
+    state: Literal["accepted", "pending", "verified", "failed", "unknown", "absent"]
+    payload_matches: bool
+    searchable: bool
+    observed_at: Timestamp
+
+    @model_validator(mode="after")
+    def verified_evidence(self) -> Self:
+        if self.state == "verified" and not (self.payload_matches and self.searchable):
+            raise ValueError("verified requires exact payload and query visibility")
+        return self

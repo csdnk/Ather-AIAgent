@@ -27,45 +27,6 @@
       "title": "MemoryRef",
       "type": "object"
     },
-    "ProjectionTarget": {
-      "additionalProperties": false,
-      "properties": {
-        "chunk_index": {
-          "minimum": 0,
-          "title": "Chunk Index",
-          "type": "integer"
-        },
-        "input_hash": {
-          "pattern": "^[0-9a-f]{64}$",
-          "title": "Input Hash",
-          "type": "string"
-        },
-        "memory": {
-          "$ref": "#/$defs/MemoryRef"
-        },
-        "model_space": {
-          "maxLength": 128,
-          "minLength": 1,
-          "pattern": "^[A-Za-z0-9_-]+$",
-          "title": "Model Space",
-          "type": "string"
-        },
-        "vector_id": {
-          "pattern": "^[0-9a-f]{64}$",
-          "title": "Vector Id",
-          "type": "string"
-        }
-      },
-      "required": [
-        "memory",
-        "model_space",
-        "chunk_index",
-        "vector_id",
-        "input_hash"
-      ],
-      "title": "ProjectionTarget",
-      "type": "object"
-    },
     "Scope": {
       "additionalProperties": false,
       "properties": {
@@ -141,38 +102,40 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
-    "deadline_at": {
-      "format": "date-time",
-      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
-      "title": "Deadline At",
+    "chunk_index": {
+      "minimum": 0,
+      "title": "Chunk Index",
+      "type": "integer"
+    },
+    "input_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Hash",
       "type": "string"
     },
-    "operation_id": {
+    "memory": {
+      "$ref": "#/$defs/MemoryRef"
+    },
+    "model_space": {
       "maxLength": 128,
       "minLength": 1,
       "pattern": "^[A-Za-z0-9_-]+$",
-      "title": "Operation Id",
+      "title": "Model Space",
       "type": "string"
     },
-    "target": {
-      "$ref": "#/$defs/ProjectionTarget"
-    },
-    "vector": {
-      "items": {
-        "type": "number"
-      },
-      "minItems": 1,
-      "title": "Vector",
-      "type": "array"
+    "vector_id": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Vector Id",
+      "type": "string"
     }
   },
   "required": [
-    "operation_id",
-    "target",
-    "vector",
-    "deadline_at"
+    "memory",
+    "model_space",
+    "chunk_index",
+    "vector_id",
+    "input_hash"
   ],
-  "title": "ProjectionRequest",
+  "title": "ProjectionTarget",
   "type": "object",
-  "x-contract-model": "recall.ProjectionRequest"
+  "x-contract-model": "remember.ProjectionTarget"
 }
