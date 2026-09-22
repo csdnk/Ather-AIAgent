@@ -10,6 +10,7 @@ import asyncio
 import inspect
 import json
 import os
+import re
 import secrets
 import sqlite3
 import sys
@@ -26,6 +27,7 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
+from aether_agent_memory.runtime.contracts.foundation import NodeLogRecord
 from aether_agent_memory.runtime.contracts.models import TrustedContext
 
 from .common import FoundationError, now
@@ -128,6 +130,7 @@ class Node:
             parent.span_id if parent and parent.ctx.trace_id == ctx.trace_id else ctx.span_id
         )
         self.output: Any = None
+        self.started = time.monotonic()
 
 
 current_node: ContextVar[Node | None] = ContextVar("p3_trace_node", default=None)
@@ -215,6 +218,57 @@ class Telemetry:
             **fields,
         }
         try:
+            flow = node.name.split(".")[0]
+            if flow not in {"remember", "recall", "operate"}:
+                flow = "runtime"
+            normalized = NodeLogRecord(
+                occurred_at=data["occurred_at"],
+                service="aether-p3",
+                instance=self.instance_id,
+                flow=flow,
+                request_id=ctx.request_id,
+                operation_id=ctx.operation_id,
+                trace_id=ctx.trace_id,
+                span_id=node.span_id,
+                parent_span_id=node.parent_id,
+                node=re.sub(r"[^A-Za-z0-9_-]", "_", node.name)[:128],
+                phase=phase,
+                level="error"
+                if phase == "failed"
+                else "warning"
+                if phase in {"cancelled", "rolled_back"}
+                else "info",
+                elapsed_ms=None
+                if phase == "started"
+                else max(0, (time.monotonic() - node.started) * 1000),
+                reason_code=re.sub(
+                    r"[^A-Za-z0-9_-]", "_", str(fields.get("error_code", "NODE_EXCEPTION"))
+                )[:128]
+                if phase == "failed"
+                else None,
+                task_id=fields.get("task_id"),
+                event_id=fields.get("event_id"),
+            )
+            data["contract"] = normalized.model_dump(mode="json")
+        except ValueError:
+            self.dropped += 1
+            self.last_error = "InvalidNodeLogRecord"
+            return
+        self._write(ctx, data)
+
+    def emit_record(self, ctx: TrustedContext, record: NodeLogRecord) -> None:
+        record = NodeLogRecord.model_validate_json(record.model_dump_json())
+        if (ctx.trace_id, ctx.request_id, ctx.operation_id) != (
+            record.trace_id,
+            record.request_id,
+            record.operation_id,
+        ):
+            raise ValueError("log context mismatch")
+        data = record.model_dump(mode="json")
+        self._write(ctx, {**data, "contract": data})
+
+    def _write(self, ctx: TrustedContext, data: dict[str, Any]) -> None:
+        try:
             encoded = json.dumps(data, ensure_ascii=False, allow_nan=False)
             if len(encoded.encode("utf-8")) > 32_768:
                 data.pop("input", None)
@@ -230,8 +284,8 @@ class Telemetry:
                         ctx.trace_id,
                         ctx.principal.principal_id,
                         ctx.principal.home_scope.model_dump_json(),
-                        node.span_id,
-                        phase,
+                        data["span_id"],
+                        data["phase"],
                         encoded,
                     ),
                 )

@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "activated_at": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "title": "Activated At",
+      "type": "string"
+    },
+    "config_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Config Hash",
+      "type": "string"
+    },
+    "deployment_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Deployment Id",
+      "type": "string"
+    },
+    "policy_versions": {
+      "items": {
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9_-]+$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Policy Versions",
+      "type": "array"
+    },
+    "provider_ids": {
+      "items": {
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9_-]+$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Provider Ids",
+      "type": "array"
+    },
+    "secret_refs": {
+      "default": [],
+      "items": {
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9_-]+$",
+        "type": "string"
+      },
+      "title": "Secret Refs",
+      "type": "array"
+    },
+    "version": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "version",
+    "config_hash",
+    "deployment_id",
+    "provider_ids",
+    "policy_versions",
+    "activated_at"
+  ],
+  "title": "ConfigurationSnapshot",
+  "type": "object",
+  "x-contract-model": "runtime.ConfigurationSnapshot"
+}

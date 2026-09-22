@@ -1,0 +1,226 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2320" height="1630" viewBox="0 0 2320 1630">
+<defs><marker id="arrow" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0 0 L9 3.5 L0 7 Z" fill="context-stroke"/></marker></defs>
+<style>text{font-family:"Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#273545}.label{font-size:14px;paint-order:stroke;stroke:white;stroke-width:6px;stroke-linejoin:round}</style>
+<text x="40" y="58" font-size="28" font-weight="700">01 · Recall 主流程</text>
+<rect x="490" y="95" width="600" height="1460" rx="16" fill="#FAFBF8"/>
+<path d="M506 95H1074Q1090 95 1090 111V135H490V111Q490 95 506 95" fill="#EEF0E8"/>
+<text x="790.0" y="122" font-size="19" font-weight="700" text-anchor="middle">请求与主处理链</text>
+<rect x="40" y="270" width="400" height="410" rx="16" fill="#FAFBF8"/>
+<path d="M56 270H424Q440 270 440 286V310H40V286Q40 270 56 270" fill="#EEF0E8"/>
+<text x="240.0" y="297" font-size="19" font-weight="700" text-anchor="middle">幂等与历史结果</text>
+<rect x="1140" y="95" width="420" height="1460" rx="16" fill="#FAFBF8"/>
+<path d="M1156 95H1544Q1560 95 1560 111V135H1140V111Q1140 95 1156 95" fill="#EEF0E8"/>
+<text x="1350.0" y="122" font-size="19" font-weight="700" text-anchor="middle">异常与输出</text>
+<rect x="1610" y="95" width="670" height="1495" rx="16" fill="#FAFBF8"/>
+<path d="M1626 95H2264Q2280 95 2280 111V135H1610V111Q1610 95 1626 95" fill="#EEF0E8"/>
+<text x="1945.0" y="122" font-size="19" font-weight="700" text-anchor="middle">本页步骤的技术来源（说明卡，不是新增执行步骤）</text>
+<polyline points="790.0,213 790.0,260" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="790.0,340 790.0,380" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="790.0,605 790.0,645" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="790.0,721 790.0,760" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="790.0,850 790.0,890" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="790.0,976 790.0,1010" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="790.0,1100 790.0,1140" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="790.0,1218 790.0,1260" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="790.0,1344 790.0,1390" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="790.0,484 790.0,525" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="655,432.0 515.0,432.0 515.0,375.0 375,375.0" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="240.0,425 240.0,475" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="240.0,575 240.0,595" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="240.0,325 240,230 1350,230 1350,155 1350.0,175" fill="none" stroke="#B56773" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="105,525.0 55,525 55,125 1550,125 1550,225 1530,225.0" fill="none" stroke="#B56773" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="980,300.0 1120,300 1120,225 1170,225.0" fill="none" stroke="#B56773" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="980,805.0 1120,805 1120,900 1350,900 1350.0,935" fill="none" stroke="#B56773" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#arrow)"/>
+<polyline points="1350.0,1045 1350.0,1105" fill="none" stroke="#B56773" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="995,1450.0 1082.5,1450.0 1082.5,1442.0 1170,1442.0" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="995,1450.0 1120,1450 1120,1240 1350,1240 1350.0,1200" fill="none" stroke="#B56773" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="410,860.0 460,860 460,1055 600,1055.0" fill="none" stroke="#6B7B8E" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#arrow)"/>
+<g id="start"><title>recall/basic/service.py::Recall.recall</title>
+<rect x="600" y="145" width="380" height="68" rx="28" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="start" x="790.0" y="173.0" font-size="16" text-anchor="middle">调用 Recall</text>
+<text data-node="start" x="790.0" y="195.0" font-size="16" text-anchor="middle">TrustedContext + RecallRequest</text>
+</g>
+<g id="auth"><title>recall/basic/service.py::Recall.recall | 技术来源：01 / 02 / 06 · 准入、请求记录、资格核验; 项目自研：Recall.recall / Remember.final_guard; 当前身份、精确版本、删除与来源资格由 P3 判断; LangMem 不负责 Recall 授权或有效性; SQLite 直接用于持久化；规则由项目实现</title>
+<rect x="600" y="260" width="380" height="80" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="auth" x="790.0" y="294.0" font-size="16" text-anchor="middle">01 选择 scope，生成 recall_id / 请求签名</text>
+<text data-node="auth" x="790.0" y="316.0" font-size="16" text-anchor="middle">事务内检查当前身份与 READ 权限</text>
+</g>
+<g id="prev"><title>recall/basic/service.py::Recall.recall</title>
+<polygon points="790.0,380 925,432.0 790.0,484 655,432.0" fill="#FFF5DC" stroke="#B28A39" stroke-width="1.5"/>
+<text data-node="prev" x="790.0" y="437.0" font-size="16" text-anchor="middle">已有同一 recall_id？</text>
+</g>
+<g id="save"><title>recall/basic/service.py::Recall.recall | 技术来源：01 / 02 / 06 · 准入、请求记录、资格核验; 项目自研：Recall.recall / Remember.final_guard; 当前身份、精确版本、删除与来源资格由 P3 判断; LangMem 不负责 Recall 授权或有效性; SQLite 直接用于持久化；规则由项目实现</title>
+<rect x="600" y="525" width="380" height="80" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="save" x="790.0" y="559.0" font-size="16" text-anchor="middle">02 新建 accepted 请求记录</text>
+<text data-node="save" x="790.0" y="581.0" font-size="16" text-anchor="middle">保存请求签名、上下文和 deadline</text>
+</g>
+<g id="select"><title>recall/basic/service.py::Recall.retrieve | 技术来源：03 / 04 · 来源选择与并发候选; 设计参考：LlamaIndex · BaseRetriever.aretrieve; QueryFusionRetriever._run_async_queries; 参考：统一候选接口 → 多路检索 → 汇总; 本地：Sources.discover + Recall.retrieve; 来源选择、覆盖状态、统一截止时间由 P3 实现</title>
+<rect x="600" y="645" width="380" height="76" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="select" x="790.0" y="677.0" font-size="16" text-anchor="middle">03 选择来源（select）</text>
+<text data-node="select" x="790.0" y="699.0" font-size="16" text-anchor="middle">auto / working / long_term / both</text>
+</g>
+<g id="discover"><title>recall/basic/retrievers.py::Sources.discover | 技术来源：03 / 04 · 来源选择与并发候选; 设计参考：LlamaIndex · BaseRetriever.aretrieve; QueryFusionRetriever._run_async_queries; 参考：统一候选接口 → 多路检索 → 汇总; 本地：Sources.discover + Recall.retrieve; 来源选择、覆盖状态、统一截止时间由 P3 实现</title>
+<rect x="600" y="760" width="380" height="90" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="discover" x="790.0" y="788.0" font-size="16" text-anchor="middle">04 并发发现候选（discover → load）</text>
+<text data-node="discover" x="790.0" y="810.0" font-size="16" text-anchor="middle">收集来源覆盖、候选、读取记录</text>
+<text data-node="discover" x="790.0" y="832.0" font-size="16" text-anchor="middle">展开见第 02 页</text>
+</g>
+<g id="fuse"><title>recall/basic/components.py::fuse | 技术来源：05 · RRF 融合; 设计参考：LlamaIndex · QueryFusionRetriever; ._reciprocal_rerank_fusion; 参考：每路按名次贡献倒数分，再合并排序; 本地 fuse：完整 MemoryRef 去重，名次从 1 开始; 研读版按节点 hash、名次从 0；未直接调用该类</title>
+<rect x="600" y="890" width="380" height="86" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="fuse" x="790.0" y="916.0" font-size="16" text-anchor="middle">05 RRF 合并并排序</text>
+<text data-node="fuse" x="790.0" y="938.0" font-size="16" text-anchor="middle">按完整 MemoryRef 去重，rank 从 1 开始</text>
+<text data-node="fuse" x="790.0" y="960.0" font-size="16" text-anchor="middle">每路贡献 1 / (60 + rank)</text>
+</g>
+<g id="guard"><title>recall/basic/service.py::Recall.retrieve; remember/basic/service.py::Remember.final_guard | 技术来源：01 / 02 / 06 · 准入、请求记录、资格核验; 项目自研：Recall.recall / Remember.final_guard; 当前身份、精确版本、删除与来源资格由 P3 判断; LangMem 不负责 Recall 授权或有效性; SQLite 直接用于持久化；规则由项目实现</title>
+<rect x="600" y="1010" width="380" height="90" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="guard" x="790.0" y="1038.0" font-size="16" text-anchor="middle">06 重排前再次核验资格（rank）</text>
+<text data-node="guard" x="790.0" y="1060.0" font-size="16" text-anchor="middle">排除越权 / 旧版 / 删除 / 失效来源</text>
+<text data-node="guard" x="790.0" y="1082.0" font-size="16" text-anchor="middle">同事务保存已发生的 read 访问事件</text>
+</g>
+<g id="rank"><title>recall/basic/service.py::Recall.rerank | 技术来源：07 · 可选重排; 直接调用：Sentence Transformers; CrossEncoder.predict（配置启用时）; 问题与每条正文组成文本对，获得相关性分数; P3 自行排序并控制超时、并发与降级; BaseNodePostprocessor 仅作为后处理接口参考</title>
+<rect x="600" y="1140" width="380" height="78" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="rank" x="790.0" y="1162.0" font-size="16" text-anchor="middle">07 可选重排（rerank）</text>
+<text data-node="rank" x="790.0" y="1184.0" font-size="16" text-anchor="middle">disabled / required / fallback</text>
+<text data-node="rank" x="790.0" y="1206.0" font-size="16" text-anchor="middle">展开见第 03 页左侧</text>
+</g>
+<g id="pack"><title>recall/basic/components.py::assemble; recall/basic/service.py::Recall.retrieve | 技术来源：08 · 计数与 ContextPack; 直接调用：tiktoken.get_encoding → Encoding.encode; 可选 Hugging Face Tokenizer.encode; 框架只提供 token 计数；P3 assemble 控制取舍; 最多条数、整条跳过与 outcome 判断是项目逻辑; 未调用 LlamaIndex Query Engine 生成回答</title>
+<rect x="600" y="1260" width="380" height="84" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="pack" x="790.0" y="1285.0" font-size="16" text-anchor="middle">08 按完整记忆组包与判断结果</text>
+<text data-node="pack" x="790.0" y="1307.0" font-size="16" text-anchor="middle">assemble → available / degraded / empty</text>
+<text data-node="pack" x="790.0" y="1329.0" font-size="16" text-anchor="middle">失败规则见第 03 页右侧</text>
+</g>
+<g id="commit"><title>recall/basic/service.py::Recall.retrieve | 技术来源：09 / 贯穿节点 · 提交、事件与追溯; 直接使用 SQLite；借鉴 Transactional Outbox 模式; 同事务：业务结果 + 待投递事件; Trace 参考 OpenTelemetry / W3C 的关联概念; 当前落地：本地 node_logs 与阶段记录; 未接入 OTel SDK / Collector 或 Temporal Replay</title>
+<rect x="585" y="1390" width="410" height="120" rx="12" fill="#EAF4EC" stroke="#528264" stroke-width="1.5"/>
+<text data-node="commit" x="790.0" y="1422.0" font-size="16" text-anchor="middle">09 finalize：同一事务最终核验与提交</text>
+<text data-node="commit" x="790.0" y="1444.0" font-size="16" text-anchor="middle">核验当前资格、请求仍为 running</text>
+<text data-node="commit" x="790.0" y="1466.0" font-size="16" text-anchor="middle">写 ContextPack + completed + packed 事件</text>
+<text data-node="commit" x="790.0" y="1488.0" font-size="16" text-anchor="middle">提交前再次核验身份与截止时间</text>
+</g>
+<g id="sign"><title>recall/basic/service.py::Recall.recall</title>
+<polygon points="240.0,325 375,375.0 240.0,425 105,375.0" fill="#FFF5DC" stroke="#B28A39" stroke-width="1.5"/>
+<text data-node="sign" x="240.0" y="380.0" font-size="16" text-anchor="middle">请求签名相同？</text>
+</g>
+<g id="state"><title>recall/basic/service.py::Recall.recall</title>
+<polygon points="240.0,475 375,525.0 240.0,575 105,525.0" fill="#FFF5DC" stroke="#B28A39" stroke-width="1.5"/>
+<text data-node="state" x="240.0" y="530.0" font-size="16" text-anchor="middle">原请求已 completed？</text>
+</g>
+<g id="reuse"><title>recall/basic/service.py::Recall.result</title>
+<rect x="80" y="595" width="320" height="82" rx="12" fill="#F0ECF7" stroke="#8E78AA" stroke-width="1.5"/>
+<text data-node="reuse" x="240.0" y="619.0" font-size="16" text-anchor="middle">重新核验历史 ContextPack</text>
+<text data-node="reuse" x="240.0" y="641.0" font-size="16" text-anchor="middle">不能直接返回已失效正文</text>
+<text data-node="reuse" x="240.0" y="663.0" font-size="16" text-anchor="middle">展开见第 04 页</text>
+</g>
+<g id="early"><title>recall/basic/service.py::Recall.recall</title>
+<rect x="1170" y="175" width="360" height="100" rx="12" fill="#FBECEE" stroke="#B56773" stroke-width="1.5"/>
+<text data-node="early" x="1350.0" y="208.0" font-size="16" text-anchor="middle">准入 / 幂等拒绝</text>
+<text data-node="early" x="1350.0" y="230.0" font-size="16" text-anchor="middle">权限不足 / 同键内容冲突</text>
+<text data-node="early" x="1350.0" y="252.0" font-size="16" text-anchor="middle">请求仍在执行 / 原请求已中断</text>
+</g>
+<g id="scope"><title>recall/basic/service.py::Recall.recall; recall/basic/retrievers.py::Sources.discover</title>
+<rect x="1170" y="440" width="360" height="96" rx="12" fill="#F1F3F6" stroke="#7B8797" stroke-width="1.5"/>
+<text data-node="scope" x="1350.0" y="471.0" font-size="16" text-anchor="middle">总截止时间覆盖新请求处理</text>
+<text data-node="scope" x="1350.0" y="493.0" font-size="16" text-anchor="middle">各来源 / 重排另有局部超时</text>
+<text data-node="scope" x="1350.0" y="515.0" font-size="16" text-anchor="middle">合约、权限、版本错误不得伪装为空</text>
+</g>
+<g id="fail"><title>recall/basic/service.py::Recall.recall</title>
+<rect x="1170" y="935" width="360" height="110" rx="12" fill="#FBECEE" stroke="#B56773" stroke-width="1.5"/>
+<text data-node="fail" x="1350.0" y="962.0" font-size="16" text-anchor="middle">新请求执行异常</text>
+<text data-node="fail" x="1350.0" y="984.0" font-size="16" text-anchor="middle">取消 → EXECUTION_INTERRUPTED</text>
+<text data-node="fail" x="1350.0" y="1006.0" font-size="16" text-anchor="middle">超时 → DEADLINE_EXCEEDED</text>
+<text data-node="fail" x="1350.0" y="1028.0" font-size="16" text-anchor="middle">领域异常保留错误码；其他异常归依赖失败</text>
+</g>
+<g id="failed"><title>recall/basic/service.py::Recall.recall</title>
+<rect x="1170" y="1105" width="360" height="95" rx="12" fill="#FBECEE" stroke="#B56773" stroke-width="1.5"/>
+<text data-node="failed" x="1350.0" y="1135.5" font-size="16" text-anchor="middle">事务记录 failed / reason</text>
+<text data-node="failed" x="1350.0" y="1157.5" font-size="16" text-anchor="middle">result_available = false</text>
+<text data-node="failed" x="1350.0" y="1179.5" font-size="16" text-anchor="middle">返回错误，不生成成功 ContextPack</text>
+</g>
+<g id="result"><title>recall/basic/service.py::Recall.retrieve</title>
+<rect x="1170" y="1390" width="360" height="104" rx="28" fill="#EAF4EC" stroke="#528264" stroke-width="1.5"/>
+<text data-node="result" x="1350.0" y="1425.0" font-size="16" text-anchor="middle">返回已提交的 ContextPack</text>
+<text data-node="result" x="1350.0" y="1447.0" font-size="16" text-anchor="middle">含 coverage / outcome / 来源与版本</text>
+<text data-node="result" x="1350.0" y="1469.0" font-size="16" text-anchor="middle">预算、tokenizer_id、降级原因</text>
+</g>
+<g id="trace"><title>runtime/foundation/telemetry.py; recall/basic/service.py::Recall.stage | 技术来源：09 / 贯穿节点 · 提交、事件与追溯; 直接使用 SQLite；借鉴 Transactional Outbox 模式; 同事务：业务结果 + 待投递事件; Trace 参考 OpenTelemetry / W3C 的关联概念; 当前落地：本地 node_logs 与阶段记录; 未接入 OTel SDK / Collector 或 Temporal Replay</title>
+<rect x="60" y="810" width="350" height="100" rx="12" fill="#F1F3F6" stroke="#7B8797" stroke-width="1.5"/>
+<text data-node="trace" x="235.0" y="843.0" font-size="16" text-anchor="middle">贯穿各节点：trace_id + recall_id</text>
+<text data-node="trace" x="235.0" y="865.0" font-size="16" text-anchor="middle">日志 / span 与阶段持久记录</text>
+<text data-node="trace" x="235.0" y="887.0" font-size="16" text-anchor="middle">追溯与过期处理见第 04 页</text>
+</g>
+<g id="limits"><title>recall/basic/components.py::assemble</title>
+<rect x="60" y="1045" width="350" height="114" rx="12" fill="#F1F3F6" stroke="#7B8797" stroke-width="1.5"/>
+<text data-node="limits" x="235.0" y="1074.0" font-size="16" text-anchor="middle">当前实现边界</text>
+<text data-node="limits" x="235.0" y="1096.0" font-size="16" text-anchor="middle">无混合索引；不生成自然语言答案</text>
+<text data-node="limits" x="235.0" y="1118.0" font-size="16" text-anchor="middle">assemble 按单条完整记忆组装</text>
+<text data-node="limits" x="235.0" y="1140.0" font-size="16" text-anchor="middle">尚未自动形成完整冲突组</text>
+</g>
+<g id="reference_legend"><title></title>
+<rect x="1630" y="150" width="630" height="66" rx="12" fill="#F1F3F6" stroke="#7B8797" stroke-width="1.5"/>
+<text data-node="reference_legend" x="1945.0" y="177.0" font-size="16" text-anchor="middle">绿色：直接调用（按配置）  紫色：设计 / 概念参考</text>
+<text data-node="reference_legend" x="1945.0" y="199.0" font-size="16" text-anchor="middle">黄色：成熟模式  灰色：项目自研 / 当前边界</text>
+</g>
+<g id="reference_1"><title>recall/basic/service.py::Recall.recall; recall/basic/service.py::Recall.recall; recall/basic/service.py::Recall.retrieve; remember/basic/service.py::Remember.final_guard</title>
+<rect x="1630" y="235.0" width="630" height="136" rx="12" fill="#F1F3F6" stroke="#7B8797" stroke-width="1.5"/>
+<text data-node="reference_1" x="1945.0" y="264.0" font-size="16" text-anchor="middle">01 / 02 / 06 · 准入、请求记录、资格核验</text>
+<text data-node="reference_1" x="1945.0" y="286.0" font-size="16" text-anchor="middle">项目自研：Recall.recall / Remember.final_guard</text>
+<text data-node="reference_1" x="1945.0" y="308.0" font-size="16" text-anchor="middle">当前身份、精确版本、删除与来源资格由 P3 判断</text>
+<text data-node="reference_1" x="1945.0" y="330.0" font-size="16" text-anchor="middle">LangMem 不负责 Recall 授权或有效性</text>
+<text data-node="reference_1" x="1945.0" y="352.0" font-size="16" text-anchor="middle">SQLite 直接用于持久化；规则由项目实现</text>
+</g>
+<g id="reference_2"><title>recall/basic/service.py::Recall.retrieve; recall/basic/retrievers.py::Sources.discover</title>
+<rect x="1630" y="461.66666666666663" width="630" height="156" rx="12" fill="#F0ECF7" stroke="#8E78AA" stroke-width="1.5"/>
+<text data-node="reference_2" x="1945.0" y="489.66666666666663" font-size="16" text-anchor="middle">03 / 04 · 来源选择与并发候选</text>
+<text data-node="reference_2" x="1945.0" y="511.66666666666663" font-size="16" text-anchor="middle">设计参考：LlamaIndex · BaseRetriever.aretrieve</text>
+<text data-node="reference_2" x="1945.0" y="533.6666666666666" font-size="16" text-anchor="middle">QueryFusionRetriever._run_async_queries</text>
+<text data-node="reference_2" x="1945.0" y="555.6666666666666" font-size="16" text-anchor="middle">参考：统一候选接口 → 多路检索 → 汇总</text>
+<text data-node="reference_2" x="1945.0" y="577.6666666666666" font-size="16" text-anchor="middle">本地：Sources.discover + Recall.retrieve</text>
+<text data-node="reference_2" x="1945.0" y="599.6666666666666" font-size="16" text-anchor="middle">来源选择、覆盖状态、统一截止时间由 P3 实现</text>
+</g>
+<g id="reference_3"><title>recall/basic/components.py::fuse</title>
+<rect x="1630" y="688.3333333333333" width="630" height="156" rx="12" fill="#F0ECF7" stroke="#8E78AA" stroke-width="1.5"/>
+<text data-node="reference_3" x="1945.0" y="716.3333333333333" font-size="16" text-anchor="middle">05 · RRF 融合</text>
+<text data-node="reference_3" x="1945.0" y="738.3333333333333" font-size="16" text-anchor="middle">设计参考：LlamaIndex · QueryFusionRetriever</text>
+<text data-node="reference_3" x="1945.0" y="760.3333333333333" font-size="16" text-anchor="middle">._reciprocal_rerank_fusion</text>
+<text data-node="reference_3" x="1945.0" y="782.3333333333333" font-size="16" text-anchor="middle">参考：每路按名次贡献倒数分，再合并排序</text>
+<text data-node="reference_3" x="1945.0" y="804.3333333333333" font-size="16" text-anchor="middle">本地 fuse：完整 MemoryRef 去重，名次从 1 开始</text>
+<text data-node="reference_3" x="1945.0" y="826.3333333333333" font-size="16" text-anchor="middle">研读版按节点 hash、名次从 0；未直接调用该类</text>
+</g>
+<g id="reference_4"><title>recall/basic/service.py::Recall.rerank</title>
+<rect x="1630" y="915.0" width="630" height="156" rx="12" fill="#EAF4EC" stroke="#528264" stroke-width="1.5"/>
+<text data-node="reference_4" x="1945.0" y="943.0" font-size="16" text-anchor="middle">07 · 可选重排</text>
+<text data-node="reference_4" x="1945.0" y="965.0" font-size="16" text-anchor="middle">直接调用：Sentence Transformers</text>
+<text data-node="reference_4" x="1945.0" y="987.0" font-size="16" text-anchor="middle">CrossEncoder.predict（配置启用时）</text>
+<text data-node="reference_4" x="1945.0" y="1009.0" font-size="16" text-anchor="middle">问题与每条正文组成文本对，获得相关性分数</text>
+<text data-node="reference_4" x="1945.0" y="1031.0" font-size="16" text-anchor="middle">P3 自行排序并控制超时、并发与降级</text>
+<text data-node="reference_4" x="1945.0" y="1053.0" font-size="16" text-anchor="middle">BaseNodePostprocessor 仅作为后处理接口参考</text>
+</g>
+<g id="reference_5"><title>recall/basic/components.py::assemble; recall/basic/service.py::Recall.retrieve</title>
+<rect x="1630" y="1141.6666666666665" width="630" height="156" rx="12" fill="#EAF4EC" stroke="#528264" stroke-width="1.5"/>
+<text data-node="reference_5" x="1945.0" y="1169.6666666666665" font-size="16" text-anchor="middle">08 · 计数与 ContextPack</text>
+<text data-node="reference_5" x="1945.0" y="1191.6666666666665" font-size="16" text-anchor="middle">直接调用：tiktoken.get_encoding → Encoding.encode</text>
+<text data-node="reference_5" x="1945.0" y="1213.6666666666665" font-size="16" text-anchor="middle">可选 Hugging Face Tokenizer.encode</text>
+<text data-node="reference_5" x="1945.0" y="1235.6666666666665" font-size="16" text-anchor="middle">框架只提供 token 计数；P3 assemble 控制取舍</text>
+<text data-node="reference_5" x="1945.0" y="1257.6666666666665" font-size="16" text-anchor="middle">最多条数、整条跳过与 outcome 判断是项目逻辑</text>
+<text data-node="reference_5" x="1945.0" y="1279.6666666666665" font-size="16" text-anchor="middle">未调用 LlamaIndex Query Engine 生成回答</text>
+</g>
+<g id="reference_6"><title>recall/basic/service.py::Recall.retrieve; runtime/foundation/telemetry.py; recall/basic/service.py::Recall.stage</title>
+<rect x="1630" y="1368.3333333333333" width="630" height="156" rx="12" fill="#FFF5DC" stroke="#B28A39" stroke-width="1.5"/>
+<text data-node="reference_6" x="1945.0" y="1396.3333333333333" font-size="16" text-anchor="middle">09 / 贯穿节点 · 提交、事件与追溯</text>
+<text data-node="reference_6" x="1945.0" y="1418.3333333333333" font-size="16" text-anchor="middle">直接使用 SQLite；借鉴 Transactional Outbox 模式</text>
+<text data-node="reference_6" x="1945.0" y="1440.3333333333333" font-size="16" text-anchor="middle">同事务：业务结果 + 待投递事件</text>
+<text data-node="reference_6" x="1945.0" y="1462.3333333333333" font-size="16" text-anchor="middle">Trace 参考 OpenTelemetry / W3C 的关联概念</text>
+<text data-node="reference_6" x="1945.0" y="1484.3333333333333" font-size="16" text-anchor="middle">当前落地：本地 node_logs 与阶段记录</text>
+<text data-node="reference_6" x="1945.0" y="1506.3333333333333" font-size="16" text-anchor="middle">未接入 OTel SDK / Collector 或 Temporal Replay</text>
+</g>
+<text class="label" x="808" y="500" text-anchor="middle">否</text>
+<text class="label" x="482" y="415" text-anchor="middle">是</text>
+<text class="label" x="240.0" y="444.0" text-anchor="middle">是</text>
+<text class="label" x="240.0" y="579.0" text-anchor="middle">是</text>
+<text class="label" x="390" y="215" text-anchor="middle">否：签名冲突</text>
+<text class="label" x="1190" y="106" text-anchor="middle">否：进行中或失败</text>
+<text class="label" x="1080" y="279" text-anchor="middle">拒绝</text>
+<text class="label" x="1260" y="886" text-anchor="middle">执行异常</text>
+<text class="label" x="1080" y="1434" text-anchor="middle">提交成功</text>
+<text class="label" x="1120" y="1264" text-anchor="middle">核验 / 提交失败</text>
+<text class="label" x="470" y="954" text-anchor="middle">阶段记录</text>
+</svg>

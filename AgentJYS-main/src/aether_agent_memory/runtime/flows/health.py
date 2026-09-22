@@ -90,6 +90,13 @@ class Health:
         if not 0 < timeout_seconds <= 10:
             raise ValueError("probe timeout must be in (0,10]")
         self.authorize(ctx)
+        with self.uow.transaction() as tx:
+            configuration = tx.read("runtime_configuration", "active")
+            config_version = (
+                configuration["version"]
+                if configuration
+                else self.app.foundation.monitoring.config_version
+            )
         checks = await asyncio.gather(
             *(
                 self.check_probe(ctx, name, probe, timeout_seconds)
@@ -127,8 +134,9 @@ class Health:
             capabilities["long_term"] = "degraded"
             capabilities["working_read"] = "degraded"
         self.authorize(ctx)
-        return {
+        report = {
             "checked_at": now(),
+            "config_version": config_version,
             "profile": "local_" + self.app.embedding_profile,
             "model_space": self.app.model_space,
             "liveness": self.liveness(),
@@ -141,6 +149,9 @@ class Health:
             "production_acceptance": False,
             "interpretation": "request readiness only; inspect capability and worker states",
         }
+        snapshot = self.app.foundation.monitoring.publish(ctx, report)
+        report["contract"] = snapshot.model_dump(mode="json")
+        return report
 
     def runtime(self, ctx: TrustedContext) -> dict[str, Any]:
         self.authorize(ctx)

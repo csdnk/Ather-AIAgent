@@ -1,0 +1,489 @@
+{
+  "$defs": {
+    "ChunkDescriptor": {
+      "additionalProperties": false,
+      "properties": {
+        "chunk_index": {
+          "minimum": 0,
+          "title": "Chunk Index",
+          "type": "integer"
+        },
+        "end_char": {
+          "minimum": 1,
+          "title": "End Char",
+          "type": "integer"
+        },
+        "input_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Hash",
+          "type": "string"
+        },
+        "start_char": {
+          "minimum": 0,
+          "title": "Start Char",
+          "type": "integer"
+        },
+        "vector_id": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Vector Id",
+          "type": "string"
+        },
+        "verified": {
+          "title": "Verified",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "chunk_index",
+        "vector_id",
+        "start_char",
+        "end_char",
+        "input_hash",
+        "verified"
+      ],
+      "title": "ChunkDescriptor",
+      "type": "object"
+    },
+    "MemoryKind": {
+      "enum": [
+        "working",
+        "episodic",
+        "semantic"
+      ],
+      "title": "MemoryKind",
+      "type": "string"
+    },
+    "MemoryRef": {
+      "additionalProperties": false,
+      "properties": {
+        "memory_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Memory Id",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scope",
+        "memory_id",
+        "version"
+      ],
+      "title": "MemoryRef",
+      "type": "object"
+    },
+    "MemoryStatus": {
+      "enum": [
+        "active",
+        "archived",
+        "superseded",
+        "expired",
+        "deleted"
+      ],
+      "title": "MemoryStatus",
+      "type": "string"
+    },
+    "ProjectionManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "body_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Body Hash",
+          "type": "string"
+        },
+        "chunker_version": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Chunker Version",
+          "type": "string"
+        },
+        "chunks": {
+          "items": {
+            "$ref": "#/$defs/ChunkDescriptor"
+          },
+          "minItems": 1,
+          "title": "Chunks",
+          "type": "array"
+        },
+        "dimensions": {
+          "minimum": 1,
+          "title": "Dimensions",
+          "type": "integer"
+        },
+        "embedding_tokenizer": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Embedding Tokenizer",
+          "type": "string"
+        },
+        "expected_chunk_count": {
+          "minimum": 1,
+          "title": "Expected Chunk Count",
+          "type": "integer"
+        },
+        "generation": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Generation",
+          "type": "string"
+        },
+        "memory": {
+          "$ref": "#/$defs/MemoryRef"
+        },
+        "model_space": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Model Space",
+          "type": "string"
+        },
+        "published_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Published At"
+        },
+        "state": {
+          "enum": [
+            "building",
+            "ready",
+            "failed",
+            "stale"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "task_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "vector_location": {
+          "$ref": "#/$defs/ResourceLocation"
+        }
+      },
+      "required": [
+        "memory",
+        "generation",
+        "body_hash",
+        "model_space",
+        "dimensions",
+        "chunker_version",
+        "embedding_tokenizer",
+        "expected_chunk_count",
+        "chunks",
+        "state",
+        "vector_location",
+        "task_id"
+      ],
+      "title": "ProjectionManifest",
+      "type": "object"
+    },
+    "ProjectionState": {
+      "enum": [
+        "not_required",
+        "pending",
+        "building",
+        "ready",
+        "failed",
+        "stale"
+      ],
+      "title": "ProjectionState",
+      "type": "string"
+    },
+    "ResourceLocation": {
+      "additionalProperties": false,
+      "description": "An opaque provider key, never an arbitrary URL or a credential.",
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "generation": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Generation",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "source",
+            "body",
+            "artifact",
+            "vector",
+            "cache",
+            "backup"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "namespace": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Namespace",
+          "type": "string"
+        },
+        "object_key": {
+          "minLength": 1,
+          "title": "Object Key",
+          "type": "string"
+        },
+        "provider_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "provider_instance_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Provider Instance Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "provider_id",
+        "provider_instance_id",
+        "namespace",
+        "object_key",
+        "generation",
+        "content_hash"
+      ],
+      "title": "ResourceLocation",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "application_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Application Id",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        },
+        "tenant_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "user_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenant_id",
+        "application_id",
+        "user_id",
+        "agent_id"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "locator": {
+          "minLength": 1,
+          "title": "Locator",
+          "type": "string"
+        },
+        "source_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_version": {
+          "minimum": 1,
+          "title": "Source Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_id",
+        "source_version",
+        "content_hash",
+        "locator"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Persisted authority; legacy MemorySnapshot remains the inline read DTO.",
+  "properties": {
+    "body_chars": {
+      "minimum": 1,
+      "title": "Body Chars",
+      "type": "integer"
+    },
+    "body_location": {
+      "$ref": "#/$defs/ResourceLocation"
+    },
+    "cache_location": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ResourceLocation"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "created_at": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "expires_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expires At"
+    },
+    "kind": {
+      "$ref": "#/$defs/MemoryKind"
+    },
+    "projection": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProjectionManifest"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "projection_state": {
+      "$ref": "#/$defs/ProjectionState"
+    },
+    "ref": {
+      "$ref": "#/$defs/MemoryRef"
+    },
+    "relations_revision": {
+      "minimum": 1,
+      "title": "Relations Revision",
+      "type": "integer"
+    },
+    "revision": {
+      "minimum": 1,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "sources": {
+      "items": {
+        "$ref": "#/$defs/SourceRef"
+      },
+      "minItems": 1,
+      "title": "Sources",
+      "type": "array"
+    },
+    "status": {
+      "$ref": "#/$defs/MemoryStatus"
+    }
+  },
+  "required": [
+    "ref",
+    "revision",
+    "relations_revision",
+    "kind",
+    "status",
+    "body_location",
+    "body_chars",
+    "sources",
+    "projection_state",
+    "created_at"
+  ],
+  "title": "MemoryRecord",
+  "type": "object",
+  "x-contract-model": "remember.MemoryRecord"
+}

@@ -1,0 +1,97 @@
+{
+  "$defs": {
+    "EffectStatus": {
+      "enum": [
+        "not_started",
+        "no_effect",
+        "unknown",
+        "confirmed"
+      ],
+      "title": "EffectStatus",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Attached to the existing TaskRecord; this is not another task state machine.",
+  "properties": {
+    "deadline_at": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "title": "Deadline At",
+      "type": "string"
+    },
+    "dependency_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Dependency Id",
+      "type": "string"
+    },
+    "effect_status": {
+      "$ref": "#/$defs/EffectStatus"
+    },
+    "expected_task_revision": {
+      "minimum": 1,
+      "title": "Expected Task Revision",
+      "type": "integer"
+    },
+    "next_check_at": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "title": "Next Check At",
+      "type": "string"
+    },
+    "original_operation_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Original Operation Id",
+      "type": "string"
+    },
+    "reason_code": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Reason Code",
+      "type": "string"
+    },
+    "resume_mode": {
+      "enum": [
+        "resume",
+        "query_only",
+        "attention"
+      ],
+      "title": "Resume Mode",
+      "type": "string"
+    },
+    "task_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "wait_started_at": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "title": "Wait Started At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_id",
+    "expected_task_revision",
+    "dependency_id",
+    "reason_code",
+    "wait_started_at",
+    "next_check_at",
+    "deadline_at",
+    "original_operation_id",
+    "effect_status",
+    "resume_mode"
+  ],
+  "title": "TaskWaitRecord",
+  "type": "object",
+  "x-contract-model": "runtime.TaskWaitRecord"
+}

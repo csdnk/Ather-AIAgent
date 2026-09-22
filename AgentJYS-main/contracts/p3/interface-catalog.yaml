@@ -657,3 +657,180 @@ interfaces:
   - positive-operate.ResourceSnapshot
   evidence_level: contract_only
   implemented: false
+- id: runtime.MonitoringPort.health
+  provider: RF
+  consumers:
+  - B
+  - A
+  - C
+  signature: '(self, ctx: ''TrustedContext'') -> ''RuntimeHealthSnapshot'''
+  rules: 探测只读且受时限约束；过期/未知不得判健康；日志失败不触发业务重试；只收白名单元数据。
+  examples:
+  - positive-runtime.NodeLogRecord
+  - positive-runtime.RuntimeHealthSnapshot
+  evidence_level: contract_only
+  implemented: false
+- id: runtime.MonitoringPort.emit
+  provider: RF
+  consumers:
+  - B
+  - A
+  - C
+  signature: '(self, record: ''NodeLogRecord'') -> ''None'''
+  rules: 探测只读且受时限约束；过期/未知不得判健康；日志失败不触发业务重试；只收白名单元数据。
+  examples:
+  - positive-runtime.NodeLogRecord
+  - positive-runtime.RuntimeHealthSnapshot
+  evidence_level: contract_only
+  implemented: false
+- id: remember.MemoryFoundationPort.load_bodies
+  provider: B
+  consumers:
+  - A
+  - C
+  - B
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, refs: tuple[aether_agent_memory.remember.contracts.models.MemoryRef,
+    ...]) -> tuple[aether_agent_memory.remember.contracts.foundation.FullBodyReadResult, ...]'
+  rules: 由可信上下文授权；逐项返回正文结果且校验精确版本与指纹。发布/交接在调用者事务中重验当前版本、旧地址、修订号和Provider证据后CAS；失败不得清理旧副本。
+  examples:
+  - positive-remember.FullBodyReadResult
+  - positive-remember.ProjectionManifest
+  - positive-remember.ReferenceHandoffReceipt
+  evidence_level: contract_only
+  implemented: false
+- id: remember.MemoryFoundationPort.publish_projection
+  provider: B
+  consumers:
+  - A
+  - C
+  - B
+  signature: '(self, tx: aether_agent_memory.runtime.contracts.ports.Transaction, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    manifest: aether_agent_memory.remember.contracts.foundation.ProjectionManifest, expected_revision:
+    int) -> aether_agent_memory.remember.contracts.foundation.MemoryRecord'
+  rules: 由可信上下文授权；逐项返回正文结果且校验精确版本与指纹。发布/交接在调用者事务中重验当前版本、旧地址、修订号和Provider证据后CAS；失败不得清理旧副本。
+  examples:
+  - positive-remember.FullBodyReadResult
+  - positive-remember.ProjectionManifest
+  - positive-remember.ReferenceHandoffReceipt
+  evidence_level: contract_only
+  implemented: false
+- id: remember.MemoryFoundationPort.accept_handoff
+  provider: B
+  consumers:
+  - A
+  - C
+  - B
+  signature: '(self, tx: aether_agent_memory.runtime.contracts.ports.Transaction, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    request: aether_agent_memory.remember.contracts.foundation.ReferenceHandoff) -> aether_agent_memory.remember.contracts.foundation.ReferenceHandoffReceipt'
+  rules: 由可信上下文授权；逐项返回正文结果且校验精确版本与指纹。发布/交接在调用者事务中重验当前版本、旧地址、修订号和Provider证据后CAS；失败不得清理旧副本。
+  examples:
+  - positive-remember.FullBodyReadResult
+  - positive-remember.ProjectionManifest
+  - positive-remember.ReferenceHandoffReceipt
+  evidence_level: contract_only
+  implemented: false
+- id: recall.MemoryCandidatePort.search
+  provider: A
+  consumers:
+  - B
+  - A
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, request: aether_agent_memory.recall.contracts.foundation.MemorySearchRequest)
+    -> aether_agent_memory.recall.contracts.foundation.MemorySearchResult'
+  rules: 只返回记忆候选，不组Context；B先授权再核验资格；只计唯一记忆ID，最大有效块分数，按分数降序并用作用域/ID确定并列顺序；有界补取且受deadline约束；L2距离先转同向分数。
+  examples:
+  - positive-recall.MemorySearchRequest
+  - positive-recall.MemorySearchResult
+  evidence_level: contract_only
+  implemented: false
+- id: recall.ContextAssemblyPort.plan
+  provider: A
+  consumers:
+  - A
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, request: aether_agent_memory.recall.contracts.foundation.RecallPlanRequest)
+    -> aether_agent_memory.recall.contracts.foundation.ContextAssemblyPlan'
+  rules: 完整正文/必需关系组整体准入；完整渲染后由实际tokenizer计数。commit在同一事务内重读全部资格、关系修订、授权与期限，并原子写结果和outbox；不能仅信任传入GuardStamp。返回Recall结果RecordRef。
+  examples:
+  - positive-recall.ContextAssemblyPlan
+  - positive-recall.ContextCommitRequest
+  evidence_level: contract_only
+  implemented: false
+- id: recall.ContextAssemblyPort.commit
+  provider: A
+  consumers:
+  - A
+  signature: '(self, tx: aether_agent_memory.runtime.contracts.ports.Transaction, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    request: aether_agent_memory.recall.contracts.foundation.ContextCommitRequest) -> aether_agent_memory.runtime.contracts.models.RecordRef'
+  rules: 完整正文/必需关系组整体准入；完整渲染后由实际tokenizer计数。commit在同一事务内重读全部资格、关系修订、授权与期限，并原子写结果和outbox；不能仅信任传入GuardStamp。返回Recall结果RecordRef。
+  examples:
+  - positive-recall.ContextAssemblyPlan
+  - positive-recall.ContextCommitRequest
+  evidence_level: contract_only
+  implemented: false
+- id: operate.LifecycleCleanupPort.release_protection
+  provider: C
+  consumers:
+  - B
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, protection_id:
+    str, expected_revision: int) -> aether_agent_memory.remember.contracts.foundation.ProtectionReference'
+  rules: 释放前核验可信上下文、保护修订、所属任务/动作无在途副作用；租约到期不等于自动释放。cleanup重验B阻断状态和请求版本，逐目标核验Provider结果，完整回执返回B，未知不得算删除。
+  examples:
+  - positive-remember.ProtectionReference
+  - positive-remember.CleanupRequest
+  - positive-remember.CleanupReceipt
+  evidence_level: contract_only
+  implemented: false
+- id: operate.LifecycleCleanupPort.cleanup
+  provider: C
+  consumers:
+  - B
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, request: aether_agent_memory.remember.contracts.foundation.CleanupRequest)
+    -> aether_agent_memory.remember.contracts.foundation.CleanupReceipt'
+  rules: 释放前核验可信上下文、保护修订、所属任务/动作无在途副作用；租约到期不等于自动释放。cleanup重验B阻断状态和请求版本，逐目标核验Provider结果，完整回执返回B，未知不得算删除。
+  examples:
+  - positive-remember.ProtectionReference
+  - positive-remember.CleanupRequest
+  - positive-remember.CleanupReceipt
+  evidence_level: contract_only
+  implemented: false
+- id: recall.GenerationVectorPort.project
+  provider: A
+  consumers:
+  - B
+  - A
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, request: aether_agent_memory.recall.contracts.foundation.ChunkProjectionRequest)
+    -> aether_agent_memory.recall.contracts.foundation.ChunkProjectionResult'
+  rules: 底层向量接口；B按索引批次写入，A按兼容模型空间搜索。输入/输出保留精确Memory版本、批次、正文与块指纹；inspect只查询原操作，不重发写入；cursor绑定可信租户与查询。
+  examples:
+  - positive-recall.ChunkProjectionRequest
+  - positive-recall.ChunkProjectionResult
+  - positive-recall.ChunkSearchResult
+  evidence_level: contract_only
+  implemented: false
+- id: recall.GenerationVectorPort.inspect
+  provider: A
+  consumers:
+  - B
+  - A
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, request: aether_agent_memory.recall.contracts.foundation.ChunkProjectionRequest)
+    -> aether_agent_memory.recall.contracts.foundation.ChunkProjectionResult'
+  rules: 底层向量接口；B按索引批次写入，A按兼容模型空间搜索。输入/输出保留精确Memory版本、批次、正文与块指纹；inspect只查询原操作，不重发写入；cursor绑定可信租户与查询。
+  examples:
+  - positive-recall.ChunkProjectionRequest
+  - positive-recall.ChunkProjectionResult
+  - positive-recall.ChunkSearchResult
+  evidence_level: contract_only
+  implemented: false
+- id: recall.GenerationVectorPort.search
+  provider: A
+  consumers:
+  - B
+  - A
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, request: aether_agent_memory.recall.contracts.foundation.ChunkSearchRequest)
+    -> aether_agent_memory.recall.contracts.foundation.ChunkSearchResult'
+  rules: 底层向量接口；B按索引批次写入，A按兼容模型空间搜索。输入/输出保留精确Memory版本、批次、正文与块指纹；inspect只查询原操作，不重发写入；cursor绑定可信租户与查询。
+  examples:
+  - positive-recall.ChunkProjectionRequest
+  - positive-recall.ChunkProjectionResult
+  - positive-recall.ChunkSearchResult
+  evidence_level: contract_only
+  implemented: false

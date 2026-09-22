@@ -1,0 +1,163 @@
+{
+  "$defs": {
+    "ScopeSelector": {
+      "additionalProperties": false,
+      "description": "A requested restriction. Missing fields never grant access.",
+      "properties": {
+        "agent_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Agent Id"
+        },
+        "application_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Application Id"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        },
+        "user_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Id"
+        }
+      },
+      "title": "ScopeSelector",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "B extraction and A recall share this search; it does not build ContextPack.",
+  "properties": {
+    "chunk_page_size": {
+      "minimum": 1,
+      "title": "Chunk Page Size",
+      "type": "integer"
+    },
+    "deadline_at": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "title": "Deadline At",
+      "type": "string"
+    },
+    "max_chunk_hits": {
+      "minimum": 1,
+      "title": "Max Chunk Hits",
+      "type": "integer"
+    },
+    "max_rounds": {
+      "minimum": 1,
+      "title": "Max Rounds",
+      "type": "integer"
+    },
+    "memory_top_k": {
+      "minimum": 1,
+      "title": "Memory Top K",
+      "type": "integer"
+    },
+    "model_space": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Model Space",
+      "type": "string"
+    },
+    "operation_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Operation Id",
+      "type": "string"
+    },
+    "purpose": {
+      "enum": [
+        "recall",
+        "extraction"
+      ],
+      "title": "Purpose",
+      "type": "string"
+    },
+    "query": {
+      "minLength": 1,
+      "title": "Query",
+      "type": "string"
+    },
+    "selection": {
+      "$ref": "#/$defs/ScopeSelector"
+    }
+  },
+  "required": [
+    "operation_id",
+    "purpose",
+    "query",
+    "selection",
+    "model_space",
+    "memory_top_k",
+    "chunk_page_size",
+    "max_chunk_hits",
+    "max_rounds",
+    "deadline_at"
+  ],
+  "title": "MemorySearchRequest",
+  "type": "object",
+  "x-contract-model": "recall.MemorySearchRequest"
+}

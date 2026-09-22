@@ -1,0 +1,137 @@
+{
+  "$defs": {
+    "Flow": {
+      "enum": [
+        "runtime",
+        "remember",
+        "recall",
+        "operate"
+      ],
+      "title": "Flow",
+      "type": "string"
+    },
+    "Permission": {
+      "enum": [
+        "memory:read",
+        "memory:write",
+        "memory:correct",
+        "memory:delete",
+        "memory:history",
+        "maintenance:diagnose",
+        "maintenance:recover",
+        "maintenance:configure"
+      ],
+      "title": "Permission",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "execution_class": {
+      "enum": [
+        "inline",
+        "io",
+        "model",
+        "maintenance"
+      ],
+      "title": "Execution Class",
+      "type": "string"
+    },
+    "idempotency_required": {
+      "title": "Idempotency Required",
+      "type": "boolean"
+    },
+    "input_model": {
+      "minLength": 1,
+      "title": "Input Model",
+      "type": "string"
+    },
+    "operation_kind": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Operation Kind",
+      "type": "string"
+    },
+    "output_model": {
+      "minLength": 1,
+      "title": "Output Model",
+      "type": "string"
+    },
+    "owner": {
+      "$ref": "#/$defs/Flow"
+    },
+    "permission": {
+      "$ref": "#/$defs/Permission"
+    },
+    "recovery": {
+      "enum": [
+        "resume",
+        "query_only",
+        "manual"
+      ],
+      "title": "Recovery",
+      "type": "string"
+    },
+    "side_effect": {
+      "enum": [
+        "none",
+        "transactional",
+        "external"
+      ],
+      "title": "Side Effect",
+      "type": "string"
+    },
+    "signal_ids": {
+      "items": {
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9_-]+$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Signal Ids",
+      "type": "array"
+    },
+    "success_evidence": {
+      "items": {
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9_-]+$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Success Evidence",
+      "type": "array"
+    },
+    "validation_scenarios": {
+      "items": {
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9_-]+$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Validation Scenarios",
+      "type": "array"
+    }
+  },
+  "required": [
+    "operation_kind",
+    "owner",
+    "execution_class",
+    "input_model",
+    "output_model",
+    "permission",
+    "side_effect",
+    "idempotency_required",
+    "success_evidence",
+    "recovery",
+    "signal_ids",
+    "validation_scenarios"
+  ],
+  "title": "OperationDefinition",
+  "type": "object",
+  "x-contract-model": "runtime.OperationDefinition"
+}

@@ -1,0 +1,696 @@
+{
+  "$defs": {
+    "ChunkDescriptor": {
+      "additionalProperties": false,
+      "properties": {
+        "chunk_index": {
+          "minimum": 0,
+          "title": "Chunk Index",
+          "type": "integer"
+        },
+        "end_char": {
+          "minimum": 1,
+          "title": "End Char",
+          "type": "integer"
+        },
+        "input_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Hash",
+          "type": "string"
+        },
+        "start_char": {
+          "minimum": 0,
+          "title": "Start Char",
+          "type": "integer"
+        },
+        "vector_id": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Vector Id",
+          "type": "string"
+        },
+        "verified": {
+          "title": "Verified",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "chunk_index",
+        "vector_id",
+        "start_char",
+        "end_char",
+        "input_hash",
+        "verified"
+      ],
+      "title": "ChunkDescriptor",
+      "type": "object"
+    },
+    "ChunkHit": {
+      "additionalProperties": false,
+      "properties": {
+        "body_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Body Hash",
+          "type": "string"
+        },
+        "chunk_index": {
+          "minimum": 0,
+          "title": "Chunk Index",
+          "type": "integer"
+        },
+        "generation": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Generation",
+          "type": "string"
+        },
+        "input_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Hash",
+          "type": "string"
+        },
+        "memory": {
+          "$ref": "#/$defs/MemoryRef"
+        },
+        "model_space": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Model Space",
+          "type": "string"
+        },
+        "rank": {
+          "minimum": 1,
+          "title": "Rank",
+          "type": "integer"
+        },
+        "score": {
+          "title": "Score",
+          "type": "number"
+        },
+        "score_semantics": {
+          "const": "higher_is_better",
+          "default": "higher_is_better",
+          "title": "Score Semantics",
+          "type": "string"
+        },
+        "vector_id": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Vector Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "memory",
+        "generation",
+        "body_hash",
+        "model_space",
+        "chunk_index",
+        "vector_id",
+        "input_hash",
+        "rank",
+        "score"
+      ],
+      "title": "ChunkHit",
+      "type": "object"
+    },
+    "GuardStamp": {
+      "additionalProperties": false,
+      "properties": {
+        "authorization_epoch": {
+          "minimum": 1,
+          "title": "Authorization Epoch",
+          "type": "integer"
+        },
+        "body_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Body Hash",
+          "type": "string"
+        },
+        "checked_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "title": "Checked At",
+          "type": "string"
+        },
+        "memory": {
+          "$ref": "#/$defs/MemoryRef"
+        },
+        "object_revision": {
+          "minimum": 1,
+          "title": "Object Revision",
+          "type": "integer"
+        },
+        "relations_revision": {
+          "minimum": 1,
+          "title": "Relations Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "memory",
+        "object_revision",
+        "relations_revision",
+        "authorization_epoch",
+        "body_hash",
+        "checked_at"
+      ],
+      "title": "GuardStamp",
+      "type": "object"
+    },
+    "MemoryCandidate": {
+      "additionalProperties": false,
+      "properties": {
+        "best_score": {
+          "title": "Best Score",
+          "type": "number"
+        },
+        "guard": {
+          "$ref": "#/$defs/GuardStamp"
+        },
+        "hits": {
+          "items": {
+            "$ref": "#/$defs/ChunkHit"
+          },
+          "minItems": 1,
+          "title": "Hits",
+          "type": "array"
+        },
+        "manifest": {
+          "$ref": "#/$defs/ProjectionManifest"
+        },
+        "memory": {
+          "$ref": "#/$defs/MemoryRef"
+        },
+        "rank": {
+          "minimum": 1,
+          "title": "Rank",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "memory",
+        "manifest",
+        "guard",
+        "hits",
+        "best_score",
+        "rank"
+      ],
+      "title": "MemoryCandidate",
+      "type": "object"
+    },
+    "MemoryRef": {
+      "additionalProperties": false,
+      "properties": {
+        "memory_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Memory Id",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scope",
+        "memory_id",
+        "version"
+      ],
+      "title": "MemoryRef",
+      "type": "object"
+    },
+    "MemorySearchRequest": {
+      "additionalProperties": false,
+      "description": "B extraction and A recall share this search; it does not build ContextPack.",
+      "properties": {
+        "chunk_page_size": {
+          "minimum": 1,
+          "title": "Chunk Page Size",
+          "type": "integer"
+        },
+        "deadline_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "title": "Deadline At",
+          "type": "string"
+        },
+        "max_chunk_hits": {
+          "minimum": 1,
+          "title": "Max Chunk Hits",
+          "type": "integer"
+        },
+        "max_rounds": {
+          "minimum": 1,
+          "title": "Max Rounds",
+          "type": "integer"
+        },
+        "memory_top_k": {
+          "minimum": 1,
+          "title": "Memory Top K",
+          "type": "integer"
+        },
+        "model_space": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Model Space",
+          "type": "string"
+        },
+        "operation_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "purpose": {
+          "enum": [
+            "recall",
+            "extraction"
+          ],
+          "title": "Purpose",
+          "type": "string"
+        },
+        "query": {
+          "minLength": 1,
+          "title": "Query",
+          "type": "string"
+        },
+        "selection": {
+          "$ref": "#/$defs/ScopeSelector"
+        }
+      },
+      "required": [
+        "operation_id",
+        "purpose",
+        "query",
+        "selection",
+        "model_space",
+        "memory_top_k",
+        "chunk_page_size",
+        "max_chunk_hits",
+        "max_rounds",
+        "deadline_at"
+      ],
+      "title": "MemorySearchRequest",
+      "type": "object"
+    },
+    "ProjectionManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "body_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Body Hash",
+          "type": "string"
+        },
+        "chunker_version": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Chunker Version",
+          "type": "string"
+        },
+        "chunks": {
+          "items": {
+            "$ref": "#/$defs/ChunkDescriptor"
+          },
+          "minItems": 1,
+          "title": "Chunks",
+          "type": "array"
+        },
+        "dimensions": {
+          "minimum": 1,
+          "title": "Dimensions",
+          "type": "integer"
+        },
+        "embedding_tokenizer": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Embedding Tokenizer",
+          "type": "string"
+        },
+        "expected_chunk_count": {
+          "minimum": 1,
+          "title": "Expected Chunk Count",
+          "type": "integer"
+        },
+        "generation": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Generation",
+          "type": "string"
+        },
+        "memory": {
+          "$ref": "#/$defs/MemoryRef"
+        },
+        "model_space": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Model Space",
+          "type": "string"
+        },
+        "published_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Published At"
+        },
+        "state": {
+          "enum": [
+            "building",
+            "ready",
+            "failed",
+            "stale"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "task_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "vector_location": {
+          "$ref": "#/$defs/ResourceLocation"
+        }
+      },
+      "required": [
+        "memory",
+        "generation",
+        "body_hash",
+        "model_space",
+        "dimensions",
+        "chunker_version",
+        "embedding_tokenizer",
+        "expected_chunk_count",
+        "chunks",
+        "state",
+        "vector_location",
+        "task_id"
+      ],
+      "title": "ProjectionManifest",
+      "type": "object"
+    },
+    "ResourceLocation": {
+      "additionalProperties": false,
+      "description": "An opaque provider key, never an arbitrary URL or a credential.",
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "generation": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Generation",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "source",
+            "body",
+            "artifact",
+            "vector",
+            "cache",
+            "backup"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "namespace": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Namespace",
+          "type": "string"
+        },
+        "object_key": {
+          "minLength": 1,
+          "title": "Object Key",
+          "type": "string"
+        },
+        "provider_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "provider_instance_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Provider Instance Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "provider_id",
+        "provider_instance_id",
+        "namespace",
+        "object_key",
+        "generation",
+        "content_hash"
+      ],
+      "title": "ResourceLocation",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "application_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Application Id",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        },
+        "tenant_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "user_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenant_id",
+        "application_id",
+        "user_id",
+        "agent_id"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "ScopeSelector": {
+      "additionalProperties": false,
+      "description": "A requested restriction. Missing fields never grant access.",
+      "properties": {
+        "agent_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Agent Id"
+        },
+        "application_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Application Id"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        },
+        "user_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Id"
+        }
+      },
+      "title": "ScopeSelector",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "candidates": {
+      "items": {
+        "$ref": "#/$defs/MemoryCandidate"
+      },
+      "title": "Candidates",
+      "type": "array"
+    },
+    "coverage": {
+      "enum": [
+        "complete",
+        "partial",
+        "unavailable"
+      ],
+      "title": "Coverage",
+      "type": "string"
+    },
+    "examined_chunk_hits": {
+      "minimum": 0,
+      "title": "Examined Chunk Hits",
+      "type": "integer"
+    },
+    "request": {
+      "$ref": "#/$defs/MemorySearchRequest"
+    },
+    "rounds_used": {
+      "minimum": 0,
+      "title": "Rounds Used",
+      "type": "integer"
+    },
+    "scope": {
+      "$ref": "#/$defs/Scope"
+    },
+    "stop_reason": {
+      "enum": [
+        "top_k",
+        "exhausted",
+        "hit_limit",
+        "round_limit",
+        "deadline",
+        "dependency"
+      ],
+      "title": "Stop Reason",
+      "type": "string"
+    }
+  },
+  "required": [
+    "request",
+    "scope",
+    "candidates",
+    "examined_chunk_hits",
+    "rounds_used",
+    "stop_reason",
+    "coverage"
+  ],
+  "title": "MemorySearchResult",
+  "type": "object",
+  "x-contract-model": "recall.MemorySearchResult"
+}

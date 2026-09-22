@@ -9,6 +9,13 @@ from aether_agent_memory.runtime.contracts.models import (
 )
 from aether_agent_memory.runtime.contracts.ports import Transaction
 
+from .foundation import (
+    FullBodyReadResult,
+    MemoryRecord,
+    ProjectionManifest,
+    ReferenceHandoff,
+    ReferenceHandoffReceipt,
+)
 from .models import (
     CorrectionRequest,
     DeleteReceipt,
@@ -27,6 +34,27 @@ from .models import (
     SourceAcquisition,
     SourceRef,
 )
+
+
+class MemoryFoundationPort(Protocol):
+    async def load_bodies(
+        self,
+        ctx: TrustedContext,
+        refs: tuple[MemoryRef, ...],
+    ) -> tuple[FullBodyReadResult, ...]: ...
+    def publish_projection(
+        self,
+        tx: Transaction,
+        ctx: TrustedContext,
+        manifest: ProjectionManifest,
+        expected_revision: int,
+    ) -> MemoryRecord: ...
+    def accept_handoff(
+        self,
+        tx: Transaction,
+        ctx: TrustedContext,
+        request: ReferenceHandoff,
+    ) -> ReferenceHandoffReceipt: ...
 
 
 class RememberPort(Protocol):

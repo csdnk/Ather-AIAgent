@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "chunk_index": {
+      "minimum": 0,
+      "title": "Chunk Index",
+      "type": "integer"
+    },
+    "end_char": {
+      "minimum": 1,
+      "title": "End Char",
+      "type": "integer"
+    },
+    "input_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Hash",
+      "type": "string"
+    },
+    "start_char": {
+      "minimum": 0,
+      "title": "Start Char",
+      "type": "integer"
+    },
+    "vector_id": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Vector Id",
+      "type": "string"
+    },
+    "verified": {
+      "title": "Verified",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "chunk_index",
+    "vector_id",
+    "start_char",
+    "end_char",
+    "input_hash",
+    "verified"
+  ],
+  "title": "ChunkDescriptor",
+  "type": "object",
+  "x-contract-model": "remember.ChunkDescriptor"
+}

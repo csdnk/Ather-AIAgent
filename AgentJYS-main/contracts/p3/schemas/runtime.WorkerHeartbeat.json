@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "execution_class": {
+      "enum": [
+        "io",
+        "model",
+        "maintenance"
+      ],
+      "title": "Execution Class",
+      "type": "string"
+    },
+    "fresh_until": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "title": "Fresh Until",
+      "type": "string"
+    },
+    "instance_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Instance Id",
+      "type": "string"
+    },
+    "last_seen": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "title": "Last Seen",
+      "type": "string"
+    },
+    "lease_token": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Lease Token"
+    },
+    "state": {
+      "enum": [
+        "polling",
+        "running",
+        "stopped"
+      ],
+      "title": "State",
+      "type": "string"
+    },
+    "task_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Task Id"
+    },
+    "worker_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Worker Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "worker_id",
+    "instance_id",
+    "execution_class",
+    "state",
+    "last_seen",
+    "fresh_until"
+  ],
+  "title": "WorkerHeartbeat",
+  "type": "object",
+  "x-contract-model": "runtime.WorkerHeartbeat"
+}

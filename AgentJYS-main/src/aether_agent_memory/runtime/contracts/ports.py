@@ -8,6 +8,7 @@ from typing import Protocol
 
 from pydantic import JsonValue
 
+from .foundation import NodeLogRecord, RuntimeHealthSnapshot
 from .models import (
     DiagnosticRecord,
     EventEnvelope,
@@ -30,6 +31,11 @@ from .models import (
     TaskSpec,
     TrustedContext,
 )
+
+
+class MonitoringPort(Protocol):
+    def health(self, ctx: TrustedContext) -> RuntimeHealthSnapshot: ...
+    def emit(self, record: NodeLogRecord) -> None: ...
 
 
 class Transaction(Protocol):

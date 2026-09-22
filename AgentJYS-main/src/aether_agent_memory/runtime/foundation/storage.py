@@ -179,6 +179,9 @@ class SQLiteUnitOfWork:
                 tx.check()
                 for guard in tx.before_commit:
                     guard()
+                if tx.writes:
+                    watermark = raw.get("p3_rf_meta", "system", "watermark")
+                    raw.put("p3_rf_meta", "system", "watermark", str(int(watermark or "0") + 1))
         except BaseException:
             if node:
                 node.store.emit(node, "rolled_back", writes=tx.writes if tx else {})

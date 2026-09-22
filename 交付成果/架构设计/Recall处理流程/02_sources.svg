@@ -1,0 +1,212 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2380" height="1740" viewBox="0 0 2380 1740">
+<defs><marker id="arrow" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0 0 L9 3.5 L0 7 Z" fill="context-stroke"/></marker></defs>
+<style>text{font-family:"Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#273545}.label{font-size:14px;paint-order:stroke;stroke:white;stroke-width:6px;stroke-linejoin:round}</style>
+<text x="40" y="58" font-size="28" font-weight="700">02 · 来源选择与候选发现</text>
+<rect x="40" y="315" width="650" height="1295" rx="16" fill="#FAFBF8"/>
+<path d="M56 315H674Q690 315 690 331V355H40V331Q40 315 56 315" fill="#EEF0E8"/>
+<text x="365.0" y="342" font-size="19" font-weight="700" text-anchor="middle">Working：本地短期记忆</text>
+<rect x="760" y="315" width="860" height="1295" rx="16" fill="#FAFBF8"/>
+<path d="M776 315H1604Q1620 315 1620 331V355H760V331Q760 315 776 315" fill="#EEF0E8"/>
+<text x="1190.0" y="342" font-size="19" font-weight="700" text-anchor="middle">Long-term：查询向量与权威正文</text>
+<rect x="1670" y="95" width="670" height="1605" rx="16" fill="#FAFBF8"/>
+<path d="M1686 95H2324Q2340 95 2340 111V135H1670V111Q1670 95 1686 95" fill="#EEF0E8"/>
+<text x="2005.0" y="122" font-size="19" font-weight="700" text-anchor="middle">本页步骤的技术来源（说明卡，不是新增执行步骤）</text>
+<polyline points="820.0,190 820.0,225" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="390,265.0 360,265 360.0,390" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1250,265.0 1410,265 1460,265 1460,360 1195,360 1195.0,390" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="360.0,470 360.0,530" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="360.0,610 360.0,660" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="360.0,1091 360.0,1160" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="360.0,1254 360.0,1380" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1195.0,484 1195.0,525" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1195.0,600 1195.0,640" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1195.0,734 1195.0,780" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1195.0,880 1195.0,925" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1195.0,1015 1195.0,1060" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="360.0,770 360,800 235,800 235.0,830" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="235.0,904 235,950 360,950 360.0,995" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="520,715.0 620,715 620,1043 555,1043.0" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1375,1112.5 1520,1112.5 1520,1112 1520,1385 1385,1385 1385.0,1430" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1195.0,1165 1195.0,1230" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1375,1285.0 1445,1285 1445,1400 1385,1400 1385.0,1430" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1015,1285.0 925,1285 925.0,1400" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="770,1437.0 790,1437 790,687 970,687.0" fill="none" stroke="#B28A39" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="360.0,1468 360,1575 320,1575 320,1674 355,1674.0" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1385.0,1540 1385,1674 1315,1674.0" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<g id="entry"><title>recall/basic/service.py::Recall.retrieve | 技术来源：来源选择 / 并发任务; 设计参考：LlamaIndex · BaseRetriever.aretrieve; QueryFusionRetriever._run_async_queries; 参考可组合检索器与异步汇总; P3 自定 auto 规则、source_timeout 与 coverage; 未启用框架的默认多查询生成</title>
+<rect x="405" y="105" width="830" height="85" rx="12" fill="#F0ECF7" stroke="#8E78AA" stroke-width="1.5"/>
+<text data-node="entry" x="820.0" y="141.5" font-size="16" text-anchor="middle">来源选择：auto 有 session/task → 两路；否则 → 长期</text>
+<text data-node="entry" x="820.0" y="163.5" font-size="16" text-anchor="middle">显式 working / long_term / both 按请求选择</text>
+</g>
+<g id="parallel"><title>recall/basic/retrievers.py::Sources.discover | 技术来源：来源选择 / 并发任务; 设计参考：LlamaIndex · BaseRetriever.aretrieve; QueryFusionRetriever._run_async_queries; 参考可组合检索器与异步汇总; P3 自定 auto 规则、source_timeout 与 coverage; 未启用框架的默认多查询生成</title>
+<rect x="390" y="225" width="860" height="80" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="parallel" x="820.0" y="259.0" font-size="16" text-anchor="middle">为所选来源创建并发任务；每路有 source_timeout</text>
+<text data-node="parallel" x="820.0" y="281.0" font-size="16" text-anchor="middle">超时或依赖不可用 → 该路 unavailable；其他合约/权限错误向外抛</text>
+</g>
+<g id="wread"><title>recall/basic/retrievers.py::Sources.working | 技术来源：Working · 读取与本地排序; 项目自研：Sources.working; LexicalEmbedding.features → 特征点积 → Top K; 字符 / 双字符哈希特征，不是 BGE 模型; 不调用 LlamaIndex，也不建设 BM25 混合索引</title>
+<rect x="165" y="390" width="390" height="80" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="wread" x="360.0" y="424.0" font-size="16" text-anchor="middle">读取 Remember.working</text>
+<text data-node="wread" x="360.0" y="446.0" font-size="16" text-anchor="middle">每页 100 条，最多 10 页</text>
+</g>
+<g id="wscope"><title>recall/basic/retrievers.py::Sources.working | 技术来源：Working · 读取与本地排序; 项目自研：Sources.working; LexicalEmbedding.features → 特征点积 → Top K; 字符 / 双字符哈希特征，不是 BGE 模型; 不调用 LlamaIndex，也不建设 BM25 混合索引</title>
+<rect x="165" y="530" width="390" height="80" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="wscope" x="360.0" y="564.0" font-size="16" text-anchor="middle">核验每条 scope 匹配</text>
+<text data-node="wscope" x="360.0" y="586.0" font-size="16" text-anchor="middle">记录实际已读取版本与耗时</text>
+</g>
+<g id="wbudget"><title>recall/basic/retrievers.py::Sources.working</title>
+<polygon points="360.0,660 520,715.0 360.0,770 200,715.0" fill="#FFF5DC" stroke="#B28A39" stroke-width="1.5"/>
+<text data-node="wbudget" x="360.0" y="720.0" font-size="16" text-anchor="middle">仍有下一页但已到页数上限？</text>
+</g>
+<g id="wpartial"><title>recall/basic/retrievers.py::Sources.working</title>
+<rect x="90" y="830" width="290" height="74" rx="12" fill="#FFF5DC" stroke="#B28A39" stroke-width="1.5"/>
+<text data-node="wpartial" x="235.0" y="861.0" font-size="16" text-anchor="middle">coverage = partial</text>
+<text data-node="wpartial" x="235.0" y="883.0" font-size="16" text-anchor="middle">working_page_budget_exhausted</text>
+</g>
+<g id="wscore"><title>recall/basic/adapters.py::LexicalEmbedding.features | 技术来源：Working · 读取与本地排序; 项目自研：Sources.working; LexicalEmbedding.features → 特征点积 → Top K; 字符 / 双字符哈希特征，不是 BGE 模型; 不调用 LlamaIndex，也不建设 BM25 混合索引</title>
+<rect x="165" y="995" width="390" height="96" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="wscore" x="360.0" y="1026.0" font-size="16" text-anchor="middle">文本正规化 → 字符/双字符哈希特征</text>
+<text data-node="wscore" x="360.0" y="1048.0" font-size="16" text-anchor="middle">计算归一化特征点积</text>
+<text data-node="wscore" x="360.0" y="1070.0" font-size="16" text-anchor="middle">这是本地基线，不是 BGE 调用</text>
+</g>
+<g id="wtop"><title>recall/basic/retrievers.py::Sources.working | 技术来源：Working · 读取与本地排序; 项目自研：Sources.working; LexicalEmbedding.features → 特征点积 → Top K; 字符 / 双字符哈希特征，不是 BGE 模型; 不调用 LlamaIndex，也不建设 BM25 混合索引</title>
+<rect x="165" y="1160" width="390" height="94" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="wtop" x="360.0" y="1190.0" font-size="16" text-anchor="middle">按分数降序、引用稳定排序</text>
+<text data-node="wtop" x="360.0" y="1212.0" font-size="16" text-anchor="middle">取 candidate_limit，再保留正分候选</text>
+<text data-node="wtop" x="360.0" y="1234.0" font-size="16" text-anchor="middle">默认上限 20 条</text>
+</g>
+<g id="wout"><title>recall/basic/retrievers.py::Sources.working</title>
+<rect x="165" y="1380" width="390" height="88" rx="28" fill="#EAF4EC" stroke="#528264" stroke-width="1.5"/>
+<text data-node="wout" x="360.0" y="1418.0" font-size="16" text-anchor="middle">返回 Working SourceResult</text>
+<text data-node="wout" x="360.0" y="1440.0" font-size="16" text-anchor="middle">candidates / reads / coverage / reason</text>
+</g>
+<g id="embed"><title>recall/basic/retrievers.py::Sources.long_term; runtime/flows/host.py::ThreeFlows.__init__ | 技术来源：长期 · Query 编码（ONNX 后端启用时）; 直接调用：FastEmbed · TextEmbedding.query_embed; Remember 正文编码对应 passage_embed; FastEmbed 内部：分词 → ONNX 图推理 → 向量后处理; 底层直接使用 ONNX Runtime · InferenceSession.run; 本地入口：FastEmbedOnnxBackend.embed; BGE 是可配置模型权重，不是编排框架</title>
+<rect x="970" y="390" width="450" height="94" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="embed" x="1195.0" y="420.0" font-size="16" text-anchor="middle">EmbeddingPort.embed（Query）</text>
+<text data-node="embed" x="1195.0" y="442.0" font-size="16" text-anchor="middle">绑定 operation_id、输入 hash、用途与模型空间</text>
+<text data-node="embed" x="1195.0" y="464.0" font-size="16" text-anchor="middle">部署可选 NativeP3Embedding 或 lexical 基线</text>
+</g>
+<g id="bind"><title>recall/basic/retrievers.py::Sources.long_term | 技术来源：长期 · 编码结果绑定核验; 项目自研：Sources.long_term; 检查 operation_id / input_hash / model_space; 检查维度、数量与有限数值; 编码成功不等于结果可以安全用于当前请求; FastEmbed / ONNX Runtime 不提供这层业务约束</title>
+<rect x="970" y="525" width="450" height="75" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="bind" x="1195.0" y="556.5" font-size="16" text-anchor="middle">核对编码结果绑定与有限数值</text>
+<text data-node="bind" x="1195.0" y="578.5" font-size="16" text-anchor="middle">不匹配 → CONTRACT_VIOLATION</text>
+</g>
+<g id="search"><title>recall/basic/retrievers.py::Sources.long_term; runtime/flows/host.py | 技术来源：长期 · 向量库查询（Milvus 配置启用时）; 直接调用：pymilvus · MilvusClient.search; 本地：MilvusVectors.search → call(&quot;search&quot;); scope 与 model_space 过滤；IP 相似度；Top K; 未使用 LlamaIndex 的 MilvusVectorStore 适配器; SQLiteVectors 是另一种本地装配选择</title>
+<rect x="970" y="640" width="450" height="94" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="search" x="1195.0" y="670.0" font-size="16" text-anchor="middle">VectorPort.search：limit 初始 20</text>
+<text data-node="search" x="1195.0" y="692.0" font-size="16" text-anchor="middle">scope + model_space + deadline</text>
+<text data-node="search" x="1195.0" y="714.0" font-size="16" text-anchor="middle">配置选择 Milvus 或 SQLite 向量适配</text>
+</g>
+<g id="load"><title>recall/basic/retrievers.py::Sources.long_term | 技术来源：长期 · 候选引用 → 权威正文 → 资格; 设计参考：LlamaIndex · VectorIndexRetriever; ._aretrieve / _aget_nodes_with_embeddings; 参考：向量检索与正文加载分离; P3：Remember.load 读取精确版本的权威正文; READY、scope、内容 hash 与版本核验由 P3 补充</title>
+<rect x="970" y="780" width="450" height="100" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="load" x="1195.0" y="813.0" font-size="16" text-anchor="middle">按 rank 排序、限定范围与模型空间</text>
+<text data-node="load" x="1195.0" y="835.0" font-size="16" text-anchor="middle">Remember.load 按精确 MemoryRef 读权威正文</text>
+<text data-node="load" x="1195.0" y="857.0" font-size="16" text-anchor="middle">记录读取；不直接信任向量库正文</text>
+</g>
+<g id="qualify"><title>recall/basic/retrievers.py::Sources.long_term | 技术来源：长期 · 候选引用 → 权威正文 → 资格; 设计参考：LlamaIndex · VectorIndexRetriever; ._aretrieve / _aget_nodes_with_embeddings; 参考：向量检索与正文加载分离; P3：Remember.load 读取精确版本的权威正文; READY、scope、内容 hash 与版本核验由 P3 补充</title>
+<rect x="970" y="925" width="450" height="90" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="qualify" x="1195.0" y="953.0" font-size="16" text-anchor="middle">仅保留投影 READY + 相同模型空间</text>
+<text data-node="qualify" x="1195.0" y="975.0" font-size="16" text-anchor="middle">正文 content_hash 匹配向量 input_hash</text>
+<text data-node="qualify" x="1195.0" y="997.0" font-size="16" text-anchor="middle">同一引用只保留一次</text>
+</g>
+<g id="enough"><title>recall/basic/retrievers.py::Sources.long_term | 技术来源：扩查与来源覆盖汇总; 项目自研：Sources.long_term / Recall.retrieve; 过滤后不足时扩大 limit，最多 max_discovery; 记录 complete / partial / unavailable; 不把依赖中断冒充正常空结果; 属于 P3 对检索框架的工程与产品约束</title>
+<polygon points="1195.0,1060 1375,1112.5 1195.0,1165 1015,1112.5" fill="#FFF5DC" stroke="#B28A39" stroke-width="1.5"/>
+<text data-node="enough" x="1195.0" y="1117.5" font-size="16" text-anchor="middle">候选已足够，或库返回数 &lt; limit？</text>
+</g>
+<g id="max"><title>recall/basic/retrievers.py::Sources.long_term | 技术来源：扩查与来源覆盖汇总; 项目自研：Sources.long_term / Recall.retrieve; 过滤后不足时扩大 limit，最多 max_discovery; 记录 complete / partial / unavailable; 不把依赖中断冒充正常空结果; 属于 P3 对检索框架的工程与产品约束</title>
+<polygon points="1195.0,1230 1375,1285.0 1195.0,1340 1015,1285.0" fill="#FFF5DC" stroke="#B28A39" stroke-width="1.5"/>
+<text data-node="max" x="1195.0" y="1279.0" font-size="16" text-anchor="middle">达到 max_discovery？</text>
+<text data-node="max" x="1195.0" y="1301.0" font-size="16" text-anchor="middle">默认 100</text>
+</g>
+<g id="grow"><title>recall/basic/retrievers.py::Sources.long_term | 技术来源：扩查与来源覆盖汇总; 项目自研：Sources.long_term / Recall.retrieve; 过滤后不足时扩大 limit，最多 max_discovery; 记录 complete / partial / unavailable; 不把依赖中断冒充正常空结果; 属于 P3 对检索框架的工程与产品约束</title>
+<rect x="770" y="1400" width="310" height="74" rx="12" fill="#FFF5DC" stroke="#B28A39" stroke-width="1.5"/>
+<text data-node="grow" x="925.0" y="1442.0" font-size="16" text-anchor="middle">limit 翻倍，上限 max_discovery</text>
+</g>
+<g id="lout"><title>recall/basic/retrievers.py::Sources.long_term | 技术来源：扩查与来源覆盖汇总; 项目自研：Sources.long_term / Recall.retrieve; 过滤后不足时扩大 limit，最多 max_discovery; 记录 complete / partial / unavailable; 不把依赖中断冒充正常空结果; 属于 P3 对检索框架的工程与产品约束</title>
+<rect x="1190" y="1430" width="390" height="110" rx="28" fill="#EAF4EC" stroke="#528264" stroke-width="1.5"/>
+<text data-node="lout" x="1385.0" y="1468.0" font-size="16" text-anchor="middle">返回 Long-term SourceResult</text>
+<text data-node="lout" x="1385.0" y="1490.0" font-size="16" text-anchor="middle">达到上限且仍有剔除 → partial</text>
+<text data-node="lout" x="1385.0" y="1512.0" font-size="16" text-anchor="middle">其余保留向量查询 coverage / reason</text>
+</g>
+<g id="join"><title>recall/basic/service.py::Recall.retrieve | 技术来源：扩查与来源覆盖汇总; 项目自研：Sources.long_term / Recall.retrieve; 过滤后不足时扩大 limit，最多 max_discovery; 记录 complete / partial / unavailable; 不把依赖中断冒充正常空结果; 属于 P3 对检索框架的工程与产品约束</title>
+<rect x="355" y="1635" width="960" height="78" rx="28" fill="#F0ECF7" stroke="#8E78AA" stroke-width="1.5"/>
+<text data-node="join" x="835.0" y="1668.0" font-size="16" text-anchor="middle">主流程 gather 汇总两路：保留各路状态，未选来源为 not_requested</text>
+<text data-node="join" x="835.0" y="1690.0" font-size="16" text-anchor="middle">随后 RRF 融合 → 重排前资格核验；缺失来源不能伪装成“正常无结果”</text>
+</g>
+<g id="reference_legend"><title></title>
+<rect x="1690" y="150" width="630" height="66" rx="12" fill="#F1F3F6" stroke="#7B8797" stroke-width="1.5"/>
+<text data-node="reference_legend" x="2005.0" y="177.0" font-size="16" text-anchor="middle">绿色：直接调用（按配置）  紫色：设计 / 概念参考</text>
+<text data-node="reference_legend" x="2005.0" y="199.0" font-size="16" text-anchor="middle">黄色：成熟模式  灰色：项目自研 / 当前边界</text>
+</g>
+<g id="reference_1"><title>recall/basic/service.py::Recall.retrieve; recall/basic/retrievers.py::Sources.discover</title>
+<rect x="1690" y="235.0" width="630" height="156" rx="12" fill="#F0ECF7" stroke="#8E78AA" stroke-width="1.5"/>
+<text data-node="reference_1" x="2005.0" y="263.0" font-size="16" text-anchor="middle">来源选择 / 并发任务</text>
+<text data-node="reference_1" x="2005.0" y="285.0" font-size="16" text-anchor="middle">设计参考：LlamaIndex · BaseRetriever.aretrieve</text>
+<text data-node="reference_1" x="2005.0" y="307.0" font-size="16" text-anchor="middle">QueryFusionRetriever._run_async_queries</text>
+<text data-node="reference_1" x="2005.0" y="329.0" font-size="16" text-anchor="middle">参考可组合检索器与异步汇总</text>
+<text data-node="reference_1" x="2005.0" y="351.0" font-size="16" text-anchor="middle">P3 自定 auto 规则、source_timeout 与 coverage</text>
+<text data-node="reference_1" x="2005.0" y="373.0" font-size="16" text-anchor="middle">未启用框架的默认多查询生成</text>
+</g>
+<g id="reference_2"><title>recall/basic/retrievers.py::Sources.working; recall/basic/retrievers.py::Sources.working; recall/basic/adapters.py::LexicalEmbedding.features; recall/basic/retrievers.py::Sources.working</title>
+<rect x="1690" y="445.0" width="630" height="136" rx="12" fill="#F1F3F6" stroke="#7B8797" stroke-width="1.5"/>
+<text data-node="reference_2" x="2005.0" y="474.0" font-size="16" text-anchor="middle">Working · 读取与本地排序</text>
+<text data-node="reference_2" x="2005.0" y="496.0" font-size="16" text-anchor="middle">项目自研：Sources.working</text>
+<text data-node="reference_2" x="2005.0" y="518.0" font-size="16" text-anchor="middle">LexicalEmbedding.features → 特征点积 → Top K</text>
+<text data-node="reference_2" x="2005.0" y="540.0" font-size="16" text-anchor="middle">字符 / 双字符哈希特征，不是 BGE 模型</text>
+<text data-node="reference_2" x="2005.0" y="562.0" font-size="16" text-anchor="middle">不调用 LlamaIndex，也不建设 BM25 混合索引</text>
+</g>
+<g id="reference_3"><title>recall/basic/retrievers.py::Sources.long_term; runtime/flows/host.py::ThreeFlows.__init__</title>
+<rect x="1690" y="655.0" width="630" height="178" rx="12" fill="#EAF4EC" stroke="#528264" stroke-width="1.5"/>
+<text data-node="reference_3" x="2005.0" y="683.0" font-size="16" text-anchor="middle">长期 · Query 编码（ONNX 后端启用时）</text>
+<text data-node="reference_3" x="2005.0" y="705.0" font-size="16" text-anchor="middle">直接调用：FastEmbed · TextEmbedding.query_embed</text>
+<text data-node="reference_3" x="2005.0" y="727.0" font-size="16" text-anchor="middle">Remember 正文编码对应 passage_embed</text>
+<text data-node="reference_3" x="2005.0" y="749.0" font-size="16" text-anchor="middle">FastEmbed 内部：分词 → ONNX 图推理 → 向量后处理</text>
+<text data-node="reference_3" x="2005.0" y="771.0" font-size="16" text-anchor="middle">底层直接使用 ONNX Runtime · InferenceSession.run</text>
+<text data-node="reference_3" x="2005.0" y="793.0" font-size="16" text-anchor="middle">本地入口：FastEmbedOnnxBackend.embed</text>
+<text data-node="reference_3" x="2005.0" y="815.0" font-size="16" text-anchor="middle">BGE 是可配置模型权重，不是编排框架</text>
+</g>
+<g id="reference_4"><title>recall/basic/retrievers.py::Sources.long_term</title>
+<rect x="1690" y="865.0" width="630" height="156" rx="12" fill="#F1F3F6" stroke="#7B8797" stroke-width="1.5"/>
+<text data-node="reference_4" x="2005.0" y="893.0" font-size="16" text-anchor="middle">长期 · 编码结果绑定核验</text>
+<text data-node="reference_4" x="2005.0" y="915.0" font-size="16" text-anchor="middle">项目自研：Sources.long_term</text>
+<text data-node="reference_4" x="2005.0" y="937.0" font-size="16" text-anchor="middle">检查 operation_id / input_hash / model_space</text>
+<text data-node="reference_4" x="2005.0" y="959.0" font-size="16" text-anchor="middle">检查维度、数量与有限数值</text>
+<text data-node="reference_4" x="2005.0" y="981.0" font-size="16" text-anchor="middle">编码成功不等于结果可以安全用于当前请求</text>
+<text data-node="reference_4" x="2005.0" y="1003.0" font-size="16" text-anchor="middle">FastEmbed / ONNX Runtime 不提供这层业务约束</text>
+</g>
+<g id="reference_5"><title>recall/basic/retrievers.py::Sources.long_term; runtime/flows/host.py</title>
+<rect x="1690" y="1075.0" width="630" height="156" rx="12" fill="#EAF4EC" stroke="#528264" stroke-width="1.5"/>
+<text data-node="reference_5" x="2005.0" y="1103.0" font-size="16" text-anchor="middle">长期 · 向量库查询（Milvus 配置启用时）</text>
+<text data-node="reference_5" x="2005.0" y="1125.0" font-size="16" text-anchor="middle">直接调用：pymilvus · MilvusClient.search</text>
+<text data-node="reference_5" x="2005.0" y="1147.0" font-size="16" text-anchor="middle">本地：MilvusVectors.search → call(&quot;search&quot;)</text>
+<text data-node="reference_5" x="2005.0" y="1169.0" font-size="16" text-anchor="middle">scope 与 model_space 过滤；IP 相似度；Top K</text>
+<text data-node="reference_5" x="2005.0" y="1191.0" font-size="16" text-anchor="middle">未使用 LlamaIndex 的 MilvusVectorStore 适配器</text>
+<text data-node="reference_5" x="2005.0" y="1213.0" font-size="16" text-anchor="middle">SQLiteVectors 是另一种本地装配选择</text>
+</g>
+<g id="reference_6"><title>recall/basic/retrievers.py::Sources.long_term; recall/basic/retrievers.py::Sources.long_term</title>
+<rect x="1690" y="1285.0" width="630" height="156" rx="12" fill="#F0ECF7" stroke="#8E78AA" stroke-width="1.5"/>
+<text data-node="reference_6" x="2005.0" y="1313.0" font-size="16" text-anchor="middle">长期 · 候选引用 → 权威正文 → 资格</text>
+<text data-node="reference_6" x="2005.0" y="1335.0" font-size="16" text-anchor="middle">设计参考：LlamaIndex · VectorIndexRetriever</text>
+<text data-node="reference_6" x="2005.0" y="1357.0" font-size="16" text-anchor="middle">._aretrieve / _aget_nodes_with_embeddings</text>
+<text data-node="reference_6" x="2005.0" y="1379.0" font-size="16" text-anchor="middle">参考：向量检索与正文加载分离</text>
+<text data-node="reference_6" x="2005.0" y="1401.0" font-size="16" text-anchor="middle">P3：Remember.load 读取精确版本的权威正文</text>
+<text data-node="reference_6" x="2005.0" y="1423.0" font-size="16" text-anchor="middle">READY、scope、内容 hash 与版本核验由 P3 补充</text>
+</g>
+<g id="reference_7"><title>recall/basic/retrievers.py::Sources.long_term; recall/basic/retrievers.py::Sources.long_term; recall/basic/retrievers.py::Sources.long_term; recall/basic/retrievers.py::Sources.long_term; recall/basic/service.py::Recall.retrieve</title>
+<rect x="1690" y="1495.0" width="630" height="156" rx="12" fill="#F1F3F6" stroke="#7B8797" stroke-width="1.5"/>
+<text data-node="reference_7" x="2005.0" y="1523.0" font-size="16" text-anchor="middle">扩查与来源覆盖汇总</text>
+<text data-node="reference_7" x="2005.0" y="1545.0" font-size="16" text-anchor="middle">项目自研：Sources.long_term / Recall.retrieve</text>
+<text data-node="reference_7" x="2005.0" y="1567.0" font-size="16" text-anchor="middle">过滤后不足时扩大 limit，最多 max_discovery</text>
+<text data-node="reference_7" x="2005.0" y="1589.0" font-size="16" text-anchor="middle">记录 complete / partial / unavailable</text>
+<text data-node="reference_7" x="2005.0" y="1611.0" font-size="16" text-anchor="middle">不把依赖中断冒充正常空结果</text>
+<text data-node="reference_7" x="2005.0" y="1633.0" font-size="16" text-anchor="middle">属于 P3 对检索框架的工程与产品约束</text>
+</g>
+<text class="label" x="370" y="314" text-anchor="middle">选中 Working</text>
+<text class="label" x="1420" y="344" text-anchor="middle">选中 Long-term</text>
+<text class="label" x="315" y="786" text-anchor="middle">是</text>
+<text class="label" x="600" y="889" text-anchor="middle">否</text>
+<text class="label" x="1533" y="1244" text-anchor="middle">是</text>
+<text class="label" x="1195.0" y="1191.5" text-anchor="middle">否</text>
+<text class="label" x="1456" y="1339" text-anchor="middle">是</text>
+<text class="label" x="942" y="1264" text-anchor="middle">否</text>
+<text class="label" x="835" y="1164" text-anchor="middle">重新查询</text>
+</svg>

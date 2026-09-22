@@ -1,12 +1,15 @@
-# P3 PRD V1.2 可校验契约
+# P3 可校验契约
+
+2026-09-22：RF新监测接口及公共对象已有本地服务接入，见[RF运行服务](../../docs/p3/development/08_RF运行服务与HTTP接入.md)。B/A/C新接口仍待业务接线。下方2026-09-21说明及catalog中的contract_only为原契约批次范围。
 
 当前需求基线及V1.3租户增量见[prd-baseline.yaml](prd-baseline.yaml)。既有字段契约并不代表新增需求全部实现；原V1.2追踪和测试保留其历史范围。
 
-本包是`p3/1`设计契约，未接入当前Host；不替换`contracts/p3-northbound-v1.json`。
+既有`p3/1`模型已有本地服务消费者，公开HTTP目录仍是设计映射。本包不替换`contracts/p3-northbound-v1.json`。2026-09-21新增的46个foundation对象与13个接口方法已通过契约校验，尚未接入当前Host；详见[接入说明](../../docs/p3/development/07_对象契约接入.md)。
 
 当前先搭建系统，产品指标暂缓；product-acceptance profile是PRD参考，`enforce_now=false`，不是本轮或F1基座的性能门禁。foundation profile仅提供机制验证初值。
 
-- Python字段/枚举来源：各流程`contracts/models.py`；同进程接口：`ports.py`。
+- Python字段/枚举来源：各流程`contracts/models.py`与`contracts/foundation.py`；同进程接口：`ports.py`。
+- [object-catalog.yaml](object-catalog.yaml)：新增对象的事实归属、消费者、流程节点和实现状态。
 - `schemas/`：自动生成Draft2020-12 JSON Schema；不手工编辑。
 - [http-api.yaml](http-api.yaml)：待实现公开接口，仅Remember/Recall与配套查询。
 - [interface-catalog.yaml](interface-catalog.yaml)：逐方法Owner、消费者、签名及样例。

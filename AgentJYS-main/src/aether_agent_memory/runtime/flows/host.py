@@ -52,6 +52,8 @@ class ThreeFlows:
         log_path: str | Path | None = None,
         log_retention_days: int = 14,
         log_max_records: int = 200_000,
+        maintenance_principals: tuple[str, ...] = (),
+        backup_root: str | Path | None = None,
     ) -> None:
         self.recall_settings = recall_settings or (
             RecallSettings.model_validate(
@@ -68,6 +70,8 @@ class ThreeFlows:
             log_path=log_path,
             log_retention_days=log_retention_days,
             log_max_records=log_max_records,
+            maintenance_principals=maintenance_principals,
+            backup_root=backup_root,
         )
         self.owned_vectors = None
         self.owned_reranker = None
@@ -288,10 +292,13 @@ class ThreeFlows:
         ):
             self.health.register(name, probe)
 
-    async def tick(self, *, periodic: bool = False) -> bool:
+    async def tick(
+        self, *, periodic: bool = False, maintenance_context: TrustedContext | None = None
+    ) -> bool:
         with self.foundation.uow.transaction() as tx:
             for flow in ("remember", "operate"):
                 worker = self.worker_prefix + "_" + flow
+                self.foundation.tasks.progress.heartbeat(tx, worker, flow)
                 tx.write(
                     "workers",
                     worker,
@@ -307,11 +314,14 @@ class ThreeFlows:
             if not self.foundation.events.dispatch_once("flow_dispatcher"):
                 break
             worked = True
-        for flow in ("remember", "operate"):
+        for flow in ("remember", "operate", "maintenance", "io", "model"):
             worked = (
                 await self.foundation.tasks.run_once(self.worker_prefix + "_" + flow, flow)
                 or worked
             )
+        if maintenance_context is not None:
+            result = await self.foundation.dispositions.cycle(maintenance_context)
+            worked = bool(result["sampled"] or result["reconciled"]) or worked
         period = str(int(time.time() // 5))
         if periodic and period != self.last_period:
             self.operate.periodic(period)
@@ -340,10 +350,11 @@ class ThreeFlows:
         if self.closed:
             return
         with self.foundation.uow.transaction() as tx:
-            for flow in ("remember", "operate"):
+            for flow in ("remember", "operate", "maintenance", "io", "model"):
                 worker = self.worker_prefix + "_" + flow
                 row = tx.read("workers", worker)
                 if row:
+                    self.foundation.tasks.progress.heartbeat(tx, worker, flow, stopped=True)
                     tx.write("workers", worker, {**row, "state": "stopped", "last_seen": now()})
         self.closed = True
         if self.native_embedding:

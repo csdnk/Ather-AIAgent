@@ -14,15 +14,19 @@ FLOWS = ("runtime", "remember", "recall", "operate")
 def models() -> dict[str, type[BaseModel]]:
     result = {}
     for flow in FLOWS:
-        module = import_module(f"aether_agent_memory.{flow}.contracts.models")
-        for name, value in vars(module).items():
-            if (
-                isinstance(value, type)
-                and issubclass(value, BaseModel)
-                and value.__module__ == module.__name__
-                and name != "ContractModel"
-            ):
-                result[f"{flow}.{name}"] = value
+        for source in ("models", "foundation"):
+            module = import_module(f"aether_agent_memory.{flow}.contracts.{source}")
+            for name, value in vars(module).items():
+                if (
+                    isinstance(value, type)
+                    and issubclass(value, BaseModel)
+                    and value.__module__ == module.__name__
+                    and name != "ContractModel"
+                ):
+                    key = f"{flow}.{name}"
+                    if key in result:
+                        raise ValueError(f"duplicate public contract: {key}")
+                    result[key] = value
     return result
 
 

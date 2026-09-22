@@ -1,0 +1,278 @@
+{
+  "$defs": {
+    "Flow": {
+      "enum": [
+        "runtime",
+        "remember",
+        "recall",
+        "operate"
+      ],
+      "title": "Flow",
+      "type": "string"
+    },
+    "RecordRef": {
+      "additionalProperties": false,
+      "properties": {
+        "object_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Object Id",
+          "type": "string"
+        },
+        "object_type": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Object Type",
+          "type": "string"
+        },
+        "owner": {
+          "$ref": "#/$defs/Flow"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "required": [
+        "owner",
+        "object_type",
+        "object_id",
+        "scope"
+      ],
+      "title": "RecordRef",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "application_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Application Id",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        },
+        "tenant_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "user_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenant_id",
+        "application_id",
+        "user_id",
+        "agent_id"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "SignalDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "label_names": {
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "type": "string"
+          },
+          "title": "Label Names",
+          "type": "array"
+        },
+        "max_label_sets": {
+          "minimum": 1,
+          "title": "Max Label Sets",
+          "type": "integer"
+        },
+        "missing_policy": {
+          "const": "unknown",
+          "default": "unknown",
+          "title": "Missing Policy",
+          "type": "string"
+        },
+        "owner": {
+          "$ref": "#/$defs/Flow"
+        },
+        "sample_interval_ms": {
+          "minimum": 1,
+          "title": "Sample Interval Ms",
+          "type": "integer"
+        },
+        "signal_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Signal Id",
+          "type": "string"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "stale_after_ms": {
+          "minimum": 1,
+          "title": "Stale After Ms",
+          "type": "integer"
+        },
+        "unit": {
+          "enum": [
+            "count",
+            "milliseconds",
+            "bytes",
+            "ratio",
+            "state"
+          ],
+          "title": "Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "signal_id",
+        "owner",
+        "source",
+        "unit",
+        "sample_interval_ms",
+        "stale_after_ms",
+        "label_names",
+        "max_label_sets"
+      ],
+      "title": "SignalDefinition",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "evidence_refs": {
+      "items": {
+        "$ref": "#/$defs/RecordRef"
+      },
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "labels": {
+      "patternProperties": {
+        "^[A-Za-z0-9_-]+$": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        }
+      },
+      "propertyNames": {
+        "maxLength": 128,
+        "minLength": 1
+      },
+      "title": "Labels",
+      "type": "object"
+    },
+    "observed_at": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "title": "Observed At",
+      "type": "string"
+    },
+    "signal": {
+      "$ref": "#/$defs/SignalDefinition"
+    },
+    "state": {
+      "enum": [
+        "known",
+        "unknown",
+        "stale"
+      ],
+      "title": "State",
+      "type": "string"
+    },
+    "value": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Value"
+    }
+  },
+  "required": [
+    "signal",
+    "observed_at",
+    "state",
+    "labels",
+    "evidence_refs"
+  ],
+  "title": "SignalObservation",
+  "type": "object",
+  "x-contract-model": "runtime.SignalObservation"
+}

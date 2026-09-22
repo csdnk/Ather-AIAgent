@@ -1,0 +1,222 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1530" viewBox="0 0 2400 1530">
+<defs><marker id="arrow" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0 0 L9 3.5 L0 7 Z" fill="context-stroke"/></marker></defs>
+<style>text{font-family:"Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#273545}.label{font-size:14px;paint-order:stroke;stroke:white;stroke-width:6px;stroke-linejoin:round}</style>
+<text x="40" y="58" font-size="28" font-weight="700">03 · 重排、组包与结果判定</text>
+<rect x="40" y="110" width="730" height="1340" rx="16" fill="#FAFBF8"/>
+<path d="M56 110H754Q770 110 770 126V150H40V126Q40 110 56 110" fill="#EEF0E8"/>
+<text x="405.0" y="137" font-size="19" font-weight="700" text-anchor="middle">可选重排：Recall.rerank</text>
+<rect x="820" y="110" width="820" height="1340" rx="16" fill="#FAFBF8"/>
+<path d="M836 110H1624Q1640 110 1640 126V150H820V126Q820 110 836 110" fill="#EEF0E8"/>
+<text x="1230.0" y="137" font-size="19" font-weight="700" text-anchor="middle">组包与 outcome：assemble → retrieve</text>
+<rect x="1690" y="95" width="670" height="1395" rx="16" fill="#FAFBF8"/>
+<path d="M1706 95H2344Q2360 95 2360 111V135H1690V111Q1690 95 1706 95" fill="#EEF0E8"/>
+<text x="2025.0" y="122" font-size="19" font-weight="700" text-anchor="middle">本页步骤的技术来源（说明卡，不是新增执行步骤）</text>
+<polyline points="410.0,241 410.0,295" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="245,350.0 220,350 220.0,460" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="575,350.0 585,350 582.5,350 582.5,460" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="582.5,544 582.5,574.5 585.0,574.5 585.0,605" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="420,660.0 232,660 232.5,660 232.5,760" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="585.0,715 585.0,780" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="585.0,902 585.0,943.5 575.0,943.5 575.0,985" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="420,841.0 405,841 405,920 235,920 235.0,980" fill="none" stroke="#B56773" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="70,498.0 45,498 45,1335 190,1335.0" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="80,802.5 65,802.5 65,802 65,1245 410,1245 410.0,1290" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="575.0,1070 575,1190 745,1190 745,1335 630,1335.0" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1230.0,259 1230.0,315" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1040,367.0 998,367 997.5,367 997.5,470" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1420,367.0 1500,367 1390.0,367 1390.0,470" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="997.5,548 997.5,705 998,705 998,706.0 1050,706.0" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1390.0,550 1390.0,705 1490,705 1490,706.0 1390,706.0" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1050,706.0 1035,706 1035.0,850" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1390,706.0 1410,706 1410.0,850" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="870,908.0 930,908.0 930,998 930.0,1075" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1200,908.0 1220,908 1220,1010 1155,1010 1155.0,1075" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1410.0,966 1410.0,1003.0 1435.0,1003.0 1435.0,1040" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1580,908.0 1615,908 1615,1230 1580,1230.0" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1240,1230.0 1082,1230 1082.5,1230 1082.5,1330" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<polyline points="1410.0,1280 1410,1303 1450,1303 1450.0,1330" fill="none" stroke="#6B7B8E" stroke-width="1.6"  marker-end="url(#arrow)"/>
+<g id="rin"><title>recall/basic/service.py::Recall.rerank | 技术来源：重排入口 · 可替换后处理接口; 设计参考：LlamaIndex · BaseNodePostprocessor; postprocess_nodes / apostprocess_nodes; 参考“候选 → 可插拔后处理 → 新候选”的分层; 本地使用自己的 Reranker 接口与 Recall.rerank; 不实例化 LlamaIndex 后处理器</title>
+<rect x="210" y="175" width="400" height="66" rx="28" fill="#F0ECF7" stroke="#8E78AA" stroke-width="1.5"/>
+<text data-node="rin" x="410.0" y="213.0" font-size="16" text-anchor="middle">主图 07：接收已获准的 RRF 候选</text>
+</g>
+<g id="enable"><title>recall/basic/service.py::Recall.rerank | 技术来源：重排入口 · 可替换后处理接口; 设计参考：LlamaIndex · BaseNodePostprocessor; postprocess_nodes / apostprocess_nodes; 参考“候选 → 可插拔后处理 → 新候选”的分层; 本地使用自己的 Reranker 接口与 Recall.rerank; 不实例化 LlamaIndex 后处理器</title>
+<polygon points="410.0,295 575,350.0 410.0,405 245,350.0" fill="#FFF5DC" stroke="#B28A39" stroke-width="1.5"/>
+<text data-node="enable" x="410.0" y="355.0" font-size="16" text-anchor="middle">有候选且重排未 disabled？</text>
+</g>
+<g id="skip"><title>recall/basic/service.py::Recall.rerank | 技术来源：跳过、超时与失败降级; 项目自研：Recall.rerank / CrossEncoderReranker; 通用配置默认 disabled；部署可启用 required/fallback; fallback 仅接受超时或依赖不可用; 合约错误仍失败；真实推理结束后才释放并发槽; 这些保证不是 CrossEncoder.predict 自动提供的</title>
+<rect x="70" y="460" width="300" height="76" rx="12" fill="#F1F3F6" stroke="#7B8797" stroke-width="1.5"/>
+<text data-node="skip" x="220.0" y="492.0" font-size="16" text-anchor="middle">disabled / skipped_empty</text>
+<text data-node="skip" x="220.0" y="514.0" font-size="16" text-anchor="middle">保留原排序</text>
+</g>
+<g id="call"><title>recall/basic/service.py::Recall.rerank | 技术来源：重排入口 · 可替换后处理接口; 设计参考：LlamaIndex · BaseNodePostprocessor; postprocess_nodes / apostprocess_nodes; 参考“候选 → 可插拔后处理 → 新候选”的分层; 本地使用自己的 Reranker 接口与 Recall.rerank; 不实例化 LlamaIndex 后处理器 | 技术来源：模型评分 · CrossEncoder; 直接调用：sentence_transformers.CrossEncoder; .predict([(query, document), ...]); 联合编码文本对 → 模型前向 → 每对一个分数; predict 返回分数，P3 负责稳定排序与结果检查; 当前并未调用 CrossEncoder.rank</title>
+<rect x="430" y="460" width="305" height="84" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="call" x="582.5" y="496.0" font-size="16" text-anchor="middle">调用注入的 Reranker</text>
+<text data-node="call" x="582.5" y="518.0" font-size="16" text-anchor="middle">CrossEncoder 可选；独立重排超时</text>
+</g>
+<g id="rok"><title>recall/basic/service.py::Recall.rerank | 技术来源：模型评分 · CrossEncoder; 直接调用：sentence_transformers.CrossEncoder; .predict([(query, document), ...]); 联合编码文本对 → 模型前向 → 每对一个分数; predict 返回分数，P3 负责稳定排序与结果检查; 当前并未调用 CrossEncoder.rank</title>
+<polygon points="585.0,605 750,660.0 585.0,715 420,660.0" fill="#FFF5DC" stroke="#B28A39" stroke-width="1.5"/>
+<text data-node="rok" x="585.0" y="665.0" font-size="16" text-anchor="middle">成功且返回分数有效？</text>
+</g>
+<g id="sort"><title>recall/basic/service.py::Recall.rerank | 技术来源：模型评分 · CrossEncoder; 直接调用：sentence_transformers.CrossEncoder; .predict([(query, document), ...]); 联合编码文本对 → 模型前向 → 每对一个分数; predict 返回分数，P3 负责稳定排序与结果检查; 当前并未调用 CrossEncoder.rank</title>
+<rect x="80" y="760" width="305" height="85" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="sort" x="232.5" y="796.5" font-size="16" text-anchor="middle">核对分数数量与有限值</text>
+<text data-node="sort" x="232.5" y="818.5" font-size="16" text-anchor="middle">按重排分数 + 引用稳定排序</text>
+</g>
+<g id="fallback"><title>recall/basic/service.py::Recall.rerank | 技术来源：跳过、超时与失败降级; 项目自研：Recall.rerank / CrossEncoderReranker; 通用配置默认 disabled；部署可启用 required/fallback; fallback 仅接受超时或依赖不可用; 合约错误仍失败；真实推理结束后才释放并发槽; 这些保证不是 CrossEncoder.predict 自动提供的</title>
+<polygon points="585.0,780 750,841.0 585.0,902 420,841.0" fill="#FFF5DC" stroke="#B28A39" stroke-width="1.5"/>
+<text data-node="fallback" x="585.0" y="835.0" font-size="16" text-anchor="middle">fallback 且属于</text>
+<text data-node="fallback" x="585.0" y="857.0" font-size="16" text-anchor="middle">依赖不可用 / 超时？</text>
+</g>
+<g id="fall"><title>recall/basic/service.py::Recall.rerank | 技术来源：跳过、超时与失败降级; 项目自研：Recall.rerank / CrossEncoderReranker; 通用配置默认 disabled；部署可启用 required/fallback; fallback 仅接受超时或依赖不可用; 合约错误仍失败；真实推理结束后才释放并发槽; 这些保证不是 CrossEncoder.predict 自动提供的</title>
+<rect x="415" y="985" width="320" height="85" rx="12" fill="#FFF5DC" stroke="#B28A39" stroke-width="1.5"/>
+<text data-node="fall" x="575.0" y="1021.5" font-size="16" text-anchor="middle">保留 RRF 排序</text>
+<text data-node="fall" x="575.0" y="1043.5" font-size="16" text-anchor="middle">记录 rerank 降级原因</text>
+</g>
+<g id="rfail"><title>recall/basic/service.py::Recall.rerank | 技术来源：跳过、超时与失败降级; 项目自研：Recall.rerank / CrossEncoderReranker; 通用配置默认 disabled；部署可启用 required/fallback; fallback 仅接受超时或依赖不可用; 合约错误仍失败；真实推理结束后才释放并发槽; 这些保证不是 CrossEncoder.predict 自动提供的</title>
+<rect x="85" y="980" width="300" height="96" rx="12" fill="#FBECEE" stroke="#B56773" stroke-width="1.5"/>
+<text data-node="rfail" x="235.0" y="1022.0" font-size="16" text-anchor="middle">抛出异常 → 主图 failed</text>
+<text data-node="rfail" x="235.0" y="1044.0" font-size="16" text-anchor="middle">required 失败、合约错误等不降级</text>
+</g>
+<g id="rout"><title>recall/basic/service.py::Recall.rerank</title>
+<rect x="190" y="1290" width="440" height="90" rx="28" fill="#EAF4EC" stroke="#528264" stroke-width="1.5"/>
+<text data-node="rout" x="410.0" y="1329.0" font-size="16" text-anchor="middle">返回排序 + 可选降级原因</text>
+<text data-node="rout" x="410.0" y="1351.0" font-size="16" text-anchor="middle">进入主图 08 组包</text>
+</g>
+<g id="ain"><title>recall/basic/components.py::assemble | 技术来源：长度预算 · tokenizer; 直接调用：tiktoken.get_encoding(&quot;o200k_base&quot;); Encoding.encode → token 数; 可选：Hugging Face Tokenizer.encode; 本地 ModelTokenizer.count 统一封装; 对追加序号、正文、换行后的完整候选上下文计数</title>
+<rect x="1000" y="175" width="460" height="84" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="ain" x="1230.0" y="211.0" font-size="16" text-anchor="middle">主图 08：按排序遍历完整记忆</text>
+<text data-node="ain" x="1230.0" y="233.0" font-size="16" text-anchor="middle">逐条追加 [序号] 正文 + 换行</text>
+</g>
+<g id="budget"><title>recall/basic/components.py::assemble | 技术来源：长度预算 · tokenizer; 直接调用：tiktoken.get_encoding(&quot;o200k_base&quot;); Encoding.encode → token 数; 可选：Hugging Face Tokenizer.encode; 本地 ModelTokenizer.count 统一封装; 对追加序号、正文、换行后的完整候选上下文计数</title>
+<polygon points="1230.0,315 1420,367.0 1230.0,419 1040,367.0" fill="#FFF5DC" stroke="#B28A39" stroke-width="1.5"/>
+<text data-node="budget" x="1230.0" y="372.0" font-size="16" text-anchor="middle">追加后是否超过 token_budget？</text>
+</g>
+<g id="omit"><title>recall/basic/components.py::assemble | 技术来源：组包 · 整条记忆取舍; 项目自研：components.assemble; 超预算跳过整条，再尝试后续候选; 当前每个 ContextGroup 只有一条记忆; 没有调用 Query Engine 的回答生成 / Synthesizer; 自动多成员冲突组仍不是当前已实现能力</title>
+<rect x="850" y="470" width="295" height="78" rx="12" fill="#FFF5DC" stroke="#B28A39" stroke-width="1.5"/>
+<text data-node="omit" x="997.5" y="503.0" font-size="16" text-anchor="middle">跳过该条，继续下一条</text>
+<text data-node="omit" x="997.5" y="525.0" font-size="16" text-anchor="middle">不截断正文</text>
+</g>
+<g id="append"><title>recall/basic/components.py::assemble | 技术来源：组包 · 整条记忆取舍; 项目自研：components.assemble; 超预算跳过整条，再尝试后续候选; 当前每个 ContextGroup 只有一条记忆; 没有调用 Query Engine 的回答生成 / Synthesizer; 自动多成员冲突组仍不是当前已实现能力</title>
+<rect x="1210" y="470" width="360" height="80" rx="12" fill="#E8F2F8" stroke="#4C82A0" stroke-width="1.5"/>
+<text data-node="append" x="1390.0" y="504.0" font-size="16" text-anchor="middle">加入一个单条 ContextGroup</text>
+<text data-node="append" x="1390.0" y="526.0" font-size="16" text-anchor="middle">最多 max_items，默认 5 条</text>
+</g>
+<g id="groups"><title>recall/basic/service.py::Recall.retrieve | 技术来源：结果判定 · available / degraded / empty / 错误; 项目自研：Recall.retrieve; 结合实际内容、来源覆盖与降级原因判定; 无内容且来源缺失 → 依赖失败; 来源完整但有候选且放不下 → 预算不足; 通用检索框架的空列表不能代替上述产品结论</title>
+<polygon points="1220.0,650 1390,706.0 1220.0,762 1050,706.0" fill="#FFF5DC" stroke="#B28A39" stroke-width="1.5"/>
+<text data-node="groups" x="1220.0" y="711.0" font-size="16" text-anchor="middle">组包结束后有内容？</text>
+</g>
+<g id="reasons"><title>recall/basic/service.py::Recall.retrieve | 技术来源：结果判定 · available / degraded / empty / 错误; 项目自研：Recall.retrieve; 结合实际内容、来源覆盖与降级原因判定; 无内容且来源缺失 → 依赖失败; 来源完整但有候选且放不下 → 预算不足; 通用检索框架的空列表不能代替上述产品结论</title>
+<polygon points="1035.0,850 1200,908.0 1035.0,966 870,908.0" fill="#FFF5DC" stroke="#B28A39" stroke-width="1.5"/>
+<text data-node="reasons" x="1035.0" y="902.0" font-size="16" text-anchor="middle">存在来源不完整</text>
+<text data-node="reasons" x="1035.0" y="924.0" font-size="16" text-anchor="middle">或重排降级原因？</text>
+</g>
+<g id="incomplete"><title>recall/basic/service.py::Recall.retrieve | 技术来源：结果判定 · available / degraded / empty / 错误; 项目自研：Recall.retrieve; 结合实际内容、来源覆盖与降级原因判定; 无内容且来源缺失 → 依赖失败; 来源完整但有候选且放不下 → 预算不足; 通用检索框架的空列表不能代替上述产品结论</title>
+<polygon points="1410.0,850 1580,908.0 1410.0,966 1240,908.0" fill="#FFF5DC" stroke="#B28A39" stroke-width="1.5"/>
+<text data-node="incomplete" x="1410.0" y="902.0" font-size="16" text-anchor="middle">无内容时：</text>
+<text data-node="incomplete" x="1410.0" y="924.0" font-size="16" text-anchor="middle">选中来源不完整？</text>
+</g>
+<g id="ok"><title>recall/basic/service.py::Recall.retrieve</title>
+<rect x="835" y="1075" width="190" height="64" rx="28" fill="#EAF4EC" stroke="#528264" stroke-width="1.5"/>
+<text data-node="ok" x="930.0" y="1112.0" font-size="16" text-anchor="middle">available</text>
+</g>
+<g id="degrade"><title>recall/basic/service.py::Recall.retrieve</title>
+<rect x="1060" y="1075" width="190" height="64" rx="28" fill="#FFF5DC" stroke="#B28A39" stroke-width="1.5"/>
+<text data-node="degrade" x="1155.0" y="1112.0" font-size="16" text-anchor="middle">degraded</text>
+</g>
+<g id="dep"><title>recall/basic/service.py::Recall.retrieve</title>
+<rect x="1270" y="1040" width="330" height="75" rx="12" fill="#FBECEE" stroke="#B56773" stroke-width="1.5"/>
+<text data-node="dep" x="1435.0" y="1071.5" font-size="16" text-anchor="middle">DEPENDENCY_UNAVAILABLE</text>
+<text data-node="dep" x="1435.0" y="1093.5" font-size="16" text-anchor="middle">来源失败且无可用内容</text>
+</g>
+<g id="remaining"><title>recall/basic/service.py::Recall.retrieve | 技术来源：结果判定 · available / degraded / empty / 错误; 项目自研：Recall.retrieve; 结合实际内容、来源覆盖与降级原因判定; 无内容且来源缺失 → 依赖失败; 来源完整但有候选且放不下 → 预算不足; 通用检索框架的空列表不能代替上述产品结论</title>
+<polygon points="1410.0,1180 1580,1230.0 1410.0,1280 1240,1230.0" fill="#FFF5DC" stroke="#B28A39" stroke-width="1.5"/>
+<text data-node="remaining" x="1410.0" y="1235.0" font-size="16" text-anchor="middle">来源完整，但仍有候选？</text>
+</g>
+<g id="small"><title>recall/basic/service.py::Recall.retrieve</title>
+<rect x="930" y="1330" width="305" height="74" rx="12" fill="#FBECEE" stroke="#B56773" stroke-width="1.5"/>
+<text data-node="small" x="1082.5" y="1361.0" font-size="16" text-anchor="middle">BUDGET_TOO_SMALL</text>
+<text data-node="small" x="1082.5" y="1383.0" font-size="16" text-anchor="middle">无完整记忆能放入预算</text>
+</g>
+<g id="empty"><title>recall/basic/service.py::Recall.retrieve</title>
+<rect x="1300" y="1330" width="300" height="74" rx="28" fill="#F1F3F6" stroke="#7B8797" stroke-width="1.5"/>
+<text data-node="empty" x="1450.0" y="1361.0" font-size="16" text-anchor="middle">empty</text>
+<text data-node="empty" x="1450.0" y="1383.0" font-size="16" text-anchor="middle">来源完整且无可用候选</text>
+</g>
+<g id="reference_legend"><title></title>
+<rect x="1710" y="150" width="630" height="66" rx="12" fill="#F1F3F6" stroke="#7B8797" stroke-width="1.5"/>
+<text data-node="reference_legend" x="2025.0" y="177.0" font-size="16" text-anchor="middle">绿色：直接调用（按配置）  紫色：设计 / 概念参考</text>
+<text data-node="reference_legend" x="2025.0" y="199.0" font-size="16" text-anchor="middle">黄色：成熟模式  灰色：项目自研 / 当前边界</text>
+</g>
+<g id="reference_1"><title>recall/basic/service.py::Recall.rerank; recall/basic/service.py::Recall.rerank; recall/basic/service.py::Recall.rerank</title>
+<rect x="1710" y="235.0" width="630" height="156" rx="12" fill="#F0ECF7" stroke="#8E78AA" stroke-width="1.5"/>
+<text data-node="reference_1" x="2025.0" y="263.0" font-size="16" text-anchor="middle">重排入口 · 可替换后处理接口</text>
+<text data-node="reference_1" x="2025.0" y="285.0" font-size="16" text-anchor="middle">设计参考：LlamaIndex · BaseNodePostprocessor</text>
+<text data-node="reference_1" x="2025.0" y="307.0" font-size="16" text-anchor="middle">postprocess_nodes / apostprocess_nodes</text>
+<text data-node="reference_1" x="2025.0" y="329.0" font-size="16" text-anchor="middle">参考“候选 → 可插拔后处理 → 新候选”的分层</text>
+<text data-node="reference_1" x="2025.0" y="351.0" font-size="16" text-anchor="middle">本地使用自己的 Reranker 接口与 Recall.rerank</text>
+<text data-node="reference_1" x="2025.0" y="373.0" font-size="16" text-anchor="middle">不实例化 LlamaIndex 后处理器</text>
+</g>
+<g id="reference_2"><title>recall/basic/service.py::Recall.rerank | 技术来源：重排入口 · 可替换后处理接口; 设计参考：LlamaIndex · BaseNodePostprocessor; postprocess_nodes / apostprocess_nodes; 参考“候选 → 可插拔后处理 → 新候选”的分层; 本地使用自己的 Reranker 接口与 Recall.rerank; 不实例化 LlamaIndex 后处理器; recall/basic/service.py::Recall.rerank; recall/basic/service.py::Recall.rerank</title>
+<rect x="1710" y="445.0" width="630" height="156" rx="12" fill="#EAF4EC" stroke="#528264" stroke-width="1.5"/>
+<text data-node="reference_2" x="2025.0" y="473.0" font-size="16" text-anchor="middle">模型评分 · CrossEncoder</text>
+<text data-node="reference_2" x="2025.0" y="495.0" font-size="16" text-anchor="middle">直接调用：sentence_transformers.CrossEncoder</text>
+<text data-node="reference_2" x="2025.0" y="517.0" font-size="16" text-anchor="middle">.predict([(query, document), ...])</text>
+<text data-node="reference_2" x="2025.0" y="539.0" font-size="16" text-anchor="middle">联合编码文本对 → 模型前向 → 每对一个分数</text>
+<text data-node="reference_2" x="2025.0" y="561.0" font-size="16" text-anchor="middle">predict 返回分数，P3 负责稳定排序与结果检查</text>
+<text data-node="reference_2" x="2025.0" y="583.0" font-size="16" text-anchor="middle">当前并未调用 CrossEncoder.rank</text>
+</g>
+<g id="reference_3"><title>recall/basic/service.py::Recall.rerank; recall/basic/service.py::Recall.rerank; recall/basic/service.py::Recall.rerank; recall/basic/service.py::Recall.rerank</title>
+<rect x="1710" y="655.0" width="630" height="156" rx="12" fill="#F1F3F6" stroke="#7B8797" stroke-width="1.5"/>
+<text data-node="reference_3" x="2025.0" y="683.0" font-size="16" text-anchor="middle">跳过、超时与失败降级</text>
+<text data-node="reference_3" x="2025.0" y="705.0" font-size="16" text-anchor="middle">项目自研：Recall.rerank / CrossEncoderReranker</text>
+<text data-node="reference_3" x="2025.0" y="727.0" font-size="16" text-anchor="middle">通用配置默认 disabled；部署可启用 required/fallback</text>
+<text data-node="reference_3" x="2025.0" y="749.0" font-size="16" text-anchor="middle">fallback 仅接受超时或依赖不可用</text>
+<text data-node="reference_3" x="2025.0" y="771.0" font-size="16" text-anchor="middle">合约错误仍失败；真实推理结束后才释放并发槽</text>
+<text data-node="reference_3" x="2025.0" y="793.0" font-size="16" text-anchor="middle">这些保证不是 CrossEncoder.predict 自动提供的</text>
+</g>
+<g id="reference_4"><title>recall/basic/components.py::assemble; recall/basic/components.py::assemble</title>
+<rect x="1710" y="865.0" width="630" height="156" rx="12" fill="#EAF4EC" stroke="#528264" stroke-width="1.5"/>
+<text data-node="reference_4" x="2025.0" y="893.0" font-size="16" text-anchor="middle">长度预算 · tokenizer</text>
+<text data-node="reference_4" x="2025.0" y="915.0" font-size="16" text-anchor="middle">直接调用：tiktoken.get_encoding(&quot;o200k_base&quot;)</text>
+<text data-node="reference_4" x="2025.0" y="937.0" font-size="16" text-anchor="middle">Encoding.encode → token 数</text>
+<text data-node="reference_4" x="2025.0" y="959.0" font-size="16" text-anchor="middle">可选：Hugging Face Tokenizer.encode</text>
+<text data-node="reference_4" x="2025.0" y="981.0" font-size="16" text-anchor="middle">本地 ModelTokenizer.count 统一封装</text>
+<text data-node="reference_4" x="2025.0" y="1003.0" font-size="16" text-anchor="middle">对追加序号、正文、换行后的完整候选上下文计数</text>
+</g>
+<g id="reference_5"><title>recall/basic/components.py::assemble; recall/basic/components.py::assemble</title>
+<rect x="1710" y="1075.0" width="630" height="156" rx="12" fill="#F1F3F6" stroke="#7B8797" stroke-width="1.5"/>
+<text data-node="reference_5" x="2025.0" y="1103.0" font-size="16" text-anchor="middle">组包 · 整条记忆取舍</text>
+<text data-node="reference_5" x="2025.0" y="1125.0" font-size="16" text-anchor="middle">项目自研：components.assemble</text>
+<text data-node="reference_5" x="2025.0" y="1147.0" font-size="16" text-anchor="middle">超预算跳过整条，再尝试后续候选</text>
+<text data-node="reference_5" x="2025.0" y="1169.0" font-size="16" text-anchor="middle">当前每个 ContextGroup 只有一条记忆</text>
+<text data-node="reference_5" x="2025.0" y="1191.0" font-size="16" text-anchor="middle">没有调用 Query Engine 的回答生成 / Synthesizer</text>
+<text data-node="reference_5" x="2025.0" y="1213.0" font-size="16" text-anchor="middle">自动多成员冲突组仍不是当前已实现能力</text>
+</g>
+<g id="reference_6"><title>recall/basic/service.py::Recall.retrieve; recall/basic/service.py::Recall.retrieve; recall/basic/service.py::Recall.retrieve; recall/basic/service.py::Recall.retrieve</title>
+<rect x="1710" y="1285.0" width="630" height="156" rx="12" fill="#F1F3F6" stroke="#7B8797" stroke-width="1.5"/>
+<text data-node="reference_6" x="2025.0" y="1313.0" font-size="16" text-anchor="middle">结果判定 · available / degraded / empty / 错误</text>
+<text data-node="reference_6" x="2025.0" y="1335.0" font-size="16" text-anchor="middle">项目自研：Recall.retrieve</text>
+<text data-node="reference_6" x="2025.0" y="1357.0" font-size="16" text-anchor="middle">结合实际内容、来源覆盖与降级原因判定</text>
+<text data-node="reference_6" x="2025.0" y="1379.0" font-size="16" text-anchor="middle">无内容且来源缺失 → 依赖失败</text>
+<text data-node="reference_6" x="2025.0" y="1401.0" font-size="16" text-anchor="middle">来源完整但有候选且放不下 → 预算不足</text>
+<text data-node="reference_6" x="2025.0" y="1423.0" font-size="16" text-anchor="middle">通用检索框架的空列表不能代替上述产品结论</text>
+</g>
+<text class="label" x="170" y="360" text-anchor="middle">否</text>
+<text class="label" x="630" y="360" text-anchor="middle">是</text>
+<text class="label" x="330" y="640" text-anchor="middle">是</text>
+<text class="label" x="605" y="749" text-anchor="middle">失败</text>
+<text class="label" x="580.0" y="937.5" text-anchor="middle">是</text>
+<text class="label" x="320" y="906" text-anchor="middle">否</text>
+<text class="label" x="997.5" y="391.25" text-anchor="middle">是</text>
+<text class="label" x="1433.5" y="361.0" text-anchor="middle">否</text>
+<text class="label" x="915" y="614" text-anchor="middle">遍历结束</text>
+<text class="label" x="1450" y="614" text-anchor="middle">遍历结束 / 满 5 条</text>
+<text class="label" x="990" y="782" text-anchor="middle">是</text>
+<text class="label" x="1430" y="782" text-anchor="middle">否</text>
+<text class="label" x="930.0" y="955.5" text-anchor="middle">否</text>
+<text class="label" x="1216.0" y="1004.0" text-anchor="middle">是</text>
+<text class="label" x="1422.5" y="997.0" text-anchor="middle">是</text>
+<text class="label" x="1607" y="1139" text-anchor="middle">否</text>
+<text class="label" x="1160" y="1244" text-anchor="middle">是</text>
+<text class="label" x="1432.0" y="1297.0" text-anchor="middle">否</text>
+</svg>

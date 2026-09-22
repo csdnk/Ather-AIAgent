@@ -12,8 +12,11 @@ import yaml
 
 from .common import now
 from .diagnostics import Diagnostics
+from .disposition import Dispositions
 from .events import Events
 from .identity import Identity
+from .lifecycle import RuntimeLifecycle
+from .monitoring import Monitoring
 from .sample import Sample
 from .storage import SQLiteUnitOfWork
 from .tasks import Tasks
@@ -29,6 +32,8 @@ class Foundation:
         log_path: str | Path | None = None,
         log_retention_days: int = 14,
         log_max_records: int = 200_000,
+        maintenance_principals: tuple[str, ...] = (),
+        backup_root: str | Path | None = None,
     ) -> None:
         options: dict[str, Any] = {}
         if profile is not None:
@@ -59,6 +64,15 @@ class Foundation:
         )
         self.events = Events(self.uow, self.identity, lease_seconds=self.tasks.lease_seconds)
         self.diagnostics = Diagnostics(self.uow, self.identity)
+        self.monitoring = Monitoring(self.uow, self.identity, self.telemetry)
+        self.diagnostics.monitoring = self.monitoring
+        self.lifecycle = RuntimeLifecycle(
+            self.uow,
+            self.identity,
+            Path(backup_root) if backup_root else Path(database).parent / "backups",
+            operators=maintenance_principals,
+        )
+        self.dispositions = Dispositions(self.tasks)
         self.sample = Sample(self.uow, self.identity, self.tasks, self.events)
 
     def close(self) -> None:
@@ -78,6 +92,7 @@ class Foundation:
         try:
             while not stop.is_set():
                 with self.uow.transaction() as tx:
+                    self.tasks.progress.heartbeat(tx, worker_id, execution_class)
                     tx.write(
                         "workers",
                         worker_id,
@@ -108,6 +123,7 @@ class Foundation:
                     await asyncio.wait_for(stop.wait(), timeout=poll_seconds)
         finally:
             with self.uow.transaction() as tx:
+                self.tasks.progress.heartbeat(tx, worker_id, execution_class, stopped=True)
                 tx.write(
                     "workers",
                     worker_id,

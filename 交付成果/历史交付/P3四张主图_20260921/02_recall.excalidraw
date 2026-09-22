@@ -1,0 +1,2668 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "elements": [
+    {
+      "id": "02_recall-tidy-1",
+      "type": "frame",
+      "x": 0,
+      "y": 0,
+      "width": 2700,
+      "height": 1500,
+      "angle": 0,
+      "strokeColor": "#b0b0b0",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 991,
+      "version": 1,
+      "versionNonce": 997,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "name": "02 · Recall｜检索、完整组交付、历史结果与恢复"
+    },
+    {
+      "id": "02_recall-tidy-2",
+      "type": "text",
+      "x": 40,
+      "y": 25,
+      "width": 607.984375,
+      "height": 38.5,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 1982,
+      "version": 1,
+      "versionNonce": 1994,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "02 · Recall｜检索、完整组交付、历史结果与恢复",
+      "originalText": "02 · Recall｜检索、完整组交付、历史结果与恢复",
+      "fontSize": 28,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 28,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-3",
+      "type": "rectangle",
+      "x": 35,
+      "y": 110,
+      "width": 2625,
+      "height": 655,
+      "angle": 0,
+      "strokeColor": "#888888",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0.5,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 2973,
+      "version": 1,
+      "versionNonce": 2991,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "02_recall-tidy-4",
+      "type": "text",
+      "x": 50,
+      "y": 120,
+      "width": 492.984375,
+      "height": 30.25,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 3964,
+      "version": 1,
+      "versionNonce": 3988,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "新 Recall 主流程｜来源、资格、排序、冲突与预算",
+      "originalText": "新 Recall 主流程｜来源、资格、排序、冲突与预算",
+      "fontSize": 22,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 22,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-5",
+      "type": "rectangle",
+      "x": 35,
+      "y": 810,
+      "width": 2625,
+      "height": 210,
+      "angle": 0,
+      "strokeColor": "#888888",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0.5,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 4955,
+      "version": 1,
+      "versionNonce": 4985,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "02_recall-tidy-6",
+      "type": "text",
+      "x": 50,
+      "y": 820,
+      "width": 397.984375,
+      "height": 30.25,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 5946,
+      "version": 1,
+      "versionNonce": 5982,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "原请求与历史结果｜不是隐式新建 Recall",
+      "originalText": "原请求与历史结果｜不是隐式新建 Recall",
+      "fontSize": 22,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 22,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-7",
+      "type": "rectangle",
+      "x": 35,
+      "y": 1060,
+      "width": 2625,
+      "height": 210,
+      "angle": 0,
+      "strokeColor": "#888888",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0.5,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 6937,
+      "version": 1,
+      "versionNonce": 6979,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "02_recall-tidy-8",
+      "type": "text",
+      "x": 50,
+      "y": 1070,
+      "width": 396.0,
+      "height": 30.25,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 7928,
+      "version": 1,
+      "versionNonce": 7976,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "处理中断与恢复｜继续原业务或明确失败",
+      "originalText": "处理中断与恢复｜继续原业务或明确失败",
+      "fontSize": 22,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 22,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-9",
+      "type": "rectangle",
+      "x": 70,
+      "y": 190,
+      "width": 440,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-input"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 8919,
+      "version": 1,
+      "versionNonce": 8973,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "02_recall-tidy-45",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3 目标设计；见阅读说明的需求映射",
+        "node": "input"
+      }
+    },
+    {
+      "id": "02_recall-tidy-10",
+      "type": "text",
+      "x": 155.0,
+      "y": 218.5,
+      "width": 270.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-input"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 9910,
+      "version": 1,
+      "versionNonce": 9970,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "接收 Query、范围与长度预算\nRF 校验身份、请求标识与期限",
+      "originalText": "接收 Query、范围与长度预算\nRF 校验身份、请求标识与期限",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-11",
+      "type": "rectangle",
+      "x": 590,
+      "y": 190,
+      "width": 440,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-source"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 10901,
+      "version": 1,
+      "versionNonce": 10967,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "02_recall-tidy-45",
+          "type": "arrow"
+        },
+        {
+          "id": "02_recall-tidy-46",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3 目标设计；见阅读说明的需求映射",
+        "node": "source"
+      }
+    },
+    {
+      "id": "02_recall-tidy-12",
+      "type": "text",
+      "x": 659.5,
+      "y": 218.5,
+      "width": 301.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-source"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 11892,
+      "version": 1,
+      "versionNonce": 11964,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "显式来源严格执行 / 未指定自动选\n确定 Working、长期或两路",
+      "originalText": "显式来源严格执行 / 未指定自动选\n确定 Working、长期或两路",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-13",
+      "type": "rectangle",
+      "x": 1110,
+      "y": 190,
+      "width": 440,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-retrieve"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 12883,
+      "version": 1,
+      "versionNonce": 12961,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "02_recall-tidy-46",
+          "type": "arrow"
+        },
+        {
+          "id": "02_recall-tidy-47",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3 目标设计；见阅读说明的需求映射",
+        "node": "retrieve"
+      }
+    },
+    {
+      "id": "02_recall-tidy-14",
+      "type": "text",
+      "x": 1187.5,
+      "y": 218.5,
+      "width": 285.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-retrieve"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 13874,
+      "version": 1,
+      "versionNonce": 13958,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "向 B 读取；长期先编码与查向量\n候选引用 → B 的准确正文",
+      "originalText": "向 B 读取；长期先编码与查向量\n候选引用 → B 的准确正文",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-15",
+      "type": "rectangle",
+      "x": 1630,
+      "y": 190,
+      "width": 440,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-guard"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 14865,
+      "version": 1,
+      "versionNonce": 14955,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "02_recall-tidy-47",
+          "type": "arrow"
+        },
+        {
+          "id": "02_recall-tidy-48",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3 目标设计；见阅读说明的需求映射",
+        "node": "guard"
+      }
+    },
+    {
+      "id": "02_recall-tidy-16",
+      "type": "text",
+      "x": 1710.0,
+      "y": 218.5,
+      "width": 280.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-guard"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 15856,
+      "version": 1,
+      "versionNonce": 15952,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "调用 B.final_guard 核验候选\n权限、版本、删除、到期与来源",
+      "originalText": "调用 B.final_guard 核验候选\n权限、版本、删除、到期与来源",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-17",
+      "type": "rectangle",
+      "x": 2150,
+      "y": 190,
+      "width": 440,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-fuse"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 16847,
+      "version": 1,
+      "versionNonce": 16949,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "02_recall-tidy-48",
+          "type": "arrow"
+        },
+        {
+          "id": "02_recall-tidy-49",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3 目标设计；见阅读说明的需求映射",
+        "node": "fuse"
+      }
+    },
+    {
+      "id": "02_recall-tidy-18",
+      "type": "text",
+      "x": 2240.0,
+      "y": 218.5,
+      "width": 260.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-fuse"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 17838,
+      "version": 1,
+      "versionNonce": 17946,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "RRF 融合 + 关系级去重\n保留独立出处，登记来源缺失",
+      "originalText": "RRF 融合 + 关系级去重\n保留独立出处，登记来源缺失",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-19",
+      "type": "rectangle",
+      "x": 70,
+      "y": 540,
+      "width": 440,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-deliver"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 18829,
+      "version": 1,
+      "versionNonce": 18943,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "02_recall-tidy-53",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3 目标设计；见阅读说明的需求映射",
+        "node": "deliver"
+      }
+    },
+    {
+      "id": "02_recall-tidy-20",
+      "type": "text",
+      "x": 145.0,
+      "y": 568.5,
+      "width": 290.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-deliver"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 19820,
+      "version": 1,
+      "versionNonce": 19940,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "RF 保存结果与交付事件，再返回\n完整 / 空 / 降级 / 不可用",
+      "originalText": "RF 保存结果与交付事件，再返回\n完整 / 空 / 降级 / 不可用",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-21",
+      "type": "rectangle",
+      "x": 590,
+      "y": 540,
+      "width": 440,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-final"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 20811,
+      "version": 1,
+      "versionNonce": 20937,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "02_recall-tidy-52",
+          "type": "arrow"
+        },
+        {
+          "id": "02_recall-tidy-53",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3 目标设计；见阅读说明的需求映射",
+        "node": "final"
+      }
+    },
+    {
+      "id": "02_recall-tidy-22",
+      "type": "text",
+      "x": 680.0,
+      "y": 568.5,
+      "width": 260.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-final"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 21802,
+      "version": 1,
+      "versionNonce": 21934,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "再次调用 B 核验全部组成员\n失效则重组；不安全则不可用",
+      "originalText": "再次调用 B 核验全部组成员\n失效则重组；不安全则不可用",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-23",
+      "type": "rectangle",
+      "x": 1110,
+      "y": 540,
+      "width": 440,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-budget"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 22793,
+      "version": 1,
+      "versionNonce": 22931,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "02_recall-tidy-51",
+          "type": "arrow"
+        },
+        {
+          "id": "02_recall-tidy-52",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3 目标设计；见阅读说明的需求映射",
+        "node": "budget"
+      }
+    },
+    {
+      "id": "02_recall-tidy-24",
+      "type": "text",
+      "x": 1190.0,
+      "y": 568.5,
+      "width": 280.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-budget"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 23784,
+      "version": 1,
+      "versionNonce": 23928,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "渲染完整组并计数\n整组装入；超长跳过，继续后组",
+      "originalText": "渲染完整组并计数\n整组装入；超长跳过，继续后组",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-25",
+      "type": "rectangle",
+      "x": 1630,
+      "y": 540,
+      "width": 440,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-group"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 24775,
+      "version": 1,
+      "versionNonce": 24925,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "02_recall-tidy-50",
+          "type": "arrow"
+        },
+        {
+          "id": "02_recall-tidy-51",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3 目标设计；见阅读说明的需求映射",
+        "node": "group"
+      }
+    },
+    {
+      "id": "02_recall-tidy-26",
+      "type": "text",
+      "x": 1710.0,
+      "y": 568.5,
+      "width": 280.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-group"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 25766,
+      "version": 1,
+      "versionNonce": 25922,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "读取 B 的替代与冲突关系\n补全成员和来源，保留完整分歧",
+      "originalText": "读取 B 的替代与冲突关系\n补全成员和来源，保留完整分歧",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-27",
+      "type": "rectangle",
+      "x": 2150,
+      "y": 540,
+      "width": 440,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-rank"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 26757,
+      "version": 1,
+      "versionNonce": 26919,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "02_recall-tidy-49",
+          "type": "arrow"
+        },
+        {
+          "id": "02_recall-tidy-50",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3 目标设计；见阅读说明的需求映射",
+        "node": "rank"
+      }
+    },
+    {
+      "id": "02_recall-tidy-28",
+      "type": "text",
+      "x": 2249.5,
+      "y": 568.5,
+      "width": 241.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-rank"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 27748,
+      "version": 1,
+      "versionNonce": 27916,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "对合格材料排序 / 可选重排\n排序分数不裁决事实真伪",
+      "originalText": "对合格材料排序 / 可选重排\n排序分数不裁决事实真伪",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-29",
+      "type": "rectangle",
+      "x": 70,
+      "y": 875,
+      "width": 550,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-hinput"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 28739,
+      "version": 1,
+      "versionNonce": 28913,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "02_recall-tidy-54",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3 目标设计；见阅读说明的需求映射",
+        "node": "hinput"
+      }
+    },
+    {
+      "id": "02_recall-tidy-30",
+      "type": "text",
+      "x": 224.5,
+      "y": 903.5,
+      "width": 241.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-hinput"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 29730,
+      "version": 1,
+      "versionNonce": 29910,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "原 request / recall_id 查询\nRF 先检查当前对象访问权",
+      "originalText": "原 request / recall_id 查询\nRF 先检查当前对象访问权",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-31",
+      "type": "rectangle",
+      "x": 720,
+      "y": 875,
+      "width": 550,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-hstate"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 30721,
+      "version": 1,
+      "versionNonce": 30907,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "02_recall-tidy-54",
+          "type": "arrow"
+        },
+        {
+          "id": "02_recall-tidy-55",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3 目标设计；见阅读说明的需求映射",
+        "node": "hstate"
+      }
+    },
+    {
+      "id": "02_recall-tidy-32",
+      "type": "text",
+      "x": 865.0,
+      "y": 903.5,
+      "width": 260.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-hstate"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 31712,
+      "version": 1,
+      "versionNonce": 31904,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "查原阶段、结果或失败原因\n未完成跟进；已完成重取结果",
+      "originalText": "查原阶段、结果或失败原因\n未完成跟进；已完成重取结果",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-33",
+      "type": "rectangle",
+      "x": 1370,
+      "y": 875,
+      "width": 550,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-hguard"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 32703,
+      "version": 1,
+      "versionNonce": 32901,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "02_recall-tidy-55",
+          "type": "arrow"
+        },
+        {
+          "id": "02_recall-tidy-56",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3 目标设计；见阅读说明的需求映射",
+        "node": "hguard"
+      }
+    },
+    {
+      "id": "02_recall-tidy-34",
+      "type": "text",
+      "x": 1505.0,
+      "y": 903.5,
+      "width": 280.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-hguard"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 33694,
+      "version": 1,
+      "versionNonce": 33898,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "B 重验旧结果全部成员资格\n更正、删除、撤权均阻断旧正文",
+      "originalText": "B 重验旧结果全部成员资格\n更正、删除、撤权均阻断旧正文",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-35",
+      "type": "rectangle",
+      "x": 2020,
+      "y": 875,
+      "width": 550,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-hreturn"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 34685,
+      "version": 1,
+      "versionNonce": 34895,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "02_recall-tidy-56",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3 目标设计；见阅读说明的需求映射",
+        "node": "hreturn"
+      }
+    },
+    {
+      "id": "02_recall-tidy-36",
+      "type": "text",
+      "x": 2154.5,
+      "y": 903.5,
+      "width": 281.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-hreturn"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 35676,
+      "version": 1,
+      "versionNonce": 35892,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "有效返回原结果；失效说明原因\n要最新事实则显式发起新 Recall",
+      "originalText": "有效返回原结果；失效说明原因\n要最新事实则显式发起新 Recall",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-37",
+      "type": "rectangle",
+      "x": 70,
+      "y": 1120,
+      "width": 550,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-rinput"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 36667,
+      "version": 1,
+      "versionNonce": 36889,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "02_recall-tidy-57",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3 目标设计；见阅读说明的需求映射",
+        "node": "rinput"
+      }
+    },
+    {
+      "id": "02_recall-tidy-38",
+      "type": "text",
+      "x": 205.0,
+      "y": 1148.5,
+      "width": 280.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-rinput"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 37658,
+      "version": 1,
+      "versionNonce": 37886,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "中断后先查结果是否已提交\n已提交走历史核验，不重复生成",
+      "originalText": "中断后先查结果是否已提交\n已提交走历史核验，不重复生成",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-39",
+      "type": "rectangle",
+      "x": 720,
+      "y": 1120,
+      "width": 550,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-rcheck"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 38649,
+      "version": 1,
+      "versionNonce": 38883,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "02_recall-tidy-57",
+          "type": "arrow"
+        },
+        {
+          "id": "02_recall-tidy-58",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3 目标设计；见阅读说明的需求映射",
+        "node": "rcheck"
+      }
+    },
+    {
+      "id": "02_recall-tidy-40",
+      "type": "text",
+      "x": 855.0,
+      "y": 1148.5,
+      "width": 280.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-rcheck"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 39640,
+      "version": 1,
+      "versionNonce": 39880,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "未提交：查依赖、期限与处理权\nRF + B 重验身份与数据版本",
+      "originalText": "未提交：查依赖、期限与处理权\nRF + B 重验身份与数据版本",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-41",
+      "type": "rectangle",
+      "x": 1370,
+      "y": 1120,
+      "width": 550,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-resume"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 40631,
+      "version": 1,
+      "versionNonce": 40877,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "02_recall-tidy-58",
+          "type": "arrow"
+        },
+        {
+          "id": "02_recall-tidy-59",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3 目标设计；见阅读说明的需求映射",
+        "node": "resume"
+      }
+    },
+    {
+      "id": "02_recall-tidy-42",
+      "type": "text",
+      "x": 1511.5,
+      "y": 1148.5,
+      "width": 267.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-resume"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 41622,
+      "version": 1,
+      "versionNonce": 41874,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "领域判断安全继续或真实失败\n续作仍用原 ID，必要时重检索",
+      "originalText": "领域判断安全继续或真实失败\n续作仍用原 ID，必要时重检索",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-43",
+      "type": "rectangle",
+      "x": 2020,
+      "y": 1120,
+      "width": 550,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-rend"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 42613,
+      "version": 1,
+      "versionNonce": 42871,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "02_recall-tidy-59",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3 目标设计；见阅读说明的需求映射",
+        "node": "rend"
+      }
+    },
+    {
+      "id": "02_recall-tidy-44",
+      "type": "text",
+      "x": 2145.0,
+      "y": 1148.5,
+      "width": 300.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "02_recall-tidy-1-rend"
+      ],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 43604,
+      "version": 1,
+      "versionNonce": 43868,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "RF 保存恢复进度及可采取动作\n提交前再验；无法继续则告警跟进",
+      "originalText": "RF 保存恢复进度及可采取动作\n提交前再验；无法继续则告警跟进",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-45",
+      "type": "arrow",
+      "x": 510,
+      "y": 246.0,
+      "width": 80,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 44595,
+      "version": 1,
+      "versionNonce": 44865,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          80,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "input",
+        "to": "source"
+      },
+      "startBinding": {
+        "elementId": "02_recall-tidy-9",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "02_recall-tidy-11",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "02_recall-tidy-46",
+      "type": "arrow",
+      "x": 1030,
+      "y": 246.0,
+      "width": 80,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 45586,
+      "version": 1,
+      "versionNonce": 45862,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          80,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "source",
+        "to": "retrieve"
+      },
+      "startBinding": {
+        "elementId": "02_recall-tidy-11",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "02_recall-tidy-13",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "02_recall-tidy-47",
+      "type": "arrow",
+      "x": 1550,
+      "y": 246.0,
+      "width": 80,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 46577,
+      "version": 1,
+      "versionNonce": 46859,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          80,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "retrieve",
+        "to": "guard"
+      },
+      "startBinding": {
+        "elementId": "02_recall-tidy-13",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "02_recall-tidy-15",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "02_recall-tidy-48",
+      "type": "arrow",
+      "x": 2070,
+      "y": 246.0,
+      "width": 80,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 47568,
+      "version": 1,
+      "versionNonce": 47856,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          80,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "guard",
+        "to": "fuse"
+      },
+      "startBinding": {
+        "elementId": "02_recall-tidy-15",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "02_recall-tidy-17",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "02_recall-tidy-49",
+      "type": "arrow",
+      "x": 2370.0,
+      "y": 302,
+      "width": 0.0,
+      "height": 238,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 48559,
+      "version": 1,
+      "versionNonce": 48853,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0.0,
+          0
+        ],
+        [
+          0.0,
+          238
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "fuse",
+        "to": "rank"
+      },
+      "startBinding": {
+        "elementId": "02_recall-tidy-17",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "02_recall-tidy-27",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "02_recall-tidy-50",
+      "type": "arrow",
+      "x": 2150,
+      "y": 596.0,
+      "width": 80,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 49550,
+      "version": 1,
+      "versionNonce": 49850,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          -80,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "rank",
+        "to": "group"
+      },
+      "startBinding": {
+        "elementId": "02_recall-tidy-27",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "02_recall-tidy-25",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "02_recall-tidy-51",
+      "type": "arrow",
+      "x": 1630,
+      "y": 596.0,
+      "width": 80,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 50541,
+      "version": 1,
+      "versionNonce": 50847,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          -80,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "group",
+        "to": "budget"
+      },
+      "startBinding": {
+        "elementId": "02_recall-tidy-25",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "02_recall-tidy-23",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "02_recall-tidy-52",
+      "type": "arrow",
+      "x": 1110,
+      "y": 596.0,
+      "width": 80,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 51532,
+      "version": 1,
+      "versionNonce": 51844,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          -80,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "budget",
+        "to": "final"
+      },
+      "startBinding": {
+        "elementId": "02_recall-tidy-23",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "02_recall-tidy-21",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "02_recall-tidy-53",
+      "type": "arrow",
+      "x": 590,
+      "y": 596.0,
+      "width": 80,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 52523,
+      "version": 1,
+      "versionNonce": 52841,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          -80,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "final",
+        "to": "deliver"
+      },
+      "startBinding": {
+        "elementId": "02_recall-tidy-21",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "02_recall-tidy-19",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "02_recall-tidy-54",
+      "type": "arrow",
+      "x": 620,
+      "y": 931.0,
+      "width": 100,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 53514,
+      "version": 1,
+      "versionNonce": 53838,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          100,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "hinput",
+        "to": "hstate"
+      },
+      "startBinding": {
+        "elementId": "02_recall-tidy-29",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "02_recall-tidy-31",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "02_recall-tidy-55",
+      "type": "arrow",
+      "x": 1270,
+      "y": 931.0,
+      "width": 100,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 54505,
+      "version": 1,
+      "versionNonce": 54835,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          100,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "hstate",
+        "to": "hguard"
+      },
+      "startBinding": {
+        "elementId": "02_recall-tidy-31",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "02_recall-tidy-33",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "02_recall-tidy-56",
+      "type": "arrow",
+      "x": 1920,
+      "y": 931.0,
+      "width": 100,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 55496,
+      "version": 1,
+      "versionNonce": 55832,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          100,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "hguard",
+        "to": "hreturn"
+      },
+      "startBinding": {
+        "elementId": "02_recall-tidy-33",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "02_recall-tidy-35",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "02_recall-tidy-57",
+      "type": "arrow",
+      "x": 620,
+      "y": 1176.0,
+      "width": 100,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 56487,
+      "version": 1,
+      "versionNonce": 56829,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          100,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "rinput",
+        "to": "rcheck"
+      },
+      "startBinding": {
+        "elementId": "02_recall-tidy-37",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "02_recall-tidy-39",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "02_recall-tidy-58",
+      "type": "arrow",
+      "x": 1270,
+      "y": 1176.0,
+      "width": 100,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 57478,
+      "version": 1,
+      "versionNonce": 57826,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          100,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "rcheck",
+        "to": "resume"
+      },
+      "startBinding": {
+        "elementId": "02_recall-tidy-39",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "02_recall-tidy-41",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "02_recall-tidy-59",
+      "type": "arrow",
+      "x": 1920,
+      "y": 1176.0,
+      "width": 100,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 58469,
+      "version": 1,
+      "versionNonce": 58823,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          100,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "resume",
+        "to": "rend"
+      },
+      "startBinding": {
+        "elementId": "02_recall-tidy-41",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "02_recall-tidy-43",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "02_recall-tidy-1-note0",
+      "type": "text",
+      "x": 60,
+      "y": 1320,
+      "width": 1050.015625,
+      "height": 31,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 1982,
+      "version": 1,
+      "versionNonce": 1994,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "RRF（倒数排名融合）：Σ 1/(60+名次)。Working=[A,B]，长期=[B,C] → B≈.0325、A≈.0164、C≈.0161。",
+      "originalText": "RRF（倒数排名融合）：Σ 1/(60+名次)。Working=[A,B]，长期=[B,C] → B≈.0325、A≈.0164、C≈.0161。",
+      "fontSize": 22,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 22,
+      "customData": {}
+    },
+    {
+      "id": "02_recall-tidy-1-note1",
+      "type": "text",
+      "x": 60,
+      "y": 1380,
+      "width": 1195.0,
+      "height": 31,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "02_recall-tidy-1",
+      "roundness": null,
+      "seed": 1982,
+      "version": 1,
+      "versionNonce": 1994,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "RRF 只合并排名，不核验事实。实际 read 与最终 packed 经 RF 交 Operate；成功 read 去重计热，packed 不重复计热。",
+      "originalText": "RRF 只合并排名，不核验事实。实际 read 与最终 packed 经 RF 交 Operate；成功 read 去重计热，packed 不重复计热。",
+      "fontSize": 22,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 22,
+      "customData": {}
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff",
+    "gridSize": null
+  },
+  "files": {}
+}

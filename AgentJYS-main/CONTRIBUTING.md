@@ -20,7 +20,10 @@
 
 ## 唯一字段与机制定义
 
+- [2026-09-22 RF运行服务与HTTP接入](docs/p3/development/08_RF运行服务与HTTP接入.md)：新监测契约、任务附件、维护处置、配置和本地备份恢复的实际接入与验证。
+
 - [契约入口](contracts/p3/README.md)：Python 类型为字段来源，Schema 自动生成。
+- [2026-09-21对象契约接入](docs/p3/development/07_对象契约接入.md)：底座、三流程及跨流程交接的新对象和服务接线边界。
 - [架构与机制](docs/p3/README.md)：领域职责、状态、事务、日志和恢复。
 - [流程责任](docs/p3/development/02_三流程接入与责任表.md)：提供方/消费方及交接完成条件。
 - [运行接入](docs/p3/development/04_公共底座首批实现与运行.md)：可运行的 sample Handler。

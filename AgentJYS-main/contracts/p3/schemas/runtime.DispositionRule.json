@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "comparator": {
+      "enum": [
+        "gt",
+        "ge",
+        "lt",
+        "le",
+        "eq"
+      ],
+      "title": "Comparator",
+      "type": "string"
+    },
+    "consecutive_samples": {
+      "minimum": 1,
+      "title": "Consecutive Samples",
+      "type": "integer"
+    },
+    "cooldown_ms": {
+      "minimum": 1,
+      "title": "Cooldown Ms",
+      "type": "integer"
+    },
+    "deadline_ms": {
+      "minimum": 1,
+      "title": "Deadline Ms",
+      "type": "integer"
+    },
+    "escalation": {
+      "const": "attention_required",
+      "default": "attention_required",
+      "title": "Escalation",
+      "type": "string"
+    },
+    "max_attempts": {
+      "minimum": 1,
+      "title": "Max Attempts",
+      "type": "integer"
+    },
+    "operation_kind": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Operation Kind",
+      "type": "string"
+    },
+    "revision": {
+      "minimum": 1,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "rule_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Rule Id",
+      "type": "string"
+    },
+    "signal_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Signal Id",
+      "type": "string"
+    },
+    "threshold": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        }
+      ],
+      "title": "Threshold"
+    },
+    "verification_operation": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Verification Operation",
+      "type": "string"
+    }
+  },
+  "required": [
+    "rule_id",
+    "revision",
+    "signal_id",
+    "comparator",
+    "threshold",
+    "consecutive_samples",
+    "operation_kind",
+    "max_attempts",
+    "deadline_ms",
+    "cooldown_ms",
+    "verification_operation"
+  ],
+  "title": "DispositionRule",
+  "type": "object",
+  "x-contract-model": "runtime.DispositionRule"
+}

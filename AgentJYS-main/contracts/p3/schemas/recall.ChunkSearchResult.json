@@ -1,0 +1,445 @@
+{
+  "$defs": {
+    "ChunkHit": {
+      "additionalProperties": false,
+      "properties": {
+        "body_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Body Hash",
+          "type": "string"
+        },
+        "chunk_index": {
+          "minimum": 0,
+          "title": "Chunk Index",
+          "type": "integer"
+        },
+        "generation": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Generation",
+          "type": "string"
+        },
+        "input_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Hash",
+          "type": "string"
+        },
+        "memory": {
+          "$ref": "#/$defs/MemoryRef"
+        },
+        "model_space": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Model Space",
+          "type": "string"
+        },
+        "rank": {
+          "minimum": 1,
+          "title": "Rank",
+          "type": "integer"
+        },
+        "score": {
+          "title": "Score",
+          "type": "number"
+        },
+        "score_semantics": {
+          "const": "higher_is_better",
+          "default": "higher_is_better",
+          "title": "Score Semantics",
+          "type": "string"
+        },
+        "vector_id": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Vector Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "memory",
+        "generation",
+        "body_hash",
+        "model_space",
+        "chunk_index",
+        "vector_id",
+        "input_hash",
+        "rank",
+        "score"
+      ],
+      "title": "ChunkHit",
+      "type": "object"
+    },
+    "ChunkSearchRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "cursor": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cursor"
+        },
+        "deadline_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "title": "Deadline At",
+          "type": "string"
+        },
+        "limit": {
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "model_space": {
+          "$ref": "#/$defs/EmbeddingSpace"
+        },
+        "operation_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "selection": {
+          "$ref": "#/$defs/ScopeSelector"
+        },
+        "vector": {
+          "items": {
+            "type": "number"
+          },
+          "minItems": 1,
+          "title": "Vector",
+          "type": "array"
+        }
+      },
+      "required": [
+        "operation_id",
+        "selection",
+        "model_space",
+        "vector",
+        "limit",
+        "deadline_at"
+      ],
+      "title": "ChunkSearchRequest",
+      "type": "object"
+    },
+    "EmbeddingSpace": {
+      "additionalProperties": false,
+      "properties": {
+        "dimensions": {
+          "minimum": 1,
+          "title": "Dimensions",
+          "type": "integer"
+        },
+        "max_input_tokens": {
+          "minimum": 1,
+          "title": "Max Input Tokens",
+          "type": "integer"
+        },
+        "metric": {
+          "enum": [
+            "cosine",
+            "inner_product",
+            "l2"
+          ],
+          "title": "Metric",
+          "type": "string"
+        },
+        "model_id": {
+          "minLength": 1,
+          "title": "Model Id",
+          "type": "string"
+        },
+        "model_revision": {
+          "minLength": 1,
+          "title": "Model Revision",
+          "type": "string"
+        },
+        "model_space": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Model Space",
+          "type": "string"
+        },
+        "normalization": {
+          "enum": [
+            "unit",
+            "none"
+          ],
+          "title": "Normalization",
+          "type": "string"
+        },
+        "passage_prefix": {
+          "title": "Passage Prefix",
+          "type": "string"
+        },
+        "query_prefix": {
+          "title": "Query Prefix",
+          "type": "string"
+        },
+        "tokenizer_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Tokenizer Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model_space",
+        "model_id",
+        "model_revision",
+        "dimensions",
+        "tokenizer_id",
+        "query_prefix",
+        "passage_prefix",
+        "normalization",
+        "metric",
+        "max_input_tokens"
+      ],
+      "title": "EmbeddingSpace",
+      "type": "object"
+    },
+    "MemoryRef": {
+      "additionalProperties": false,
+      "properties": {
+        "memory_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Memory Id",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scope",
+        "memory_id",
+        "version"
+      ],
+      "title": "MemoryRef",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "application_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Application Id",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        },
+        "tenant_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "user_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenant_id",
+        "application_id",
+        "user_id",
+        "agent_id"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "ScopeSelector": {
+      "additionalProperties": false,
+      "description": "A requested restriction. Missing fields never grant access.",
+      "properties": {
+        "agent_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Agent Id"
+        },
+        "application_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Application Id"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        },
+        "user_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Id"
+        }
+      },
+      "title": "ScopeSelector",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "coverage": {
+      "enum": [
+        "complete",
+        "partial",
+        "unavailable"
+      ],
+      "title": "Coverage",
+      "type": "string"
+    },
+    "hits": {
+      "items": {
+        "$ref": "#/$defs/ChunkHit"
+      },
+      "title": "Hits",
+      "type": "array"
+    },
+    "next_cursor": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Next Cursor"
+    },
+    "reason_code": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Reason Code",
+      "type": "string"
+    },
+    "request": {
+      "$ref": "#/$defs/ChunkSearchRequest"
+    }
+  },
+  "required": [
+    "request",
+    "hits",
+    "coverage",
+    "reason_code"
+  ],
+  "title": "ChunkSearchResult",
+  "type": "object",
+  "x-contract-model": "recall.ChunkSearchResult"
+}

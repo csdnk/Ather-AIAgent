@@ -1,0 +1,1207 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" modified="2026-09-21T00:00:00.000Z" agent="Recall current source diagram" version="24.7.17" type="device">
+  <diagram id="main" name="01 · Recall 主流程">
+    <mxGraphModel dx="2320" dy="1630" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2320" pageHeight="1630" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <object id="title" label="01 · Recall 主流程" source="">
+          <mxCell vertex="1" parent="1" style="text;html=0;fontFamily=Microsoft YaHei;fontSize=28;fontStyle=1;align=left;fontColor=#2F3541;strokeColor=none;fillColor=none;">
+            <mxGeometry as="geometry" x="40" y="25" width="2240" height="48" />
+          </mxCell>
+        </object>
+        <object id="panel0" label="请求与主处理链" source="">
+          <mxCell vertex="1" parent="1" style="swimlane;html=0;horizontal=1;startSize=40;rounded=1;arcSize=6;fillColor=#EEF0E8;swimlaneFillColor=#FAFBF8;strokeColor=none;fontFamily=Microsoft YaHei;fontSize=19;fontStyle=1;fontColor=#3F4854;">
+            <mxGeometry as="geometry" x="490" y="95" width="600" height="1460" />
+          </mxCell>
+        </object>
+        <object id="panel1" label="幂等与历史结果" source="">
+          <mxCell vertex="1" parent="1" style="swimlane;html=0;horizontal=1;startSize=40;rounded=1;arcSize=6;fillColor=#EEF0E8;swimlaneFillColor=#FAFBF8;strokeColor=none;fontFamily=Microsoft YaHei;fontSize=19;fontStyle=1;fontColor=#3F4854;">
+            <mxGeometry as="geometry" x="40" y="270" width="400" height="410" />
+          </mxCell>
+        </object>
+        <object id="panel2" label="异常与输出" source="">
+          <mxCell vertex="1" parent="1" style="swimlane;html=0;horizontal=1;startSize=40;rounded=1;arcSize=6;fillColor=#EEF0E8;swimlaneFillColor=#FAFBF8;strokeColor=none;fontFamily=Microsoft YaHei;fontSize=19;fontStyle=1;fontColor=#3F4854;">
+            <mxGeometry as="geometry" x="1140" y="95" width="420" height="1460" />
+          </mxCell>
+        </object>
+        <object id="panel3" label="本页步骤的技术来源（说明卡，不是新增执行步骤）" source="">
+          <mxCell vertex="1" parent="1" style="swimlane;html=0;horizontal=1;startSize=40;rounded=1;arcSize=6;fillColor=#EEF0E8;swimlaneFillColor=#FAFBF8;strokeColor=none;fontFamily=Microsoft YaHei;fontSize=19;fontStyle=1;fontColor=#3F4854;">
+            <mxGeometry as="geometry" x="1610" y="95" width="670" height="1495" />
+          </mxCell>
+        </object>
+        <object id="start" label="调用 Recall&#10;TrustedContext + RecallRequest" source="recall/basic/service.py::Recall.recall">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=45;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="600" y="145" width="380" height="68" />
+          </mxCell>
+        </object>
+        <object id="auth" label="01 选择 scope，生成 recall_id / 请求签名&#10;事务内检查当前身份与 READ 权限" source="recall/basic/service.py::Recall.recall | 技术来源：01 / 02 / 06 · 准入、请求记录、资格核验; 项目自研：Recall.recall / Remember.final_guard; 当前身份、精确版本、删除与来源资格由 P3 判断; LangMem 不负责 Recall 授权或有效性; SQLite 直接用于持久化；规则由项目实现">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="600" y="260" width="380" height="80" />
+          </mxCell>
+        </object>
+        <object id="prev" label="已有同一 recall_id？" source="recall/basic/service.py::Recall.recall">
+          <mxCell vertex="1" parent="1" style="rhombus;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="655" y="380" width="270" height="104" />
+          </mxCell>
+        </object>
+        <object id="save" label="02 新建 accepted 请求记录&#10;保存请求签名、上下文和 deadline" source="recall/basic/service.py::Recall.recall | 技术来源：01 / 02 / 06 · 准入、请求记录、资格核验; 项目自研：Recall.recall / Remember.final_guard; 当前身份、精确版本、删除与来源资格由 P3 判断; LangMem 不负责 Recall 授权或有效性; SQLite 直接用于持久化；规则由项目实现">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="600" y="525" width="380" height="80" />
+          </mxCell>
+        </object>
+        <object id="select" label="03 选择来源（select）&#10;auto / working / long_term / both" source="recall/basic/service.py::Recall.retrieve | 技术来源：03 / 04 · 来源选择与并发候选; 设计参考：LlamaIndex · BaseRetriever.aretrieve; QueryFusionRetriever._run_async_queries; 参考：统一候选接口 → 多路检索 → 汇总; 本地：Sources.discover + Recall.retrieve; 来源选择、覆盖状态、统一截止时间由 P3 实现">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="600" y="645" width="380" height="76" />
+          </mxCell>
+        </object>
+        <object id="discover" label="04 并发发现候选（discover → load）&#10;收集来源覆盖、候选、读取记录&#10;展开见第 02 页" source="recall/basic/retrievers.py::Sources.discover | 技术来源：03 / 04 · 来源选择与并发候选; 设计参考：LlamaIndex · BaseRetriever.aretrieve; QueryFusionRetriever._run_async_queries; 参考：统一候选接口 → 多路检索 → 汇总; 本地：Sources.discover + Recall.retrieve; 来源选择、覆盖状态、统一截止时间由 P3 实现">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="600" y="760" width="380" height="90" />
+          </mxCell>
+        </object>
+        <object id="fuse" label="05 RRF 合并并排序&#10;按完整 MemoryRef 去重，rank 从 1 开始&#10;每路贡献 1 / (60 + rank)" source="recall/basic/components.py::fuse | 技术来源：05 · RRF 融合; 设计参考：LlamaIndex · QueryFusionRetriever; ._reciprocal_rerank_fusion; 参考：每路按名次贡献倒数分，再合并排序; 本地 fuse：完整 MemoryRef 去重，名次从 1 开始; 研读版按节点 hash、名次从 0；未直接调用该类">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="600" y="890" width="380" height="86" />
+          </mxCell>
+        </object>
+        <object id="guard" label="06 重排前再次核验资格（rank）&#10;排除越权 / 旧版 / 删除 / 失效来源&#10;同事务保存已发生的 read 访问事件" source="recall/basic/service.py::Recall.retrieve; remember/basic/service.py::Remember.final_guard | 技术来源：01 / 02 / 06 · 准入、请求记录、资格核验; 项目自研：Recall.recall / Remember.final_guard; 当前身份、精确版本、删除与来源资格由 P3 判断; LangMem 不负责 Recall 授权或有效性; SQLite 直接用于持久化；规则由项目实现">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="600" y="1010" width="380" height="90" />
+          </mxCell>
+        </object>
+        <object id="rank" label="07 可选重排（rerank）&#10;disabled / required / fallback&#10;展开见第 03 页左侧" source="recall/basic/service.py::Recall.rerank | 技术来源：07 · 可选重排; 直接调用：Sentence Transformers; CrossEncoder.predict（配置启用时）; 问题与每条正文组成文本对，获得相关性分数; P3 自行排序并控制超时、并发与降级; BaseNodePostprocessor 仅作为后处理接口参考">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="600" y="1140" width="380" height="78" />
+          </mxCell>
+        </object>
+        <object id="pack" label="08 按完整记忆组包与判断结果&#10;assemble → available / degraded / empty&#10;失败规则见第 03 页右侧" source="recall/basic/components.py::assemble; recall/basic/service.py::Recall.retrieve | 技术来源：08 · 计数与 ContextPack; 直接调用：tiktoken.get_encoding → Encoding.encode; 可选 Hugging Face Tokenizer.encode; 框架只提供 token 计数；P3 assemble 控制取舍; 最多条数、整条跳过与 outcome 判断是项目逻辑; 未调用 LlamaIndex Query Engine 生成回答">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="600" y="1260" width="380" height="84" />
+          </mxCell>
+        </object>
+        <object id="commit" label="09 finalize：同一事务最终核验与提交&#10;核验当前资格、请求仍为 running&#10;写 ContextPack + completed + packed 事件&#10;提交前再次核验身份与截止时间" source="recall/basic/service.py::Recall.retrieve | 技术来源：09 / 贯穿节点 · 提交、事件与追溯; 直接使用 SQLite；借鉴 Transactional Outbox 模式; 同事务：业务结果 + 待投递事件; Trace 参考 OpenTelemetry / W3C 的关联概念; 当前落地：本地 node_logs 与阶段记录; 未接入 OTel SDK / Collector 或 Temporal Replay">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#EAF4EC;strokeColor=#528264;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="585" y="1390" width="410" height="120" />
+          </mxCell>
+        </object>
+        <object id="sign" label="请求签名相同？" source="recall/basic/service.py::Recall.recall">
+          <mxCell vertex="1" parent="1" style="rhombus;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="105" y="325" width="270" height="100" />
+          </mxCell>
+        </object>
+        <object id="state" label="原请求已 completed？" source="recall/basic/service.py::Recall.recall">
+          <mxCell vertex="1" parent="1" style="rhombus;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="105" y="475" width="270" height="100" />
+          </mxCell>
+        </object>
+        <object id="reuse" label="重新核验历史 ContextPack&#10;不能直接返回已失效正文&#10;展开见第 04 页" source="recall/basic/service.py::Recall.result">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F0ECF7;strokeColor=#8E78AA;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="80" y="595" width="320" height="82" />
+          </mxCell>
+        </object>
+        <object id="early" label="准入 / 幂等拒绝&#10;权限不足 / 同键内容冲突&#10;请求仍在执行 / 原请求已中断" source="recall/basic/service.py::Recall.recall">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#FBECEE;strokeColor=#B56773;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1170" y="175" width="360" height="100" />
+          </mxCell>
+        </object>
+        <object id="scope" label="总截止时间覆盖新请求处理&#10;各来源 / 重排另有局部超时&#10;合约、权限、版本错误不得伪装为空" source="recall/basic/service.py::Recall.recall; recall/basic/retrievers.py::Sources.discover">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1170" y="440" width="360" height="96" />
+          </mxCell>
+        </object>
+        <object id="fail" label="新请求执行异常&#10;取消 → EXECUTION_INTERRUPTED&#10;超时 → DEADLINE_EXCEEDED&#10;领域异常保留错误码；其他异常归依赖失败" source="recall/basic/service.py::Recall.recall">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#FBECEE;strokeColor=#B56773;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1170" y="935" width="360" height="110" />
+          </mxCell>
+        </object>
+        <object id="failed" label="事务记录 failed / reason&#10;result_available = false&#10;返回错误，不生成成功 ContextPack" source="recall/basic/service.py::Recall.recall">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#FBECEE;strokeColor=#B56773;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1170" y="1105" width="360" height="95" />
+          </mxCell>
+        </object>
+        <object id="result" label="返回已提交的 ContextPack&#10;含 coverage / outcome / 来源与版本&#10;预算、tokenizer_id、降级原因" source="recall/basic/service.py::Recall.retrieve">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=45;whiteSpace=wrap;html=0;fillColor=#EAF4EC;strokeColor=#528264;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1170" y="1390" width="360" height="104" />
+          </mxCell>
+        </object>
+        <object id="trace" label="贯穿各节点：trace_id + recall_id&#10;日志 / span 与阶段持久记录&#10;追溯与过期处理见第 04 页" source="runtime/foundation/telemetry.py; recall/basic/service.py::Recall.stage | 技术来源：09 / 贯穿节点 · 提交、事件与追溯; 直接使用 SQLite；借鉴 Transactional Outbox 模式; 同事务：业务结果 + 待投递事件; Trace 参考 OpenTelemetry / W3C 的关联概念; 当前落地：本地 node_logs 与阶段记录; 未接入 OTel SDK / Collector 或 Temporal Replay">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="60" y="810" width="350" height="100" />
+          </mxCell>
+        </object>
+        <object id="limits" label="当前实现边界&#10;无混合索引；不生成自然语言答案&#10;assemble 按单条完整记忆组装&#10;尚未自动形成完整冲突组" source="recall/basic/components.py::assemble">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="60" y="1045" width="350" height="114" />
+          </mxCell>
+        </object>
+        <object id="reference_legend" label="绿色：直接调用（按配置）  紫色：设计 / 概念参考&#10;黄色：成熟模式  灰色：项目自研 / 当前边界" source="">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1630" y="150" width="630" height="66" />
+          </mxCell>
+        </object>
+        <object id="reference_1" label="01 / 02 / 06 · 准入、请求记录、资格核验&#10;项目自研：Recall.recall / Remember.final_guard&#10;当前身份、精确版本、删除与来源资格由 P3 判断&#10;LangMem 不负责 Recall 授权或有效性&#10;SQLite 直接用于持久化；规则由项目实现" source="recall/basic/service.py::Recall.recall; recall/basic/service.py::Recall.recall; recall/basic/service.py::Recall.retrieve; remember/basic/service.py::Remember.final_guard">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1630" y="235.0" width="630" height="136" />
+          </mxCell>
+        </object>
+        <object id="reference_2" label="03 / 04 · 来源选择与并发候选&#10;设计参考：LlamaIndex · BaseRetriever.aretrieve&#10;QueryFusionRetriever._run_async_queries&#10;参考：统一候选接口 → 多路检索 → 汇总&#10;本地：Sources.discover + Recall.retrieve&#10;来源选择、覆盖状态、统一截止时间由 P3 实现" source="recall/basic/service.py::Recall.retrieve; recall/basic/retrievers.py::Sources.discover">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F0ECF7;strokeColor=#8E78AA;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1630" y="461.66666666666663" width="630" height="156" />
+          </mxCell>
+        </object>
+        <object id="reference_3" label="05 · RRF 融合&#10;设计参考：LlamaIndex · QueryFusionRetriever&#10;._reciprocal_rerank_fusion&#10;参考：每路按名次贡献倒数分，再合并排序&#10;本地 fuse：完整 MemoryRef 去重，名次从 1 开始&#10;研读版按节点 hash、名次从 0；未直接调用该类" source="recall/basic/components.py::fuse">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F0ECF7;strokeColor=#8E78AA;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1630" y="688.3333333333333" width="630" height="156" />
+          </mxCell>
+        </object>
+        <object id="reference_4" label="07 · 可选重排&#10;直接调用：Sentence Transformers&#10;CrossEncoder.predict（配置启用时）&#10;问题与每条正文组成文本对，获得相关性分数&#10;P3 自行排序并控制超时、并发与降级&#10;BaseNodePostprocessor 仅作为后处理接口参考" source="recall/basic/service.py::Recall.rerank">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#EAF4EC;strokeColor=#528264;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1630" y="915.0" width="630" height="156" />
+          </mxCell>
+        </object>
+        <object id="reference_5" label="08 · 计数与 ContextPack&#10;直接调用：tiktoken.get_encoding → Encoding.encode&#10;可选 Hugging Face Tokenizer.encode&#10;框架只提供 token 计数；P3 assemble 控制取舍&#10;最多条数、整条跳过与 outcome 判断是项目逻辑&#10;未调用 LlamaIndex Query Engine 生成回答" source="recall/basic/components.py::assemble; recall/basic/service.py::Recall.retrieve">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#EAF4EC;strokeColor=#528264;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1630" y="1141.6666666666665" width="630" height="156" />
+          </mxCell>
+        </object>
+        <object id="reference_6" label="09 / 贯穿节点 · 提交、事件与追溯&#10;直接使用 SQLite；借鉴 Transactional Outbox 模式&#10;同事务：业务结果 + 待投递事件&#10;Trace 参考 OpenTelemetry / W3C 的关联概念&#10;当前落地：本地 node_logs 与阶段记录&#10;未接入 OTel SDK / Collector 或 Temporal Replay" source="recall/basic/service.py::Recall.retrieve; runtime/foundation/telemetry.py; recall/basic/service.py::Recall.stage">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1630" y="1368.3333333333333" width="630" height="156" />
+          </mxCell>
+        </object>
+        <mxCell id="edge0" value="" edge="1" parent="1" source="start" target="auth" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge1" value="" edge="1" parent="1" source="auth" target="prev" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge2" value="" edge="1" parent="1" source="save" target="select" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge3" value="" edge="1" parent="1" source="select" target="discover" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge4" value="" edge="1" parent="1" source="discover" target="fuse" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge5" value="" edge="1" parent="1" source="fuse" target="guard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge6" value="" edge="1" parent="1" source="guard" target="rank" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge7" value="" edge="1" parent="1" source="rank" target="pack" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge8" value="" edge="1" parent="1" source="pack" target="commit" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge9" value="否" edge="1" parent="1" source="prev" target="save" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint as="offset" x="18.0" y="1.5" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge10" value="是" edge="1" parent="1" source="prev" target="sign" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="515.0" y="432.0" />
+              <mxPoint x="515.0" y="375.0" />
+            </Array>
+            <mxPoint as="offset" x="-33.0" y="17.5" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge11" value="是" edge="1" parent="1" source="sign" target="state" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge12" value="是" edge="1" parent="1" source="state" target="reuse" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge13" value="否：签名冲突" edge="1" parent="1" source="sign" target="early" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#B56773;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="240" y="230" />
+              <mxPoint x="1350" y="230" />
+              <mxPoint x="1350" y="155" />
+            </Array>
+            <mxPoint as="offset" x="-405.0" y="-9.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge14" value="否：进行中或失败" edge="1" parent="1" source="state" target="early" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#B56773;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="55" y="525" />
+              <mxPoint x="55" y="125" />
+              <mxPoint x="1550" y="125" />
+              <mxPoint x="1550" y="225" />
+            </Array>
+            <mxPoint as="offset" x="552.5" y="-13.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge15" value="拒绝" edge="1" parent="1" source="auth" target="early" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#B56773;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="1120" y="300" />
+              <mxPoint x="1120" y="225" />
+            </Array>
+            <mxPoint as="offset" x="-32.5" y="-15.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge16" value="执行异常" edge="1" parent="1" source="discover" target="fail" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#B56773;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=1;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="1120" y="805" />
+              <mxPoint x="1120" y="900" />
+              <mxPoint x="1350" y="900" />
+            </Array>
+            <mxPoint as="offset" x="125.0" y="-8.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge17" value="" edge="1" parent="1" source="fail" target="failed" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#B56773;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge18" value="提交成功" edge="1" parent="1" source="commit" target="result" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="1082.5" y="1450.0" />
+              <mxPoint x="1082.5" y="1442.0" />
+            </Array>
+            <mxPoint as="offset" x="-2.5" y="-6.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge19" value="核验 / 提交失败" edge="1" parent="1" source="commit" target="failed" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#B56773;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="1120" y="1450" />
+              <mxPoint x="1120" y="1240" />
+              <mxPoint x="1350" y="1240" />
+            </Array>
+            <mxPoint as="offset" x="0.0" y="-2.5" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge20" value="阶段记录" edge="1" parent="1" source="trace" target="guard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;dashed=1;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="460" y="860" />
+              <mxPoint x="460" y="1055" />
+            </Array>
+            <mxPoint as="offset" x="10.0" y="-42.5" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="sources" name="02 · 来源选择与候选发现">
+    <mxGraphModel dx="2380" dy="1740" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2380" pageHeight="1740" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <object id="title" label="02 · 来源选择与候选发现" source="">
+          <mxCell vertex="1" parent="1" style="text;html=0;fontFamily=Microsoft YaHei;fontSize=28;fontStyle=1;align=left;fontColor=#2F3541;strokeColor=none;fillColor=none;">
+            <mxGeometry as="geometry" x="40" y="25" width="2300" height="48" />
+          </mxCell>
+        </object>
+        <object id="panel0" label="Working：本地短期记忆" source="">
+          <mxCell vertex="1" parent="1" style="swimlane;html=0;horizontal=1;startSize=40;rounded=1;arcSize=6;fillColor=#EEF0E8;swimlaneFillColor=#FAFBF8;strokeColor=none;fontFamily=Microsoft YaHei;fontSize=19;fontStyle=1;fontColor=#3F4854;">
+            <mxGeometry as="geometry" x="40" y="315" width="650" height="1295" />
+          </mxCell>
+        </object>
+        <object id="panel1" label="Long-term：查询向量与权威正文" source="">
+          <mxCell vertex="1" parent="1" style="swimlane;html=0;horizontal=1;startSize=40;rounded=1;arcSize=6;fillColor=#EEF0E8;swimlaneFillColor=#FAFBF8;strokeColor=none;fontFamily=Microsoft YaHei;fontSize=19;fontStyle=1;fontColor=#3F4854;">
+            <mxGeometry as="geometry" x="760" y="315" width="860" height="1295" />
+          </mxCell>
+        </object>
+        <object id="panel2" label="本页步骤的技术来源（说明卡，不是新增执行步骤）" source="">
+          <mxCell vertex="1" parent="1" style="swimlane;html=0;horizontal=1;startSize=40;rounded=1;arcSize=6;fillColor=#EEF0E8;swimlaneFillColor=#FAFBF8;strokeColor=none;fontFamily=Microsoft YaHei;fontSize=19;fontStyle=1;fontColor=#3F4854;">
+            <mxGeometry as="geometry" x="1670" y="95" width="670" height="1605" />
+          </mxCell>
+        </object>
+        <object id="entry" label="来源选择：auto 有 session/task → 两路；否则 → 长期&#10;显式 working / long_term / both 按请求选择" source="recall/basic/service.py::Recall.retrieve | 技术来源：来源选择 / 并发任务; 设计参考：LlamaIndex · BaseRetriever.aretrieve; QueryFusionRetriever._run_async_queries; 参考可组合检索器与异步汇总; P3 自定 auto 规则、source_timeout 与 coverage; 未启用框架的默认多查询生成">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F0ECF7;strokeColor=#8E78AA;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="405" y="105" width="830" height="85" />
+          </mxCell>
+        </object>
+        <object id="parallel" label="为所选来源创建并发任务；每路有 source_timeout&#10;超时或依赖不可用 → 该路 unavailable；其他合约/权限错误向外抛" source="recall/basic/retrievers.py::Sources.discover | 技术来源：来源选择 / 并发任务; 设计参考：LlamaIndex · BaseRetriever.aretrieve; QueryFusionRetriever._run_async_queries; 参考可组合检索器与异步汇总; P3 自定 auto 规则、source_timeout 与 coverage; 未启用框架的默认多查询生成">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="390" y="225" width="860" height="80" />
+          </mxCell>
+        </object>
+        <object id="wread" label="读取 Remember.working&#10;每页 100 条，最多 10 页" source="recall/basic/retrievers.py::Sources.working | 技术来源：Working · 读取与本地排序; 项目自研：Sources.working; LexicalEmbedding.features → 特征点积 → Top K; 字符 / 双字符哈希特征，不是 BGE 模型; 不调用 LlamaIndex，也不建设 BM25 混合索引">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="165" y="390" width="390" height="80" />
+          </mxCell>
+        </object>
+        <object id="wscope" label="核验每条 scope 匹配&#10;记录实际已读取版本与耗时" source="recall/basic/retrievers.py::Sources.working | 技术来源：Working · 读取与本地排序; 项目自研：Sources.working; LexicalEmbedding.features → 特征点积 → Top K; 字符 / 双字符哈希特征，不是 BGE 模型; 不调用 LlamaIndex，也不建设 BM25 混合索引">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="165" y="530" width="390" height="80" />
+          </mxCell>
+        </object>
+        <object id="wbudget" label="仍有下一页但已到页数上限？" source="recall/basic/retrievers.py::Sources.working">
+          <mxCell vertex="1" parent="1" style="rhombus;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="200" y="660" width="320" height="110" />
+          </mxCell>
+        </object>
+        <object id="wpartial" label="coverage = partial&#10;working_page_budget_exhausted" source="recall/basic/retrievers.py::Sources.working">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="90" y="830" width="290" height="74" />
+          </mxCell>
+        </object>
+        <object id="wscore" label="文本正规化 → 字符/双字符哈希特征&#10;计算归一化特征点积&#10;这是本地基线，不是 BGE 调用" source="recall/basic/adapters.py::LexicalEmbedding.features | 技术来源：Working · 读取与本地排序; 项目自研：Sources.working; LexicalEmbedding.features → 特征点积 → Top K; 字符 / 双字符哈希特征，不是 BGE 模型; 不调用 LlamaIndex，也不建设 BM25 混合索引">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="165" y="995" width="390" height="96" />
+          </mxCell>
+        </object>
+        <object id="wtop" label="按分数降序、引用稳定排序&#10;取 candidate_limit，再保留正分候选&#10;默认上限 20 条" source="recall/basic/retrievers.py::Sources.working | 技术来源：Working · 读取与本地排序; 项目自研：Sources.working; LexicalEmbedding.features → 特征点积 → Top K; 字符 / 双字符哈希特征，不是 BGE 模型; 不调用 LlamaIndex，也不建设 BM25 混合索引">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="165" y="1160" width="390" height="94" />
+          </mxCell>
+        </object>
+        <object id="wout" label="返回 Working SourceResult&#10;candidates / reads / coverage / reason" source="recall/basic/retrievers.py::Sources.working">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=45;whiteSpace=wrap;html=0;fillColor=#EAF4EC;strokeColor=#528264;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="165" y="1380" width="390" height="88" />
+          </mxCell>
+        </object>
+        <object id="embed" label="EmbeddingPort.embed（Query）&#10;绑定 operation_id、输入 hash、用途与模型空间&#10;部署可选 NativeP3Embedding 或 lexical 基线" source="recall/basic/retrievers.py::Sources.long_term; runtime/flows/host.py::ThreeFlows.__init__ | 技术来源：长期 · Query 编码（ONNX 后端启用时）; 直接调用：FastEmbed · TextEmbedding.query_embed; Remember 正文编码对应 passage_embed; FastEmbed 内部：分词 → ONNX 图推理 → 向量后处理; 底层直接使用 ONNX Runtime · InferenceSession.run; 本地入口：FastEmbedOnnxBackend.embed; BGE 是可配置模型权重，不是编排框架">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="970" y="390" width="450" height="94" />
+          </mxCell>
+        </object>
+        <object id="bind" label="核对编码结果绑定与有限数值&#10;不匹配 → CONTRACT_VIOLATION" source="recall/basic/retrievers.py::Sources.long_term | 技术来源：长期 · 编码结果绑定核验; 项目自研：Sources.long_term; 检查 operation_id / input_hash / model_space; 检查维度、数量与有限数值; 编码成功不等于结果可以安全用于当前请求; FastEmbed / ONNX Runtime 不提供这层业务约束">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="970" y="525" width="450" height="75" />
+          </mxCell>
+        </object>
+        <object id="search" label="VectorPort.search：limit 初始 20&#10;scope + model_space + deadline&#10;配置选择 Milvus 或 SQLite 向量适配" source="recall/basic/retrievers.py::Sources.long_term; runtime/flows/host.py | 技术来源：长期 · 向量库查询（Milvus 配置启用时）; 直接调用：pymilvus · MilvusClient.search; 本地：MilvusVectors.search → call(&quot;search&quot;); scope 与 model_space 过滤；IP 相似度；Top K; 未使用 LlamaIndex 的 MilvusVectorStore 适配器; SQLiteVectors 是另一种本地装配选择">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="970" y="640" width="450" height="94" />
+          </mxCell>
+        </object>
+        <object id="load" label="按 rank 排序、限定范围与模型空间&#10;Remember.load 按精确 MemoryRef 读权威正文&#10;记录读取；不直接信任向量库正文" source="recall/basic/retrievers.py::Sources.long_term | 技术来源：长期 · 候选引用 → 权威正文 → 资格; 设计参考：LlamaIndex · VectorIndexRetriever; ._aretrieve / _aget_nodes_with_embeddings; 参考：向量检索与正文加载分离; P3：Remember.load 读取精确版本的权威正文; READY、scope、内容 hash 与版本核验由 P3 补充">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="970" y="780" width="450" height="100" />
+          </mxCell>
+        </object>
+        <object id="qualify" label="仅保留投影 READY + 相同模型空间&#10;正文 content_hash 匹配向量 input_hash&#10;同一引用只保留一次" source="recall/basic/retrievers.py::Sources.long_term | 技术来源：长期 · 候选引用 → 权威正文 → 资格; 设计参考：LlamaIndex · VectorIndexRetriever; ._aretrieve / _aget_nodes_with_embeddings; 参考：向量检索与正文加载分离; P3：Remember.load 读取精确版本的权威正文; READY、scope、内容 hash 与版本核验由 P3 补充">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="970" y="925" width="450" height="90" />
+          </mxCell>
+        </object>
+        <object id="enough" label="候选已足够，或库返回数 &lt; limit？" source="recall/basic/retrievers.py::Sources.long_term | 技术来源：扩查与来源覆盖汇总; 项目自研：Sources.long_term / Recall.retrieve; 过滤后不足时扩大 limit，最多 max_discovery; 记录 complete / partial / unavailable; 不把依赖中断冒充正常空结果; 属于 P3 对检索框架的工程与产品约束">
+          <mxCell vertex="1" parent="1" style="rhombus;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1015" y="1060" width="360" height="105" />
+          </mxCell>
+        </object>
+        <object id="max" label="达到 max_discovery？&#10;默认 100" source="recall/basic/retrievers.py::Sources.long_term | 技术来源：扩查与来源覆盖汇总; 项目自研：Sources.long_term / Recall.retrieve; 过滤后不足时扩大 limit，最多 max_discovery; 记录 complete / partial / unavailable; 不把依赖中断冒充正常空结果; 属于 P3 对检索框架的工程与产品约束">
+          <mxCell vertex="1" parent="1" style="rhombus;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1015" y="1230" width="360" height="110" />
+          </mxCell>
+        </object>
+        <object id="grow" label="limit 翻倍，上限 max_discovery" source="recall/basic/retrievers.py::Sources.long_term | 技术来源：扩查与来源覆盖汇总; 项目自研：Sources.long_term / Recall.retrieve; 过滤后不足时扩大 limit，最多 max_discovery; 记录 complete / partial / unavailable; 不把依赖中断冒充正常空结果; 属于 P3 对检索框架的工程与产品约束">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="770" y="1400" width="310" height="74" />
+          </mxCell>
+        </object>
+        <object id="lout" label="返回 Long-term SourceResult&#10;达到上限且仍有剔除 → partial&#10;其余保留向量查询 coverage / reason" source="recall/basic/retrievers.py::Sources.long_term | 技术来源：扩查与来源覆盖汇总; 项目自研：Sources.long_term / Recall.retrieve; 过滤后不足时扩大 limit，最多 max_discovery; 记录 complete / partial / unavailable; 不把依赖中断冒充正常空结果; 属于 P3 对检索框架的工程与产品约束">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=45;whiteSpace=wrap;html=0;fillColor=#EAF4EC;strokeColor=#528264;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1190" y="1430" width="390" height="110" />
+          </mxCell>
+        </object>
+        <object id="join" label="主流程 gather 汇总两路：保留各路状态，未选来源为 not_requested&#10;随后 RRF 融合 → 重排前资格核验；缺失来源不能伪装成“正常无结果”" source="recall/basic/service.py::Recall.retrieve | 技术来源：扩查与来源覆盖汇总; 项目自研：Sources.long_term / Recall.retrieve; 过滤后不足时扩大 limit，最多 max_discovery; 记录 complete / partial / unavailable; 不把依赖中断冒充正常空结果; 属于 P3 对检索框架的工程与产品约束">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=45;whiteSpace=wrap;html=0;fillColor=#F0ECF7;strokeColor=#8E78AA;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="355" y="1635" width="960" height="78" />
+          </mxCell>
+        </object>
+        <object id="reference_legend" label="绿色：直接调用（按配置）  紫色：设计 / 概念参考&#10;黄色：成熟模式  灰色：项目自研 / 当前边界" source="">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1690" y="150" width="630" height="66" />
+          </mxCell>
+        </object>
+        <object id="reference_1" label="来源选择 / 并发任务&#10;设计参考：LlamaIndex · BaseRetriever.aretrieve&#10;QueryFusionRetriever._run_async_queries&#10;参考可组合检索器与异步汇总&#10;P3 自定 auto 规则、source_timeout 与 coverage&#10;未启用框架的默认多查询生成" source="recall/basic/service.py::Recall.retrieve; recall/basic/retrievers.py::Sources.discover">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F0ECF7;strokeColor=#8E78AA;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1690" y="235.0" width="630" height="156" />
+          </mxCell>
+        </object>
+        <object id="reference_2" label="Working · 读取与本地排序&#10;项目自研：Sources.working&#10;LexicalEmbedding.features → 特征点积 → Top K&#10;字符 / 双字符哈希特征，不是 BGE 模型&#10;不调用 LlamaIndex，也不建设 BM25 混合索引" source="recall/basic/retrievers.py::Sources.working; recall/basic/retrievers.py::Sources.working; recall/basic/adapters.py::LexicalEmbedding.features; recall/basic/retrievers.py::Sources.working">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1690" y="445.0" width="630" height="136" />
+          </mxCell>
+        </object>
+        <object id="reference_3" label="长期 · Query 编码（ONNX 后端启用时）&#10;直接调用：FastEmbed · TextEmbedding.query_embed&#10;Remember 正文编码对应 passage_embed&#10;FastEmbed 内部：分词 → ONNX 图推理 → 向量后处理&#10;底层直接使用 ONNX Runtime · InferenceSession.run&#10;本地入口：FastEmbedOnnxBackend.embed&#10;BGE 是可配置模型权重，不是编排框架" source="recall/basic/retrievers.py::Sources.long_term; runtime/flows/host.py::ThreeFlows.__init__">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#EAF4EC;strokeColor=#528264;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1690" y="655.0" width="630" height="178" />
+          </mxCell>
+        </object>
+        <object id="reference_4" label="长期 · 编码结果绑定核验&#10;项目自研：Sources.long_term&#10;检查 operation_id / input_hash / model_space&#10;检查维度、数量与有限数值&#10;编码成功不等于结果可以安全用于当前请求&#10;FastEmbed / ONNX Runtime 不提供这层业务约束" source="recall/basic/retrievers.py::Sources.long_term">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1690" y="865.0" width="630" height="156" />
+          </mxCell>
+        </object>
+        <object id="reference_5" label="长期 · 向量库查询（Milvus 配置启用时）&#10;直接调用：pymilvus · MilvusClient.search&#10;本地：MilvusVectors.search → call(&quot;search&quot;)&#10;scope 与 model_space 过滤；IP 相似度；Top K&#10;未使用 LlamaIndex 的 MilvusVectorStore 适配器&#10;SQLiteVectors 是另一种本地装配选择" source="recall/basic/retrievers.py::Sources.long_term; runtime/flows/host.py">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#EAF4EC;strokeColor=#528264;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1690" y="1075.0" width="630" height="156" />
+          </mxCell>
+        </object>
+        <object id="reference_6" label="长期 · 候选引用 → 权威正文 → 资格&#10;设计参考：LlamaIndex · VectorIndexRetriever&#10;._aretrieve / _aget_nodes_with_embeddings&#10;参考：向量检索与正文加载分离&#10;P3：Remember.load 读取精确版本的权威正文&#10;READY、scope、内容 hash 与版本核验由 P3 补充" source="recall/basic/retrievers.py::Sources.long_term; recall/basic/retrievers.py::Sources.long_term">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F0ECF7;strokeColor=#8E78AA;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1690" y="1285.0" width="630" height="156" />
+          </mxCell>
+        </object>
+        <object id="reference_7" label="扩查与来源覆盖汇总&#10;项目自研：Sources.long_term / Recall.retrieve&#10;过滤后不足时扩大 limit，最多 max_discovery&#10;记录 complete / partial / unavailable&#10;不把依赖中断冒充正常空结果&#10;属于 P3 对检索框架的工程与产品约束" source="recall/basic/retrievers.py::Sources.long_term; recall/basic/retrievers.py::Sources.long_term; recall/basic/retrievers.py::Sources.long_term; recall/basic/retrievers.py::Sources.long_term; recall/basic/service.py::Recall.retrieve">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1690" y="1495.0" width="630" height="156" />
+          </mxCell>
+        </object>
+        <mxCell id="edge0" value="" edge="1" parent="1" source="entry" target="parallel" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge1" value="选中 Working" edge="1" parent="1" source="parallel" target="wread" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="360" y="265" />
+            </Array>
+            <mxPoint as="offset" x="10.0" y="7.5" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge2" value="选中 Long-term" edge="1" parent="1" source="parallel" target="embed" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="1410" y="265" />
+              <mxPoint x="1460" y="265" />
+              <mxPoint x="1460" y="360" />
+              <mxPoint x="1195" y="360" />
+            </Array>
+            <mxPoint as="offset" x="-40.0" y="-5.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge3" value="" edge="1" parent="1" source="wread" target="wscope" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge4" value="" edge="1" parent="1" source="wscope" target="wbudget" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge5" value="" edge="1" parent="1" source="wscore" target="wtop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge6" value="" edge="1" parent="1" source="wtop" target="wout" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge7" value="" edge="1" parent="1" source="embed" target="bind" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge8" value="" edge="1" parent="1" source="bind" target="search" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge9" value="" edge="1" parent="1" source="search" target="load" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge10" value="" edge="1" parent="1" source="load" target="qualify" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge11" value="" edge="1" parent="1" source="qualify" target="enough" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge12" value="是" edge="1" parent="1" source="wbudget" target="wpartial" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="360" y="800" />
+              <mxPoint x="235" y="800" />
+            </Array>
+            <mxPoint as="offset" x="17.5" y="-8.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge13" value="" edge="1" parent="1" source="wpartial" target="wscore" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="235" y="950" />
+              <mxPoint x="360" y="950" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge14" value="否" edge="1" parent="1" source="wbudget" target="wscore" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="620" y="715" />
+              <mxPoint x="620" y="1043" />
+            </Array>
+            <mxPoint as="offset" x="-20.0" y="33.5" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge15" value="是" edge="1" parent="1" source="enough" target="lout" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="1520" y="1112.5" />
+              <mxPoint x="1520" y="1112" />
+              <mxPoint x="1520" y="1385" />
+              <mxPoint x="1385" y="1385" />
+            </Array>
+            <mxPoint as="offset" x="13.0" y="-15.75" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge16" value="否" edge="1" parent="1" source="enough" target="max" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge17" value="是" edge="1" parent="1" source="max" target="lout" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="1445" y="1285" />
+              <mxPoint x="1445" y="1400" />
+              <mxPoint x="1385" y="1400" />
+            </Array>
+            <mxPoint as="offset" x="11.0" y="-7.5" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge18" value="否" edge="1" parent="1" source="max" target="grow" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="925" y="1285" />
+            </Array>
+            <mxPoint as="offset" x="17.0" y="-27.5" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge19" value="重新查询" edge="1" parent="1" source="grow" target="search" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#B28A39;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="790" y="1437" />
+              <mxPoint x="790" y="687" />
+            </Array>
+            <mxPoint as="offset" x="45.0" y="188.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge20" value="" edge="1" parent="1" source="wout" target="join" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="360" y="1575" />
+              <mxPoint x="320" y="1575" />
+              <mxPoint x="320" y="1674" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge21" value="" edge="1" parent="1" source="lout" target="join" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="1385" y="1674" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="decision" name="03 · 重排、组包与结果判定">
+    <mxGraphModel dx="2400" dy="1530" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2400" pageHeight="1530" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <object id="title" label="03 · 重排、组包与结果判定" source="">
+          <mxCell vertex="1" parent="1" style="text;html=0;fontFamily=Microsoft YaHei;fontSize=28;fontStyle=1;align=left;fontColor=#2F3541;strokeColor=none;fillColor=none;">
+            <mxGeometry as="geometry" x="40" y="25" width="2320" height="48" />
+          </mxCell>
+        </object>
+        <object id="panel0" label="可选重排：Recall.rerank" source="">
+          <mxCell vertex="1" parent="1" style="swimlane;html=0;horizontal=1;startSize=40;rounded=1;arcSize=6;fillColor=#EEF0E8;swimlaneFillColor=#FAFBF8;strokeColor=none;fontFamily=Microsoft YaHei;fontSize=19;fontStyle=1;fontColor=#3F4854;">
+            <mxGeometry as="geometry" x="40" y="110" width="730" height="1340" />
+          </mxCell>
+        </object>
+        <object id="panel1" label="组包与 outcome：assemble → retrieve" source="">
+          <mxCell vertex="1" parent="1" style="swimlane;html=0;horizontal=1;startSize=40;rounded=1;arcSize=6;fillColor=#EEF0E8;swimlaneFillColor=#FAFBF8;strokeColor=none;fontFamily=Microsoft YaHei;fontSize=19;fontStyle=1;fontColor=#3F4854;">
+            <mxGeometry as="geometry" x="820" y="110" width="820" height="1340" />
+          </mxCell>
+        </object>
+        <object id="panel2" label="本页步骤的技术来源（说明卡，不是新增执行步骤）" source="">
+          <mxCell vertex="1" parent="1" style="swimlane;html=0;horizontal=1;startSize=40;rounded=1;arcSize=6;fillColor=#EEF0E8;swimlaneFillColor=#FAFBF8;strokeColor=none;fontFamily=Microsoft YaHei;fontSize=19;fontStyle=1;fontColor=#3F4854;">
+            <mxGeometry as="geometry" x="1690" y="95" width="670" height="1395" />
+          </mxCell>
+        </object>
+        <object id="rin" label="主图 07：接收已获准的 RRF 候选" source="recall/basic/service.py::Recall.rerank | 技术来源：重排入口 · 可替换后处理接口; 设计参考：LlamaIndex · BaseNodePostprocessor; postprocess_nodes / apostprocess_nodes; 参考“候选 → 可插拔后处理 → 新候选”的分层; 本地使用自己的 Reranker 接口与 Recall.rerank; 不实例化 LlamaIndex 后处理器">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=45;whiteSpace=wrap;html=0;fillColor=#F0ECF7;strokeColor=#8E78AA;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="210" y="175" width="400" height="66" />
+          </mxCell>
+        </object>
+        <object id="enable" label="有候选且重排未 disabled？" source="recall/basic/service.py::Recall.rerank | 技术来源：重排入口 · 可替换后处理接口; 设计参考：LlamaIndex · BaseNodePostprocessor; postprocess_nodes / apostprocess_nodes; 参考“候选 → 可插拔后处理 → 新候选”的分层; 本地使用自己的 Reranker 接口与 Recall.rerank; 不实例化 LlamaIndex 后处理器">
+          <mxCell vertex="1" parent="1" style="rhombus;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="245" y="295" width="330" height="110" />
+          </mxCell>
+        </object>
+        <object id="skip" label="disabled / skipped_empty&#10;保留原排序" source="recall/basic/service.py::Recall.rerank | 技术来源：跳过、超时与失败降级; 项目自研：Recall.rerank / CrossEncoderReranker; 通用配置默认 disabled；部署可启用 required/fallback; fallback 仅接受超时或依赖不可用; 合约错误仍失败；真实推理结束后才释放并发槽; 这些保证不是 CrossEncoder.predict 自动提供的">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="70" y="460" width="300" height="76" />
+          </mxCell>
+        </object>
+        <object id="call" label="调用注入的 Reranker&#10;CrossEncoder 可选；独立重排超时" source="recall/basic/service.py::Recall.rerank | 技术来源：重排入口 · 可替换后处理接口; 设计参考：LlamaIndex · BaseNodePostprocessor; postprocess_nodes / apostprocess_nodes; 参考“候选 → 可插拔后处理 → 新候选”的分层; 本地使用自己的 Reranker 接口与 Recall.rerank; 不实例化 LlamaIndex 后处理器 | 技术来源：模型评分 · CrossEncoder; 直接调用：sentence_transformers.CrossEncoder; .predict([(query, document), ...]); 联合编码文本对 → 模型前向 → 每对一个分数; predict 返回分数，P3 负责稳定排序与结果检查; 当前并未调用 CrossEncoder.rank">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="430" y="460" width="305" height="84" />
+          </mxCell>
+        </object>
+        <object id="rok" label="成功且返回分数有效？" source="recall/basic/service.py::Recall.rerank | 技术来源：模型评分 · CrossEncoder; 直接调用：sentence_transformers.CrossEncoder; .predict([(query, document), ...]); 联合编码文本对 → 模型前向 → 每对一个分数; predict 返回分数，P3 负责稳定排序与结果检查; 当前并未调用 CrossEncoder.rank">
+          <mxCell vertex="1" parent="1" style="rhombus;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="420" y="605" width="330" height="110" />
+          </mxCell>
+        </object>
+        <object id="sort" label="核对分数数量与有限值&#10;按重排分数 + 引用稳定排序" source="recall/basic/service.py::Recall.rerank | 技术来源：模型评分 · CrossEncoder; 直接调用：sentence_transformers.CrossEncoder; .predict([(query, document), ...]); 联合编码文本对 → 模型前向 → 每对一个分数; predict 返回分数，P3 负责稳定排序与结果检查; 当前并未调用 CrossEncoder.rank">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="80" y="760" width="305" height="85" />
+          </mxCell>
+        </object>
+        <object id="fallback" label="fallback 且属于&#10;依赖不可用 / 超时？" source="recall/basic/service.py::Recall.rerank | 技术来源：跳过、超时与失败降级; 项目自研：Recall.rerank / CrossEncoderReranker; 通用配置默认 disabled；部署可启用 required/fallback; fallback 仅接受超时或依赖不可用; 合约错误仍失败；真实推理结束后才释放并发槽; 这些保证不是 CrossEncoder.predict 自动提供的">
+          <mxCell vertex="1" parent="1" style="rhombus;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="420" y="780" width="330" height="122" />
+          </mxCell>
+        </object>
+        <object id="fall" label="保留 RRF 排序&#10;记录 rerank 降级原因" source="recall/basic/service.py::Recall.rerank | 技术来源：跳过、超时与失败降级; 项目自研：Recall.rerank / CrossEncoderReranker; 通用配置默认 disabled；部署可启用 required/fallback; fallback 仅接受超时或依赖不可用; 合约错误仍失败；真实推理结束后才释放并发槽; 这些保证不是 CrossEncoder.predict 自动提供的">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="415" y="985" width="320" height="85" />
+          </mxCell>
+        </object>
+        <object id="rfail" label="抛出异常 → 主图 failed&#10;required 失败、合约错误等不降级" source="recall/basic/service.py::Recall.rerank | 技术来源：跳过、超时与失败降级; 项目自研：Recall.rerank / CrossEncoderReranker; 通用配置默认 disabled；部署可启用 required/fallback; fallback 仅接受超时或依赖不可用; 合约错误仍失败；真实推理结束后才释放并发槽; 这些保证不是 CrossEncoder.predict 自动提供的">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#FBECEE;strokeColor=#B56773;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="85" y="980" width="300" height="96" />
+          </mxCell>
+        </object>
+        <object id="rout" label="返回排序 + 可选降级原因&#10;进入主图 08 组包" source="recall/basic/service.py::Recall.rerank">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=45;whiteSpace=wrap;html=0;fillColor=#EAF4EC;strokeColor=#528264;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="190" y="1290" width="440" height="90" />
+          </mxCell>
+        </object>
+        <object id="ain" label="主图 08：按排序遍历完整记忆&#10;逐条追加 [序号] 正文 + 换行" source="recall/basic/components.py::assemble | 技术来源：长度预算 · tokenizer; 直接调用：tiktoken.get_encoding(&quot;o200k_base&quot;); Encoding.encode → token 数; 可选：Hugging Face Tokenizer.encode; 本地 ModelTokenizer.count 统一封装; 对追加序号、正文、换行后的完整候选上下文计数">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1000" y="175" width="460" height="84" />
+          </mxCell>
+        </object>
+        <object id="budget" label="追加后是否超过 token_budget？" source="recall/basic/components.py::assemble | 技术来源：长度预算 · tokenizer; 直接调用：tiktoken.get_encoding(&quot;o200k_base&quot;); Encoding.encode → token 数; 可选：Hugging Face Tokenizer.encode; 本地 ModelTokenizer.count 统一封装; 对追加序号、正文、换行后的完整候选上下文计数">
+          <mxCell vertex="1" parent="1" style="rhombus;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1040" y="315" width="380" height="104" />
+          </mxCell>
+        </object>
+        <object id="omit" label="跳过该条，继续下一条&#10;不截断正文" source="recall/basic/components.py::assemble | 技术来源：组包 · 整条记忆取舍; 项目自研：components.assemble; 超预算跳过整条，再尝试后续候选; 当前每个 ContextGroup 只有一条记忆; 没有调用 Query Engine 的回答生成 / Synthesizer; 自动多成员冲突组仍不是当前已实现能力">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="850" y="470" width="295" height="78" />
+          </mxCell>
+        </object>
+        <object id="append" label="加入一个单条 ContextGroup&#10;最多 max_items，默认 5 条" source="recall/basic/components.py::assemble | 技术来源：组包 · 整条记忆取舍; 项目自研：components.assemble; 超预算跳过整条，再尝试后续候选; 当前每个 ContextGroup 只有一条记忆; 没有调用 Query Engine 的回答生成 / Synthesizer; 自动多成员冲突组仍不是当前已实现能力">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1210" y="470" width="360" height="80" />
+          </mxCell>
+        </object>
+        <object id="groups" label="组包结束后有内容？" source="recall/basic/service.py::Recall.retrieve | 技术来源：结果判定 · available / degraded / empty / 错误; 项目自研：Recall.retrieve; 结合实际内容、来源覆盖与降级原因判定; 无内容且来源缺失 → 依赖失败; 来源完整但有候选且放不下 → 预算不足; 通用检索框架的空列表不能代替上述产品结论">
+          <mxCell vertex="1" parent="1" style="rhombus;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1050" y="650" width="340" height="112" />
+          </mxCell>
+        </object>
+        <object id="reasons" label="存在来源不完整&#10;或重排降级原因？" source="recall/basic/service.py::Recall.retrieve | 技术来源：结果判定 · available / degraded / empty / 错误; 项目自研：Recall.retrieve; 结合实际内容、来源覆盖与降级原因判定; 无内容且来源缺失 → 依赖失败; 来源完整但有候选且放不下 → 预算不足; 通用检索框架的空列表不能代替上述产品结论">
+          <mxCell vertex="1" parent="1" style="rhombus;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="870" y="850" width="330" height="116" />
+          </mxCell>
+        </object>
+        <object id="incomplete" label="无内容时：&#10;选中来源不完整？" source="recall/basic/service.py::Recall.retrieve | 技术来源：结果判定 · available / degraded / empty / 错误; 项目自研：Recall.retrieve; 结合实际内容、来源覆盖与降级原因判定; 无内容且来源缺失 → 依赖失败; 来源完整但有候选且放不下 → 预算不足; 通用检索框架的空列表不能代替上述产品结论">
+          <mxCell vertex="1" parent="1" style="rhombus;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1240" y="850" width="340" height="116" />
+          </mxCell>
+        </object>
+        <object id="ok" label="available" source="recall/basic/service.py::Recall.retrieve">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=45;whiteSpace=wrap;html=0;fillColor=#EAF4EC;strokeColor=#528264;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="835" y="1075" width="190" height="64" />
+          </mxCell>
+        </object>
+        <object id="degrade" label="degraded" source="recall/basic/service.py::Recall.retrieve">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=45;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1060" y="1075" width="190" height="64" />
+          </mxCell>
+        </object>
+        <object id="dep" label="DEPENDENCY_UNAVAILABLE&#10;来源失败且无可用内容" source="recall/basic/service.py::Recall.retrieve">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#FBECEE;strokeColor=#B56773;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1270" y="1040" width="330" height="75" />
+          </mxCell>
+        </object>
+        <object id="remaining" label="来源完整，但仍有候选？" source="recall/basic/service.py::Recall.retrieve | 技术来源：结果判定 · available / degraded / empty / 错误; 项目自研：Recall.retrieve; 结合实际内容、来源覆盖与降级原因判定; 无内容且来源缺失 → 依赖失败; 来源完整但有候选且放不下 → 预算不足; 通用检索框架的空列表不能代替上述产品结论">
+          <mxCell vertex="1" parent="1" style="rhombus;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1240" y="1180" width="340" height="100" />
+          </mxCell>
+        </object>
+        <object id="small" label="BUDGET_TOO_SMALL&#10;无完整记忆能放入预算" source="recall/basic/service.py::Recall.retrieve">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#FBECEE;strokeColor=#B56773;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="930" y="1330" width="305" height="74" />
+          </mxCell>
+        </object>
+        <object id="empty" label="empty&#10;来源完整且无可用候选" source="recall/basic/service.py::Recall.retrieve">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=45;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1300" y="1330" width="300" height="74" />
+          </mxCell>
+        </object>
+        <object id="reference_legend" label="绿色：直接调用（按配置）  紫色：设计 / 概念参考&#10;黄色：成熟模式  灰色：项目自研 / 当前边界" source="">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1710" y="150" width="630" height="66" />
+          </mxCell>
+        </object>
+        <object id="reference_1" label="重排入口 · 可替换后处理接口&#10;设计参考：LlamaIndex · BaseNodePostprocessor&#10;postprocess_nodes / apostprocess_nodes&#10;参考“候选 → 可插拔后处理 → 新候选”的分层&#10;本地使用自己的 Reranker 接口与 Recall.rerank&#10;不实例化 LlamaIndex 后处理器" source="recall/basic/service.py::Recall.rerank; recall/basic/service.py::Recall.rerank; recall/basic/service.py::Recall.rerank">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F0ECF7;strokeColor=#8E78AA;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1710" y="235.0" width="630" height="156" />
+          </mxCell>
+        </object>
+        <object id="reference_2" label="模型评分 · CrossEncoder&#10;直接调用：sentence_transformers.CrossEncoder&#10;.predict([(query, document), ...])&#10;联合编码文本对 → 模型前向 → 每对一个分数&#10;predict 返回分数，P3 负责稳定排序与结果检查&#10;当前并未调用 CrossEncoder.rank" source="recall/basic/service.py::Recall.rerank | 技术来源：重排入口 · 可替换后处理接口; 设计参考：LlamaIndex · BaseNodePostprocessor; postprocess_nodes / apostprocess_nodes; 参考“候选 → 可插拔后处理 → 新候选”的分层; 本地使用自己的 Reranker 接口与 Recall.rerank; 不实例化 LlamaIndex 后处理器; recall/basic/service.py::Recall.rerank; recall/basic/service.py::Recall.rerank">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#EAF4EC;strokeColor=#528264;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1710" y="445.0" width="630" height="156" />
+          </mxCell>
+        </object>
+        <object id="reference_3" label="跳过、超时与失败降级&#10;项目自研：Recall.rerank / CrossEncoderReranker&#10;通用配置默认 disabled；部署可启用 required/fallback&#10;fallback 仅接受超时或依赖不可用&#10;合约错误仍失败；真实推理结束后才释放并发槽&#10;这些保证不是 CrossEncoder.predict 自动提供的" source="recall/basic/service.py::Recall.rerank; recall/basic/service.py::Recall.rerank; recall/basic/service.py::Recall.rerank; recall/basic/service.py::Recall.rerank">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1710" y="655.0" width="630" height="156" />
+          </mxCell>
+        </object>
+        <object id="reference_4" label="长度预算 · tokenizer&#10;直接调用：tiktoken.get_encoding(&quot;o200k_base&quot;)&#10;Encoding.encode → token 数&#10;可选：Hugging Face Tokenizer.encode&#10;本地 ModelTokenizer.count 统一封装&#10;对追加序号、正文、换行后的完整候选上下文计数" source="recall/basic/components.py::assemble; recall/basic/components.py::assemble">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#EAF4EC;strokeColor=#528264;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1710" y="865.0" width="630" height="156" />
+          </mxCell>
+        </object>
+        <object id="reference_5" label="组包 · 整条记忆取舍&#10;项目自研：components.assemble&#10;超预算跳过整条，再尝试后续候选&#10;当前每个 ContextGroup 只有一条记忆&#10;没有调用 Query Engine 的回答生成 / Synthesizer&#10;自动多成员冲突组仍不是当前已实现能力" source="recall/basic/components.py::assemble; recall/basic/components.py::assemble">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1710" y="1075.0" width="630" height="156" />
+          </mxCell>
+        </object>
+        <object id="reference_6" label="结果判定 · available / degraded / empty / 错误&#10;项目自研：Recall.retrieve&#10;结合实际内容、来源覆盖与降级原因判定&#10;无内容且来源缺失 → 依赖失败&#10;来源完整但有候选且放不下 → 预算不足&#10;通用检索框架的空列表不能代替上述产品结论" source="recall/basic/service.py::Recall.retrieve; recall/basic/service.py::Recall.retrieve; recall/basic/service.py::Recall.retrieve; recall/basic/service.py::Recall.retrieve">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1710" y="1285.0" width="630" height="156" />
+          </mxCell>
+        </object>
+        <mxCell id="edge0" value="" edge="1" parent="1" source="rin" target="enable" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge1" value="否" edge="1" parent="1" source="enable" target="skip" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="220" y="350" />
+            </Array>
+            <mxPoint as="offset" x="-50.0" y="-26.5" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge2" value="是" edge="1" parent="1" source="enable" target="call" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="585" y="350" />
+              <mxPoint x="582.5" y="350" />
+            </Array>
+            <mxPoint as="offset" x="47.5" y="-32.75" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge3" value="" edge="1" parent="1" source="call" target="rok" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="582.5" y="574.5" />
+              <mxPoint x="585.0" y="574.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge4" value="是" edge="1" parent="1" source="rok" target="sort" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="232" y="660" />
+              <mxPoint x="232.5" y="660" />
+            </Array>
+            <mxPoint as="offset" x="54.25" y="-14.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge5" value="失败" edge="1" parent="1" source="rok" target="fallback" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint as="offset" x="20.0" y="7.5" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge6" value="是" edge="1" parent="1" source="fallback" target="fall" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="585.0" y="943.5" />
+              <mxPoint x="575.0" y="943.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge7" value="否" edge="1" parent="1" source="fallback" target="rfail" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#B56773;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="405" y="841" />
+              <mxPoint x="405" y="920" />
+              <mxPoint x="235" y="920" />
+            </Array>
+            <mxPoint as="offset" x="-17.0" y="-8.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge8" value="" edge="1" parent="1" source="skip" target="rout" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="45" y="498" />
+              <mxPoint x="45" y="1335" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge9" value="" edge="1" parent="1" source="sort" target="rout" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="65" y="802.5" />
+              <mxPoint x="65" y="802" />
+              <mxPoint x="65" y="1245" />
+              <mxPoint x="410" y="1245" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge10" value="" edge="1" parent="1" source="fall" target="rout" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="575" y="1190" />
+              <mxPoint x="745" y="1190" />
+              <mxPoint x="745" y="1335" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge11" value="" edge="1" parent="1" source="ain" target="budget" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge12" value="是" edge="1" parent="1" source="budget" target="omit" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="998" y="367" />
+              <mxPoint x="997.5" y="367" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge13" value="否" edge="1" parent="1" source="budget" target="append" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="1500" y="367" />
+              <mxPoint x="1390.0" y="367" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge14" value="遍历结束" edge="1" parent="1" source="omit" target="groups" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="997.5" y="705" />
+              <mxPoint x="998" y="705" />
+              <mxPoint x="998" y="706.0" />
+            </Array>
+            <mxPoint as="offset" x="-82.5" y="-33.25" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge15" value="遍历结束 / 满 5 条" edge="1" parent="1" source="append" target="groups" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="1390.0" y="705" />
+              <mxPoint x="1490" y="705" />
+              <mxPoint x="1490" y="706.0" />
+            </Array>
+            <mxPoint as="offset" x="37.0" y="-85.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge16" value="是" edge="1" parent="1" source="groups" target="reasons" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="1035" y="706" />
+            </Array>
+            <mxPoint as="offset" x="-45.0" y="17.5" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge17" value="否" edge="1" parent="1" source="groups" target="incomplete" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="1410" y="706" />
+            </Array>
+            <mxPoint as="offset" x="20.0" y="20.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge18" value="否" edge="1" parent="1" source="reasons" target="ok" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="930" y="908.0" />
+              <mxPoint x="930" y="998" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge19" value="是" edge="1" parent="1" source="reasons" target="degrade" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="1220" y="908" />
+              <mxPoint x="1220" y="1010" />
+              <mxPoint x="1155" y="1010" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge20" value="是" edge="1" parent="1" source="incomplete" target="dep" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="1410.0" y="1003.0" />
+              <mxPoint x="1435.0" y="1003.0" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge21" value="否" edge="1" parent="1" source="incomplete" target="remaining" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="1615" y="908" />
+              <mxPoint x="1615" y="1230" />
+            </Array>
+            <mxPoint as="offset" x="-8.0" y="76.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge22" value="是" edge="1" parent="1" source="remaining" target="small" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="1082" y="1230" />
+              <mxPoint x="1082.5" y="1230" />
+            </Array>
+            <mxPoint as="offset" x="49.25" y="20.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge23" value="否" edge="1" parent="1" source="remaining" target="empty" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="1410" y="1303" />
+              <mxPoint x="1450" y="1303" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="ops" name="04 · 历史结果、过期处理与追溯">
+    <mxGraphModel dx="2340" dy="1290" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2340" pageHeight="1290" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <object id="title" label="04 · 历史结果、过期处理与追溯" source="">
+          <mxCell vertex="1" parent="1" style="text;html=0;fontFamily=Microsoft YaHei;fontSize=28;fontStyle=1;align=left;fontColor=#2F3541;strokeColor=none;fillColor=none;">
+            <mxGeometry as="geometry" x="40" y="25" width="2260" height="48" />
+          </mxCell>
+        </object>
+        <object id="panel0" label="历史结果：Recall.result" source="">
+          <mxCell vertex="1" parent="1" style="swimlane;html=0;horizontal=1;startSize=40;rounded=1;arcSize=6;fillColor=#EEF0E8;swimlaneFillColor=#FAFBF8;strokeColor=none;fontFamily=Microsoft YaHei;fontSize=19;fontStyle=1;fontColor=#3F4854;">
+            <mxGeometry as="geometry" x="35" y="120" width="510" height="1100" />
+          </mxCell>
+        </object>
+        <object id="panel1" label="过期处理：recover_expired" source="">
+          <mxCell vertex="1" parent="1" style="swimlane;html=0;horizontal=1;startSize=40;rounded=1;arcSize=6;fillColor=#EEF0E8;swimlaneFillColor=#FAFBF8;strokeColor=none;fontFamily=Microsoft YaHei;fontSize=19;fontStyle=1;fontColor=#3F4854;">
+            <mxGeometry as="geometry" x="575" y="120" width="475" height="1100" />
+          </mxCell>
+        </object>
+        <object id="panel2" label="阶段、日志与事件" source="">
+          <mxCell vertex="1" parent="1" style="swimlane;html=0;horizontal=1;startSize=40;rounded=1;arcSize=6;fillColor=#EEF0E8;swimlaneFillColor=#FAFBF8;strokeColor=none;fontFamily=Microsoft YaHei;fontSize=19;fontStyle=1;fontColor=#3F4854;">
+            <mxGeometry as="geometry" x="1080" y="120" width="505" height="1100" />
+          </mxCell>
+        </object>
+        <object id="panel3" label="本页步骤的技术来源（说明卡，不是新增执行步骤）" source="">
+          <mxCell vertex="1" parent="1" style="swimlane;html=0;horizontal=1;startSize=40;rounded=1;arcSize=6;fillColor=#EEF0E8;swimlaneFillColor=#FAFBF8;strokeColor=none;fontFamily=Microsoft YaHei;fontSize=19;fontStyle=1;fontColor=#3F4854;">
+            <mxGeometry as="geometry" x="1630" y="95" width="670" height="1155" />
+          </mxCell>
+        </object>
+        <object id="hin" label="重复已完成请求 / 获取历史结果" source="recall/basic/service.py::Recall.result">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=45;whiteSpace=wrap;html=0;fillColor=#F0ECF7;strokeColor=#8E78AA;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="95" y="180" width="390" height="70" />
+          </mxCell>
+        </object>
+        <object id="hauth" label="读取 recall_requests&#10;重新检查当前 READ 权限" source="recall/basic/service.py::Recall.result | 技术来源：历史结果 · 当前授权与有效性; 项目自研：Recall.result / Remember.final_guard; 重新核验当前权限、版本、生命周期与来源; 失效结果拒绝返回；不能把缓存当作当前事实; OWASP 授权原则可作设计依据，不是已接入的库">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="95" y="305" width="390" height="85" />
+          </mxCell>
+        </object>
+        <object id="hpack" label="有已提交的 pack？" source="recall/basic/service.py::Recall.result">
+          <mxCell vertex="1" parent="1" style="rhombus;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="135" y="455" width="310" height="110" />
+          </mxCell>
+        </object>
+        <object id="hguard" label="对包内所有精确版本 final_guard&#10;当前授权、ACTIVE、最新版本&#10;未过期、来源仍有效" source="recall/basic/service.py::Recall.result; remember/basic/service.py::Remember.final_guard | 技术来源：历史结果 · 当前授权与有效性; 项目自研：Recall.result / Remember.final_guard; 重新核验当前权限、版本、生命周期与来源; 失效结果拒绝返回；不能把缓存当作当前事实; OWASP 授权原则可作设计依据，不是已接入的库">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="95" y="650" width="390" height="100" />
+          </mxCell>
+        </object>
+        <object id="hvalid" label="全部仍获准？" source="recall/basic/service.py::Recall.result | 技术来源：历史结果 · 当前授权与有效性; 项目自研：Recall.result / Remember.final_guard; 重新核验当前权限、版本、生命周期与来源; 失效结果拒绝返回；不能把缓存当作当前事实; OWASP 授权原则可作设计依据，不是已接入的库">
+          <mxCell vertex="1" parent="1" style="rhombus;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="135" y="815" width="310" height="110" />
+          </mxCell>
+        </object>
+        <object id="hyes" label="返回原 ContextPack&#10;不重新计算排序与预算" source="recall/basic/service.py::Recall.result">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=45;whiteSpace=wrap;html=0;fillColor=#EAF4EC;strokeColor=#528264;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="60" y="1040" width="245" height="88" />
+          </mxCell>
+        </object>
+        <object id="hno" label="拒绝返回&#10;不存在 / 无权限&#10;无已提交结果&#10;原结果已失效" source="recall/basic/service.py::Recall.result">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#FBECEE;strokeColor=#B56773;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="320" y="1015" width="210" height="115" />
+          </mxCell>
+        </object>
+        <object id="tick" label="服务 Host.tick 周期调用" source="runtime/flows/host.py::ThreeFlows.tick | 技术来源：过期处理 · 持久状态扫描; 项目自研：ThreeFlows.tick → Recall.recover_expired; SQLite 扫描到期的 accepted / running 请求并终止; Temporal 仅为学习对象，未提供 Workflow Replay; controller-runtime 参考属于 Operate，不执行此流程; 本步骤不自动从中断节点续跑 Recall">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=45;whiteSpace=wrap;html=0;fillColor=#F0ECF7;strokeColor=#8E78AA;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="625" y="180" width="370" height="70" />
+          </mxCell>
+        </object>
+        <object id="scan" label="事务扫描 recall_requests" source="recall/basic/service.py::Recall.recover_expired | 技术来源：过期处理 · 持久状态扫描; 项目自研：ThreeFlows.tick → Recall.recover_expired; SQLite 扫描到期的 accepted / running 请求并终止; Temporal 仅为学习对象，未提供 Workflow Replay; controller-runtime 参考属于 Operate，不执行此流程; 本步骤不自动从中断节点续跑 Recall">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="625" y="305" width="370" height="75" />
+          </mxCell>
+        </object>
+        <object id="expired" label="accepted / running&#10;且 deadline 已到？" source="recall/basic/service.py::Recall.recover_expired | 技术来源：过期处理 · 持久状态扫描; 项目自研：ThreeFlows.tick → Recall.recover_expired; SQLite 扫描到期的 accepted / running 请求并终止; Temporal 仅为学习对象，未提供 Workflow Replay; controller-runtime 参考属于 Operate，不执行此流程; 本步骤不自动从中断节点续跑 Recall">
+          <mxCell vertex="1" parent="1" style="rhombus;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="635" y="455" width="350" height="124" />
+          </mxCell>
+        </object>
+        <object id="term" label="标记 failed&#10;reason = EXECUTION_INTERRUPTED&#10;revision + 1" source="recall/basic/service.py::Recall.recover_expired | 技术来源：过期处理 · 持久状态扫描; 项目自研：ThreeFlows.tick → Recall.recover_expired; SQLite 扫描到期的 accepted / running 请求并终止; Temporal 仅为学习对象，未提供 Workflow Replay; controller-runtime 参考属于 Operate，不执行此流程; 本步骤不自动从中断节点续跑 Recall">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#FBECEE;strokeColor=#B56773;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="625" y="700" width="370" height="95" />
+          </mxCell>
+        </object>
+        <object id="next" label="继续扫描 / 返回处理数量" source="recall/basic/service.py::Recall.recover_expired">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=45;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="625" y="1015" width="370" height="80" />
+          </mxCell>
+        </object>
+        <object id="noauto" label="当前没有自动重跑 Recall 的任务&#10;没有“从上次节点续跑”的实现&#10;不会把旧缓存冒充新结果" source="recall/basic/service.py::Recall.recover_expired | 技术来源：过期处理 · 持久状态扫描; 项目自研：ThreeFlows.tick → Recall.recover_expired; SQLite 扫描到期的 accepted / running 请求并终止; Temporal 仅为学习对象，未提供 Workflow Replay; controller-runtime 参考属于 Operate，不执行此流程; 本步骤不自动从中断节点续跑 Recall">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="625" y="1130" width="370" height="74" />
+          </mxCell>
+        </object>
+        <object id="context" label="同一请求关联&#10;trace_id / recall_id / request_id&#10;嵌套 span_id / parent_span_id" source="runtime/foundation/telemetry.py | 技术来源：Trace / 节点日志 · 参考概念与规范; 概念参考：OpenTelemetry 的 Trace / Span; 规范参考：W3C Trace Context 的关联标识; 本地实现：observed / Telemetry → node_logs; 记录开始、返回、失败、取消及安全摘要; 未接 OTel SDK / OTLP，也未证明跨 HTTP 传播">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F0ECF7;strokeColor=#8E78AA;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1135" y="180" width="390" height="95" />
+          </mxCell>
+        </object>
+        <object id="stage" label="Recall.stage：事务保存实际阶段&#10;select → discover → load → rank&#10;→ rerank → assemble → finalize&#10;身份重验 + running / revision" source="recall/basic/service.py::Recall.stage | 技术来源：阶段与诊断 · 持久事实; 直接使用 SQLite；阶段推进与查询为项目自研; Recall.stage 更新请求 / recall_stages / diagnostics; 日志帮助解释执行，业务表确定当前结果; 不能仅因 span 显示成功就判定业务已提交">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1135" y="335" width="390" height="116" />
+          </mxCell>
+        </object>
+        <object id="tables" label="recall_requests：请求状态与结果&#10;recall_stages：阶段细节&#10;diagnostics：关联诊断" source="recall/basic/service.py::Recall.stage | 技术来源：阶段与诊断 · 持久事实; 直接使用 SQLite；阶段推进与查询为项目自研; Recall.stage 更新请求 / recall_stages / diagnostics; 日志帮助解释执行，业务表确定当前结果; 不能仅因 span 显示成功就判定业务已提交">
+          <mxCell vertex="1" parent="1" style="shape=cylinder3;size=10;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1135" y="525" width="390" height="100" />
+          </mxCell>
+        </object>
+        <object id="logs" label="@observed：节点开始 / 返回 / 异常&#10;本地 node_logs（SQLite）&#10;记录安全摘要，不写正文与凭证" source="runtime/foundation/telemetry.py | 技术来源：Trace / 节点日志 · 参考概念与规范; 概念参考：OpenTelemetry 的 Trace / Span; 规范参考：W3C Trace Context 的关联标识; 本地实现：observed / Telemetry → node_logs; 记录开始、返回、失败、取消及安全摘要; 未接 OTel SDK / OTLP，也未证明跨 HTTP 传播">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#E8F2F8;strokeColor=#4C82A0;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1135" y="705" width="390" height="104" />
+          </mxCell>
+        </object>
+        <object id="events" label="Outbox 可靠交接 recall.access&#10;read：实际读取的记忆&#10;packed：进入已提交 ContextPack 的记忆&#10;后续供 Operate 消费" source="recall/basic/service.py::Recall.access; runtime/flows/host.py::ThreeFlows.tick | 技术来源：访问事件 · Transactional Outbox; 借鉴成熟模式，不是某个框架或正式协议标准; 本地 Recall.access → 事务内追加事件; 分发器投递，Operate 按事件 ID 去重消费; read 与 packed 分别表示读取与最终采用; 可靠交接依赖持久事实与幂等，不依赖采样日志">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#EAF4EC;strokeColor=#528264;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1135" y="885" width="390" height="115" />
+          </mxCell>
+        </object>
+        <object id="lookup" label="授权后按 trace_id 关联查询&#10;技术日志辅助诊断&#10;恢复依据仍是持久业务事实" source="runtime/foundation/diagnostics.py; runtime/foundation/telemetry.py | 技术来源：Trace / 节点日志 · 参考概念与规范; 概念参考：OpenTelemetry 的 Trace / Span; 规范参考：W3C Trace Context 的关联标识; 本地实现：observed / Telemetry → node_logs; 记录开始、返回、失败、取消及安全摘要; 未接 OTel SDK / OTLP，也未证明跨 HTTP 传播">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=45;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1135" y="1090" width="390" height="96" />
+          </mxCell>
+        </object>
+        <object id="reference_legend" label="绿色：直接调用（按配置）  紫色：设计 / 概念参考&#10;黄色：成熟模式  灰色：项目自研 / 当前边界" source="">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1650" y="150" width="630" height="66" />
+          </mxCell>
+        </object>
+        <object id="reference_1" label="历史结果 · 当前授权与有效性&#10;项目自研：Recall.result / Remember.final_guard&#10;重新核验当前权限、版本、生命周期与来源&#10;失效结果拒绝返回；不能把缓存当作当前事实&#10;OWASP 授权原则可作设计依据，不是已接入的库" source="recall/basic/service.py::Recall.result; recall/basic/service.py::Recall.result; remember/basic/service.py::Remember.final_guard; recall/basic/service.py::Recall.result">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1650" y="235.0" width="630" height="136" />
+          </mxCell>
+        </object>
+        <object id="reference_2" label="过期处理 · 持久状态扫描&#10;项目自研：ThreeFlows.tick → Recall.recover_expired&#10;SQLite 扫描到期的 accepted / running 请求并终止&#10;Temporal 仅为学习对象，未提供 Workflow Replay&#10;controller-runtime 参考属于 Operate，不执行此流程&#10;本步骤不自动从中断节点续跑 Recall" source="runtime/flows/host.py::ThreeFlows.tick; recall/basic/service.py::Recall.recover_expired; recall/basic/service.py::Recall.recover_expired; recall/basic/service.py::Recall.recover_expired; recall/basic/service.py::Recall.recover_expired">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1650" y="439.0" width="630" height="156" />
+          </mxCell>
+        </object>
+        <object id="reference_3" label="Trace / 节点日志 · 参考概念与规范&#10;概念参考：OpenTelemetry 的 Trace / Span&#10;规范参考：W3C Trace Context 的关联标识&#10;本地实现：observed / Telemetry → node_logs&#10;记录开始、返回、失败、取消及安全摘要&#10;未接 OTel SDK / OTLP，也未证明跨 HTTP 传播" source="runtime/foundation/telemetry.py; runtime/foundation/telemetry.py; runtime/foundation/diagnostics.py; runtime/foundation/telemetry.py">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F0ECF7;strokeColor=#8E78AA;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1650" y="643.0" width="630" height="156" />
+          </mxCell>
+        </object>
+        <object id="reference_4" label="阶段与诊断 · 持久事实&#10;直接使用 SQLite；阶段推进与查询为项目自研&#10;Recall.stage 更新请求 / recall_stages / diagnostics&#10;日志帮助解释执行，业务表确定当前结果&#10;不能仅因 span 显示成功就判定业务已提交" source="recall/basic/service.py::Recall.stage; recall/basic/service.py::Recall.stage">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#F1F3F6;strokeColor=#7B8797;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1650" y="847.0" width="630" height="136" />
+          </mxCell>
+        </object>
+        <object id="reference_5" label="访问事件 · Transactional Outbox&#10;借鉴成熟模式，不是某个框架或正式协议标准&#10;本地 Recall.access → 事务内追加事件&#10;分发器投递，Operate 按事件 ID 去重消费&#10;read 与 packed 分别表示读取与最终采用&#10;可靠交接依赖持久事实与幂等，不依赖采样日志" source="recall/basic/service.py::Recall.access; runtime/flows/host.py::ThreeFlows.tick">
+          <mxCell vertex="1" parent="1" style="rounded=1;arcSize=12;whiteSpace=wrap;html=0;fillColor=#FFF5DC;strokeColor=#B28A39;strokeWidth=1.5;fontFamily=Microsoft YaHei;fontSize=16;fontColor=#273545;align=center;verticalAlign=middle;spacing=10;">
+            <mxGeometry as="geometry" x="1650" y="1051.0" width="630" height="156" />
+          </mxCell>
+        </object>
+        <mxCell id="edge0" value="" edge="1" parent="1" source="hin" target="hauth" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge1" value="" edge="1" parent="1" source="hauth" target="hpack" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge2" value="是" edge="1" parent="1" source="hpack" target="hguard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge3" value="" edge="1" parent="1" source="hguard" target="hvalid" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge4" value="是" edge="1" parent="1" source="hvalid" target="hyes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="180" y="870" />
+              <mxPoint x="182.5" y="870" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge5" value="否" edge="1" parent="1" source="hvalid" target="hno" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#B56773;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="480" y="870" />
+              <mxPoint x="480" y="970" />
+              <mxPoint x="425" y="970" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge6" value="否" edge="1" parent="1" source="hpack" target="hno" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#B56773;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="535" y="510" />
+              <mxPoint x="535" y="1072" />
+              <mxPoint x="535" y="1072.5" />
+            </Array>
+            <mxPoint as="offset" x="-23.0" y="41.25" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge7" value="" edge="1" parent="1" source="tick" target="scan" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge8" value="" edge="1" parent="1" source="scan" target="expired" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge9" value="是" edge="1" parent="1" source="expired" target="term" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge10" value="" edge="1" parent="1" source="term" target="next" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge11" value="否" edge="1" parent="1" source="expired" target="next" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;dashed=0;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="1025" y="517" />
+              <mxPoint x="1025" y="1055" />
+            </Array>
+            <mxPoint as="offset" x="-15.0" y="89.0" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge12" value="" edge="1" parent="1" source="context" target="stage" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=1;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge13" value="" edge="1" parent="1" source="stage" target="tables" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=1;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge14" value="" edge="1" parent="1" source="context" target="logs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;dashed=1;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="1560" y="227.5" />
+              <mxPoint x="1560" y="227" />
+              <mxPoint x="1560" y="757" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge15" value="" edge="1" parent="1" source="tables" target="lookup" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;dashed=1;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="1110" y="575" />
+              <mxPoint x="1110" y="1138" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge16" value="" edge="1" parent="1" source="logs" target="events" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=1;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge17" value="" edge="1" parent="1" source="events" target="lookup" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#6B7B8E;strokeWidth=1.6;fontFamily=Microsoft YaHei;fontSize=14;fontColor=#3C4858;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;dashed=1;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

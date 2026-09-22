@@ -40,7 +40,12 @@ def main() -> int:
     parser.add_argument("--log-db", type=Path)
     parser.add_argument("--log-retention-days", type=int, default=14)
     parser.add_argument("--log-max-records", type=int, default=200_000)
+    parser.add_argument("--maintenance-principal", action="append", default=[])
+    parser.add_argument("--backup-root", type=Path)
     sub = parser.add_subparsers(dest="command", required=True)
+    server = sub.add_parser("serve")
+    server.add_argument("--host", default="127.0.0.1")
+    server.add_argument("--port", type=int, default=8080)
     remember = sub.add_parser("remember")
     remember.add_argument("--text-file", type=Path, required=True)
     remember.add_argument("--session-id")
@@ -88,8 +93,24 @@ def main() -> int:
         log_path=args.log_db,
         log_retention_days=args.log_retention_days,
         log_max_records=args.log_max_records,
+        maintenance_principals=tuple(args.maintenance_principal),
+        backup_root=args.backup_root,
     )
     try:
+        if args.command == "serve":
+            import uvicorn
+
+            from .http import create_app
+
+            credential = (
+                (lambda: os.environ.get("P3_MAINTENANCE_KEY", ""))
+                if os.environ.get("P3_MAINTENANCE_KEY")
+                else None
+            )
+            uvicorn.run(
+                create_app(app, maintenance_credential=credential), host=args.host, port=args.port
+            )
+            return 0
         if args.command == "worker":
 
             async def work() -> None:

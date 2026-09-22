@@ -2,8 +2,20 @@
 
 from typing import Protocol
 
-from aether_agent_memory.runtime.contracts.models import TrustedContext
+from aether_agent_memory.runtime.contracts.models import RecordRef, TrustedContext
+from aether_agent_memory.runtime.contracts.ports import Transaction
 
+from .foundation import (
+    ChunkProjectionRequest,
+    ChunkProjectionResult,
+    ChunkSearchRequest,
+    ChunkSearchResult,
+    ContextAssemblyPlan,
+    ContextCommitRequest,
+    MemorySearchRequest,
+    MemorySearchResult,
+    RecallPlanRequest,
+)
 from .models import (
     ContextPack,
     EmbeddingRequest,
@@ -16,6 +28,46 @@ from .models import (
     VectorSearchRequest,
     VectorSearchResult,
 )
+
+
+class GenerationVectorPort(Protocol):
+    async def project(
+        self,
+        ctx: TrustedContext,
+        request: ChunkProjectionRequest,
+    ) -> ChunkProjectionResult: ...
+    async def inspect(
+        self,
+        ctx: TrustedContext,
+        request: ChunkProjectionRequest,
+    ) -> ChunkProjectionResult: ...
+    async def search(
+        self,
+        ctx: TrustedContext,
+        request: ChunkSearchRequest,
+    ) -> ChunkSearchResult: ...
+
+
+class MemoryCandidatePort(Protocol):
+    async def search(
+        self,
+        ctx: TrustedContext,
+        request: MemorySearchRequest,
+    ) -> MemorySearchResult: ...
+
+
+class ContextAssemblyPort(Protocol):
+    async def plan(
+        self,
+        ctx: TrustedContext,
+        request: RecallPlanRequest,
+    ) -> ContextAssemblyPlan: ...
+    def commit(
+        self,
+        tx: Transaction,
+        ctx: TrustedContext,
+        request: ContextCommitRequest,
+    ) -> RecordRef: ...
 
 
 class RecallPort(Protocol):

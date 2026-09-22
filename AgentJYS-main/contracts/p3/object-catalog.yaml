@@ -1,0 +1,479 @@
+version: p3-foundation-20260921
+field_source: Python contracts; generated schemas
+objects:
+- model: runtime.ResourceLocation
+  owner: RF
+  consumers:
+  - B
+  - A
+  - C
+  nodes:
+  - P3.6
+  definition: src/aether_agent_memory/runtime/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 带类型的存储地址，区分原件、正文、向量、缓存、加工产物和备份
+- model: runtime.NodeLogRecord
+  owner: RF
+  consumers:
+  - B
+  - A
+  - C
+  nodes:
+  - P3.4
+  definition: src/aether_agent_memory/runtime/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 跨节点关联的受控日志，不保存正文、密钥或任意输入载荷
+- model: runtime.HealthObservation
+  owner: RF
+  consumers:
+  - B
+  - A
+  - C
+  nodes:
+  - P3.5
+  definition: src/aether_agent_memory/runtime/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 依赖、能力或工作者的一项健康证据及有效期
+- model: runtime.RuntimeHealthSnapshot
+  owner: RF
+  consumers:
+  - B
+  - A
+  - C
+  nodes:
+  - P3.5
+  definition: src/aether_agent_memory/runtime/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 区分存活、就绪与能力；就绪依赖新鲜的必要能力证据
+- model: runtime.SignalDefinition
+  owner: RF
+  consumers:
+  - B
+  - A
+  - C
+  nodes:
+  - P3.5
+  definition: src/aether_agent_memory/runtime/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 信号来源、单位、采样周期、过期策略和标签上限
+- model: runtime.OperationDefinition
+  owner: RF
+  consumers:
+  - B
+  - A
+  - C
+  nodes:
+  - P3.3
+  - P3.5
+  definition: src/aether_agent_memory/runtime/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 注册操作的输入输出、权限、副作用、成功证据和恢复方式
+- model: runtime.SignalObservation
+  owner: RF
+  consumers:
+  - B
+  - A
+  - C
+  nodes:
+  - P3.5
+  definition: src/aether_agent_memory/runtime/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 一次实际测量；未知或过期不能伪装为正常数值
+- model: runtime.WorkerHeartbeat
+  owner: RF
+  consumers:
+  - B
+  - A
+  - C
+  nodes:
+  - P3.3
+  definition: src/aether_agent_memory/runtime/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 绑定执行类别、实例和在租任务的心跳
+- model: runtime.DispositionRule
+  owner: RF
+  consumers:
+  - B
+  - A
+  - C
+  nodes:
+  - P3.5
+  definition: src/aether_agent_memory/runtime/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 监测触发条件、操作引用、尝试预算、冷却及业务验证
+- model: runtime.IncidentRecord
+  owner: RF
+  consumers:
+  - B
+  - A
+  - C
+  nodes:
+  - P3.5
+  definition: src/aether_agent_memory/runtime/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 异常、维护执行与业务恢复验证的关联记录
+- model: runtime.TaskWaitRecord
+  owner: RF
+  consumers:
+  - B
+  - A
+  - C
+  nodes:
+  - P3.3
+  definition: src/aether_agent_memory/runtime/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 既有任务的依赖等待附件，记录原操作和下次检查时间
+- model: runtime.CheckpointRecord
+  owner: RF
+  consumers:
+  - B
+  - A
+  - C
+  nodes:
+  - P3.3
+  definition: src/aether_agent_memory/runtime/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 任务已提交阶段、输入指纹和输出引用的断点
+- model: runtime.ConfigurationSnapshot
+  owner: RF
+  consumers:
+  - B
+  - A
+  - C
+  nodes:
+  - P3.6
+  definition: src/aether_agent_memory/runtime/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 部署使用的配置、策略和密钥引用快照
+- model: runtime.BackupManifest
+  owner: RF
+  consumers:
+  - B
+  - A
+  - C
+  nodes:
+  - P3.6
+  definition: src/aether_agent_memory/runtime/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 备份一致性水位和独立恢复验证证据
+- model: remember.SourceRecord
+  owner: B
+  consumers:
+  - B
+  nodes:
+  - B.1
+  - B.2
+  definition: src/aether_agent_memory/remember/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 原始来源、保存操作与后台任务的权威登记
+- model: remember.DerivedArtifact
+  owner: B
+  consumers:
+  - B
+  nodes:
+  - B.4
+  definition: src/aether_agent_memory/remember/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 来源级解析、压缩、摘要和提取产物，与原始记忆正文区分
+- model: remember.ProcessingRecord
+  owner: B
+  consumers:
+  - B
+  - RF
+  nodes:
+  - B.4
+  - B.8
+  definition: src/aether_agent_memory/remember/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 后台加工阶段与已产生的产物/记忆；继续使用 RF Task
+- model: remember.ExtractionDecision
+  owner: B
+  consumers:
+  - B
+  nodes:
+  - B.5
+  definition: src/aether_agent_memory/remember/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 候选事实的新增、纠正、保持或拒绝决定
+- model: remember.ChunkDescriptor
+  owner: B
+  consumers:
+  - A
+  - B
+  nodes:
+  - B.6
+  definition: src/aether_agent_memory/remember/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 预期块编号、字符范围、向量ID、输入指纹和核验状态
+- model: remember.ProjectionManifest
+  owner: B
+  consumers:
+  - A
+  - B
+  nodes:
+  - B.6
+  - A.1c
+  definition: src/aether_agent_memory/remember/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 一个精确记忆版本的索引批次与完整预期块清单
+- model: remember.MemoryRecord
+  owner: B
+  consumers:
+  - A
+  - C
+  - B
+  nodes:
+  - B.2
+  - B.6
+  - B.7
+  definition: src/aether_agent_memory/remember/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 持久正文权威、生命周期、关系修订及已发布索引
+- model: remember.GuardStamp
+  owner: B
+  consumers:
+  - A
+  nodes:
+  - A.1b
+  - A.1d
+  definition: src/aether_agent_memory/remember/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 正文读取或最终提交时的资格修订证据
+- model: remember.FullBodyReadResult
+  owner: B
+  consumers:
+  - A
+  nodes:
+  - A.1b
+  definition: src/aether_agent_memory/remember/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 逐项返回完整正文与出处，或明确不可读原因
+- model: remember.ReferenceHandoff
+  owner: C
+  consumers:
+  - B
+  nodes:
+  - C.3
+  - B.10
+  definition: src/aether_agent_memory/remember/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: C向B提出等价资源地址更新，绑定预期修订和读证明
+- model: remember.ReferenceHandoffReceipt
+  owner: B
+  consumers:
+  - C
+  nodes:
+  - C.3
+  - B.10
+  definition: src/aether_agent_memory/remember/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: B条件更新的确认、拒绝或未知结果
+- model: remember.ProtectionReference
+  owner: C
+  consumers:
+  - B
+  - C
+  nodes:
+  - B.7
+  - C.3
+  definition: src/aether_agent_memory/remember/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 任务和动作持有的保护引用，记录持有者及释放状态
+- model: remember.CleanupRequest
+  owner: B
+  consumers:
+  - C
+  nodes:
+  - B.7
+  - C.5
+  definition: src/aether_agent_memory/remember/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 逻辑阻断后的精确清理清单及待释放保护
+- model: remember.CleanupTargetResult
+  owner: C
+  consumers:
+  - B
+  nodes:
+  - B.7
+  - C.5
+  definition: src/aether_agent_memory/remember/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 一个清理目标的提供方核验结果
+- model: remember.CleanupReceipt
+  owner: C
+  consumers:
+  - B
+  nodes:
+  - B.7
+  - C.5
+  definition: src/aether_agent_memory/remember/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 覆盖全部目标与保护引用的清理回执
+- model: recall.EmbeddingSpace
+  owner: A
+  consumers:
+  - A
+  - B
+  nodes:
+  - A.1a
+  - B.6
+  definition: src/aether_agent_memory/recall/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: Query与Passage兼容的模型、维度、前缀、归一化和距离配置
+- model: recall.MemorySearchRequest
+  owner: A
+  consumers:
+  - A
+  - B
+  nodes:
+  - A.1c
+  - B.5
+  definition: src/aether_agent_memory/recall/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 内部记忆候选检索请求，独立规定记忆K和取块预算
+- model: recall.ChunkHit
+  owner: A
+  consumers:
+  - A
+  - B
+  nodes:
+  - A.1a
+  definition: src/aether_agent_memory/recall/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 向量命中块携带记忆版本、索引批次和正文/输入指纹
+- model: recall.ChunkProjectionRequest
+  owner: A
+  consumers:
+  - B
+  nodes:
+  - B.6
+  definition: src/aether_agent_memory/recall/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 共享向量写入请求，绑定未发布批次、块和向量维度
+- model: recall.ChunkProjectionResult
+  owner: A
+  consumers:
+  - B
+  nodes:
+  - B.6
+  definition: src/aether_agent_memory/recall/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 原写操作的核验结果，不把已受理当作已可搜
+- model: recall.ChunkSearchRequest
+  owner: A
+  consumers:
+  - A
+  nodes:
+  - A.1a
+  definition: src/aether_agent_memory/recall/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: Query向量检索一页块，携带模型空间与范围
+- model: recall.ChunkSearchResult
+  owner: A
+  consumers:
+  - A
+  nodes:
+  - A.1a
+  definition: src/aether_agent_memory/recall/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 块命中页与覆盖状态；尚未成为合格记忆候选
+- model: recall.MemoryCandidate
+  owner: A
+  consumers:
+  - A
+  - B
+  nodes:
+  - A.1c
+  - B.5
+  definition: src/aether_agent_memory/recall/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 同一合格记忆的命中块聚合，只用最大有效块分数
+- model: recall.MemorySearchResult
+  owner: A
+  consumers:
+  - A
+  - B
+  nodes:
+  - A.1c
+  - B.5
+  definition: src/aether_agent_memory/recall/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 按记忆计数、带有界补取统计和停止原因的候选结果
+- model: recall.RecallPlanRequest
+  owner: A
+  consumers:
+  - A
+  nodes:
+  - A.1
+  definition: src/aether_agent_memory/recall/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 显式的新流程入口参数；Working-only不携带长期检索
+- model: recall.RankingEvidence
+  owner: A
+  consumers:
+  - A
+  nodes:
+  - A.1d
+  definition: src/aether_agent_memory/recall/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 记忆级来源排名及RRF贡献，不按块重复融合
+- model: recall.ContextPackUnit
+  owner: A
+  consumers:
+  - A
+  nodes:
+  - A.1d
+  definition: src/aether_agent_memory/recall/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 一条完整记忆或一个完整必需冲突组的装包单元
+- model: recall.ContextAssemblyPlan
+  owner: A
+  consumers:
+  - A
+  nodes:
+  - A.1d
+  definition: src/aether_agent_memory/recall/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 整组选择、完整渲染、整包token使用和降级原因
+- model: recall.ContextCommitRequest
+  owner: A
+  consumers:
+  - A
+  - B
+  - RF
+  nodes:
+  - A.1d
+  definition: src/aether_agent_memory/recall/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 全部成员最终资格与待提交计划，交事务实现核验和提交
+- model: operate.SchedulingRound
+  owner: C
+  consumers:
+  - C
+  - RF
+  nodes:
+  - C.1
+  - C.2
+  definition: src/aether_agent_memory/operate/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 一次有界调度轮次与输入水位
+- model: operate.BufferEntry
+  owner: C
+  consumers:
+  - C
+  nodes:
+  - C.1
+  - C.2
+  definition: src/aether_agent_memory/operate/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 记忆资源的驻留层级、容量、访问热度和保护引用
+- model: operate.MigrationPlan
+  owner: C
+  consumers:
+  - B
+  - C
+  nodes:
+  - C.3
+  definition: src/aether_agent_memory/operate/contracts/foundation.py
+  status: validated_contract_not_service_wired
+  meaning: 复用ActionIntent的迁移计划，串接保护、地址交接和旧副本清理

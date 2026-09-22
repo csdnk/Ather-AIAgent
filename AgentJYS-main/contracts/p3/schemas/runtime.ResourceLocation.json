@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "An opaque provider key, never an arbitrary URL or a credential.",
+  "properties": {
+    "content_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Content Hash",
+      "type": "string"
+    },
+    "generation": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Generation",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "source",
+        "body",
+        "artifact",
+        "vector",
+        "cache",
+        "backup"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "namespace": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Namespace",
+      "type": "string"
+    },
+    "object_key": {
+      "minLength": 1,
+      "title": "Object Key",
+      "type": "string"
+    },
+    "provider_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Provider Id",
+      "type": "string"
+    },
+    "provider_instance_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Provider Instance Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "provider_id",
+    "provider_instance_id",
+    "namespace",
+    "object_key",
+    "generation",
+    "content_hash"
+  ],
+  "title": "ResourceLocation",
+  "type": "object",
+  "x-contract-model": "runtime.ResourceLocation"
+}

@@ -1,0 +1,1788 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "elements": [
+    {
+      "id": "18_prediction-tidy-1",
+      "type": "frame",
+      "x": 0,
+      "y": 0,
+      "width": 2700,
+      "height": 1500,
+      "angle": 0,
+      "strokeColor": "#b0b0b0",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": null,
+      "roundness": null,
+      "seed": 991,
+      "version": 1,
+      "versionNonce": 997,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "name": "18 · 后续预测增强：复用执行闭环（FR16 / P1）"
+    },
+    {
+      "id": "18_prediction-tidy-2",
+      "type": "text",
+      "x": 40,
+      "y": 25,
+      "width": 601.0,
+      "height": 38.5,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 1982,
+      "version": 1,
+      "versionNonce": 1994,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "18 · 后续预测增强：复用执行闭环（FR16 / P1）",
+      "originalText": "18 · 后续预测增强：复用执行闭环（FR16 / P1）",
+      "fontSize": 28,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 28,
+      "customData": {}
+    },
+    {
+      "id": "18_prediction-tidy-3",
+      "type": "rectangle",
+      "x": 35,
+      "y": 105,
+      "width": 2625,
+      "height": 1190,
+      "angle": 0,
+      "strokeColor": "#888888",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0.5,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 2973,
+      "version": 1,
+      "versionNonce": 2991,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "18_prediction-tidy-4",
+      "type": "text",
+      "x": 50,
+      "y": 115,
+      "width": 610.0,
+      "height": 30.25,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 3964,
+      "version": 1,
+      "versionNonce": 3988,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "PRD V1.3 目标流程；实线表示处理关系，不表示代码已经实现",
+      "originalText": "PRD V1.3 目标流程；实线表示处理关系，不表示代码已经实现",
+      "fontSize": 22,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 22,
+      "customData": {}
+    },
+    {
+      "id": "18_prediction-tidy-5",
+      "type": "rectangle",
+      "x": 80,
+      "y": 210,
+      "width": 500,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-base"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 4955,
+      "version": 1,
+      "versionNonce": 4985,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "18_prediction-tidy-29",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3；目标设计：18 · 后续预测增强：复用执行闭环（FR16 / P1）",
+        "node": "base"
+      }
+    },
+    {
+      "id": "18_prediction-tidy-6",
+      "type": "text",
+      "x": 190.0,
+      "y": 238.5,
+      "width": 280.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-base"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 5946,
+      "version": 1,
+      "versionNonce": 5982,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "前提：MVP基础调度闭环可用\n预测不作为正常存储与召回依赖",
+      "originalText": "前提：MVP基础调度闭环可用\n预测不作为正常存储与召回依赖",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "18_prediction-tidy-7",
+      "type": "rectangle",
+      "x": 720,
+      "y": 210,
+      "width": 500,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-input"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 6937,
+      "version": 1,
+      "versionNonce": 6979,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "18_prediction-tidy-29",
+          "type": "arrow"
+        },
+        {
+          "id": "18_prediction-tidy-30",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3；目标设计：18 · 后续预测增强：复用执行闭环（FR16 / P1）",
+        "node": "input"
+      }
+    },
+    {
+      "id": "18_prediction-tidy-8",
+      "type": "text",
+      "x": 840.0,
+      "y": 238.5,
+      "width": 260.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-input"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 7928,
+      "version": 1,
+      "versionNonce": 7976,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "读取获准历史与当前状态\n保留轨迹覆盖情况与时间信息",
+      "originalText": "读取获准历史与当前状态\n保留轨迹覆盖情况与时间信息",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "18_prediction-tidy-9",
+      "type": "rectangle",
+      "x": 1360,
+      "y": 210,
+      "width": 500,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-predict"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 8919,
+      "version": 1,
+      "versionNonce": 8973,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "18_prediction-tidy-30",
+          "type": "arrow"
+        },
+        {
+          "id": "18_prediction-tidy-31",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3；目标设计：18 · 后续预测增强：复用执行闭环（FR16 / P1）",
+        "node": "predict"
+      }
+    },
+    {
+      "id": "18_prediction-tidy-10",
+      "type": "text",
+      "x": 1480.0,
+      "y": 238.5,
+      "width": 260.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-predict"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 9910,
+      "version": 1,
+      "versionNonce": 9970,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "形成预测访问对象与时间窗口\n预测建议不等于预热成功",
+      "originalText": "形成预测访问对象与时间窗口\n预测建议不等于预热成功",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "18_prediction-tidy-11",
+      "type": "rectangle",
+      "x": 2000,
+      "y": 210,
+      "width": 500,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-guard"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 10901,
+      "version": 1,
+      "versionNonce": 10967,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "18_prediction-tidy-31",
+          "type": "arrow"
+        },
+        {
+          "id": "18_prediction-tidy-32",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3；目标设计：18 · 后续预测增强：复用执行闭环（FR16 / P1）",
+        "node": "guard"
+      }
+    },
+    {
+      "id": "18_prediction-tidy-12",
+      "type": "text",
+      "x": 2100.0,
+      "y": 238.5,
+      "width": 300.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-guard"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 11892,
+      "version": 1,
+      "versionNonce": 11964,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "复用 B 当前资格与资源检查\n独立预热预算，优先保护在线业务",
+      "originalText": "复用 B 当前资格与资源检查\n独立预热预算，优先保护在线业务",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "18_prediction-tidy-13",
+      "type": "rectangle",
+      "x": 2000,
+      "y": 550,
+      "width": 500,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-submit"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 12883,
+      "version": 1,
+      "versionNonce": 12961,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "18_prediction-tidy-32",
+          "type": "arrow"
+        },
+        {
+          "id": "18_prediction-tidy-33",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3；目标设计：18 · 后续预测增强：复用执行闭环（FR16 / P1）",
+        "node": "submit"
+      }
+    },
+    {
+      "id": "18_prediction-tidy-14",
+      "type": "text",
+      "x": 2116.5,
+      "y": 578.5,
+      "width": 267.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-submit"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 13874,
+      "version": 1,
+      "versionNonce": 13958,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "通过17相同动作协议执行预热\n固定 ID、结果查证和准确读取",
+      "originalText": "通过17相同动作协议执行预热\n固定 ID、结果查证和准确读取",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "18_prediction-tidy-15",
+      "type": "rectangle",
+      "x": 1360,
+      "y": 550,
+      "width": 500,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-ready"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 14865,
+      "version": 1,
+      "versionNonce": 14955,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "18_prediction-tidy-33",
+          "type": "arrow"
+        },
+        {
+          "id": "18_prediction-tidy-34",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3；目标设计：18 · 后续预测增强：复用执行闭环（FR16 / P1）",
+        "node": "ready"
+      }
+    },
+    {
+      "id": "18_prediction-tidy-16",
+      "type": "text",
+      "x": 1500.0,
+      "y": 578.5,
+      "width": 220.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-ready"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 15856,
+      "version": 1,
+      "versionNonce": 15952,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "核对实际准备完成时间\n未知、失败不计为已预热",
+      "originalText": "核对实际准备完成时间\n未知、失败不计为已预热",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "18_prediction-tidy-17",
+      "type": "rectangle",
+      "x": 720,
+      "y": 550,
+      "width": 500,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-access"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 16847,
+      "version": 1,
+      "versionNonce": 16949,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "18_prediction-tidy-34",
+          "type": "arrow"
+        },
+        {
+          "id": "18_prediction-tidy-35",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3；目标设计：18 · 后续预测增强：复用执行闭环（FR16 / P1）",
+        "node": "access"
+      }
+    },
+    {
+      "id": "18_prediction-tidy-18",
+      "type": "text",
+      "x": 840.0,
+      "y": 578.5,
+      "width": 260.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-access"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 17838,
+      "version": 1,
+      "versionNonce": 17946,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "关联后续真实访问和对象版本\n验证预测→准备→访问的先后",
+      "originalText": "关联后续真实访问和对象版本\n验证预测→准备→访问的先后",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "18_prediction-tidy-19",
+      "type": "rectangle",
+      "x": 80,
+      "y": 550,
+      "width": 500,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-evidence"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 18829,
+      "version": 1,
+      "versionNonce": 18943,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "18_prediction-tidy-35",
+          "type": "arrow"
+        },
+        {
+          "id": "18_prediction-tidy-36",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3；目标设计：18 · 后续预测增强：复用执行闭环（FR16 / P1）",
+        "node": "evidence"
+      }
+    },
+    {
+      "id": "18_prediction-tidy-20",
+      "type": "text",
+      "x": 180.0,
+      "y": 578.5,
+      "width": 300.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-evidence"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 19820,
+      "version": 1,
+      "versionNonce": 19940,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "记录收益、未使用预热与资源影响\n量化门禁后续按 PRD 执行",
+      "originalText": "记录收益、未使用预热与资源影响\n量化门禁后续按 PRD 执行",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "18_prediction-tidy-21",
+      "type": "rectangle",
+      "x": 80,
+      "y": 890,
+      "width": 500,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-fallback"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 20811,
+      "version": 1,
+      "versionNonce": 20937,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "18_prediction-tidy-36",
+          "type": "arrow"
+        },
+        {
+          "id": "18_prediction-tidy-37",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3；目标设计：18 · 后续预测增强：复用执行闭环（FR16 / P1）",
+        "node": "fallback"
+      }
+    },
+    {
+      "id": "18_prediction-tidy-22",
+      "type": "text",
+      "x": 210.0,
+      "y": 918.5,
+      "width": 240.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-fallback"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 21802,
+      "version": 1,
+      "versionNonce": 21934,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "预测不可用 / 在线受影响\n停止新预热，保留基础算法",
+      "originalText": "预测不可用 / 在线受影响\n停止新预热，保留基础算法",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "18_prediction-tidy-23",
+      "type": "rectangle",
+      "x": 720,
+      "y": 890,
+      "width": 500,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-inflight"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 22793,
+      "version": 1,
+      "versionNonce": 22931,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "18_prediction-tidy-37",
+          "type": "arrow"
+        },
+        {
+          "id": "18_prediction-tidy-38",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3；目标设计：18 · 后续预测增强：复用执行闭环（FR16 / P1）",
+        "node": "inflight"
+      }
+    },
+    {
+      "id": "18_prediction-tidy-24",
+      "type": "text",
+      "x": 830.0,
+      "y": 918.5,
+      "width": 280.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-inflight"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 23784,
+      "version": 1,
+      "versionNonce": 23928,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "已执行或未知动作继续受控对账\n不因回退丢失原操作",
+      "originalText": "已执行或未知动作继续受控对账\n不因回退丢失原操作",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "18_prediction-tidy-25",
+      "type": "rectangle",
+      "x": 1360,
+      "y": 890,
+      "width": 500,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-invalid"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 24775,
+      "version": 1,
+      "versionNonce": 24925,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "18_prediction-tidy-38",
+          "type": "arrow"
+        },
+        {
+          "id": "18_prediction-tidy-39",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3；目标设计：18 · 后续预测增强：复用执行闭环（FR16 / P1）",
+        "node": "invalid"
+      }
+    },
+    {
+      "id": "18_prediction-tidy-26",
+      "type": "text",
+      "x": 1460.0,
+      "y": 918.5,
+      "width": 300.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-invalid"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 25766,
+      "version": 1,
+      "versionNonce": 25922,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "内容失效即撤销使用资格\n已预热不能绕过更正、删除和撤权",
+      "originalText": "内容失效即撤销使用资格\n已预热不能绕过更正、删除和撤权",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "18_prediction-tidy-27",
+      "type": "rectangle",
+      "x": 2000,
+      "y": 890,
+      "width": 500,
+      "height": 112,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-resume"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 26757,
+      "version": 1,
+      "versionNonce": 26919,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "18_prediction-tidy-39",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "customData": {
+        "source": "PRD V1.3；目标设计：18 · 后续预测增强：复用执行闭环（FR16 / P1）",
+        "node": "resume"
+      }
+    },
+    {
+      "id": "18_prediction-tidy-28",
+      "type": "text",
+      "x": 2110.0,
+      "y": 918.5,
+      "width": 280.0,
+      "height": 55.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [
+        "18_prediction-tidy-1-resume"
+      ],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 27748,
+      "version": 1,
+      "versionNonce": 27916,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "条件恢复后逐步恢复适用预热\n保持同一任务、事件和观测机制",
+      "originalText": "条件恢复后逐步恢复适用预热\n保持同一任务、事件和观测机制",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 20,
+      "customData": {}
+    },
+    {
+      "id": "18_prediction-tidy-29",
+      "type": "arrow",
+      "x": 580,
+      "y": 266.0,
+      "width": 140,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 28739,
+      "version": 1,
+      "versionNonce": 28913,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          140,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "base",
+        "to": "input"
+      },
+      "startBinding": {
+        "elementId": "18_prediction-tidy-5",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "18_prediction-tidy-7",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "18_prediction-tidy-30",
+      "type": "arrow",
+      "x": 1220,
+      "y": 266.0,
+      "width": 140,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 29730,
+      "version": 1,
+      "versionNonce": 29910,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          140,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "input",
+        "to": "predict"
+      },
+      "startBinding": {
+        "elementId": "18_prediction-tidy-7",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "18_prediction-tidy-9",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "18_prediction-tidy-31",
+      "type": "arrow",
+      "x": 1860,
+      "y": 266.0,
+      "width": 140,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 30721,
+      "version": 1,
+      "versionNonce": 30907,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          140,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "predict",
+        "to": "guard"
+      },
+      "startBinding": {
+        "elementId": "18_prediction-tidy-9",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "18_prediction-tidy-11",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "18_prediction-tidy-32",
+      "type": "arrow",
+      "x": 2250.0,
+      "y": 322,
+      "width": 0.0,
+      "height": 228,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 31712,
+      "version": 1,
+      "versionNonce": 31904,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0.0,
+          0
+        ],
+        [
+          0.0,
+          228
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "guard",
+        "to": "submit"
+      },
+      "startBinding": {
+        "elementId": "18_prediction-tidy-11",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "18_prediction-tidy-13",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "18_prediction-tidy-33",
+      "type": "arrow",
+      "x": 2000,
+      "y": 606.0,
+      "width": 140,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 32703,
+      "version": 1,
+      "versionNonce": 32901,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          -140,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "submit",
+        "to": "ready"
+      },
+      "startBinding": {
+        "elementId": "18_prediction-tidy-13",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "18_prediction-tidy-15",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "18_prediction-tidy-34",
+      "type": "arrow",
+      "x": 1360,
+      "y": 606.0,
+      "width": 140,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 33694,
+      "version": 1,
+      "versionNonce": 33898,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          -140,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "ready",
+        "to": "access"
+      },
+      "startBinding": {
+        "elementId": "18_prediction-tidy-15",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "18_prediction-tidy-17",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "18_prediction-tidy-35",
+      "type": "arrow",
+      "x": 720,
+      "y": 606.0,
+      "width": 140,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 34685,
+      "version": 1,
+      "versionNonce": 34895,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          -140,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "access",
+        "to": "evidence"
+      },
+      "startBinding": {
+        "elementId": "18_prediction-tidy-17",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "18_prediction-tidy-19",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "18_prediction-tidy-36",
+      "type": "arrow",
+      "x": 330.0,
+      "y": 662,
+      "width": 0.0,
+      "height": 228,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 35676,
+      "version": 1,
+      "versionNonce": 35892,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0.0,
+          0
+        ],
+        [
+          0.0,
+          228
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "evidence",
+        "to": "fallback"
+      },
+      "startBinding": {
+        "elementId": "18_prediction-tidy-19",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "18_prediction-tidy-21",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "18_prediction-tidy-37",
+      "type": "arrow",
+      "x": 580,
+      "y": 946.0,
+      "width": 140,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 36667,
+      "version": 1,
+      "versionNonce": 36889,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          140,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "fallback",
+        "to": "inflight"
+      },
+      "startBinding": {
+        "elementId": "18_prediction-tidy-21",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "18_prediction-tidy-23",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "18_prediction-tidy-38",
+      "type": "arrow",
+      "x": 1220,
+      "y": 946.0,
+      "width": 140,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 37658,
+      "version": 1,
+      "versionNonce": 37886,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          140,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "inflight",
+        "to": "invalid"
+      },
+      "startBinding": {
+        "elementId": "18_prediction-tidy-23",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "18_prediction-tidy-25",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "18_prediction-tidy-39",
+      "type": "arrow",
+      "x": 1860,
+      "y": 946.0,
+      "width": 140,
+      "height": 0.0,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.8,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 38649,
+      "version": 1,
+      "versionNonce": 38883,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "points": [
+        [
+          0,
+          0.0
+        ],
+        [
+          140,
+          0.0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "elbowed": false,
+      "customData": {
+        "route": "orthogonal",
+        "from": "invalid",
+        "to": "resume"
+      },
+      "startBinding": {
+        "elementId": "18_prediction-tidy-25",
+        "focus": 0,
+        "gap": 0
+      },
+      "endBinding": {
+        "elementId": "18_prediction-tidy-27",
+        "focus": 0,
+        "gap": 0
+      }
+    },
+    {
+      "id": "18_prediction-tidy-1-note-0",
+      "type": "text",
+      "x": 60,
+      "y": 1360,
+      "width": 1060.0,
+      "height": 30.25,
+      "angle": 0,
+      "strokeColor": "#222222",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1.5,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "groupIds": [],
+      "frameId": "18_prediction-tidy-1",
+      "roundness": null,
+      "seed": 1982,
+      "version": 1,
+      "versionNonce": 1994,
+      "isDeleted": false,
+      "boundElements": [],
+      "updated": 1790000000000,
+      "link": null,
+      "locked": false,
+      "text": "FR16 明确属于后续 P1；图中保留完整演进位置。当前先搭系统，未运行性能门禁不等于删除产品指标要求。",
+      "originalText": "FR16 明确属于后续 P1；图中保留完整演进位置。当前先搭系统，未运行性能门禁不等于删除产品指标要求。",
+      "fontSize": 22,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "lineHeight": 1.375,
+      "autoResize": true,
+      "baseline": 22,
+      "customData": {}
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff",
+    "gridSize": null
+  },
+  "files": {}
+}

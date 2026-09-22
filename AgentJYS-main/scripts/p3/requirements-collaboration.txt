@@ -2,3 +2,6 @@
 -r requirements-native.txt
 pymilvus>=2.5,<3
 pytest-asyncio>=1.4,<2
+fastapi>=0.141.1,<1
+uvicorn>=0.35,<1
+httpx>=0.28.1,<1

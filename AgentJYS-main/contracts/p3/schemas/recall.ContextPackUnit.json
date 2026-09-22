@@ -1,0 +1,424 @@
+{
+  "$defs": {
+    "ConflictGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "explanation": {
+          "minLength": 1,
+          "title": "Explanation",
+          "type": "string"
+        },
+        "group_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Group Id",
+          "type": "string"
+        },
+        "members": {
+          "items": {
+            "$ref": "#/$defs/MemoryRef"
+          },
+          "minItems": 2,
+          "title": "Members",
+          "type": "array"
+        },
+        "state": {
+          "const": "unresolved",
+          "default": "unresolved",
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "group_id",
+        "members",
+        "explanation"
+      ],
+      "title": "ConflictGroup",
+      "type": "object"
+    },
+    "FullBodyReadResult": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content"
+        },
+        "guard": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GuardStamp"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "location": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResourceLocation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "memory": {
+          "$ref": "#/$defs/MemoryRef"
+        },
+        "outcome": {
+          "enum": [
+            "read",
+            "excluded",
+            "missing",
+            "unavailable",
+            "stale"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "path": {
+          "enum": [
+            "cache",
+            "authority",
+            "p2",
+            "none"
+          ],
+          "title": "Path",
+          "type": "string"
+        },
+        "reason_code": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Reason Code",
+          "type": "string"
+        },
+        "sources": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "title": "Sources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "memory",
+        "outcome",
+        "path",
+        "reason_code"
+      ],
+      "title": "FullBodyReadResult",
+      "type": "object"
+    },
+    "GuardStamp": {
+      "additionalProperties": false,
+      "properties": {
+        "authorization_epoch": {
+          "minimum": 1,
+          "title": "Authorization Epoch",
+          "type": "integer"
+        },
+        "body_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Body Hash",
+          "type": "string"
+        },
+        "checked_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "title": "Checked At",
+          "type": "string"
+        },
+        "memory": {
+          "$ref": "#/$defs/MemoryRef"
+        },
+        "object_revision": {
+          "minimum": 1,
+          "title": "Object Revision",
+          "type": "integer"
+        },
+        "relations_revision": {
+          "minimum": 1,
+          "title": "Relations Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "memory",
+        "object_revision",
+        "relations_revision",
+        "authorization_epoch",
+        "body_hash",
+        "checked_at"
+      ],
+      "title": "GuardStamp",
+      "type": "object"
+    },
+    "MemoryRef": {
+      "additionalProperties": false,
+      "properties": {
+        "memory_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Memory Id",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scope",
+        "memory_id",
+        "version"
+      ],
+      "title": "MemoryRef",
+      "type": "object"
+    },
+    "ResourceLocation": {
+      "additionalProperties": false,
+      "description": "An opaque provider key, never an arbitrary URL or a credential.",
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "generation": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Generation",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "source",
+            "body",
+            "artifact",
+            "vector",
+            "cache",
+            "backup"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "namespace": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Namespace",
+          "type": "string"
+        },
+        "object_key": {
+          "minLength": 1,
+          "title": "Object Key",
+          "type": "string"
+        },
+        "provider_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "provider_instance_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Provider Instance Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "provider_id",
+        "provider_instance_id",
+        "namespace",
+        "object_key",
+        "generation",
+        "content_hash"
+      ],
+      "title": "ResourceLocation",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "application_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Application Id",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        },
+        "tenant_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "user_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenant_id",
+        "application_id",
+        "user_id",
+        "agent_id"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "locator": {
+          "minLength": 1,
+          "title": "Locator",
+          "type": "string"
+        },
+        "source_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_version": {
+          "minimum": 1,
+          "title": "Source Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source_id",
+        "source_version",
+        "content_hash",
+        "locator"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "bodies": {
+      "items": {
+        "$ref": "#/$defs/FullBodyReadResult"
+      },
+      "minItems": 1,
+      "title": "Bodies",
+      "type": "array"
+    },
+    "conflict": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ConflictGroup"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "group_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Group Id",
+      "type": "string"
+    },
+    "primary_memories": {
+      "items": {
+        "$ref": "#/$defs/MemoryRef"
+      },
+      "title": "Primary Memories",
+      "type": "array"
+    },
+    "rank": {
+      "minimum": 1,
+      "title": "Rank",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "group_id",
+    "bodies",
+    "primary_memories",
+    "rank"
+  ],
+  "title": "ContextPackUnit",
+  "type": "object",
+  "x-contract-model": "recall.ContextPackUnit"
+}

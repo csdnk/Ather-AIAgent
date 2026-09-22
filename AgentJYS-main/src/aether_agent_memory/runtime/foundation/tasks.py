@@ -86,6 +86,9 @@ class Tasks:
             raise ValueError("class limits must be positive")
         self.handlers: dict[str, tuple[str, TaskHandler]] = {}
         self.permissions: dict[str, Permission] = {}
+        from .task_progress import TaskProgress
+
+        self.progress = TaskProgress(self, secrets.token_hex(8))
 
     def register(
         self,
@@ -364,6 +367,7 @@ class Tasks:
                     query_attempt=task.query_attempt + recovery,
                     next_run_at=None,
                 )
+                self.progress.heartbeat(tx, worker_id, execution_class, task=updated)
                 ctx = TrustedContext.model_validate(row["context"])
                 self.note(tx, updated, ctx, "recovery.claimed" if recovery else "task.claimed")
                 tx.write(
@@ -468,6 +472,23 @@ class Tasks:
             sql.abort(
                 ErrorCode.CONTRACT_VIOLATION, "required durable outputs are missing or out of scope"
             )
+        from aether_agent_memory.runtime.contracts.foundation import CheckpointRecord
+
+        configuration = sql.read("runtime_configuration", "active")
+        self.progress.checkpoint(
+            sql,
+            ctx,
+            task,
+            CheckpointRecord(
+                task_id=current.task_id,
+                expected_task_revision=current.revision,
+                stage="completed",
+                input_hash=current.input_hash,
+                output_refs=tuple(dict.fromkeys((result, *current.required_outputs))),
+                committed_at=self.clock(),
+                config_version=configuration["version"] if configuration else "foundation_2",
+            ),
+        )
         updated = self.change(
             sql,
             {**row, "completion_token": current.lease.token if current.lease else None},
@@ -610,6 +631,9 @@ class Tasks:
         except Exception as exc:
             # Store a bounded code, not exception text that may contain secrets/body.
             self.record_failure(task, exc)
+        finally:
+            with self.uow.transaction() as tx:
+                self.progress.heartbeat(tx, worker_id, execution_class)
         return True
 
     async def invoke(self, coroutine: Any, ctx: TrustedContext, task: TaskRecord) -> Any:
@@ -627,7 +651,10 @@ class Tasks:
                     ):
                         tx.abort(ErrorCode.VERSION_CONFLICT, "lease lost while executing")
                     self.identity.revalidate(tx, ctx)
-                    self.renew(tx, task.task_id, current.lease, current.revision)
+                    renewed = self.renew(tx, task.task_id, current.lease, current.revision)
+                    self.progress.heartbeat(
+                        tx, current.lease.owner_id, self.handlers[current.kind][0], task=renewed
+                    )
                     tx.write(
                         "workers",
                         current.lease.owner_id,
@@ -728,6 +755,19 @@ class Tasks:
                 row = {**row, "original_operation_id": result.operation_id}
             if state == TaskState.RETRY_WAIT and current.attempt >= current.max_attempts:
                 state = TaskState.FAILED
+            wait = tx.read("task_waits", task.task_id)
+            wait_lease = tx.read("task_wait_leases", task.task_id)
+            if not wait_lease or not task.lease or wait_lease["token"] != task.lease.token:
+                wait = None
+            next_run = later(self.clock(), self.retry_seconds)
+            if wait and state in {TaskState.RETRY_WAIT, TaskState.RECOVERY_WAIT}:
+                if wait["effect_status"] != effect.value:
+                    tx.abort(ErrorCode.CONTRACT_VIOLATION, "wait and handler effect disagree")
+                next_run = min(wait["next_check_at"], current.deadline_at)
+                if wait["resume_mode"] == "attention":
+                    state = TaskState.ATTENTION
+                elif wait["resume_mode"] == "query_only":
+                    state = TaskState.RECOVERY_WAIT
             updated = self.change(
                 tx,
                 row,
@@ -735,7 +775,7 @@ class Tasks:
                 state=state,
                 effect_status=effect,
                 lease=None,
-                next_run_at=later(self.clock(), self.retry_seconds),
+                next_run_at=next_run,
             )
             self.finish_attempt(tx, current, effect)
             self.note(tx, updated, ctx, "task." + result.outcome)

@@ -2,6 +2,11 @@
 
 from typing import Protocol
 
+from aether_agent_memory.remember.contracts.foundation import (
+    CleanupReceipt,
+    CleanupRequest,
+    ProtectionReference,
+)
 from aether_agent_memory.remember.contracts.models import MemoryRef
 from aether_agent_memory.runtime.contracts.models import EventEnvelope, TrustedContext
 from aether_agent_memory.runtime.contracts.ports import Transaction
@@ -16,6 +21,20 @@ from .models import (
     ResourceSnapshot,
     SchedulingInput,
 )
+
+
+class LifecycleCleanupPort(Protocol):
+    async def release_protection(
+        self,
+        ctx: TrustedContext,
+        protection_id: str,
+        expected_revision: int,
+    ) -> ProtectionReference: ...
+    async def cleanup(
+        self,
+        ctx: TrustedContext,
+        request: CleanupRequest,
+    ) -> CleanupReceipt: ...
 
 
 class SchedulingPort(Protocol):

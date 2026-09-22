@@ -1,0 +1,281 @@
+{
+  "$defs": {
+    "Flow": {
+      "enum": [
+        "runtime",
+        "remember",
+        "recall",
+        "operate"
+      ],
+      "title": "Flow",
+      "type": "string"
+    },
+    "HealthObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "enum": [
+            "dependency",
+            "capability",
+            "worker"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "checked_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "title": "Checked At",
+          "type": "string"
+        },
+        "elapsed_ms": {
+          "minimum": 0,
+          "title": "Elapsed Ms",
+          "type": "number"
+        },
+        "evidence_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RecordRef"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "fresh_until": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "title": "Fresh Until",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Name",
+          "type": "string"
+        },
+        "reason_code": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Reason Code",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "available",
+            "unavailable",
+            "degraded",
+            "unknown",
+            "disabled"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "category",
+        "state",
+        "checked_at",
+        "fresh_until",
+        "elapsed_ms",
+        "reason_code"
+      ],
+      "title": "HealthObservation",
+      "type": "object"
+    },
+    "RecordRef": {
+      "additionalProperties": false,
+      "properties": {
+        "object_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Object Id",
+          "type": "string"
+        },
+        "object_type": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Object Type",
+          "type": "string"
+        },
+        "owner": {
+          "$ref": "#/$defs/Flow"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "required": [
+        "owner",
+        "object_type",
+        "object_id",
+        "scope"
+      ],
+      "title": "RecordRef",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "application_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Application Id",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        },
+        "tenant_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "user_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenant_id",
+        "application_id",
+        "user_id",
+        "agent_id"
+      ],
+      "title": "Scope",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "checked_at": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "title": "Checked At",
+      "type": "string"
+    },
+    "config_version": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Config Version",
+      "type": "string"
+    },
+    "liveness": {
+      "enum": [
+        "alive",
+        "unknown"
+      ],
+      "title": "Liveness",
+      "type": "string"
+    },
+    "observations": {
+      "items": {
+        "$ref": "#/$defs/HealthObservation"
+      },
+      "title": "Observations",
+      "type": "array"
+    },
+    "production_acceptance": {
+      "const": false,
+      "default": false,
+      "title": "Production Acceptance",
+      "type": "boolean"
+    },
+    "readiness": {
+      "enum": [
+        "ready",
+        "not_ready",
+        "unknown"
+      ],
+      "title": "Readiness",
+      "type": "string"
+    },
+    "required_capabilities": {
+      "items": {
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9_-]+$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Required Capabilities",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "p3/health/2",
+      "default": "p3/health/2",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "checked_at",
+    "config_version",
+    "liveness",
+    "readiness",
+    "required_capabilities",
+    "observations"
+  ],
+  "title": "RuntimeHealthSnapshot",
+  "type": "object",
+  "x-contract-model": "runtime.RuntimeHealthSnapshot"
+}

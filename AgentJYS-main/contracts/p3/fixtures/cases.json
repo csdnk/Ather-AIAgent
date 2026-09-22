@@ -4448,5 +4448,4679 @@
         }
       }
     }
+  },
+  {
+    "id": "positive-runtime.ResourceLocation",
+    "model": "runtime.ResourceLocation",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "kind": "body",
+      "provider_id": "p2",
+      "provider_instance_id": "instance_1",
+      "namespace": "memory",
+      "object_key": "body_1",
+      "generation": "gen_1",
+      "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+    }
+  },
+  {
+    "id": "extra-field-runtime.ResourceLocation",
+    "model": "runtime.ResourceLocation",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "kind": "body",
+      "provider_id": "p2",
+      "provider_instance_id": "instance_1",
+      "namespace": "memory",
+      "object_key": "body_1",
+      "generation": "gen_1",
+      "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.NodeLogRecord",
+    "model": "runtime.NodeLogRecord",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "schema_version": "p3/log/2",
+      "occurred_at": "2026-09-21T02:00:00.000Z",
+      "service": "aether",
+      "instance": "instance_1",
+      "flow": "remember",
+      "request_id": "req_1",
+      "operation_id": "op_1",
+      "trace_id": "11111111111111111111111111111111",
+      "span_id": "2222222222222222",
+      "parent_span_id": null,
+      "task_id": null,
+      "event_id": null,
+      "node": "save",
+      "phase": "returned",
+      "level": "info",
+      "elapsed_ms": 1.2,
+      "reason_code": null,
+      "input_count": null,
+      "output_count": null
+    }
+  },
+  {
+    "id": "extra-field-runtime.NodeLogRecord",
+    "model": "runtime.NodeLogRecord",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "schema_version": "p3/log/2",
+      "occurred_at": "2026-09-21T02:00:00.000Z",
+      "service": "aether",
+      "instance": "instance_1",
+      "flow": "remember",
+      "request_id": "req_1",
+      "operation_id": "op_1",
+      "trace_id": "11111111111111111111111111111111",
+      "span_id": "2222222222222222",
+      "parent_span_id": null,
+      "task_id": null,
+      "event_id": null,
+      "node": "save",
+      "phase": "returned",
+      "level": "info",
+      "elapsed_ms": 1.2,
+      "reason_code": null,
+      "input_count": null,
+      "output_count": null,
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.HealthObservation",
+    "model": "runtime.HealthObservation",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "name": "save",
+      "category": "capability",
+      "state": "available",
+      "checked_at": "2026-09-21T02:00:00.000Z",
+      "fresh_until": "2026-09-21T02:02:00.000Z",
+      "elapsed_ms": 1.2,
+      "reason_code": "probe_ok",
+      "evidence_refs": []
+    }
+  },
+  {
+    "id": "extra-field-runtime.HealthObservation",
+    "model": "runtime.HealthObservation",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "name": "save",
+      "category": "capability",
+      "state": "available",
+      "checked_at": "2026-09-21T02:00:00.000Z",
+      "fresh_until": "2026-09-21T02:02:00.000Z",
+      "elapsed_ms": 1.2,
+      "reason_code": "probe_ok",
+      "evidence_refs": [],
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.RuntimeHealthSnapshot",
+    "model": "runtime.RuntimeHealthSnapshot",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "schema_version": "p3/health/2",
+      "checked_at": "2026-09-21T02:01:00.000Z",
+      "config_version": "config_1",
+      "liveness": "alive",
+      "readiness": "ready",
+      "required_capabilities": [
+        "save"
+      ],
+      "observations": [
+        {
+          "name": "save",
+          "category": "capability",
+          "state": "available",
+          "checked_at": "2026-09-21T02:00:00.000Z",
+          "fresh_until": "2026-09-21T02:02:00.000Z",
+          "elapsed_ms": 1.2,
+          "reason_code": "probe_ok",
+          "evidence_refs": []
+        }
+      ],
+      "production_acceptance": false
+    }
+  },
+  {
+    "id": "extra-field-runtime.RuntimeHealthSnapshot",
+    "model": "runtime.RuntimeHealthSnapshot",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "schema_version": "p3/health/2",
+      "checked_at": "2026-09-21T02:01:00.000Z",
+      "config_version": "config_1",
+      "liveness": "alive",
+      "readiness": "ready",
+      "required_capabilities": [
+        "save"
+      ],
+      "observations": [
+        {
+          "name": "save",
+          "category": "capability",
+          "state": "available",
+          "checked_at": "2026-09-21T02:00:00.000Z",
+          "fresh_until": "2026-09-21T02:02:00.000Z",
+          "elapsed_ms": 1.2,
+          "reason_code": "probe_ok",
+          "evidence_refs": []
+        }
+      ],
+      "production_acceptance": false,
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.SignalDefinition",
+    "model": "runtime.SignalDefinition",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "signal_id": "queue_age",
+      "owner": "runtime",
+      "source": "task_store_oldest_pending",
+      "unit": "milliseconds",
+      "sample_interval_ms": 1000,
+      "stale_after_ms": 5000,
+      "label_names": [
+        "flow"
+      ],
+      "max_label_sets": 4,
+      "missing_policy": "unknown"
+    }
+  },
+  {
+    "id": "extra-field-runtime.SignalDefinition",
+    "model": "runtime.SignalDefinition",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "signal_id": "queue_age",
+      "owner": "runtime",
+      "source": "task_store_oldest_pending",
+      "unit": "milliseconds",
+      "sample_interval_ms": 1000,
+      "stale_after_ms": 5000,
+      "label_names": [
+        "flow"
+      ],
+      "max_label_sets": 4,
+      "missing_policy": "unknown",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.SignalObservation",
+    "model": "runtime.SignalObservation",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "signal": {
+        "signal_id": "queue_age",
+        "owner": "runtime",
+        "source": "task_store_oldest_pending",
+        "unit": "milliseconds",
+        "sample_interval_ms": 1000,
+        "stale_after_ms": 5000,
+        "label_names": [
+          "flow"
+        ],
+        "max_label_sets": 4,
+        "missing_policy": "unknown"
+      },
+      "observed_at": "2026-09-21T02:00:00.000Z",
+      "state": "known",
+      "value": 20.0,
+      "labels": {
+        "flow": "remember"
+      },
+      "evidence_refs": [
+        {
+          "owner": "runtime",
+          "object_type": "id_1",
+          "object_id": "proof_1",
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "version": null
+        }
+      ]
+    }
+  },
+  {
+    "id": "extra-field-runtime.SignalObservation",
+    "model": "runtime.SignalObservation",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "signal": {
+        "signal_id": "queue_age",
+        "owner": "runtime",
+        "source": "task_store_oldest_pending",
+        "unit": "milliseconds",
+        "sample_interval_ms": 1000,
+        "stale_after_ms": 5000,
+        "label_names": [
+          "flow"
+        ],
+        "max_label_sets": 4,
+        "missing_policy": "unknown"
+      },
+      "observed_at": "2026-09-21T02:00:00.000Z",
+      "state": "known",
+      "value": 20.0,
+      "labels": {
+        "flow": "remember"
+      },
+      "evidence_refs": [
+        {
+          "owner": "runtime",
+          "object_type": "id_1",
+          "object_id": "proof_1",
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "version": null
+        }
+      ],
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.WorkerHeartbeat",
+    "model": "runtime.WorkerHeartbeat",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "worker_id": "worker_1",
+      "instance_id": "instance_1",
+      "execution_class": "io",
+      "state": "running",
+      "last_seen": "2026-09-21T02:00:00.000Z",
+      "fresh_until": "2026-09-21T02:02:00.000Z",
+      "task_id": "task_1",
+      "lease_token": "lease_1"
+    }
+  },
+  {
+    "id": "extra-field-runtime.WorkerHeartbeat",
+    "model": "runtime.WorkerHeartbeat",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "worker_id": "worker_1",
+      "instance_id": "instance_1",
+      "execution_class": "io",
+      "state": "running",
+      "last_seen": "2026-09-21T02:00:00.000Z",
+      "fresh_until": "2026-09-21T02:02:00.000Z",
+      "task_id": "task_1",
+      "lease_token": "lease_1",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.OperationDefinition",
+    "model": "runtime.OperationDefinition",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "operation_kind": "provider_query",
+      "owner": "operate",
+      "execution_class": "io",
+      "input_model": "operate.ActionIntent",
+      "output_model": "operate.ExecutionFeedback",
+      "permission": "maintenance:recover",
+      "side_effect": "external",
+      "idempotency_required": true,
+      "success_evidence": [
+        "provider_observation"
+      ],
+      "recovery": "query_only",
+      "signal_ids": [
+        "queue_age"
+      ],
+      "validation_scenarios": [
+        "unknown_effect_query"
+      ]
+    }
+  },
+  {
+    "id": "extra-field-runtime.OperationDefinition",
+    "model": "runtime.OperationDefinition",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "operation_kind": "provider_query",
+      "owner": "operate",
+      "execution_class": "io",
+      "input_model": "operate.ActionIntent",
+      "output_model": "operate.ExecutionFeedback",
+      "permission": "maintenance:recover",
+      "side_effect": "external",
+      "idempotency_required": true,
+      "success_evidence": [
+        "provider_observation"
+      ],
+      "recovery": "query_only",
+      "signal_ids": [
+        "queue_age"
+      ],
+      "validation_scenarios": [
+        "unknown_effect_query"
+      ],
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.DispositionRule",
+    "model": "runtime.DispositionRule",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "rule_id": "queue_rule",
+      "revision": 1,
+      "signal_id": "queue_age",
+      "comparator": "gt",
+      "threshold": 30000.0,
+      "consecutive_samples": 3,
+      "operation_kind": "provider_query",
+      "max_attempts": 3,
+      "deadline_ms": 60000,
+      "cooldown_ms": 10000,
+      "verification_operation": "read_verify",
+      "escalation": "attention_required"
+    }
+  },
+  {
+    "id": "extra-field-runtime.DispositionRule",
+    "model": "runtime.DispositionRule",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "rule_id": "queue_rule",
+      "revision": 1,
+      "signal_id": "queue_age",
+      "comparator": "gt",
+      "threshold": 30000.0,
+      "consecutive_samples": 3,
+      "operation_kind": "provider_query",
+      "max_attempts": 3,
+      "deadline_ms": 60000,
+      "cooldown_ms": 10000,
+      "verification_operation": "read_verify",
+      "escalation": "attention_required",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.IncidentRecord",
+    "model": "runtime.IncidentRecord",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "incident_id": "incident_1",
+      "rule_id": "queue_rule",
+      "rule_revision": 1,
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "proof_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "version": null
+      },
+      "revision": 1,
+      "state": "resolved",
+      "operation_id": "op_1",
+      "evidence_refs": [
+        {
+          "owner": "runtime",
+          "object_type": "id_1",
+          "object_id": "proof_1",
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "version": null
+        }
+      ],
+      "verification": "passed",
+      "verification_refs": [
+        {
+          "owner": "runtime",
+          "object_type": "id_1",
+          "object_id": "proof_1",
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "version": null
+        }
+      ],
+      "opened_at": "2026-09-21T02:00:00.000Z",
+      "updated_at": "2026-09-21T02:01:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-runtime.IncidentRecord",
+    "model": "runtime.IncidentRecord",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "incident_id": "incident_1",
+      "rule_id": "queue_rule",
+      "rule_revision": 1,
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "proof_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "version": null
+      },
+      "revision": 1,
+      "state": "resolved",
+      "operation_id": "op_1",
+      "evidence_refs": [
+        {
+          "owner": "runtime",
+          "object_type": "id_1",
+          "object_id": "proof_1",
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "version": null
+        }
+      ],
+      "verification": "passed",
+      "verification_refs": [
+        {
+          "owner": "runtime",
+          "object_type": "id_1",
+          "object_id": "proof_1",
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "version": null
+        }
+      ],
+      "opened_at": "2026-09-21T02:00:00.000Z",
+      "updated_at": "2026-09-21T02:01:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.TaskWaitRecord",
+    "model": "runtime.TaskWaitRecord",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "task_id": "task_1",
+      "expected_task_revision": 1,
+      "dependency_id": "p2",
+      "reason_code": "provider_timeout",
+      "wait_started_at": "2026-09-21T02:00:00.000Z",
+      "next_check_at": "2026-09-21T02:01:00.000Z",
+      "deadline_at": "2026-09-21T02:02:00.000Z",
+      "original_operation_id": "op_1",
+      "effect_status": "unknown",
+      "resume_mode": "query_only"
+    }
+  },
+  {
+    "id": "extra-field-runtime.TaskWaitRecord",
+    "model": "runtime.TaskWaitRecord",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "task_id": "task_1",
+      "expected_task_revision": 1,
+      "dependency_id": "p2",
+      "reason_code": "provider_timeout",
+      "wait_started_at": "2026-09-21T02:00:00.000Z",
+      "next_check_at": "2026-09-21T02:01:00.000Z",
+      "deadline_at": "2026-09-21T02:02:00.000Z",
+      "original_operation_id": "op_1",
+      "effect_status": "unknown",
+      "resume_mode": "query_only",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.CheckpointRecord",
+    "model": "runtime.CheckpointRecord",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "task_id": "task_1",
+      "expected_task_revision": 1,
+      "stage": "parse",
+      "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+      "output_refs": [
+        {
+          "owner": "runtime",
+          "object_type": "id_1",
+          "object_id": "proof_1",
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "version": null
+        }
+      ],
+      "committed_at": "2026-09-21T02:00:00.000Z",
+      "config_version": "config_1"
+    }
+  },
+  {
+    "id": "extra-field-runtime.CheckpointRecord",
+    "model": "runtime.CheckpointRecord",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "task_id": "task_1",
+      "expected_task_revision": 1,
+      "stage": "parse",
+      "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+      "output_refs": [
+        {
+          "owner": "runtime",
+          "object_type": "id_1",
+          "object_id": "proof_1",
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "version": null
+        }
+      ],
+      "committed_at": "2026-09-21T02:00:00.000Z",
+      "config_version": "config_1",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.ConfigurationSnapshot",
+    "model": "runtime.ConfigurationSnapshot",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "version": "config_1",
+      "config_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+      "deployment_id": "deploy_1",
+      "provider_ids": [
+        "p2"
+      ],
+      "policy_versions": [
+        "policy_1"
+      ],
+      "secret_refs": [],
+      "activated_at": "2026-09-21T02:00:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-runtime.ConfigurationSnapshot",
+    "model": "runtime.ConfigurationSnapshot",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "version": "config_1",
+      "config_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+      "deployment_id": "deploy_1",
+      "provider_ids": [
+        "p2"
+      ],
+      "policy_versions": [
+        "policy_1"
+      ],
+      "secret_refs": [],
+      "activated_at": "2026-09-21T02:00:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-runtime.BackupManifest",
+    "model": "runtime.BackupManifest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "backup_id": "backup_1",
+      "config_version": "config_1",
+      "schema_version": "schema_1",
+      "consistency_watermark": 1,
+      "location": {
+        "kind": "backup",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "created_at": "2026-09-21T02:00:00.000Z",
+      "restore_state": "passed",
+      "restore_evidence": [
+        {
+          "owner": "runtime",
+          "object_type": "id_1",
+          "object_id": "proof_1",
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "version": null
+        }
+      ]
+    }
+  },
+  {
+    "id": "extra-field-runtime.BackupManifest",
+    "model": "runtime.BackupManifest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "backup_id": "backup_1",
+      "config_version": "config_1",
+      "schema_version": "schema_1",
+      "consistency_watermark": 1,
+      "location": {
+        "kind": "backup",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "created_at": "2026-09-21T02:00:00.000Z",
+      "restore_state": "passed",
+      "restore_evidence": [
+        {
+          "owner": "runtime",
+          "object_type": "id_1",
+          "object_id": "proof_1",
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "version": null
+        }
+      ],
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.SourceRecord",
+    "model": "remember.SourceRecord",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1",
+        "session_id": null,
+        "task_id": null
+      },
+      "source": {
+        "source_id": "id_1",
+        "source_version": 1,
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "locator": "id_1"
+      },
+      "origin": {
+        "kind": "conversation",
+        "external_id": "id_1",
+        "external_version": "id_1",
+        "occurred_at": "2026-09-19T08:00:00.000Z"
+      },
+      "revision": 1,
+      "original_location": {
+        "kind": "source",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "saved_at": "2026-09-21T02:00:00.000Z",
+      "operation_id": "op_1",
+      "processing_task_ids": [
+        "task_1"
+      ]
+    }
+  },
+  {
+    "id": "extra-field-remember.SourceRecord",
+    "model": "remember.SourceRecord",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1",
+        "session_id": null,
+        "task_id": null
+      },
+      "source": {
+        "source_id": "id_1",
+        "source_version": 1,
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "locator": "id_1"
+      },
+      "origin": {
+        "kind": "conversation",
+        "external_id": "id_1",
+        "external_version": "id_1",
+        "occurred_at": "2026-09-19T08:00:00.000Z"
+      },
+      "revision": 1,
+      "original_location": {
+        "kind": "source",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "saved_at": "2026-09-21T02:00:00.000Z",
+      "operation_id": "op_1",
+      "processing_task_ids": [
+        "task_1"
+      ],
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.DerivedArtifact",
+    "model": "remember.DerivedArtifact",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "artifact_id": "artifact_1",
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1",
+        "session_id": null,
+        "task_id": null
+      },
+      "source": {
+        "source_id": "id_1",
+        "source_version": 1,
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "locator": "id_1"
+      },
+      "kind": "summary",
+      "task_id": "task_1",
+      "strategy_version": "summary_1",
+      "location": {
+        "kind": "artifact",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "quality": "passed",
+      "created_at": "2026-09-21T02:00:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-remember.DerivedArtifact",
+    "model": "remember.DerivedArtifact",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "artifact_id": "artifact_1",
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1",
+        "session_id": null,
+        "task_id": null
+      },
+      "source": {
+        "source_id": "id_1",
+        "source_version": 1,
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "locator": "id_1"
+      },
+      "kind": "summary",
+      "task_id": "task_1",
+      "strategy_version": "summary_1",
+      "location": {
+        "kind": "artifact",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "quality": "passed",
+      "created_at": "2026-09-21T02:00:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.ProcessingRecord",
+    "model": "remember.ProcessingRecord",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "processing_id": "process_1",
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1",
+        "session_id": null,
+        "task_id": null
+      },
+      "source": {
+        "source_id": "id_1",
+        "source_version": 1,
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "locator": "id_1"
+      },
+      "task_id": "task_1",
+      "revision": 1,
+      "stage": "finalize",
+      "state": "completed",
+      "policy_version": "policy_1",
+      "artifact_ids": [
+        "artifact_1"
+      ],
+      "memories": [
+        {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        }
+      ],
+      "updated_at": "2026-09-21T02:00:00.000Z",
+      "reason_code": null
+    }
+  },
+  {
+    "id": "extra-field-remember.ProcessingRecord",
+    "model": "remember.ProcessingRecord",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "processing_id": "process_1",
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1",
+        "session_id": null,
+        "task_id": null
+      },
+      "source": {
+        "source_id": "id_1",
+        "source_version": 1,
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "locator": "id_1"
+      },
+      "task_id": "task_1",
+      "revision": 1,
+      "stage": "finalize",
+      "state": "completed",
+      "policy_version": "policy_1",
+      "artifact_ids": [
+        "artifact_1"
+      ],
+      "memories": [
+        {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        }
+      ],
+      "updated_at": "2026-09-21T02:00:00.000Z",
+      "reason_code": null,
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.ExtractionDecision",
+    "model": "remember.ExtractionDecision",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "decision_id": "decision_1",
+      "processing_id": "process_1",
+      "candidate": {
+        "text": "id_1",
+        "sources": [
+          {
+            "source_id": "id_1",
+            "source_version": 1,
+            "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "locator": "id_1"
+          }
+        ],
+        "evidence_status": "supported"
+      },
+      "outcome": "create",
+      "target": null,
+      "expected_object_revision": null,
+      "policy_version": "policy_1",
+      "reason_code": "supported_new_fact"
+    }
+  },
+  {
+    "id": "extra-field-remember.ExtractionDecision",
+    "model": "remember.ExtractionDecision",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "decision_id": "decision_1",
+      "processing_id": "process_1",
+      "candidate": {
+        "text": "id_1",
+        "sources": [
+          {
+            "source_id": "id_1",
+            "source_version": 1,
+            "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "locator": "id_1"
+          }
+        ],
+        "evidence_status": "supported"
+      },
+      "outcome": "create",
+      "target": null,
+      "expected_object_revision": null,
+      "policy_version": "policy_1",
+      "reason_code": "supported_new_fact",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.ChunkDescriptor",
+    "model": "remember.ChunkDescriptor",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "chunk_index": 0,
+      "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "start_char": 0,
+      "end_char": 6,
+      "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+      "verified": true
+    }
+  },
+  {
+    "id": "extra-field-remember.ChunkDescriptor",
+    "model": "remember.ChunkDescriptor",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "chunk_index": 0,
+      "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "start_char": 0,
+      "end_char": 6,
+      "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+      "verified": true,
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.ProjectionManifest",
+    "model": "remember.ProjectionManifest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "generation": "gen_1",
+      "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+      "model_space": "space_1",
+      "dimensions": 3,
+      "chunker_version": "chunker_1",
+      "embedding_tokenizer": "embed_tok_1",
+      "expected_chunk_count": 1,
+      "chunks": [
+        {
+          "chunk_index": 0,
+          "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "start_char": 0,
+          "end_char": 6,
+          "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "verified": true
+        }
+      ],
+      "state": "ready",
+      "vector_location": {
+        "kind": "vector",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "task_id": "task_1",
+      "published_at": "2026-09-21T02:00:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-remember.ProjectionManifest",
+    "model": "remember.ProjectionManifest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "generation": "gen_1",
+      "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+      "model_space": "space_1",
+      "dimensions": 3,
+      "chunker_version": "chunker_1",
+      "embedding_tokenizer": "embed_tok_1",
+      "expected_chunk_count": 1,
+      "chunks": [
+        {
+          "chunk_index": 0,
+          "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "start_char": 0,
+          "end_char": 6,
+          "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "verified": true
+        }
+      ],
+      "state": "ready",
+      "vector_location": {
+        "kind": "vector",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "task_id": "task_1",
+      "published_at": "2026-09-21T02:00:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.MemoryRecord",
+    "model": "remember.MemoryRecord",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "ref": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "revision": 1,
+      "relations_revision": 1,
+      "kind": "semantic",
+      "status": "active",
+      "body_location": {
+        "kind": "body",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "body_chars": 6,
+      "sources": [
+        {
+          "source_id": "id_1",
+          "source_version": 1,
+          "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "locator": "id_1"
+        }
+      ],
+      "projection_state": "ready",
+      "projection": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "generation": "gen_1",
+        "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "model_space": "space_1",
+        "dimensions": 3,
+        "chunker_version": "chunker_1",
+        "embedding_tokenizer": "embed_tok_1",
+        "expected_chunk_count": 1,
+        "chunks": [
+          {
+            "chunk_index": 0,
+            "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "start_char": 0,
+            "end_char": 6,
+            "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+            "verified": true
+          }
+        ],
+        "state": "ready",
+        "vector_location": {
+          "kind": "vector",
+          "provider_id": "p2",
+          "provider_instance_id": "instance_1",
+          "namespace": "memory",
+          "object_key": "body_1",
+          "generation": "gen_1",
+          "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+        },
+        "task_id": "task_1",
+        "published_at": "2026-09-21T02:00:00.000Z"
+      },
+      "cache_location": null,
+      "expires_at": null,
+      "created_at": "2026-09-21T02:00:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-remember.MemoryRecord",
+    "model": "remember.MemoryRecord",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "ref": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "revision": 1,
+      "relations_revision": 1,
+      "kind": "semantic",
+      "status": "active",
+      "body_location": {
+        "kind": "body",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "body_chars": 6,
+      "sources": [
+        {
+          "source_id": "id_1",
+          "source_version": 1,
+          "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "locator": "id_1"
+        }
+      ],
+      "projection_state": "ready",
+      "projection": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "generation": "gen_1",
+        "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "model_space": "space_1",
+        "dimensions": 3,
+        "chunker_version": "chunker_1",
+        "embedding_tokenizer": "embed_tok_1",
+        "expected_chunk_count": 1,
+        "chunks": [
+          {
+            "chunk_index": 0,
+            "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "start_char": 0,
+            "end_char": 6,
+            "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+            "verified": true
+          }
+        ],
+        "state": "ready",
+        "vector_location": {
+          "kind": "vector",
+          "provider_id": "p2",
+          "provider_instance_id": "instance_1",
+          "namespace": "memory",
+          "object_key": "body_1",
+          "generation": "gen_1",
+          "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+        },
+        "task_id": "task_1",
+        "published_at": "2026-09-21T02:00:00.000Z"
+      },
+      "cache_location": null,
+      "expires_at": null,
+      "created_at": "2026-09-21T02:00:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.GuardStamp",
+    "model": "remember.GuardStamp",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "object_revision": 1,
+      "relations_revision": 1,
+      "authorization_epoch": 1,
+      "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+      "checked_at": "2026-09-21T02:00:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-remember.GuardStamp",
+    "model": "remember.GuardStamp",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "object_revision": 1,
+      "relations_revision": 1,
+      "authorization_epoch": 1,
+      "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+      "checked_at": "2026-09-21T02:00:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.FullBodyReadResult",
+    "model": "remember.FullBodyReadResult",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "outcome": "read",
+      "content": "完整记忆正文",
+      "sources": [
+        {
+          "source_id": "id_1",
+          "source_version": 1,
+          "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "locator": "id_1"
+        }
+      ],
+      "location": {
+        "kind": "body",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "guard": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "object_revision": 1,
+        "relations_revision": 1,
+        "authorization_epoch": 1,
+        "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "checked_at": "2026-09-21T02:00:00.000Z"
+      },
+      "path": "authority",
+      "reason_code": "full_body_verified"
+    }
+  },
+  {
+    "id": "extra-field-remember.FullBodyReadResult",
+    "model": "remember.FullBodyReadResult",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "outcome": "read",
+      "content": "完整记忆正文",
+      "sources": [
+        {
+          "source_id": "id_1",
+          "source_version": 1,
+          "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "locator": "id_1"
+        }
+      ],
+      "location": {
+        "kind": "body",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "guard": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "object_revision": 1,
+        "relations_revision": 1,
+        "authorization_epoch": 1,
+        "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "checked_at": "2026-09-21T02:00:00.000Z"
+      },
+      "path": "authority",
+      "reason_code": "full_body_verified",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.ReferenceHandoff",
+    "model": "remember.ReferenceHandoff",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "operation_id": "op_1",
+      "action_id": "action_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "expected_object_revision": 1,
+      "old_location": {
+        "kind": "body",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "new_location": {
+        "kind": "body",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_target",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "read_proof_ref": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "proof_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "version": null
+      },
+      "verified_at": "2026-09-21T02:00:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-remember.ReferenceHandoff",
+    "model": "remember.ReferenceHandoff",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "operation_id": "op_1",
+      "action_id": "action_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "expected_object_revision": 1,
+      "old_location": {
+        "kind": "body",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "new_location": {
+        "kind": "body",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_target",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "read_proof_ref": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "proof_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "version": null
+      },
+      "verified_at": "2026-09-21T02:00:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.ReferenceHandoffReceipt",
+    "model": "remember.ReferenceHandoffReceipt",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "request": {
+        "operation_id": "op_1",
+        "action_id": "action_1",
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "expected_object_revision": 1,
+        "old_location": {
+          "kind": "body",
+          "provider_id": "p2",
+          "provider_instance_id": "instance_1",
+          "namespace": "memory",
+          "object_key": "body_1",
+          "generation": "gen_1",
+          "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+        },
+        "new_location": {
+          "kind": "body",
+          "provider_id": "p2",
+          "provider_instance_id": "instance_1",
+          "namespace": "memory",
+          "object_key": "body_target",
+          "generation": "gen_1",
+          "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+        },
+        "read_proof_ref": {
+          "owner": "runtime",
+          "object_type": "id_1",
+          "object_id": "proof_1",
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "version": null
+        },
+        "verified_at": "2026-09-21T02:00:00.000Z"
+      },
+      "state": "applied",
+      "resulting_revision": 2,
+      "reason_code": "cas_applied"
+    }
+  },
+  {
+    "id": "extra-field-remember.ReferenceHandoffReceipt",
+    "model": "remember.ReferenceHandoffReceipt",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "request": {
+        "operation_id": "op_1",
+        "action_id": "action_1",
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "expected_object_revision": 1,
+        "old_location": {
+          "kind": "body",
+          "provider_id": "p2",
+          "provider_instance_id": "instance_1",
+          "namespace": "memory",
+          "object_key": "body_1",
+          "generation": "gen_1",
+          "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+        },
+        "new_location": {
+          "kind": "body",
+          "provider_id": "p2",
+          "provider_instance_id": "instance_1",
+          "namespace": "memory",
+          "object_key": "body_target",
+          "generation": "gen_1",
+          "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+        },
+        "read_proof_ref": {
+          "owner": "runtime",
+          "object_type": "id_1",
+          "object_id": "proof_1",
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "version": null
+        },
+        "verified_at": "2026-09-21T02:00:00.000Z"
+      },
+      "state": "applied",
+      "resulting_revision": 2,
+      "reason_code": "cas_applied",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.ProtectionReference",
+    "model": "remember.ProtectionReference",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "protection_id": "protect_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "location": {
+        "kind": "body",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "owner_task_id": "task_1",
+      "owner_action_id": "action_1",
+      "revision": 1,
+      "state": "released",
+      "acquired_at": "2026-09-21T02:00:00.000Z",
+      "expires_at": "2026-09-21T02:02:00.000Z",
+      "released_at": "2026-09-21T02:01:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-remember.ProtectionReference",
+    "model": "remember.ProtectionReference",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "protection_id": "protect_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "location": {
+        "kind": "body",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "owner_task_id": "task_1",
+      "owner_action_id": "action_1",
+      "revision": 1,
+      "state": "released",
+      "acquired_at": "2026-09-21T02:00:00.000Z",
+      "expires_at": "2026-09-21T02:02:00.000Z",
+      "released_at": "2026-09-21T02:01:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.CleanupRequest",
+    "model": "remember.CleanupRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "operation_id": "cleanup_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "expected_object_revision": 2,
+      "blocked_at": "2026-09-21T02:00:00.000Z",
+      "targets": [
+        {
+          "kind": "body",
+          "provider_id": "p2",
+          "provider_instance_id": "instance_1",
+          "namespace": "memory",
+          "object_key": "body_1",
+          "generation": "gen_1",
+          "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+        }
+      ],
+      "protection_ids": [
+        "protect_1"
+      ],
+      "deadline_at": "2026-09-21T02:02:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-remember.CleanupRequest",
+    "model": "remember.CleanupRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "operation_id": "cleanup_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "expected_object_revision": 2,
+      "blocked_at": "2026-09-21T02:00:00.000Z",
+      "targets": [
+        {
+          "kind": "body",
+          "provider_id": "p2",
+          "provider_instance_id": "instance_1",
+          "namespace": "memory",
+          "object_key": "body_1",
+          "generation": "gen_1",
+          "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+        }
+      ],
+      "protection_ids": [
+        "protect_1"
+      ],
+      "deadline_at": "2026-09-21T02:02:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.CleanupTargetResult",
+    "model": "remember.CleanupTargetResult",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "target": {
+        "kind": "body",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "outcome": "deleted",
+      "evidence_ref": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "proof_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "version": null
+      },
+      "reason_code": "provider_confirmed"
+    }
+  },
+  {
+    "id": "extra-field-remember.CleanupTargetResult",
+    "model": "remember.CleanupTargetResult",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "target": {
+        "kind": "body",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "outcome": "deleted",
+      "evidence_ref": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "proof_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "version": null
+      },
+      "reason_code": "provider_confirmed",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.CleanupReceipt",
+    "model": "remember.CleanupReceipt",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "request": {
+        "operation_id": "cleanup_1",
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "expected_object_revision": 2,
+        "blocked_at": "2026-09-21T02:00:00.000Z",
+        "targets": [
+          {
+            "kind": "body",
+            "provider_id": "p2",
+            "provider_instance_id": "instance_1",
+            "namespace": "memory",
+            "object_key": "body_1",
+            "generation": "gen_1",
+            "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+          }
+        ],
+        "protection_ids": [
+          "protect_1"
+        ],
+        "deadline_at": "2026-09-21T02:02:00.000Z"
+      },
+      "state": "completed",
+      "released_protection_ids": [
+        "protect_1"
+      ],
+      "results": [
+        {
+          "target": {
+            "kind": "body",
+            "provider_id": "p2",
+            "provider_instance_id": "instance_1",
+            "namespace": "memory",
+            "object_key": "body_1",
+            "generation": "gen_1",
+            "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+          },
+          "outcome": "deleted",
+          "evidence_ref": {
+            "owner": "runtime",
+            "object_type": "id_1",
+            "object_id": "proof_1",
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "version": null
+          },
+          "reason_code": "provider_confirmed"
+        }
+      ],
+      "observed_at": "2026-09-21T02:01:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-remember.CleanupReceipt",
+    "model": "remember.CleanupReceipt",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "request": {
+        "operation_id": "cleanup_1",
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "expected_object_revision": 2,
+        "blocked_at": "2026-09-21T02:00:00.000Z",
+        "targets": [
+          {
+            "kind": "body",
+            "provider_id": "p2",
+            "provider_instance_id": "instance_1",
+            "namespace": "memory",
+            "object_key": "body_1",
+            "generation": "gen_1",
+            "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+          }
+        ],
+        "protection_ids": [
+          "protect_1"
+        ],
+        "deadline_at": "2026-09-21T02:02:00.000Z"
+      },
+      "state": "completed",
+      "released_protection_ids": [
+        "protect_1"
+      ],
+      "results": [
+        {
+          "target": {
+            "kind": "body",
+            "provider_id": "p2",
+            "provider_instance_id": "instance_1",
+            "namespace": "memory",
+            "object_key": "body_1",
+            "generation": "gen_1",
+            "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+          },
+          "outcome": "deleted",
+          "evidence_ref": {
+            "owner": "runtime",
+            "object_type": "id_1",
+            "object_id": "proof_1",
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "version": null
+          },
+          "reason_code": "provider_confirmed"
+        }
+      ],
+      "observed_at": "2026-09-21T02:01:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.EmbeddingSpace",
+    "model": "recall.EmbeddingSpace",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "model_space": "space_1",
+      "model_id": "embedding",
+      "model_revision": "v1",
+      "dimensions": 3,
+      "tokenizer_id": "embed_tok_1",
+      "query_prefix": "query: ",
+      "passage_prefix": "passage: ",
+      "normalization": "unit",
+      "metric": "cosine",
+      "max_input_tokens": 512
+    }
+  },
+  {
+    "id": "extra-field-recall.EmbeddingSpace",
+    "model": "recall.EmbeddingSpace",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "model_space": "space_1",
+      "model_id": "embedding",
+      "model_revision": "v1",
+      "dimensions": 3,
+      "tokenizer_id": "embed_tok_1",
+      "query_prefix": "query: ",
+      "passage_prefix": "passage: ",
+      "normalization": "unit",
+      "metric": "cosine",
+      "max_input_tokens": 512,
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.MemorySearchRequest",
+    "model": "recall.MemorySearchRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "operation_id": "search_1",
+      "purpose": "recall",
+      "query": "记忆",
+      "selection": {
+        "application_id": null,
+        "user_id": null,
+        "agent_id": null,
+        "session_id": null,
+        "task_id": null
+      },
+      "model_space": "space_1",
+      "memory_top_k": 2,
+      "chunk_page_size": 10,
+      "max_chunk_hits": 50,
+      "max_rounds": 5,
+      "deadline_at": "2026-09-21T02:02:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-recall.MemorySearchRequest",
+    "model": "recall.MemorySearchRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "operation_id": "search_1",
+      "purpose": "recall",
+      "query": "记忆",
+      "selection": {
+        "application_id": null,
+        "user_id": null,
+        "agent_id": null,
+        "session_id": null,
+        "task_id": null
+      },
+      "model_space": "space_1",
+      "memory_top_k": 2,
+      "chunk_page_size": 10,
+      "max_chunk_hits": 50,
+      "max_rounds": 5,
+      "deadline_at": "2026-09-21T02:02:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.ChunkHit",
+    "model": "recall.ChunkHit",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "generation": "gen_1",
+      "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+      "model_space": "space_1",
+      "chunk_index": 0,
+      "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+      "rank": 1,
+      "score": 0.9,
+      "score_semantics": "higher_is_better"
+    }
+  },
+  {
+    "id": "extra-field-recall.ChunkHit",
+    "model": "recall.ChunkHit",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "generation": "gen_1",
+      "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+      "model_space": "space_1",
+      "chunk_index": 0,
+      "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+      "rank": 1,
+      "score": 0.9,
+      "score_semantics": "higher_is_better",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.MemoryCandidate",
+    "model": "recall.MemoryCandidate",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "manifest": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "generation": "gen_1",
+        "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "model_space": "space_1",
+        "dimensions": 3,
+        "chunker_version": "chunker_1",
+        "embedding_tokenizer": "embed_tok_1",
+        "expected_chunk_count": 1,
+        "chunks": [
+          {
+            "chunk_index": 0,
+            "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "start_char": 0,
+            "end_char": 6,
+            "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+            "verified": true
+          }
+        ],
+        "state": "ready",
+        "vector_location": {
+          "kind": "vector",
+          "provider_id": "p2",
+          "provider_instance_id": "instance_1",
+          "namespace": "memory",
+          "object_key": "body_1",
+          "generation": "gen_1",
+          "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+        },
+        "task_id": "task_1",
+        "published_at": "2026-09-21T02:00:00.000Z"
+      },
+      "guard": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "object_revision": 1,
+        "relations_revision": 1,
+        "authorization_epoch": 1,
+        "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "checked_at": "2026-09-21T02:00:00.000Z"
+      },
+      "hits": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "generation": "gen_1",
+          "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "model_space": "space_1",
+          "chunk_index": 0,
+          "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "rank": 1,
+          "score": 0.9,
+          "score_semantics": "higher_is_better"
+        }
+      ],
+      "best_score": 0.9,
+      "rank": 1
+    }
+  },
+  {
+    "id": "extra-field-recall.MemoryCandidate",
+    "model": "recall.MemoryCandidate",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "manifest": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "generation": "gen_1",
+        "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "model_space": "space_1",
+        "dimensions": 3,
+        "chunker_version": "chunker_1",
+        "embedding_tokenizer": "embed_tok_1",
+        "expected_chunk_count": 1,
+        "chunks": [
+          {
+            "chunk_index": 0,
+            "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "start_char": 0,
+            "end_char": 6,
+            "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+            "verified": true
+          }
+        ],
+        "state": "ready",
+        "vector_location": {
+          "kind": "vector",
+          "provider_id": "p2",
+          "provider_instance_id": "instance_1",
+          "namespace": "memory",
+          "object_key": "body_1",
+          "generation": "gen_1",
+          "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+        },
+        "task_id": "task_1",
+        "published_at": "2026-09-21T02:00:00.000Z"
+      },
+      "guard": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "object_revision": 1,
+        "relations_revision": 1,
+        "authorization_epoch": 1,
+        "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "checked_at": "2026-09-21T02:00:00.000Z"
+      },
+      "hits": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "generation": "gen_1",
+          "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "model_space": "space_1",
+          "chunk_index": 0,
+          "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "rank": 1,
+          "score": 0.9,
+          "score_semantics": "higher_is_better"
+        }
+      ],
+      "best_score": 0.9,
+      "rank": 1,
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.ChunkProjectionRequest",
+    "model": "recall.ChunkProjectionRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "operation_id": "projection_1",
+      "manifest": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "generation": "gen_1",
+        "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "model_space": "space_1",
+        "dimensions": 3,
+        "chunker_version": "chunker_1",
+        "embedding_tokenizer": "embed_tok_1",
+        "expected_chunk_count": 1,
+        "chunks": [
+          {
+            "chunk_index": 0,
+            "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "start_char": 0,
+            "end_char": 6,
+            "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+            "verified": true
+          }
+        ],
+        "state": "building",
+        "vector_location": {
+          "kind": "vector",
+          "provider_id": "p2",
+          "provider_instance_id": "instance_1",
+          "namespace": "memory",
+          "object_key": "body_1",
+          "generation": "gen_1",
+          "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+        },
+        "task_id": "task_1",
+        "published_at": null
+      },
+      "chunk_index": 0,
+      "vector": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "deadline_at": "2026-09-21T02:02:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-recall.ChunkProjectionRequest",
+    "model": "recall.ChunkProjectionRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "operation_id": "projection_1",
+      "manifest": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "generation": "gen_1",
+        "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "model_space": "space_1",
+        "dimensions": 3,
+        "chunker_version": "chunker_1",
+        "embedding_tokenizer": "embed_tok_1",
+        "expected_chunk_count": 1,
+        "chunks": [
+          {
+            "chunk_index": 0,
+            "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "start_char": 0,
+            "end_char": 6,
+            "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+            "verified": true
+          }
+        ],
+        "state": "building",
+        "vector_location": {
+          "kind": "vector",
+          "provider_id": "p2",
+          "provider_instance_id": "instance_1",
+          "namespace": "memory",
+          "object_key": "body_1",
+          "generation": "gen_1",
+          "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+        },
+        "task_id": "task_1",
+        "published_at": null
+      },
+      "chunk_index": 0,
+      "vector": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "deadline_at": "2026-09-21T02:02:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.ChunkProjectionResult",
+    "model": "recall.ChunkProjectionResult",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "request": {
+        "operation_id": "projection_1",
+        "manifest": {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "generation": "gen_1",
+          "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "model_space": "space_1",
+          "dimensions": 3,
+          "chunker_version": "chunker_1",
+          "embedding_tokenizer": "embed_tok_1",
+          "expected_chunk_count": 1,
+          "chunks": [
+            {
+              "chunk_index": 0,
+              "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "start_char": 0,
+              "end_char": 6,
+              "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+              "verified": true
+            }
+          ],
+          "state": "building",
+          "vector_location": {
+            "kind": "vector",
+            "provider_id": "p2",
+            "provider_instance_id": "instance_1",
+            "namespace": "memory",
+            "object_key": "body_1",
+            "generation": "gen_1",
+            "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+          },
+          "task_id": "task_1",
+          "published_at": null
+        },
+        "chunk_index": 0,
+        "vector": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "deadline_at": "2026-09-21T02:02:00.000Z"
+      },
+      "state": "verified",
+      "payload_matches": true,
+      "searchable": true,
+      "observed_at": "2026-09-21T02:01:00.000Z",
+      "reason_code": "exact_payload_searchable"
+    }
+  },
+  {
+    "id": "extra-field-recall.ChunkProjectionResult",
+    "model": "recall.ChunkProjectionResult",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "request": {
+        "operation_id": "projection_1",
+        "manifest": {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "generation": "gen_1",
+          "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "model_space": "space_1",
+          "dimensions": 3,
+          "chunker_version": "chunker_1",
+          "embedding_tokenizer": "embed_tok_1",
+          "expected_chunk_count": 1,
+          "chunks": [
+            {
+              "chunk_index": 0,
+              "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "start_char": 0,
+              "end_char": 6,
+              "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+              "verified": true
+            }
+          ],
+          "state": "building",
+          "vector_location": {
+            "kind": "vector",
+            "provider_id": "p2",
+            "provider_instance_id": "instance_1",
+            "namespace": "memory",
+            "object_key": "body_1",
+            "generation": "gen_1",
+            "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+          },
+          "task_id": "task_1",
+          "published_at": null
+        },
+        "chunk_index": 0,
+        "vector": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "deadline_at": "2026-09-21T02:02:00.000Z"
+      },
+      "state": "verified",
+      "payload_matches": true,
+      "searchable": true,
+      "observed_at": "2026-09-21T02:01:00.000Z",
+      "reason_code": "exact_payload_searchable",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.ChunkSearchRequest",
+    "model": "recall.ChunkSearchRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "operation_id": "search_1",
+      "selection": {
+        "application_id": null,
+        "user_id": null,
+        "agent_id": null,
+        "session_id": null,
+        "task_id": null
+      },
+      "model_space": {
+        "model_space": "space_1",
+        "model_id": "embedding",
+        "model_revision": "v1",
+        "dimensions": 3,
+        "tokenizer_id": "embed_tok_1",
+        "query_prefix": "query: ",
+        "passage_prefix": "passage: ",
+        "normalization": "unit",
+        "metric": "cosine",
+        "max_input_tokens": 512
+      },
+      "vector": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "limit": 10,
+      "cursor": null,
+      "deadline_at": "2026-09-21T02:02:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-recall.ChunkSearchRequest",
+    "model": "recall.ChunkSearchRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "operation_id": "search_1",
+      "selection": {
+        "application_id": null,
+        "user_id": null,
+        "agent_id": null,
+        "session_id": null,
+        "task_id": null
+      },
+      "model_space": {
+        "model_space": "space_1",
+        "model_id": "embedding",
+        "model_revision": "v1",
+        "dimensions": 3,
+        "tokenizer_id": "embed_tok_1",
+        "query_prefix": "query: ",
+        "passage_prefix": "passage: ",
+        "normalization": "unit",
+        "metric": "cosine",
+        "max_input_tokens": 512
+      },
+      "vector": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "limit": 10,
+      "cursor": null,
+      "deadline_at": "2026-09-21T02:02:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.ChunkSearchResult",
+    "model": "recall.ChunkSearchResult",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "request": {
+        "operation_id": "search_1",
+        "selection": {
+          "application_id": null,
+          "user_id": null,
+          "agent_id": null,
+          "session_id": null,
+          "task_id": null
+        },
+        "model_space": {
+          "model_space": "space_1",
+          "model_id": "embedding",
+          "model_revision": "v1",
+          "dimensions": 3,
+          "tokenizer_id": "embed_tok_1",
+          "query_prefix": "query: ",
+          "passage_prefix": "passage: ",
+          "normalization": "unit",
+          "metric": "cosine",
+          "max_input_tokens": 512
+        },
+        "vector": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "limit": 10,
+        "cursor": null,
+        "deadline_at": "2026-09-21T02:02:00.000Z"
+      },
+      "hits": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "generation": "gen_1",
+          "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "model_space": "space_1",
+          "chunk_index": 0,
+          "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "rank": 1,
+          "score": 0.9,
+          "score_semantics": "higher_is_better"
+        }
+      ],
+      "coverage": "complete",
+      "next_cursor": null,
+      "reason_code": "page_loaded"
+    }
+  },
+  {
+    "id": "extra-field-recall.ChunkSearchResult",
+    "model": "recall.ChunkSearchResult",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "request": {
+        "operation_id": "search_1",
+        "selection": {
+          "application_id": null,
+          "user_id": null,
+          "agent_id": null,
+          "session_id": null,
+          "task_id": null
+        },
+        "model_space": {
+          "model_space": "space_1",
+          "model_id": "embedding",
+          "model_revision": "v1",
+          "dimensions": 3,
+          "tokenizer_id": "embed_tok_1",
+          "query_prefix": "query: ",
+          "passage_prefix": "passage: ",
+          "normalization": "unit",
+          "metric": "cosine",
+          "max_input_tokens": 512
+        },
+        "vector": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "limit": 10,
+        "cursor": null,
+        "deadline_at": "2026-09-21T02:02:00.000Z"
+      },
+      "hits": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "generation": "gen_1",
+          "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "model_space": "space_1",
+          "chunk_index": 0,
+          "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "rank": 1,
+          "score": 0.9,
+          "score_semantics": "higher_is_better"
+        }
+      ],
+      "coverage": "complete",
+      "next_cursor": null,
+      "reason_code": "page_loaded",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.MemorySearchResult",
+    "model": "recall.MemorySearchResult",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "request": {
+        "operation_id": "search_1",
+        "purpose": "recall",
+        "query": "记忆",
+        "selection": {
+          "application_id": null,
+          "user_id": null,
+          "agent_id": null,
+          "session_id": null,
+          "task_id": null
+        },
+        "model_space": "space_1",
+        "memory_top_k": 2,
+        "chunk_page_size": 10,
+        "max_chunk_hits": 50,
+        "max_rounds": 5,
+        "deadline_at": "2026-09-21T02:02:00.000Z"
+      },
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1",
+        "session_id": null,
+        "task_id": null
+      },
+      "candidates": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "manifest": {
+            "memory": {
+              "scope": {
+                "tenant_id": "id_1",
+                "application_id": "id_1",
+                "user_id": "id_1",
+                "agent_id": "id_1",
+                "session_id": null,
+                "task_id": null
+              },
+              "memory_id": "id_1",
+              "version": 1
+            },
+            "generation": "gen_1",
+            "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+            "model_space": "space_1",
+            "dimensions": 3,
+            "chunker_version": "chunker_1",
+            "embedding_tokenizer": "embed_tok_1",
+            "expected_chunk_count": 1,
+            "chunks": [
+              {
+                "chunk_index": 0,
+                "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "start_char": 0,
+                "end_char": 6,
+                "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+                "verified": true
+              }
+            ],
+            "state": "ready",
+            "vector_location": {
+              "kind": "vector",
+              "provider_id": "p2",
+              "provider_instance_id": "instance_1",
+              "namespace": "memory",
+              "object_key": "body_1",
+              "generation": "gen_1",
+              "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+            },
+            "task_id": "task_1",
+            "published_at": "2026-09-21T02:00:00.000Z"
+          },
+          "guard": {
+            "memory": {
+              "scope": {
+                "tenant_id": "id_1",
+                "application_id": "id_1",
+                "user_id": "id_1",
+                "agent_id": "id_1",
+                "session_id": null,
+                "task_id": null
+              },
+              "memory_id": "id_1",
+              "version": 1
+            },
+            "object_revision": 1,
+            "relations_revision": 1,
+            "authorization_epoch": 1,
+            "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+            "checked_at": "2026-09-21T02:00:00.000Z"
+          },
+          "hits": [
+            {
+              "memory": {
+                "scope": {
+                  "tenant_id": "id_1",
+                  "application_id": "id_1",
+                  "user_id": "id_1",
+                  "agent_id": "id_1",
+                  "session_id": null,
+                  "task_id": null
+                },
+                "memory_id": "id_1",
+                "version": 1
+              },
+              "generation": "gen_1",
+              "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+              "model_space": "space_1",
+              "chunk_index": 0,
+              "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+              "rank": 1,
+              "score": 0.9,
+              "score_semantics": "higher_is_better"
+            }
+          ],
+          "best_score": 0.9,
+          "rank": 1
+        }
+      ],
+      "examined_chunk_hits": 1,
+      "rounds_used": 1,
+      "stop_reason": "exhausted",
+      "coverage": "complete"
+    }
+  },
+  {
+    "id": "extra-field-recall.MemorySearchResult",
+    "model": "recall.MemorySearchResult",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "request": {
+        "operation_id": "search_1",
+        "purpose": "recall",
+        "query": "记忆",
+        "selection": {
+          "application_id": null,
+          "user_id": null,
+          "agent_id": null,
+          "session_id": null,
+          "task_id": null
+        },
+        "model_space": "space_1",
+        "memory_top_k": 2,
+        "chunk_page_size": 10,
+        "max_chunk_hits": 50,
+        "max_rounds": 5,
+        "deadline_at": "2026-09-21T02:02:00.000Z"
+      },
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1",
+        "session_id": null,
+        "task_id": null
+      },
+      "candidates": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "manifest": {
+            "memory": {
+              "scope": {
+                "tenant_id": "id_1",
+                "application_id": "id_1",
+                "user_id": "id_1",
+                "agent_id": "id_1",
+                "session_id": null,
+                "task_id": null
+              },
+              "memory_id": "id_1",
+              "version": 1
+            },
+            "generation": "gen_1",
+            "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+            "model_space": "space_1",
+            "dimensions": 3,
+            "chunker_version": "chunker_1",
+            "embedding_tokenizer": "embed_tok_1",
+            "expected_chunk_count": 1,
+            "chunks": [
+              {
+                "chunk_index": 0,
+                "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "start_char": 0,
+                "end_char": 6,
+                "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+                "verified": true
+              }
+            ],
+            "state": "ready",
+            "vector_location": {
+              "kind": "vector",
+              "provider_id": "p2",
+              "provider_instance_id": "instance_1",
+              "namespace": "memory",
+              "object_key": "body_1",
+              "generation": "gen_1",
+              "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+            },
+            "task_id": "task_1",
+            "published_at": "2026-09-21T02:00:00.000Z"
+          },
+          "guard": {
+            "memory": {
+              "scope": {
+                "tenant_id": "id_1",
+                "application_id": "id_1",
+                "user_id": "id_1",
+                "agent_id": "id_1",
+                "session_id": null,
+                "task_id": null
+              },
+              "memory_id": "id_1",
+              "version": 1
+            },
+            "object_revision": 1,
+            "relations_revision": 1,
+            "authorization_epoch": 1,
+            "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+            "checked_at": "2026-09-21T02:00:00.000Z"
+          },
+          "hits": [
+            {
+              "memory": {
+                "scope": {
+                  "tenant_id": "id_1",
+                  "application_id": "id_1",
+                  "user_id": "id_1",
+                  "agent_id": "id_1",
+                  "session_id": null,
+                  "task_id": null
+                },
+                "memory_id": "id_1",
+                "version": 1
+              },
+              "generation": "gen_1",
+              "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+              "model_space": "space_1",
+              "chunk_index": 0,
+              "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+              "rank": 1,
+              "score": 0.9,
+              "score_semantics": "higher_is_better"
+            }
+          ],
+          "best_score": 0.9,
+          "rank": 1
+        }
+      ],
+      "examined_chunk_hits": 1,
+      "rounds_used": 1,
+      "stop_reason": "exhausted",
+      "coverage": "complete",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.RecallPlanRequest",
+    "model": "recall.RecallPlanRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "recall_id": "recall_1",
+      "query": "记忆",
+      "selection": {
+        "application_id": null,
+        "user_id": null,
+        "agent_id": null,
+        "session_id": null,
+        "task_id": null
+      },
+      "sources": [
+        "long_term"
+      ],
+      "token_budget": 1024,
+      "context_tokenizer": "context_tok_1",
+      "policy_version": "policy_1",
+      "deadline_at": "2026-09-21T02:02:00.000Z",
+      "long_term_search": {
+        "operation_id": "search_1",
+        "purpose": "recall",
+        "query": "记忆",
+        "selection": {
+          "application_id": null,
+          "user_id": null,
+          "agent_id": null,
+          "session_id": null,
+          "task_id": null
+        },
+        "model_space": "space_1",
+        "memory_top_k": 2,
+        "chunk_page_size": 10,
+        "max_chunk_hits": 50,
+        "max_rounds": 5,
+        "deadline_at": "2026-09-21T02:02:00.000Z"
+      }
+    }
+  },
+  {
+    "id": "extra-field-recall.RecallPlanRequest",
+    "model": "recall.RecallPlanRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "recall_id": "recall_1",
+      "query": "记忆",
+      "selection": {
+        "application_id": null,
+        "user_id": null,
+        "agent_id": null,
+        "session_id": null,
+        "task_id": null
+      },
+      "sources": [
+        "long_term"
+      ],
+      "token_budget": 1024,
+      "context_tokenizer": "context_tok_1",
+      "policy_version": "policy_1",
+      "deadline_at": "2026-09-21T02:02:00.000Z",
+      "long_term_search": {
+        "operation_id": "search_1",
+        "purpose": "recall",
+        "query": "记忆",
+        "selection": {
+          "application_id": null,
+          "user_id": null,
+          "agent_id": null,
+          "session_id": null,
+          "task_id": null
+        },
+        "model_space": "space_1",
+        "memory_top_k": 2,
+        "chunk_page_size": 10,
+        "max_chunk_hits": 50,
+        "max_rounds": 5,
+        "deadline_at": "2026-09-21T02:02:00.000Z"
+      },
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.RankingEvidence",
+    "model": "recall.RankingEvidence",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "source": "long_term",
+      "source_rank": 1,
+      "rrf_k": 60,
+      "rrf_contribution": 0.01639344262295082
+    }
+  },
+  {
+    "id": "extra-field-recall.RankingEvidence",
+    "model": "recall.RankingEvidence",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "source": "long_term",
+      "source_rank": 1,
+      "rrf_k": 60,
+      "rrf_contribution": 0.01639344262295082,
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.ContextPackUnit",
+    "model": "recall.ContextPackUnit",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "group_id": "group_1",
+      "bodies": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "outcome": "read",
+          "content": "完整记忆正文",
+          "sources": [
+            {
+              "source_id": "id_1",
+              "source_version": 1,
+              "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+              "locator": "id_1"
+            }
+          ],
+          "location": {
+            "kind": "body",
+            "provider_id": "p2",
+            "provider_instance_id": "instance_1",
+            "namespace": "memory",
+            "object_key": "body_1",
+            "generation": "gen_1",
+            "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+          },
+          "guard": {
+            "memory": {
+              "scope": {
+                "tenant_id": "id_1",
+                "application_id": "id_1",
+                "user_id": "id_1",
+                "agent_id": "id_1",
+                "session_id": null,
+                "task_id": null
+              },
+              "memory_id": "id_1",
+              "version": 1
+            },
+            "object_revision": 1,
+            "relations_revision": 1,
+            "authorization_epoch": 1,
+            "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+            "checked_at": "2026-09-21T02:00:00.000Z"
+          },
+          "path": "authority",
+          "reason_code": "full_body_verified"
+        }
+      ],
+      "primary_memories": [
+        {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        }
+      ],
+      "conflict": null,
+      "rank": 1
+    }
+  },
+  {
+    "id": "extra-field-recall.ContextPackUnit",
+    "model": "recall.ContextPackUnit",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "group_id": "group_1",
+      "bodies": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "outcome": "read",
+          "content": "完整记忆正文",
+          "sources": [
+            {
+              "source_id": "id_1",
+              "source_version": 1,
+              "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+              "locator": "id_1"
+            }
+          ],
+          "location": {
+            "kind": "body",
+            "provider_id": "p2",
+            "provider_instance_id": "instance_1",
+            "namespace": "memory",
+            "object_key": "body_1",
+            "generation": "gen_1",
+            "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+          },
+          "guard": {
+            "memory": {
+              "scope": {
+                "tenant_id": "id_1",
+                "application_id": "id_1",
+                "user_id": "id_1",
+                "agent_id": "id_1",
+                "session_id": null,
+                "task_id": null
+              },
+              "memory_id": "id_1",
+              "version": 1
+            },
+            "object_revision": 1,
+            "relations_revision": 1,
+            "authorization_epoch": 1,
+            "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+            "checked_at": "2026-09-21T02:00:00.000Z"
+          },
+          "path": "authority",
+          "reason_code": "full_body_verified"
+        }
+      ],
+      "primary_memories": [
+        {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        }
+      ],
+      "conflict": null,
+      "rank": 1,
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.ContextAssemblyPlan",
+    "model": "recall.ContextAssemblyPlan",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "request": {
+        "recall_id": "recall_1",
+        "query": "记忆",
+        "selection": {
+          "application_id": null,
+          "user_id": null,
+          "agent_id": null,
+          "session_id": null,
+          "task_id": null
+        },
+        "sources": [
+          "long_term"
+        ],
+        "token_budget": 1024,
+        "context_tokenizer": "context_tok_1",
+        "policy_version": "policy_1",
+        "deadline_at": "2026-09-21T02:02:00.000Z",
+        "long_term_search": {
+          "operation_id": "search_1",
+          "purpose": "recall",
+          "query": "记忆",
+          "selection": {
+            "application_id": null,
+            "user_id": null,
+            "agent_id": null,
+            "session_id": null,
+            "task_id": null
+          },
+          "model_space": "space_1",
+          "memory_top_k": 2,
+          "chunk_page_size": 10,
+          "max_chunk_hits": 50,
+          "max_rounds": 5,
+          "deadline_at": "2026-09-21T02:02:00.000Z"
+        }
+      },
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1",
+        "session_id": null,
+        "task_id": null
+      },
+      "units": [
+        {
+          "group_id": "group_1",
+          "bodies": [
+            {
+              "memory": {
+                "scope": {
+                  "tenant_id": "id_1",
+                  "application_id": "id_1",
+                  "user_id": "id_1",
+                  "agent_id": "id_1",
+                  "session_id": null,
+                  "task_id": null
+                },
+                "memory_id": "id_1",
+                "version": 1
+              },
+              "outcome": "read",
+              "content": "完整记忆正文",
+              "sources": [
+                {
+                  "source_id": "id_1",
+                  "source_version": 1,
+                  "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+                  "locator": "id_1"
+                }
+              ],
+              "location": {
+                "kind": "body",
+                "provider_id": "p2",
+                "provider_instance_id": "instance_1",
+                "namespace": "memory",
+                "object_key": "body_1",
+                "generation": "gen_1",
+                "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+              },
+              "guard": {
+                "memory": {
+                  "scope": {
+                    "tenant_id": "id_1",
+                    "application_id": "id_1",
+                    "user_id": "id_1",
+                    "agent_id": "id_1",
+                    "session_id": null,
+                    "task_id": null
+                  },
+                  "memory_id": "id_1",
+                  "version": 1
+                },
+                "object_revision": 1,
+                "relations_revision": 1,
+                "authorization_epoch": 1,
+                "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+                "checked_at": "2026-09-21T02:00:00.000Z"
+              },
+              "path": "authority",
+              "reason_code": "full_body_verified"
+            }
+          ],
+          "primary_memories": [
+            {
+              "scope": {
+                "tenant_id": "id_1",
+                "application_id": "id_1",
+                "user_id": "id_1",
+                "agent_id": "id_1",
+                "session_id": null,
+                "task_id": null
+              },
+              "memory_id": "id_1",
+              "version": 1
+            }
+          ],
+          "conflict": null,
+          "rank": 1
+        }
+      ],
+      "skipped_group_ids": [],
+      "rendered_context": "完整记忆正文",
+      "tokens_used": 6,
+      "rank_evidence": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "source": "long_term",
+          "source_rank": 1,
+          "rrf_k": 60,
+          "rrf_contribution": 0.01639344262295082
+        }
+      ],
+      "degradation_reasons": []
+    }
+  },
+  {
+    "id": "extra-field-recall.ContextAssemblyPlan",
+    "model": "recall.ContextAssemblyPlan",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "request": {
+        "recall_id": "recall_1",
+        "query": "记忆",
+        "selection": {
+          "application_id": null,
+          "user_id": null,
+          "agent_id": null,
+          "session_id": null,
+          "task_id": null
+        },
+        "sources": [
+          "long_term"
+        ],
+        "token_budget": 1024,
+        "context_tokenizer": "context_tok_1",
+        "policy_version": "policy_1",
+        "deadline_at": "2026-09-21T02:02:00.000Z",
+        "long_term_search": {
+          "operation_id": "search_1",
+          "purpose": "recall",
+          "query": "记忆",
+          "selection": {
+            "application_id": null,
+            "user_id": null,
+            "agent_id": null,
+            "session_id": null,
+            "task_id": null
+          },
+          "model_space": "space_1",
+          "memory_top_k": 2,
+          "chunk_page_size": 10,
+          "max_chunk_hits": 50,
+          "max_rounds": 5,
+          "deadline_at": "2026-09-21T02:02:00.000Z"
+        }
+      },
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1",
+        "session_id": null,
+        "task_id": null
+      },
+      "units": [
+        {
+          "group_id": "group_1",
+          "bodies": [
+            {
+              "memory": {
+                "scope": {
+                  "tenant_id": "id_1",
+                  "application_id": "id_1",
+                  "user_id": "id_1",
+                  "agent_id": "id_1",
+                  "session_id": null,
+                  "task_id": null
+                },
+                "memory_id": "id_1",
+                "version": 1
+              },
+              "outcome": "read",
+              "content": "完整记忆正文",
+              "sources": [
+                {
+                  "source_id": "id_1",
+                  "source_version": 1,
+                  "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+                  "locator": "id_1"
+                }
+              ],
+              "location": {
+                "kind": "body",
+                "provider_id": "p2",
+                "provider_instance_id": "instance_1",
+                "namespace": "memory",
+                "object_key": "body_1",
+                "generation": "gen_1",
+                "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+              },
+              "guard": {
+                "memory": {
+                  "scope": {
+                    "tenant_id": "id_1",
+                    "application_id": "id_1",
+                    "user_id": "id_1",
+                    "agent_id": "id_1",
+                    "session_id": null,
+                    "task_id": null
+                  },
+                  "memory_id": "id_1",
+                  "version": 1
+                },
+                "object_revision": 1,
+                "relations_revision": 1,
+                "authorization_epoch": 1,
+                "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+                "checked_at": "2026-09-21T02:00:00.000Z"
+              },
+              "path": "authority",
+              "reason_code": "full_body_verified"
+            }
+          ],
+          "primary_memories": [
+            {
+              "scope": {
+                "tenant_id": "id_1",
+                "application_id": "id_1",
+                "user_id": "id_1",
+                "agent_id": "id_1",
+                "session_id": null,
+                "task_id": null
+              },
+              "memory_id": "id_1",
+              "version": 1
+            }
+          ],
+          "conflict": null,
+          "rank": 1
+        }
+      ],
+      "skipped_group_ids": [],
+      "rendered_context": "完整记忆正文",
+      "tokens_used": 6,
+      "rank_evidence": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "source": "long_term",
+          "source_rank": 1,
+          "rrf_k": 60,
+          "rrf_contribution": 0.01639344262295082
+        }
+      ],
+      "degradation_reasons": [],
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-recall.ContextCommitRequest",
+    "model": "recall.ContextCommitRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "operation_id": "commit_1",
+      "expected_recall_revision": 1,
+      "plan": {
+        "request": {
+          "recall_id": "recall_1",
+          "query": "记忆",
+          "selection": {
+            "application_id": null,
+            "user_id": null,
+            "agent_id": null,
+            "session_id": null,
+            "task_id": null
+          },
+          "sources": [
+            "long_term"
+          ],
+          "token_budget": 1024,
+          "context_tokenizer": "context_tok_1",
+          "policy_version": "policy_1",
+          "deadline_at": "2026-09-21T02:02:00.000Z",
+          "long_term_search": {
+            "operation_id": "search_1",
+            "purpose": "recall",
+            "query": "记忆",
+            "selection": {
+              "application_id": null,
+              "user_id": null,
+              "agent_id": null,
+              "session_id": null,
+              "task_id": null
+            },
+            "model_space": "space_1",
+            "memory_top_k": 2,
+            "chunk_page_size": 10,
+            "max_chunk_hits": 50,
+            "max_rounds": 5,
+            "deadline_at": "2026-09-21T02:02:00.000Z"
+          }
+        },
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "units": [
+          {
+            "group_id": "group_1",
+            "bodies": [
+              {
+                "memory": {
+                  "scope": {
+                    "tenant_id": "id_1",
+                    "application_id": "id_1",
+                    "user_id": "id_1",
+                    "agent_id": "id_1",
+                    "session_id": null,
+                    "task_id": null
+                  },
+                  "memory_id": "id_1",
+                  "version": 1
+                },
+                "outcome": "read",
+                "content": "完整记忆正文",
+                "sources": [
+                  {
+                    "source_id": "id_1",
+                    "source_version": 1,
+                    "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+                    "locator": "id_1"
+                  }
+                ],
+                "location": {
+                  "kind": "body",
+                  "provider_id": "p2",
+                  "provider_instance_id": "instance_1",
+                  "namespace": "memory",
+                  "object_key": "body_1",
+                  "generation": "gen_1",
+                  "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+                },
+                "guard": {
+                  "memory": {
+                    "scope": {
+                      "tenant_id": "id_1",
+                      "application_id": "id_1",
+                      "user_id": "id_1",
+                      "agent_id": "id_1",
+                      "session_id": null,
+                      "task_id": null
+                    },
+                    "memory_id": "id_1",
+                    "version": 1
+                  },
+                  "object_revision": 1,
+                  "relations_revision": 1,
+                  "authorization_epoch": 1,
+                  "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+                  "checked_at": "2026-09-21T02:00:00.000Z"
+                },
+                "path": "authority",
+                "reason_code": "full_body_verified"
+              }
+            ],
+            "primary_memories": [
+              {
+                "scope": {
+                  "tenant_id": "id_1",
+                  "application_id": "id_1",
+                  "user_id": "id_1",
+                  "agent_id": "id_1",
+                  "session_id": null,
+                  "task_id": null
+                },
+                "memory_id": "id_1",
+                "version": 1
+              }
+            ],
+            "conflict": null,
+            "rank": 1
+          }
+        ],
+        "skipped_group_ids": [],
+        "rendered_context": "完整记忆正文",
+        "tokens_used": 6,
+        "rank_evidence": [
+          {
+            "memory": {
+              "scope": {
+                "tenant_id": "id_1",
+                "application_id": "id_1",
+                "user_id": "id_1",
+                "agent_id": "id_1",
+                "session_id": null,
+                "task_id": null
+              },
+              "memory_id": "id_1",
+              "version": 1
+            },
+            "source": "long_term",
+            "source_rank": 1,
+            "rrf_k": 60,
+            "rrf_contribution": 0.01639344262295082
+          }
+        ],
+        "degradation_reasons": []
+      },
+      "final_guards": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "object_revision": 1,
+          "relations_revision": 1,
+          "authorization_epoch": 1,
+          "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "checked_at": "2026-09-21T02:01:00.000Z"
+        }
+      ]
+    }
+  },
+  {
+    "id": "extra-field-recall.ContextCommitRequest",
+    "model": "recall.ContextCommitRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "operation_id": "commit_1",
+      "expected_recall_revision": 1,
+      "plan": {
+        "request": {
+          "recall_id": "recall_1",
+          "query": "记忆",
+          "selection": {
+            "application_id": null,
+            "user_id": null,
+            "agent_id": null,
+            "session_id": null,
+            "task_id": null
+          },
+          "sources": [
+            "long_term"
+          ],
+          "token_budget": 1024,
+          "context_tokenizer": "context_tok_1",
+          "policy_version": "policy_1",
+          "deadline_at": "2026-09-21T02:02:00.000Z",
+          "long_term_search": {
+            "operation_id": "search_1",
+            "purpose": "recall",
+            "query": "记忆",
+            "selection": {
+              "application_id": null,
+              "user_id": null,
+              "agent_id": null,
+              "session_id": null,
+              "task_id": null
+            },
+            "model_space": "space_1",
+            "memory_top_k": 2,
+            "chunk_page_size": 10,
+            "max_chunk_hits": 50,
+            "max_rounds": 5,
+            "deadline_at": "2026-09-21T02:02:00.000Z"
+          }
+        },
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "units": [
+          {
+            "group_id": "group_1",
+            "bodies": [
+              {
+                "memory": {
+                  "scope": {
+                    "tenant_id": "id_1",
+                    "application_id": "id_1",
+                    "user_id": "id_1",
+                    "agent_id": "id_1",
+                    "session_id": null,
+                    "task_id": null
+                  },
+                  "memory_id": "id_1",
+                  "version": 1
+                },
+                "outcome": "read",
+                "content": "完整记忆正文",
+                "sources": [
+                  {
+                    "source_id": "id_1",
+                    "source_version": 1,
+                    "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+                    "locator": "id_1"
+                  }
+                ],
+                "location": {
+                  "kind": "body",
+                  "provider_id": "p2",
+                  "provider_instance_id": "instance_1",
+                  "namespace": "memory",
+                  "object_key": "body_1",
+                  "generation": "gen_1",
+                  "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+                },
+                "guard": {
+                  "memory": {
+                    "scope": {
+                      "tenant_id": "id_1",
+                      "application_id": "id_1",
+                      "user_id": "id_1",
+                      "agent_id": "id_1",
+                      "session_id": null,
+                      "task_id": null
+                    },
+                    "memory_id": "id_1",
+                    "version": 1
+                  },
+                  "object_revision": 1,
+                  "relations_revision": 1,
+                  "authorization_epoch": 1,
+                  "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+                  "checked_at": "2026-09-21T02:00:00.000Z"
+                },
+                "path": "authority",
+                "reason_code": "full_body_verified"
+              }
+            ],
+            "primary_memories": [
+              {
+                "scope": {
+                  "tenant_id": "id_1",
+                  "application_id": "id_1",
+                  "user_id": "id_1",
+                  "agent_id": "id_1",
+                  "session_id": null,
+                  "task_id": null
+                },
+                "memory_id": "id_1",
+                "version": 1
+              }
+            ],
+            "conflict": null,
+            "rank": 1
+          }
+        ],
+        "skipped_group_ids": [],
+        "rendered_context": "完整记忆正文",
+        "tokens_used": 6,
+        "rank_evidence": [
+          {
+            "memory": {
+              "scope": {
+                "tenant_id": "id_1",
+                "application_id": "id_1",
+                "user_id": "id_1",
+                "agent_id": "id_1",
+                "session_id": null,
+                "task_id": null
+              },
+              "memory_id": "id_1",
+              "version": 1
+            },
+            "source": "long_term",
+            "source_rank": 1,
+            "rrf_k": 60,
+            "rrf_contribution": 0.01639344262295082
+          }
+        ],
+        "degradation_reasons": []
+      },
+      "final_guards": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "object_revision": 1,
+          "relations_revision": 1,
+          "authorization_epoch": 1,
+          "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "checked_at": "2026-09-21T02:01:00.000Z"
+        }
+      ],
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-operate.SchedulingRound",
+    "model": "operate.SchedulingRound",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "round_id": "round_1",
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1",
+        "session_id": null,
+        "task_id": null
+      },
+      "task_id": "task_1",
+      "policy_version": "policy_1",
+      "storage_watermark": 1,
+      "access_watermark": 1,
+      "coverage": "complete",
+      "max_actions": 10,
+      "action_ids": [
+        "action_1"
+      ],
+      "started_at": "2026-09-21T02:00:00.000Z",
+      "deadline_at": "2026-09-21T02:02:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-operate.SchedulingRound",
+    "model": "operate.SchedulingRound",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "round_id": "round_1",
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1",
+        "session_id": null,
+        "task_id": null
+      },
+      "task_id": "task_1",
+      "policy_version": "policy_1",
+      "storage_watermark": 1,
+      "access_watermark": 1,
+      "coverage": "complete",
+      "max_actions": 10,
+      "action_ids": [
+        "action_1"
+      ],
+      "started_at": "2026-09-21T02:00:00.000Z",
+      "deadline_at": "2026-09-21T02:02:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-operate.BufferEntry",
+    "model": "operate.BufferEntry",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "object_revision": 1,
+      "revision": 1,
+      "tier": "cold",
+      "location": {
+        "kind": "body",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "content_bytes": 18,
+      "successful_reads": 1,
+      "last_read_at": "2026-09-21T02:00:00.000Z",
+      "storage_watermark": 1,
+      "access_watermark": 1,
+      "protection_ids": [
+        "protect_1"
+      ],
+      "observed_at": "2026-09-21T02:01:00.000Z"
+    }
+  },
+  {
+    "id": "extra-field-operate.BufferEntry",
+    "model": "operate.BufferEntry",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "object_revision": 1,
+      "revision": 1,
+      "tier": "cold",
+      "location": {
+        "kind": "body",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "content_bytes": 18,
+      "successful_reads": 1,
+      "last_read_at": "2026-09-21T02:00:00.000Z",
+      "storage_watermark": 1,
+      "access_watermark": 1,
+      "protection_ids": [
+        "protect_1"
+      ],
+      "observed_at": "2026-09-21T02:01:00.000Z",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-operate.MigrationPlan",
+    "model": "operate.MigrationPlan",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "intent": {
+        "action_id": "action_1",
+        "decision": {
+          "decision_id": "id_1",
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "outcome": "promote",
+          "current_tier": "cold",
+          "target_tier": "warm",
+          "reason": "id_1",
+          "policy_version": "id_1",
+          "storage_watermark": 1,
+          "access_watermark": 1
+        },
+        "representation_id": "id_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "expected_epoch": 1,
+        "provider_mode": "simulated",
+        "created_at": "2026-09-19T08:00:00.000Z"
+      },
+      "expected_object_revision": 1,
+      "source": {
+        "kind": "body",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "target": {
+        "kind": "body",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_target",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "protection": {
+        "protection_id": "protect_1",
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "location": {
+          "kind": "body",
+          "provider_id": "p2",
+          "provider_instance_id": "instance_1",
+          "namespace": "memory",
+          "object_key": "body_1",
+          "generation": "gen_1",
+          "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+        },
+        "owner_task_id": "task_1",
+        "owner_action_id": "action_1",
+        "revision": 1,
+        "state": "released",
+        "acquired_at": "2026-09-21T02:00:00.000Z",
+        "expires_at": "2026-09-21T02:02:00.000Z",
+        "released_at": "2026-09-21T02:01:00.000Z"
+      },
+      "handoff": {
+        "request": {
+          "operation_id": "op_1",
+          "action_id": "action_1",
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "expected_object_revision": 1,
+          "old_location": {
+            "kind": "body",
+            "provider_id": "p2",
+            "provider_instance_id": "instance_1",
+            "namespace": "memory",
+            "object_key": "body_1",
+            "generation": "gen_1",
+            "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+          },
+          "new_location": {
+            "kind": "body",
+            "provider_id": "p2",
+            "provider_instance_id": "instance_1",
+            "namespace": "memory",
+            "object_key": "body_target",
+            "generation": "gen_1",
+            "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+          },
+          "read_proof_ref": {
+            "owner": "runtime",
+            "object_type": "id_1",
+            "object_id": "proof_1",
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "version": null
+          },
+          "verified_at": "2026-09-21T02:00:00.000Z"
+        },
+        "state": "applied",
+        "resulting_revision": 2,
+        "reason_code": "cas_applied"
+      },
+      "old_copy_cleanup": "eligible",
+      "cleanup_evidence_ids": []
+    }
+  },
+  {
+    "id": "extra-field-operate.MigrationPlan",
+    "model": "operate.MigrationPlan",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "intent": {
+        "action_id": "action_1",
+        "decision": {
+          "decision_id": "id_1",
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "outcome": "promote",
+          "current_tier": "cold",
+          "target_tier": "warm",
+          "reason": "id_1",
+          "policy_version": "id_1",
+          "storage_watermark": 1,
+          "access_watermark": 1
+        },
+        "representation_id": "id_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "expected_epoch": 1,
+        "provider_mode": "simulated",
+        "created_at": "2026-09-19T08:00:00.000Z"
+      },
+      "expected_object_revision": 1,
+      "source": {
+        "kind": "body",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "target": {
+        "kind": "body",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_target",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "protection": {
+        "protection_id": "protect_1",
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "location": {
+          "kind": "body",
+          "provider_id": "p2",
+          "provider_instance_id": "instance_1",
+          "namespace": "memory",
+          "object_key": "body_1",
+          "generation": "gen_1",
+          "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+        },
+        "owner_task_id": "task_1",
+        "owner_action_id": "action_1",
+        "revision": 1,
+        "state": "released",
+        "acquired_at": "2026-09-21T02:00:00.000Z",
+        "expires_at": "2026-09-21T02:02:00.000Z",
+        "released_at": "2026-09-21T02:01:00.000Z"
+      },
+      "handoff": {
+        "request": {
+          "operation_id": "op_1",
+          "action_id": "action_1",
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "expected_object_revision": 1,
+          "old_location": {
+            "kind": "body",
+            "provider_id": "p2",
+            "provider_instance_id": "instance_1",
+            "namespace": "memory",
+            "object_key": "body_1",
+            "generation": "gen_1",
+            "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+          },
+          "new_location": {
+            "kind": "body",
+            "provider_id": "p2",
+            "provider_instance_id": "instance_1",
+            "namespace": "memory",
+            "object_key": "body_target",
+            "generation": "gen_1",
+            "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+          },
+          "read_proof_ref": {
+            "owner": "runtime",
+            "object_type": "id_1",
+            "object_id": "proof_1",
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "version": null
+          },
+          "verified_at": "2026-09-21T02:00:00.000Z"
+        },
+        "state": "applied",
+        "resulting_revision": 2,
+        "reason_code": "cas_applied"
+      },
+      "old_copy_cleanup": "eligible",
+      "cleanup_evidence_ids": [],
+      "unexpected_field": "reject"
+    }
   }
 ]

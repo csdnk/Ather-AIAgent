@@ -23,6 +23,7 @@ from aether_agent_memory.runtime.contracts.ports import Transaction
 
 from .common import FoundationError, now
 from .identity import Identity
+from .monitoring import Monitoring
 from .storage import SQLiteUnitOfWork, native
 from .tasks import Tasks
 
@@ -32,6 +33,7 @@ class Diagnostics:
         self, uow: SQLiteUnitOfWork, identity: Identity, clock: Callable[[], str] = now
     ) -> None:
         self.uow, self.identity, self.clock = uow, identity, clock
+        self.monitoring: Monitoring | None = None
 
     def authorize(self, ctx: TrustedContext) -> None:
         with self.uow.transaction() as tx:
@@ -168,6 +170,9 @@ class Diagnostics:
             )
 
     def health(self, ctx: TrustedContext) -> HealthReport:
+        monitoring = self.monitoring
+        if monitoring is not None:
+            return monitoring.legacy_health(ctx)
         with self.uow.transaction() as tx:
             self.identity.revalidate(tx, ctx)
             if Permission.DIAGNOSE not in ctx.principal.permissions:
