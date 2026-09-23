@@ -711,14 +711,28 @@ def test_real_process_kill_and_restart(tmp_path, fault):
         if child.poll() is None:
             child.kill()
             child.communicate(timeout=5)
-    time.sleep(0.7)
     restarted = Foundation(database)
     try:
         with restarted.uow.transaction() as tx:
             assert tx.read("fault", "uncommitted") is None
         if fault != "after_commit":
+            # 真实进程已终止，数据库保留原租约；显式推进测试时钟验证到期接管，
+            # 避免短租约在子进程到达故障点前失效，也不依赖固定 sleep 猜测到期。
+            interrupted = fetch(restarted, task.task_id)
+            assert interrupted.state == TaskState.RUNNING
+            assert interrupted.lease is not None
+            clock = Clock()
+            clock.value = later(interrupted.lease.until, -1)
+            restarted.identity.clock = restarted.tasks.clock = restarted.events.clock = (
+                restarted.diagnostics.clock
+            ) = clock
+            assert not run(restarted)  # 租约仍有效时禁止提前接管。
+            clock.advance()
             assert run(restarted)
-            time.sleep(1.05)
+            recovered = fetch(restarted, task.task_id)
+            assert recovered.state == TaskState.RETRY_WAIT
+            assert recovered.next_run_at is not None
+            clock.value = later(recovered.next_run_at, 1)
             assert run(restarted)
         assert fetch(restarted, task.task_id).state == TaskState.SUCCEEDED
         with restarted.uow.transaction() as tx:

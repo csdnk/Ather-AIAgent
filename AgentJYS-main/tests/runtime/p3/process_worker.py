@@ -14,7 +14,8 @@ from aether_agent_memory.runtime.foundation.host import Foundation  # noqa: E402
 async def run():
     database, mode, marker = sys.argv[1:]
     app = Foundation(database)
-    app.tasks.lease_seconds = 0.6
+    # 故障点不能依赖亚秒级调度；父进程会在 kill 后推进恢复时钟。
+    app.tasks.lease_seconds = 30
     try:
         if mode == "claim":
             app.tasks.lease_seconds = 30
