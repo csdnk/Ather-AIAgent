@@ -46,6 +46,8 @@ def main() -> int:
     checks.append({"name": "collaboration_entrypoints", "passed": True})
     with tempfile.TemporaryDirectory(prefix="p3-collaboration-") as temporary:
         env = {**os.environ, "PYTHONPATH": str(ROOT / "src"), "PYTHONUTF8": "1"}
+        # 门禁覆盖新增 A 流程、原生模型空间模块及 HTTP 验收脚本的静态检查。
+        # 门禁本身不加载真实模型；真实模型和 TCP HTTP 验收需要另行运行专用脚本。
         commands = [
             ("flows_foundation_contracts", ["scripts/p3/validate_flows.py"]),
             (
@@ -68,8 +70,10 @@ def main() -> int:
                     "check",
                     "--no-cache",
                     "src/aether_agent_memory/recall/embedding/p3.py",
+                    "src/aether_agent_memory/recall/embedding/spaces.py",
                     "tests/runtime/native",
                     "scripts/p3/validate_native_flows.py",
+                    "scripts/p3/validate_native_http.py",
                 ],
             ),
             (
@@ -82,6 +86,7 @@ def main() -> int:
                     "--cache-dir",
                     f"{temporary}/mypy",
                     "src/aether_agent_memory/recall/embedding/p3.py",
+                    "src/aether_agent_memory/recall/embedding/spaces.py",
                 ],
             ),
         ]

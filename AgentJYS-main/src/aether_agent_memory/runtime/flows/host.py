@@ -17,19 +17,26 @@ from aether_agent_memory.recall.basic.reranking import CrossEncoderReranker, Rer
 from aether_agent_memory.recall.basic.service import Recall
 from aether_agent_memory.recall.basic.tokenization import ModelTokenizer, TokenCounter
 from aether_agent_memory.recall.basic.vector_search import SearchAccess
-from aether_agent_memory.recall.contracts.ports import EmbeddingPort
+from aether_agent_memory.recall.contracts.foundation import EmbeddingSpace
+from aether_agent_memory.recall.contracts.ports import EmbeddingPort, GenerationSearchPort
 from aether_agent_memory.remember.basic.extraction import LiteralExtraction
 from aether_agent_memory.remember.basic.projection import ProjectionAccess
 from aether_agent_memory.remember.basic.service import Remember
 from aether_agent_memory.remember.contracts.models import ExtractionRequest, SourceRef
-from aether_agent_memory.remember.contracts.ports import ExtractionPort
+from aether_agent_memory.remember.contracts.ports import (
+    ExtractionPort,
+    MemoryContextGuardPort,
+    MemoryFoundationPort,
+    MemoryQualificationPort,
+    MemoryReadPort,
+)
 from aether_agent_memory.runtime.contracts.models import TrustedContext
 from aether_agent_memory.runtime.foundation.common import fingerprint, now
 from aether_agent_memory.runtime.foundation.host import Foundation
 from aether_agent_memory.runtime.foundation.requests import text_hash
 from aether_agent_memory.runtime.foundation.telemetry import attach_provider
 
-from .health import Health, sqlite_probe
+from .health import Health, Probe, sqlite_probe
 from .vector_adapters import MilvusVectors, SQLiteVectors, VectorBackend
 
 if TYPE_CHECKING:
@@ -294,6 +301,74 @@ class ThreeFlows:
             ("tokenizer", tokenizer_probe),
         ):
             self.health.register(name, probe)
+
+    def enable_generation_recall(
+        self,
+        *,
+        memories: MemoryReadPort,
+        qualification: MemoryQualificationPort,
+        bodies: MemoryFoundationPort,
+        guards: MemoryContextGuardPort,
+        space: EmbeddingSpace,
+        search: GenerationSearchPort | None = None,
+        probe: Probe | None = None,
+    ) -> None:
+        # 仅在启动装配时启用新流程：调用方必须提供完整 B 接口及匹配的模型空间。
+        # 存在运行中请求时拒绝切换，防止同一请求跨越两套组包和授权策略。
+        """Bootstrap-only opt-in. B providers are required; no fake compatibility stamps."""
+        from aether_agent_memory.recall.basic.candidates import MemoryCandidates
+        from aether_agent_memory.recall.basic.generation import GenerationRecall
+        from aether_agent_memory.recall.basic.generation_search import SQLiteGenerationSearch
+        from aether_agent_memory.recall.embedding.spaces import EmbeddingSpaces
+
+        if isinstance(self.recall, GenerationRecall):
+            raise ValueError("generation Recall is already configured")
+        # 这里检查接口齐备性；B 的业务正确性仍需消费者契约测试与真实联调验证。
+        required = (
+            (memories, ("load", "working", "final_guard")),
+            (qualification, ("qualify",)),
+            (bodies, ("load_bodies",)),
+            (guards, ("relations", "revalidate_context")),
+        )
+        if any(
+            not callable(getattr(provider, name, None))
+            for provider, names in required
+            for name in names
+        ):
+            raise ValueError("new Recall requires complete B provider contracts")
+        if space.model_space != self.model_space or (
+            self.native_embedding is not None and space != self.native_embedding.space
+        ):
+            raise ValueError("new Recall space must match the configured embedding")
+        with self.foundation.uow.transaction() as tx:
+            if any(
+                row["record"]["state"] in {"accepted", "running"}
+                for _, row in tx.rows("recall_requests")
+            ):
+                raise ValueError("cannot switch Recall while requests are running")
+        vectors = search or SQLiteGenerationSearch(self.foundation.uow, self.foundation.identity)
+        candidates = MemoryCandidates(
+            self.foundation.uow,
+            self.foundation.identity,
+            self.embedding,
+            vectors,
+            qualification,
+            EmbeddingSpaces((space,)),
+        )
+        self.recall = GenerationRecall(self.recall, candidates, bodies, guards)
+        self.recall.memories = memories
+        for provider, name in (
+            (vectors, "generation_search"),
+            (candidates, "memory_candidates"),
+            (self.recall.assembly, "context_assembly"),
+        ):
+            attach_provider(provider, self.foundation.telemetry, name)
+
+        async def unknown_probe(ctx: TrustedContext) -> dict[str, object]:
+            # 接口可调用不代表 B 集成健康；未提供真实探针时如实报告 unknown。
+            return {"state": "unknown", "reason": "b_integration_probe_not_supplied"}
+
+        self.health.register("recall_generation", probe or unknown_probe)
 
     async def tick(
         self, *, periodic: bool = False, maintenance_context: TrustedContext | None = None

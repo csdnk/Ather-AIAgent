@@ -812,3 +812,40 @@ interfaces:
   - positive-recall.ChunkSearchResult
   evidence_level: contract_only
   implemented: false
+- id: remember.MemoryQualificationPort.qualify
+  provider: B
+  consumers:
+  - A
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    targets: tuple[aether_agent_memory.remember.contracts.foundation.CandidateQualificationTarget,
+    ...], purpose: Literal[''recall'', ''extraction'']) -> tuple[aether_agent_memory.remember.contracts.foundation.CandidateQualificationResult,
+    ...]'
+  rules: 精确覆盖请求，重新核验当前授权与版本；失败不得默认允许。B实现待接。
+  examples:
+  - positive-remember.CandidateQualificationResult
+  evidence_level: contract_only
+  implemented: false
+- id: remember.MemoryContextGuardPort.revalidate_context
+  provider: B
+  consumers:
+  - A
+  signature: '(self, tx: aether_agent_memory.runtime.contracts.ports.Transaction,
+    ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, request: aether_agent_memory.remember.contracts.foundation.ContextGuardRequest)
+    -> tuple[aether_agent_memory.remember.contracts.foundation.GuardStamp, ...]'
+  rules: 精确覆盖请求，重新核验当前授权与版本；失败不得默认允许。B实现待接。
+  examples:
+  - positive-remember.ContextGuardRequest
+  evidence_level: contract_only
+  implemented: false
+- id: remember.MemoryContextGuardPort.relations
+  provider: B
+  consumers:
+  - A
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    refs: tuple[aether_agent_memory.remember.contracts.models.MemoryRef, ...]) ->
+    aether_agent_memory.remember.contracts.foundation.MemoryRelationSnapshot'
+  rules: 同一权威视图返回全部请求成员凭据及完整关系；无法核验明确失败；B服务待接。
+  examples:
+  - positive-remember.MemoryRelationSnapshot
+  evidence_level: contract_only
+  implemented: false

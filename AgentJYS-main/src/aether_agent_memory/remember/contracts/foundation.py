@@ -22,6 +22,7 @@ from aether_agent_memory.runtime.contracts.models import (
 
 from .models import (
     CandidateFact,
+    ConflictGroup,
     MemoryKind,
     MemoryRef,
     MemoryStatus,
@@ -219,6 +220,106 @@ class GuardStamp(ContractModel):
     authorization_epoch: Positive
     body_hash: Digest
     checked_at: Timestamp
+
+
+class CandidateQualificationTarget(ContractModel):
+    # B 审查输入：描述某个检索块的精确身份，不携带正文或排名分数。
+    # memory 绑定作用域和版本，generation 绑定发布批次，摘要绑定正文与实际编码输入。
+    """Untrusted chunk identity; never contains plaintext or ranking scores."""
+
+    memory: MemoryRef
+    generation: Identifier
+    model_space: Identifier
+    body_hash: Digest
+    chunk_index: Count
+    vector_id: Digest
+    input_hash: Digest
+
+
+class CandidateQualificationResult(ContractModel):
+    # allowed 必须同时返回发布清单和当前守卫；excluded/unverifiable 不得携带可复用凭据。
+    # 前者表示明确排除，后者表示证据不足，两者不能合并成同一种空结果。
+    target: CandidateQualificationTarget
+    decision: Literal["allowed", "excluded", "unverifiable"]
+    reason_code: Identifier
+    manifest: ProjectionManifest | None
+    guard: GuardStamp | None
+
+    @model_validator(mode="after")
+    def authoritative_evidence(self) -> Self:
+        # 只验证响应的内部绑定关系；事实是否仍有效仍须由 B 查询权威数据判断。
+        manifest, guard, target = self.manifest, self.guard, self.target
+        if self.decision != "allowed":
+            if manifest is not None or guard is not None:
+                raise ValueError("only allowed qualification carries evidence")
+            return self
+        if manifest is None or guard is None:
+            raise ValueError("allowed qualification requires manifest and guard")
+        if (
+            manifest.state != "ready"
+            or manifest.memory != target.memory
+            or manifest.generation != target.generation
+            or manifest.model_space != target.model_space
+            or manifest.body_hash != target.body_hash
+            or guard.memory != target.memory
+            or guard.body_hash != target.body_hash
+            or not any(
+                c.chunk_index == target.chunk_index
+                and c.vector_id == target.vector_id
+                and c.input_hash == target.input_hash
+                for c in manifest.chunks
+            )
+        ):
+            raise ValueError("qualification evidence does not bind the exact hit")
+        return self
+
+
+class ContextGuardRequest(ContractModel):
+    # expected 是 A 保存的预期凭据，manifests 是长期候选预期发布批次。
+    # B 必须在调用方事务内对照当前事实，不能把传入凭据本身当成授权依据。
+    """B must compare these expectations to current facts in the caller transaction."""
+
+    expected: tuple[GuardStamp, ...]
+    manifests: tuple[ProjectionManifest, ...] = ()
+
+    @model_validator(mode="after")
+    def exact_members(self) -> Self:
+        # 拒绝重复、多租户或同记忆多版本组包，并保证每份清单都对应一个受守卫保护的成员。
+        guards = {g.memory.model_dump_json(): g for g in self.expected}
+        manifests = {m.memory.model_dump_json(): m for m in self.manifests}
+        if len(guards) != len(self.expected) or len(manifests) != len(self.manifests):
+            raise ValueError("duplicate guard or manifest")
+        logical = {(g.memory.scope.model_dump_json(), g.memory.memory_id) for g in self.expected}
+        if len(logical) != len(self.expected):
+            raise ValueError("one context cannot contain two versions of a memory")
+        if len({g.memory.scope.tenant_id for g in self.expected}) > 1:
+            raise ValueError("context cannot span tenants")
+        if any(
+            key not in guards or m.state != "ready" or guards[key].body_hash != m.body_hash
+            for key, m in manifests.items()
+        ):
+            raise ValueError("published manifests must bind guarded members")
+        return self
+
+
+class MemoryRelationSnapshot(ContractModel):
+    # B 在同一权威视图中读取关系修订与完整冲突成员，防止成员列表和正文版本脱节。
+    """B reads guards and complete relation membership in one authoritative view."""
+
+    guards: tuple[GuardStamp, ...]
+    conflicts: tuple[ConflictGroup, ...]
+
+    @model_validator(mode="after")
+    def exact_relation_view(self) -> Self:
+        # 响应不得重复凭据或组 ID，返回的每组关系都必须与本次查询成员有关。
+        refs = {g.memory.model_dump_json() for g in self.guards}
+        if len(refs) != len(self.guards):
+            raise ValueError("duplicate relation guard")
+        if len({c.group_id for c in self.conflicts}) != len(self.conflicts):
+            raise ValueError("duplicate relation group")
+        if any(not any(m.model_dump_json() in refs for m in c.members) for c in self.conflicts):
+            raise ValueError("relation must include a queried memory")
+        return self
 
 
 class FullBodyReadResult(ContractModel):
