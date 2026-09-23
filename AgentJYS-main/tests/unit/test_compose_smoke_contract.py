@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
+import yaml
 from fastapi import FastAPI
 
 from aether_agent_memory.api.routers import demo
@@ -20,6 +21,19 @@ SPEC = importlib.util.spec_from_file_location(
 assert SPEC is not None and SPEC.loader is not None
 smoke = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(smoke)
+
+
+def test_compose_workers_share_the_api_memory_store() -> None:
+    """消息队列连接成功不代表正文存储可用；所有消费者必须共用 API 的存储。"""
+    compose = yaml.safe_load((Path(__file__).parents[2] / "compose.yaml").read_text("utf-8"))
+    services = compose["services"]
+    memory_store = services["p3"]["environment"]["AETHER_B2_REDIS_URL"]
+    assert memory_store == "redis://redis:6379/0"
+    for name in (
+        "celery-worker", "p3-session-worker", "p3-projection-worker",
+        "p3-context-projection-worker",
+    ):
+        assert services[name]["environment"].get("AETHER_B2_REDIS_URL") == memory_store, name
 
 
 @pytest.mark.asyncio
