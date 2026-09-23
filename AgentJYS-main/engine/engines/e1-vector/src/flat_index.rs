@@ -10,7 +10,7 @@ pub fn search_flat(records: &[VectorRecord], query: &[f32], top_k: usize) -> Vec
         .iter()
         .map(|record| SearchHit {
             id: record.id.clone(),
-            score: cosine_similarity(&record.values, query),  // 计算余弦相似度
+            score: cosine_similarity(&record.values, query), // 计算余弦相似度
             graph_node_id: record.graph_node_id.clone(),
             metadata_json: record.metadata_json.clone(),
         })
@@ -22,16 +22,16 @@ pub fn search_flat(records: &[VectorRecord], query: &[f32], top_k: usize) -> Vec
             .partial_cmp(&a.score)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
-    hits.truncate(top_k);  // 截取 top-k 结果
+    hits.truncate(top_k); // 截取 top-k 结果
     hits
 }
 
 /// 计算余弦相似度：cos(a, b) = (a·b) / (||a|| * ||b||)
 /// 值域 [-1, 1]，越接近 1 表示越相似
 fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
-    let mut dot = 0.0;     // 点积
-    let mut norm_a = 0.0;  // ||a||²
-    let mut norm_b = 0.0;  // ||b||²
+    let mut dot = 0.0; // 点积
+    let mut norm_a = 0.0; // ||a||²
+    let mut norm_b = 0.0; // ||b||²
 
     for (x, y) in a.iter().zip(b.iter()) {
         dot += x * y;

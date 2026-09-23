@@ -15,11 +15,11 @@ use std::collections::{BinaryHeap, HashSet};
 /// HNSW 参数配置
 #[derive(Clone, Copy)]
 pub struct HnswParams {
-    pub m: usize,                 // 每层的最大邻居数（除底层外）
-    pub m_max0: usize,            // 底层（layer 0）的最大邻居数
-    pub ef_construction: usize,   // 构建时的搜索宽度（越大越精确但越慢）
-    pub ef_search: usize,         // 查询时的搜索宽度（越大召回率越高但越慢）
-    pub seed: u64,                // 随机数种子（用于层级分配）
+    pub m: usize,               // 每层的最大邻居数（除底层外）
+    pub m_max0: usize,          // 底层（layer 0）的最大邻居数
+    pub ef_construction: usize, // 构建时的搜索宽度（越大越精确但越慢）
+    pub ef_search: usize,       // 查询时的搜索宽度（越大召回率越高但越慢）
+    pub seed: u64,              // 随机数种子（用于层级分配）
 }
 
 impl Default for HnswParams {
@@ -45,18 +45,18 @@ struct Node {
 
 /// HNSW 索引结构
 pub struct HnswIndex {
-    nodes: Vec<Node>,       // 所有节点
-    entry: Option<usize>,   // 入口节点（最高层的节点）
-    max_layer: usize,       // 当前最大层数
-    params: HnswParams,     // 索引参数
+    nodes: Vec<Node>,     // 所有节点
+    entry: Option<usize>, // 入口节点（最高层的节点）
+    max_layer: usize,     // 当前最大层数
+    params: HnswParams,   // 索引参数
 }
 
 /// 候选节点：用于搜索过程中的优先队列
 /// (distance, node) 按距离排序，使用 total_cmp 保证 f32 可以放入堆中
 #[derive(Clone, Copy)]
 struct Cand {
-    dist: f32,   // 距离（越小越接近）
-    id: usize,   // 节点索引
+    dist: f32, // 距离（越小越接近）
+    id: usize, // 节点索引
 }
 
 impl PartialEq for Cand {

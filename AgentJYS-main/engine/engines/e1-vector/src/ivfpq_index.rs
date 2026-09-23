@@ -38,10 +38,10 @@ pub struct IvfPqParams {
 impl Default for IvfPqParams {
     fn default() -> Self {
         Self {
-            nlist: 100,      // 100 个倒排列表
-            nprobe: 16,      // 探测 16 个列表
-            m: 8,            // 8 个子向量
-            ksub: 256,       // 每个子向量 256 个质心（1 字节）
+            nlist: 100, // 100 个倒排列表
+            nprobe: 16, // 探测 16 个列表
+            m: 8,       // 8 个子向量
+            ksub: 256,  // 每个子向量 256 个质心（1 字节）
             kmeans_iters: 12,
             seed: 0x9E3779B97F4A7C15,
         }
@@ -62,13 +62,13 @@ impl IvfPqParams {
 
         // nlist ≈ √n，限制在 [1, 4096]，且不超过 n
         let nlist = ((n as f64).sqrt().round() as usize).clamp(1, 4096).min(n);
-        
+
         // 探测约一半的列表以确保召回率安全，下限为 min(nlist, 8) 使小集合保持近乎穷举，
         // 上限为 128 使大集合仍能积极剪枝
         let probe_floor = nlist.min(8);
         let probe_cap = nlist.min(128);
         let nprobe = (nlist / 2).clamp(probe_floor, probe_cap);
-        
+
         // 每个子量化器约 2 维（更细 = 更准确），限制在合理的码宽度 64 字节/向量
         let m = (dim / 2).clamp(1, 64).min(dim);
 
@@ -92,8 +92,8 @@ struct Entry {
 
 /// IVF-PQ 索引结构
 pub struct IvfPqIndex {
-    dim: usize,                        // 向量维度
-    nprobe: usize,                     // 查询时探测的列表数
+    dim: usize,    // 向量维度
+    nprobe: usize, // 查询时探测的列表数
     /// 粗质心：`nlist` × `dim`
     coarse: Vec<Vec<f32>>,
     /// 倒排列表：每个粗质心对应一个条目列表

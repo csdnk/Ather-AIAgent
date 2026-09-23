@@ -77,14 +77,9 @@ def test_core_memory_does_not_import_provider_implementations() -> None:
 
 @pytest.mark.unit
 def test_production_adapters_do_not_read_environment_directly() -> None:
-    files = [
-        SRC / "adapters" / "p2.py",
-        SRC / "adapters" / "celery.py",
-        SRC / "adapters" / "redis.py",
-        SRC / "adapters" / "milvus.py",
-        SRC / "adapters" / "b1_client.py",
-        SRC / "adapters" / "b3.py",
-    ]
+    # 扫描整个适配层，避免模块重命名后旧文件清单失效，也覆盖新增适配器。
+    files = sorted((SRC / "adapters").rglob("*.py"))
+    assert files, "production adapter directory must not be empty"
     combined = "\n".join(path.read_text("utf-8") for path in files)
 
     assert "os.getenv" not in combined

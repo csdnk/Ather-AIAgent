@@ -7,7 +7,7 @@
 
 use ae_telemetry::SpanCounter;
 use ae_wal::MemoryWal;
-use e1_vector::{CollectionSpec, IndexKind, InMemoryVectorEngine, VectorRecord};
+use e1_vector::{CollectionSpec, InMemoryVectorEngine, IndexKind, VectorRecord};
 use std::sync::Arc;
 
 #[test]

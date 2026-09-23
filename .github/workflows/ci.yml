@@ -18,8 +18,9 @@ jobs:
       - name: Install Python package and dev tools
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e .
-          python -m pip install mypy pytest pytest-asyncio ruff
+          python -m pip install -e . -r scripts/p3/requirements-ci.txt
+      - name: Generate Python protobuf bindings
+        run: python scripts/generate_proto.py
       - name: Ruff
         run: python -m ruff check src tests scripts benchmarks
       - name: Mypy
