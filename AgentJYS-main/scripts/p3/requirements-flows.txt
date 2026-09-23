@@ -1,0 +1,5 @@
+# Standalone flow checks import the HTTP host and its TestClient.
+-r requirements.txt
+fastapi>=0.141.1,<1
+uvicorn>=0.35,<1
+httpx>=0.28.1,<1

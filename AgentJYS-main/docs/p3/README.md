@@ -1,5 +1,7 @@
 # P3 总体设计与协作契约
 
+CI 运行与复验：[检查清单及依赖说明](development/11_CI检查与复验.md)，区分全仓检查、P3 门禁及真实依赖验证。
+
 **2026-09-23 A侧增量：** [Recall与Embedding接入](development/10_Recall与Embedding_A侧接入.md)。新A实现已完成契约环境验收，现有链路完成真实BGE与TCP HTTP验证；新多块B提供方仍待接。以下各旧批次说明保留其历史范围。
 
 投影职责调整：[写入与搜索拆分接入](development/09_投影与搜索职责划分.md)。

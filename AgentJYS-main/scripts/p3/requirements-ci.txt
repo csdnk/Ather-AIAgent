@@ -1,0 +1,5 @@
+# Full-repository CI includes optional local fixtures as well as the P3 gate.
+-r requirements-collaboration.txt
+fakeredis>=2.38,<3
+python-docx>=1.1,<2
+textual>=0.86,<2

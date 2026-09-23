@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 
@@ -27,6 +29,14 @@ def test_compose_demo_runs_the_unified_smoke_flow() -> None:
     if compose_probe.returncode != 0:
         pytest.skip("Docker Compose V2 is not installed")
 
+    # Compose profile 只选择容器，不会开启应用的 Demo API；测试必须显式开启。
+    # 隔离项目名确保 finally 清理的只是本次测试资源。
+    compose_env = {
+        **os.environ,
+        "AETHER_ENABLE_DEMO": "true",
+        "AETHER_RUNTIME_PROFILE": "integration",
+        "COMPOSE_PROJECT_NAME": f"aether-smoke-{uuid4().hex[:12]}",
+    }
     command = [
         "docker",
         "compose",
@@ -42,6 +52,7 @@ def test_compose_demo_runs_the_unified_smoke_flow() -> None:
         result = subprocess.run(
             command,
             cwd=ROOT,
+            env=compose_env,
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -52,6 +63,7 @@ def test_compose_demo_runs_the_unified_smoke_flow() -> None:
         subprocess.run(
             ["docker", "compose", "--profile", "demo", "down", "--volumes", "--remove-orphans"],
             cwd=ROOT,
+            env=compose_env,
             text=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

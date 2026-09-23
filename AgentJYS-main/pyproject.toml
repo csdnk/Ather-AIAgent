@@ -176,6 +176,13 @@ module = ["aether_agent_memory.p2.generated.*"]
 follow_imports = "skip"
 ignore_errors = true
 
+# CrossEncoder is an optional extra; keep checking our adapter without downloading
+# the model stack in the default CI environment.
+[[tool.mypy.overrides]]
+module = ["sentence_transformers.*"]
+follow_imports = "skip"
+ignore_missing_imports = true
+
 [[tool.mypy.overrides]]
 module = [
   "celery.*",

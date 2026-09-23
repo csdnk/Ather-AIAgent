@@ -1,5 +1,5 @@
 // 索引抽象：定义分段本地索引的统一接口
-// 
+//
 // 每个 Sealed 分段拥有一个 `VectorIndex`
 // MVP 提供 `FlatIndex`（精确暴力搜索）用于验证完整的分段生命周期和查询扇出；
 // HNSW / IVF-PQ 实现在此 trait 后面插入，无需修改公共 `VectorEngine` API（设计文档 §3.3）
@@ -23,7 +23,7 @@ pub trait VectorIndex: Send + Sync {
 /// 精确暴力搜索索引
 /// 查询时间复杂度 O(n)，用于 Growing 分段回退和 MVP Sealed 索引
 pub struct FlatIndex {
-    records: Vec<VectorRecord>,  // 保存所有向量记录
+    records: Vec<VectorRecord>, // 保存所有向量记录
 }
 
 impl FlatIndex {
@@ -37,7 +37,7 @@ impl FlatIndex {
 
 impl VectorIndex for FlatIndex {
     fn search(&self, query: &[f32], top_k: usize) -> Vec<SearchHit> {
-        search_flat(&self.records, query, top_k)  // 暴力搜索
+        search_flat(&self.records, query, top_k) // 暴力搜索
     }
 
     fn kind(&self) -> &'static str {

@@ -1,16 +1,16 @@
 // E1 向量引擎：提供高维向量的存储和相似度搜索功能
 // 主要用于 AI 检索、语义搜索等场景
 
-mod flat_index;      // 暴力搜索索引（精确但慢，用于基准测试）
-pub mod hnsw_index;  // 分层可导航小世界图索引（快速近似搜索）
-mod index;           // 索引抽象 trait
+mod flat_index; // 暴力搜索索引（精确但慢，用于基准测试）
+pub mod hnsw_index; // 分层可导航小世界图索引（快速近似搜索）
+mod index; // 索引抽象 trait
 pub mod ivfpq_index; // 倒排索引+乘积量化（大规模数据压缩）
-mod segment;         // 数据分段管理
+mod segment; // 数据分段管理
 
 use ae_common::{
-    AetherError, BlockId, CompactPolicy, CompactReport, EngineInstanceId, EngineKind, NamespaceId,
-    MigrationState, MigrationTaskId, OperationKind, RecoveryReport, Result, SegmentId, SegmentState,
-    SnapshotId,
+    AetherError, BlockId, CompactPolicy, CompactReport, EngineInstanceId, EngineKind,
+    MigrationState, MigrationTaskId, NamespaceId, OperationKind, RecoveryReport, Result, SegmentId,
+    SegmentState, SnapshotId,
 };
 use ae_kernel::{AetherEngine, MigrationAck, SegmentControl, SegmentMigrationStatus};
 use ae_wal::{SharedWal, WalPayload, WalRecord};
@@ -29,27 +29,27 @@ pub const DEFAULT_SEAL_THRESHOLD_ROWS: usize = 10_000;
 /// - IvfPq: 倒排索引+乘积量化，大规模数据压缩
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IndexKind {
-    Flat,   // 暴力搜索
-    Hnsw,   // HNSW 图索引
-    IvfPq,  // IVF-PQ 压缩索引
+    Flat,  // 暴力搜索
+    Hnsw,  // HNSW 图索引
+    IvfPq, // IVF-PQ 压缩索引
 }
 
 /// 集合规格：定义一个向量集合的名称和维度
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CollectionSpec {
-    pub name: String,       // 集合名称
-    pub dimension: usize,   // 向量维度（所有向量必须是相同维度）
+    pub name: String,     // 集合名称
+    pub dimension: usize, // 向量维度（所有向量必须是相同维度）
 }
 
 /// 分段统计信息：暴露给 P3 层的分段状态（设计文档 §2.2.2 SegmentStats）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SegmentStat {
-    pub segment_id: String,        // 分段 ID
-    pub state: SegmentState,       // 分段状态（Growing/Sealed/Frozen 等）
-    pub row_count: usize,          // 向量数量
-    pub size_bytes: u64,           // 占用字节数
+    pub segment_id: String,         // 分段 ID
+    pub state: SegmentState,        // 分段状态（Growing/Sealed/Frozen 等）
+    pub row_count: usize,           // 向量数量
+    pub size_bytes: u64,            // 占用字节数
     pub index_type: Option<String>, // 索引类型（如 "flat", "hnsw"）
-    pub access_count: u64,         // 访问次数（热度统计）
+    pub access_count: u64,          // 访问次数（热度统计）
 }
 
 /// 向量记录：存储的单条向量数据
@@ -74,11 +74,13 @@ pub struct SearchHit {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum VectorWalOp {
     CreateCollection(CollectionSpec), // 创建集合
-    Insert {                          // 插入向量
+    Insert {
+        // 插入向量
         collection: String,
         records: Vec<VectorRecord>,
     },
-    Delete {                          // 删除向量（软删除）
+    Delete {
+        // 删除向量（软删除）
         collection: String,
         ids: Vec<String>,
     },
@@ -90,9 +92,9 @@ enum VectorWalOp {
 
 /// 集合状态：管理单个集合的所有数据和状态
 struct CollectionState {
-    spec: CollectionSpec,              // 集合规格（名称、维度）
-    segments: Vec<Segment>,            // 所有分段（包括 Growing 和 Sealed）
-    next_segment_seq: u64,             // 下一个分段的序号
+    spec: CollectionSpec,   // 集合规格（名称、维度）
+    segments: Vec<Segment>, // 所有分段（包括 Growing 和 Sealed）
+    next_segment_seq: u64,  // 下一个分段的序号
     /// 删除位图：按向量 ID 标记已删除的向量（设计文档 §3.3 删除处理）
     /// 删除操作不修改索引结构，查询时过滤掉墓碑（tombstone）标记的结果
     deleted: std::collections::HashSet<String>,
@@ -128,8 +130,8 @@ impl CollectionState {
         let needs_new = self
             .segments
             .last()
-            .map(|s| !s.state.accepts_writes())  // 检查最后一个分段是否可写
-            .unwrap_or(true);                    // 如果没有分段，也需要创建
+            .map(|s| !s.state.accepts_writes()) // 检查最后一个分段是否可写
+            .unwrap_or(true); // 如果没有分段，也需要创建
         if needs_new {
             self.push_growing_segment();
         }
@@ -140,12 +142,12 @@ impl CollectionState {
 /// 内存向量引擎：E1 的核心实现
 /// 管理多个向量集合，每个集合包含多个分段
 pub struct InMemoryVectorEngine {
-    id: EngineInstanceId,                               // 引擎实例 ID
-    namespace_id: NamespaceId,                          // 命名空间 ID
-    wal: SharedWal,                                     // 预写日志（用于崩溃恢复）
+    id: EngineInstanceId,                                  // 引擎实例 ID
+    namespace_id: NamespaceId,                             // 命名空间 ID
+    wal: SharedWal,                                        // 预写日志（用于崩溃恢复）
     collections: RwLock<HashMap<String, CollectionState>>, // 所有集合的状态（线程安全）
-    seal_threshold_rows: usize,                         // 封存阈值（达到多少行触发封存）
-    index_kind: IndexKind,                              // 使用的索引类型
+    seal_threshold_rows: usize,                            // 封存阈值（达到多少行触发封存）
+    index_kind: IndexKind,                                 // 使用的索引类型
 }
 
 impl InMemoryVectorEngine {
@@ -183,8 +185,8 @@ impl InMemoryVectorEngine {
     /// 创建向量集合：定义名称和维度
     pub fn create_collection(&self, spec: CollectionSpec) -> Result<()> {
         let op = VectorWalOp::CreateCollection(spec.clone());
-        self.append_op(OperationKind::CreateNamespace, &op)?;  // 先写 WAL
-        self.apply_op(op)                                       // 再应用到内存
+        self.append_op(OperationKind::CreateNamespace, &op)?; // 先写 WAL
+        self.apply_op(op) // 再应用到内存
     }
 
     /// 插入向量：向指定集合插入一批向量记录
@@ -202,8 +204,8 @@ impl InMemoryVectorEngine {
             VectorWalOp::Insert { records, .. } => records.len(),
             _ => 0,
         };
-        self.append_op(OperationKind::Insert, &op)?;  // 先写 WAL（持久化）
-        self.apply_op(op)?;                            // 再写内存（应用操作）
+        self.append_op(OperationKind::Insert, &op)?; // 先写 WAL（持久化）
+        self.apply_op(op)?; // 再写内存（应用操作）
         Ok(inserted)
     }
 
@@ -220,13 +222,13 @@ impl InMemoryVectorEngine {
             collection: collection.to_string(),
             ids,
         };
-        self.append_op(OperationKind::Delete, &op)?;  // 先写 WAL
-        self.apply_op(op)?;                            // 再应用删除
+        self.append_op(OperationKind::Delete, &op)?; // 先写 WAL
+        self.apply_op(op)?; // 再应用删除
         Ok(deleted)
     }
 
     /// 向量搜索：在指定集合中查找与查询向量最相似的 top_k 个结果
-    /// 
+    ///
     /// 搜索流程：
     /// 1. 扇出到所有可查询的分段
     /// 2. 每个分段返回本地 top-k 结果
@@ -258,10 +260,11 @@ impl InMemoryVectorEngine {
         let local_k = top_k + state.deleted.len().min(top_k);
         let mut merged: Vec<SearchHit> = Vec::new();
         for seg in state.segments.iter_mut() {
-            if !seg.state.is_queryable() {  // 跳过不可查询的分段（如已归档）
+            if !seg.state.is_queryable() {
+                // 跳过不可查询的分段（如已归档）
                 continue;
             }
-            seg.access_count += 1;           // 更新访问计数（用于热度统计）
+            seg.access_count += 1; // 更新访问计数（用于热度统计）
             merged.extend(seg.search(query, local_k));
         }
         // 删除位图过滤：移除所有墓碑标记的向量（设计文档 §3.4.2 step 5）
@@ -272,7 +275,7 @@ impl InMemoryVectorEngine {
                 .partial_cmp(&a.score)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
-        merged.truncate(top_k);  // 截取 top-k 结果
+        merged.truncate(top_k); // 截取 top-k 结果
         Ok(merged)
     }
 
@@ -290,7 +293,7 @@ impl InMemoryVectorEngine {
         let mut sealed = 0;
         for seg in state.segments.iter_mut() {
             if seg.state == SegmentState::Growing && seg.row_count() > 0 {
-                seg.seal(index_kind);  // 构建索引并转换状态
+                seg.seal(index_kind); // 构建索引并转换状态
                 sealed += 1;
             }
         }
@@ -323,7 +326,7 @@ impl InMemoryVectorEngine {
     /// 追加操作到 WAL：先序列化操作，写入 WAL，再刷盘
     /// 这是崩溃恢复的关键：所有操作先写日志，再修改内存
     fn append_op(&self, operation: OperationKind, op: &VectorWalOp) -> Result<()> {
-        let payload = serde_json::to_vec(op)?;  // 序列化为 JSON
+        let payload = serde_json::to_vec(op)?; // 序列化为 JSON
         let record = WalRecord::new(
             EngineKind::Vector,
             self.id.clone(),
@@ -331,8 +334,8 @@ impl InMemoryVectorEngine {
             operation,
             WalPayload::Inline(payload),
         );
-        self.wal.append(record)?;  // 写入 WAL
-        self.wal.flush()?;         // 强制刷盘（确保持久化）
+        self.wal.append(record)?; // 写入 WAL
+        self.wal.flush()?; // 强制刷盘（确保持久化）
         Ok(())
     }
 
@@ -379,10 +382,11 @@ impl InMemoryVectorEngine {
                             dimension
                         )));
                     }
-                    let seg = state.growing_segment();  // 获取当前可写分段
-                    seg.push(record);                    // 追加向量
-                    if seg.row_count() >= threshold {    // 达到阈值？
-                        seg.seal(index_kind);            // 封存并构建索引
+                    let seg = state.growing_segment(); // 获取当前可写分段
+                    seg.push(record); // 追加向量
+                    if seg.row_count() >= threshold {
+                        // 达到阈值？
+                        seg.seal(index_kind); // 封存并构建索引
                     }
                 }
                 Ok(())
@@ -396,7 +400,7 @@ impl InMemoryVectorEngine {
                 let state = guard
                     .get_mut(&collection)
                     .ok_or_else(|| AetherError::NotFound(format!("collection {collection}")))?;
-                state.deleted.extend(ids);  // 标记为已删除
+                state.deleted.extend(ids); // 标记为已删除
                 Ok(())
             }
             VectorWalOp::SetMigrationState {
@@ -451,10 +455,10 @@ impl AetherEngine for InMemoryVectorEngine {
         self.collections
             .write()
             .map_err(|e| AetherError::Internal(e.to_string()))?
-            .clear();  // 清空所有内存状态
+            .clear(); // 清空所有内存状态
 
-        let mut replayed = 0;  // 已重放的记录数
-        let mut skipped = 0;   // 跳过的记录数（不属于本引擎）
+        let mut replayed = 0; // 已重放的记录数
+        let mut skipped = 0; // 跳过的记录数（不属于本引擎）
         for record in self.wal.replay()? {
             if self.apply_record(&record)? {
                 replayed += 1;
@@ -567,8 +571,7 @@ impl InMemoryVectorEngine {
             let idempotent = transition(&mut migration)?;
 
             if !idempotent {
-                if operation == OperationKind::MigrationPrepare
-                    && seg.state != SegmentState::Sealed
+                if operation == OperationKind::MigrationPrepare && seg.state != SegmentState::Sealed
                 {
                     return Err(AetherError::Conflict(format!(
                         "segment {} is {:?}, only Sealed segments can be frozen",
@@ -610,7 +613,7 @@ impl InMemoryVectorEngine {
             .map_err(|e| AetherError::Internal(e.to_string()))?;
         for collection in guard.values_mut() {
             if let Some(seg) = collection.segments.iter_mut().find(|s| &s.id == id) {
-                return f(seg);  // 找到分段，执行操作
+                return f(seg); // 找到分段，执行操作
             }
         }
         Err(AetherError::NotFound(format!("segment {}", id.0)))

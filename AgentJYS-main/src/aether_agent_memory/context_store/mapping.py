@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aether_agent_memory.context_store.models import (
     ContextContent,
@@ -13,7 +13,10 @@ from aether_agent_memory.context_store.uri import AetherUri
 from aether_agent_memory.core.enums import MemoryType, SourceType
 from aether_agent_memory.core.memory import Memory
 from aether_agent_memory.core.scope import Scope
-from aether_agent_memory.session.models import SessionArchive
+
+if TYPE_CHECKING:
+    # 此处只需要类型注解；运行时导入会经 context_store.__init__ 回到 session.models。
+    from aether_agent_memory.session.models import SessionArchive
 
 _MISSING_SCOPE = "_"
 

@@ -45,7 +45,8 @@ async def main() -> None:
         response.raise_for_status()
         payload = response.json()
 
-    report = _require_mapping(payload.get("last_report"), "last_report")
+    # /api/run-smoke 直接返回本次报告；last_report 属于仪表盘状态，不是此接口。
+    report = _require_mapping(payload, "smoke report")
     async_result = _require_mapping(report.get("b2_async"), "b2_async")
     action = _require_mapping(report.get("action"), "B3 action")
     if str(async_result.get("state", "")).lower() != "succeeded":

@@ -212,6 +212,8 @@ services:
       AETHER_P2_BUCKET: p3-memory
       AETHER_P2_COLLECTION: p3
       AETHER_RUNTIME_PROFILE: "${AETHER_RUNTIME_PROFILE:-integration}"
+      # 任务 Broker 与正文/压缩存储是独立配置，后者也必须指向容器网络中的 Redis。
+      AETHER_B2_REDIS_URL: redis://redis:6379/0
       AETHER_B2_BROKER_URL: redis://redis:6379/0
       AETHER_B2_RESULT_BACKEND: redis://redis:6379/1
       AETHER_B2_TASK_STATUS_URL: redis://redis:6379/2

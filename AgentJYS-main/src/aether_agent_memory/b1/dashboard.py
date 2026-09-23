@@ -16,7 +16,7 @@ def _flag(value: bool) -> str:
     return "YES" if value else "no"
 
 
-class B1Dashboard(App[None]):  # type: ignore[misc]
+class B1Dashboard(App[None]):
     TITLE = "Aether P3-B1 Sidecar - real-time process"
     CSS = """
     Screen { layout: vertical; }
