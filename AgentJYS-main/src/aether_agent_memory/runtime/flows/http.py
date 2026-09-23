@@ -12,7 +12,7 @@ from fastapi import Depends, FastAPI, Header, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
-from aether_agent_memory.recall.contracts.models import ContextPack, RecallRequest
+from aether_agent_memory.recall.contracts.models import ContextPack, RecallRecord, RecallRequest
 from aether_agent_memory.remember.contracts.models import RememberReceipt, RememberRequest
 from aether_agent_memory.runtime.contracts.foundation import (
     BackupManifest,
@@ -228,5 +228,19 @@ def create_app(
         request: RecallRequest, ctx: TrustedContext = trusted_dependency
     ) -> ContextPack:
         return await runtime.recall.recall(ctx, request)
+
+    @app.get("/p3/recalls/{recall_id}", response_model=RecallRecord)
+    def recall_status(
+        recall_id: Identifier, ctx: TrustedContext = trusted_dependency
+    ) -> RecallRecord:
+        # 通过统一认证依赖查询状态；实际对象权限由 Recall 服务继续校验。
+        return runtime.recall.status(ctx, recall_id)
+
+    @app.get("/p3/recalls/{recall_id}/result", response_model=ContextPack)
+    def recall_result(
+        recall_id: Identifier, ctx: TrustedContext = trusted_dependency
+    ) -> ContextPack:
+        # 结果重取必须走服务层最终复核，不能把数据库中的历史包直接作为 HTTP 响应。
+        return runtime.recall.result(ctx, recall_id)
 
     return app

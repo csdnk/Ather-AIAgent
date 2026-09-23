@@ -9122,5 +9122,453 @@
       "cleanup_evidence_ids": [],
       "unexpected_field": "reject"
     }
+  },
+  {
+    "id": "positive-remember.CandidateQualificationTarget",
+    "model": "remember.CandidateQualificationTarget",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "generation": "gen_1",
+      "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+      "model_space": "space_1",
+      "chunk_index": 0,
+      "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+    }
+  },
+  {
+    "id": "negative-remember.CandidateQualificationTarget",
+    "model": "remember.CandidateQualificationTarget",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1",
+          "session_id": null,
+          "task_id": null
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "generation": "gen_1",
+      "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+      "model_space": "space_1",
+      "chunk_index": 0,
+      "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+      "unexpected_field": true
+    }
+  },
+  {
+    "id": "positive-remember.CandidateQualificationResult",
+    "model": "remember.CandidateQualificationResult",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "target": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "generation": "gen_1",
+        "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "model_space": "space_1",
+        "chunk_index": 0,
+        "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "decision": "allowed",
+      "reason_code": "eligible",
+      "manifest": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "generation": "gen_1",
+        "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "model_space": "space_1",
+        "dimensions": 3,
+        "chunker_version": "chunker_1",
+        "embedding_tokenizer": "embed_tok_1",
+        "expected_chunk_count": 1,
+        "chunks": [
+          {
+            "chunk_index": 0,
+            "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "start_char": 0,
+            "end_char": 6,
+            "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+            "verified": true
+          }
+        ],
+        "state": "ready",
+        "vector_location": {
+          "kind": "vector",
+          "provider_id": "p2",
+          "provider_instance_id": "instance_1",
+          "namespace": "memory",
+          "object_key": "body_1",
+          "generation": "gen_1",
+          "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+        },
+        "task_id": "task_1",
+        "published_at": "2026-09-21T02:00:00.000Z"
+      },
+      "guard": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "object_revision": 1,
+        "relations_revision": 1,
+        "authorization_epoch": 1,
+        "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "checked_at": "2026-09-21T02:00:00.000Z"
+      }
+    }
+  },
+  {
+    "id": "negative-remember.CandidateQualificationResult",
+    "model": "remember.CandidateQualificationResult",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "target": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "generation": "gen_1",
+        "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "model_space": "space_1",
+        "chunk_index": 0,
+        "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "decision": "allowed",
+      "reason_code": "eligible",
+      "manifest": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "generation": "gen_1",
+        "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "model_space": "space_1",
+        "dimensions": 3,
+        "chunker_version": "chunker_1",
+        "embedding_tokenizer": "embed_tok_1",
+        "expected_chunk_count": 1,
+        "chunks": [
+          {
+            "chunk_index": 0,
+            "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "start_char": 0,
+            "end_char": 6,
+            "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+            "verified": true
+          }
+        ],
+        "state": "ready",
+        "vector_location": {
+          "kind": "vector",
+          "provider_id": "p2",
+          "provider_instance_id": "instance_1",
+          "namespace": "memory",
+          "object_key": "body_1",
+          "generation": "gen_1",
+          "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+        },
+        "task_id": "task_1",
+        "published_at": "2026-09-21T02:00:00.000Z"
+      },
+      "guard": {
+        "memory": {
+          "scope": {
+            "tenant_id": "id_1",
+            "application_id": "id_1",
+            "user_id": "id_1",
+            "agent_id": "id_1",
+            "session_id": null,
+            "task_id": null
+          },
+          "memory_id": "id_1",
+          "version": 1
+        },
+        "object_revision": 1,
+        "relations_revision": 1,
+        "authorization_epoch": 1,
+        "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "checked_at": "2026-09-21T02:00:00.000Z"
+      },
+      "unexpected_field": true
+    }
+  },
+  {
+    "id": "positive-remember.ContextGuardRequest",
+    "model": "remember.ContextGuardRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "expected": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "object_revision": 1,
+          "relations_revision": 1,
+          "authorization_epoch": 1,
+          "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "checked_at": "2026-09-21T02:00:00.000Z"
+        }
+      ],
+      "manifests": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "generation": "gen_1",
+          "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "model_space": "space_1",
+          "dimensions": 3,
+          "chunker_version": "chunker_1",
+          "embedding_tokenizer": "embed_tok_1",
+          "expected_chunk_count": 1,
+          "chunks": [
+            {
+              "chunk_index": 0,
+              "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "start_char": 0,
+              "end_char": 6,
+              "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+              "verified": true
+            }
+          ],
+          "state": "ready",
+          "vector_location": {
+            "kind": "vector",
+            "provider_id": "p2",
+            "provider_instance_id": "instance_1",
+            "namespace": "memory",
+            "object_key": "body_1",
+            "generation": "gen_1",
+            "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+          },
+          "task_id": "task_1",
+          "published_at": "2026-09-21T02:00:00.000Z"
+        }
+      ]
+    }
+  },
+  {
+    "id": "negative-remember.ContextGuardRequest",
+    "model": "remember.ContextGuardRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "expected": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "object_revision": 1,
+          "relations_revision": 1,
+          "authorization_epoch": 1,
+          "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "checked_at": "2026-09-21T02:00:00.000Z"
+        }
+      ],
+      "manifests": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "generation": "gen_1",
+          "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "model_space": "space_1",
+          "dimensions": 3,
+          "chunker_version": "chunker_1",
+          "embedding_tokenizer": "embed_tok_1",
+          "expected_chunk_count": 1,
+          "chunks": [
+            {
+              "chunk_index": 0,
+              "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "start_char": 0,
+              "end_char": 6,
+              "input_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+              "verified": true
+            }
+          ],
+          "state": "ready",
+          "vector_location": {
+            "kind": "vector",
+            "provider_id": "p2",
+            "provider_instance_id": "instance_1",
+            "namespace": "memory",
+            "object_key": "body_1",
+            "generation": "gen_1",
+            "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+          },
+          "task_id": "task_1",
+          "published_at": "2026-09-21T02:00:00.000Z"
+        }
+      ],
+      "unexpected_field": true
+    }
+  },
+  {
+    "id": "positive-remember.MemoryRelationSnapshot",
+    "model": "remember.MemoryRelationSnapshot",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "guards": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "object_revision": 1,
+          "relations_revision": 1,
+          "authorization_epoch": 1,
+          "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "checked_at": "2026-09-21T02:00:00.000Z"
+        }
+      ],
+      "conflicts": []
+    }
+  },
+  {
+    "id": "negative-remember.MemoryRelationSnapshot",
+    "model": "remember.MemoryRelationSnapshot",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "guards": [
+        {
+          "memory": {
+            "scope": {
+              "tenant_id": "id_1",
+              "application_id": "id_1",
+              "user_id": "id_1",
+              "agent_id": "id_1",
+              "session_id": null,
+              "task_id": null
+            },
+            "memory_id": "id_1",
+            "version": 1
+          },
+          "object_revision": 1,
+          "relations_revision": 1,
+          "authorization_epoch": 1,
+          "body_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+          "checked_at": "2026-09-21T02:00:00.000Z"
+        }
+      ],
+      "conflicts": [],
+      "unexpected": true
+    }
   }
 ]

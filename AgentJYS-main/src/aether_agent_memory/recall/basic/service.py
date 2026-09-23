@@ -216,6 +216,9 @@ class Recall:
                     {
                         "record": record.model_dump(mode="json"),
                         "signature": signature,
+                        # 保存原始业务输入，供新流程提交时逐项核对。
+                        # 不能只信计划自身，还要确认它与最初请求一致。
+                        "request": request.model_dump(mode="json"),
                         "context": ctx.model_dump(mode="json"),
                         "pack": None,
                     },
@@ -490,6 +493,12 @@ class Recall:
                 raise FoundationError(ErrorCode.NOT_FOUND, "recall not found")
             record = RecallRecord.model_validate(row["record"])
             self.identity.authorize(tx, ctx, Permission.READ, self.ref(record))
+            # 旧服务不能用较弱的守卫读取新流程结果；重启后必须恢复完整新 B 提供方。
+            if row.get("assembly_signature") or tx.read("recall_assembly", recall_id) is not None:
+                raise FoundationError(
+                    ErrorCode.DEPENDENCY_UNAVAILABLE,
+                    "generation result requires the configured generation guard provider",
+                )
             if not record.result_available or row["pack"] is None:
                 raise FoundationError(
                     ErrorCode.REQUEST_IN_PROGRESS, "recall has no committed result"

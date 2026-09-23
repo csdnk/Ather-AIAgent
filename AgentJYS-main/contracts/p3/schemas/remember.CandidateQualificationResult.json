@@ -1,0 +1,473 @@
+{
+  "$defs": {
+    "CandidateQualificationTarget": {
+      "additionalProperties": false,
+      "description": "Untrusted chunk identity; never contains plaintext or ranking scores.",
+      "properties": {
+        "body_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Body Hash",
+          "type": "string"
+        },
+        "chunk_index": {
+          "minimum": 0,
+          "title": "Chunk Index",
+          "type": "integer"
+        },
+        "generation": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Generation",
+          "type": "string"
+        },
+        "input_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Hash",
+          "type": "string"
+        },
+        "memory": {
+          "$ref": "#/$defs/MemoryRef"
+        },
+        "model_space": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Model Space",
+          "type": "string"
+        },
+        "vector_id": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Vector Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "memory",
+        "generation",
+        "model_space",
+        "body_hash",
+        "chunk_index",
+        "vector_id",
+        "input_hash"
+      ],
+      "title": "CandidateQualificationTarget",
+      "type": "object"
+    },
+    "ChunkDescriptor": {
+      "additionalProperties": false,
+      "properties": {
+        "chunk_index": {
+          "minimum": 0,
+          "title": "Chunk Index",
+          "type": "integer"
+        },
+        "end_char": {
+          "minimum": 1,
+          "title": "End Char",
+          "type": "integer"
+        },
+        "input_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Hash",
+          "type": "string"
+        },
+        "start_char": {
+          "minimum": 0,
+          "title": "Start Char",
+          "type": "integer"
+        },
+        "vector_id": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Vector Id",
+          "type": "string"
+        },
+        "verified": {
+          "title": "Verified",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "chunk_index",
+        "vector_id",
+        "start_char",
+        "end_char",
+        "input_hash",
+        "verified"
+      ],
+      "title": "ChunkDescriptor",
+      "type": "object"
+    },
+    "GuardStamp": {
+      "additionalProperties": false,
+      "properties": {
+        "authorization_epoch": {
+          "minimum": 1,
+          "title": "Authorization Epoch",
+          "type": "integer"
+        },
+        "body_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Body Hash",
+          "type": "string"
+        },
+        "checked_at": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "title": "Checked At",
+          "type": "string"
+        },
+        "memory": {
+          "$ref": "#/$defs/MemoryRef"
+        },
+        "object_revision": {
+          "minimum": 1,
+          "title": "Object Revision",
+          "type": "integer"
+        },
+        "relations_revision": {
+          "minimum": 1,
+          "title": "Relations Revision",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "memory",
+        "object_revision",
+        "relations_revision",
+        "authorization_epoch",
+        "body_hash",
+        "checked_at"
+      ],
+      "title": "GuardStamp",
+      "type": "object"
+    },
+    "MemoryRef": {
+      "additionalProperties": false,
+      "properties": {
+        "memory_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Memory Id",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scope",
+        "memory_id",
+        "version"
+      ],
+      "title": "MemoryRef",
+      "type": "object"
+    },
+    "ProjectionManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "body_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Body Hash",
+          "type": "string"
+        },
+        "chunker_version": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Chunker Version",
+          "type": "string"
+        },
+        "chunks": {
+          "items": {
+            "$ref": "#/$defs/ChunkDescriptor"
+          },
+          "minItems": 1,
+          "title": "Chunks",
+          "type": "array"
+        },
+        "dimensions": {
+          "minimum": 1,
+          "title": "Dimensions",
+          "type": "integer"
+        },
+        "embedding_tokenizer": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Embedding Tokenizer",
+          "type": "string"
+        },
+        "expected_chunk_count": {
+          "minimum": 1,
+          "title": "Expected Chunk Count",
+          "type": "integer"
+        },
+        "generation": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Generation",
+          "type": "string"
+        },
+        "memory": {
+          "$ref": "#/$defs/MemoryRef"
+        },
+        "model_space": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Model Space",
+          "type": "string"
+        },
+        "published_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Published At"
+        },
+        "state": {
+          "enum": [
+            "building",
+            "ready",
+            "failed",
+            "stale"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "task_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "vector_location": {
+          "$ref": "#/$defs/ResourceLocation"
+        }
+      },
+      "required": [
+        "memory",
+        "generation",
+        "body_hash",
+        "model_space",
+        "dimensions",
+        "chunker_version",
+        "embedding_tokenizer",
+        "expected_chunk_count",
+        "chunks",
+        "state",
+        "vector_location",
+        "task_id"
+      ],
+      "title": "ProjectionManifest",
+      "type": "object"
+    },
+    "ResourceLocation": {
+      "additionalProperties": false,
+      "description": "An opaque provider key, never an arbitrary URL or a credential.",
+      "properties": {
+        "content_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "generation": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Generation",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "source",
+            "body",
+            "artifact",
+            "vector",
+            "cache",
+            "backup"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "namespace": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Namespace",
+          "type": "string"
+        },
+        "object_key": {
+          "minLength": 1,
+          "title": "Object Key",
+          "type": "string"
+        },
+        "provider_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "provider_instance_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Provider Instance Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "provider_id",
+        "provider_instance_id",
+        "namespace",
+        "object_key",
+        "generation",
+        "content_hash"
+      ],
+      "title": "ResourceLocation",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "application_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Application Id",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        },
+        "tenant_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "user_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenant_id",
+        "application_id",
+        "user_id",
+        "agent_id"
+      ],
+      "title": "Scope",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "decision": {
+      "enum": [
+        "allowed",
+        "excluded",
+        "unverifiable"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "guard": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/GuardStamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "manifest": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProjectionManifest"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reason_code": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Reason Code",
+      "type": "string"
+    },
+    "target": {
+      "$ref": "#/$defs/CandidateQualificationTarget"
+    }
+  },
+  "required": [
+    "target",
+    "decision",
+    "reason_code",
+    "manifest",
+    "guard"
+  ],
+  "title": "CandidateQualificationResult",
+  "type": "object",
+  "x-contract-model": "remember.CandidateQualificationResult"
+}

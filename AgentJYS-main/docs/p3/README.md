@@ -1,5 +1,7 @@
 # P3 总体设计与协作契约
 
+**2026-09-23 A侧增量：** [Recall与Embedding接入](development/10_Recall与Embedding_A侧接入.md)。新A实现已完成契约环境验收，现有链路完成真实BGE与TCP HTTP验证；新多块B提供方仍待接。以下各旧批次说明保留其历史范围。
+
 投影职责调整：[写入与搜索拆分接入](development/09_投影与搜索职责划分.md)。
 
 2026-09-22运行更新：[RF运行服务与HTTP接入](development/08_RF运行服务与HTTP接入.md)说明统一监测、任务附件、处置规则、配置、真实SQLite备份恢复和HTTP入口的代码实现。下方旧批次说明保留当时范围。

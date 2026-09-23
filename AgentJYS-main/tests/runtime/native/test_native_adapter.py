@@ -1,4 +1,6 @@
 """P3 adapter contract/failure tests use a deterministic native backend double."""
+# 原生适配回归使用可控后端隔离模型加载成本，检验空间绑定、撤权、期限和错误语义。
+# 真实 BGE 推理证据由专用 native 验收脚本提供，不由这些替身测试代替。
 
 import asyncio
 from hashlib import sha256
@@ -90,6 +92,88 @@ def app(monkeypatch, tmp_path):
 
 def context(app, user="alice"):
     return app.foundation.identity.context(user)
+
+
+def test_native_space_persisted_and_resolvable(app):
+    # 完整空间必须可解析且持久化，供检索装配和重启一致性校验使用。
+    from aether_agent_memory.recall.embedding.spaces import EmbeddingSpaces
+
+    space = app.native_embedding.space
+    assert EmbeddingSpaces((space,)).resolve(app.model_space) == space
+    assert space.dimensions == 512 and space.normalization == "unit"
+    with app.foundation.uow.transaction() as tx:
+        assert tx.read("embedding_spaces", app.model_space) == space.model_dump(mode="json")
+    with pytest.raises(FoundationError):
+        EmbeddingSpaces((space,)).resolve("missing")
+
+
+def test_space_reports_loaded_tokenizer_limit(monkeypatch, tmp_path):
+    # 公布的上限必须来自实际后端，不能把较宽的配置值当成模型真实能力。
+    monkeypatch.setattr(p3, "NativeEmbeddingBackend", Backend)
+    monkeypatch.setattr(Backend, "max_input_tokens", 256)
+    host = ThreeFlows(tmp_path / "limited.db", tmp_path / "cache")
+    try:
+        assert host.native_embedding.space.max_input_tokens == 256
+    finally:
+        host.close()
+
+
+def test_space_drift_rejected_without_overwrite(app):
+    # 同一空间标识的配置漂移必须拒绝，并保留数据库中的原绑定。
+    with app.foundation.uow.transaction() as tx:
+        value = tx.read("embedding_spaces", app.model_space)
+        value["query_prefix"] = "changed"
+        tx.write("embedding_spaces", app.model_space, value)
+    with pytest.raises(FoundationError, match="configuration changed"):
+        p3.NativeP3Embedding(app.foundation.uow, app.foundation.identity)
+    with app.foundation.uow.transaction() as tx:
+        assert tx.read("embedding_spaces", app.model_space)["query_prefix"] == "changed"
+
+
+def test_query_passage_binding_mismatch_closes_backends(monkeypatch, tmp_path):
+    # 两种用途不兼容时初始化失败，并释放已加载后端资源。
+    class MismatchedBackend(Backend):
+        seen = 0
+
+        def describe(self):
+            type(self).seen += 1
+            return {**super().describe(), "model_version": str(self.seen) * 64}
+
+    monkeypatch.setattr(p3, "NativeEmbeddingBackend", MismatchedBackend)
+    MismatchedBackend.closed_count = 0
+    with pytest.raises(FoundationError, match="query/passage"):
+        ThreeFlows(tmp_path / "mismatch.db", tmp_path / "cache")
+    assert MismatchedBackend.closed_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fault", ["index", "hash", "dimension", "norm", "operation", "usage"])
+async def test_embedding_consumer_rejects_wrong_result(app, fault):
+    # 分别破坏批次归属、索引、摘要或向量数据，确保消费方拒绝错误编码结果。
+    from aether_agent_memory.recall.embedding.spaces import validate_embedding
+
+    ctx = context(app)
+    req = request(app, ctx)
+    result = await app.embedding.embed(ctx, req)
+    item = result.items[0]
+    if fault == "index":
+        result = result.model_copy(update={"items": (item.model_copy(update={"index": 1}),)})
+    elif fault == "hash":
+        result = result.model_copy(
+            update={"items": (item.model_copy(update={"input_hash": "f" * 64}),)}
+        )
+    elif fault == "dimension":
+        result = result.model_copy(update={"dimensions": 2})
+    elif fault == "norm":
+        result = result.model_copy(
+            update={"items": (item.model_copy(update={"vector": (0.0,) * 512}),)}
+        )
+    elif fault == "operation":
+        result = result.model_copy(update={"operation_id": "wrong"})
+    else:
+        result = result.model_copy(update={"usage": "passage"})
+    with pytest.raises(FoundationError):
+        validate_embedding(req, result, app.native_embedding.space)
 
 
 def request(app, ctx, text="无糖咖啡", operation="test", usage="query", **updates):
