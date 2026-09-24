@@ -3,6 +3,29 @@
     "CandidateFact": {
       "additionalProperties": false,
       "properties": {
+        "event_key": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Event Key"
+        },
+        "evidence": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/FactEvidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
         "evidence_status": {
           "enum": [
             "candidate",
@@ -10,6 +33,41 @@
             "insufficient"
           ],
           "title": "Evidence Status",
+          "type": "string"
+        },
+        "fact_key": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fact Key"
+        },
+        "importance_category": {
+          "default": "event",
+          "enum": [
+            "event",
+            "fact",
+            "decision",
+            "explicit_constraint"
+          ],
+          "title": "Importance Category",
+          "type": "string"
+        },
+        "kind": {
+          "default": "episodic",
+          "enum": [
+            "episodic",
+            "semantic"
+          ],
+          "title": "Kind",
           "type": "string"
         },
         "sources": {
@@ -32,6 +90,37 @@
         "evidence_status"
       ],
       "title": "CandidateFact",
+      "type": "object"
+    },
+    "FactEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "end_char": {
+          "minimum": 1,
+          "title": "End Char",
+          "type": "integer"
+        },
+        "quote": {
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/SourceRef"
+        },
+        "start_char": {
+          "minimum": 0,
+          "title": "Start Char",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source",
+        "start_char",
+        "end_char",
+        "quote"
+      ],
+      "title": "FactEvidence",
       "type": "object"
     },
     "SourceRef": {

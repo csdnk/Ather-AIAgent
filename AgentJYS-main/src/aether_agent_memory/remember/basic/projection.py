@@ -27,6 +27,8 @@ class SQLiteProjection(SQLiteVectorStore):
             raise FoundationError(ErrorCode.INVALID_ARGUMENT, "invalid projection binding")
         with self.uow.transaction() as tx:
             self.identity.authorize(tx, ctx, Permission.READ, self.ref(request.target))
+            if tx.read("projection_tombstones", request.target.vector_id):
+                tx.abort(ErrorCode.MEMORY_GONE, "projection was deleted")
             data = {
                 "target": request.target.model_dump(mode="json"),
                 "vector": list(request.vector),
@@ -35,6 +37,17 @@ class SQLiteProjection(SQLiteVectorStore):
             if existing and existing != data:
                 tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "vector ID content changed")
             tx.write("recall_vectors", request.target.vector_id, data)
+            if request.target.generation and request.target.body_hash:
+                # Local P2 projection also publishes the existing generation-search format.
+                # Both representations share this transaction and immutable vector identity.
+                tx.write(
+                    "generation_vectors",
+                    request.target.vector_id,
+                    {
+                        "hit": {**request.target.model_dump(mode="json"), "rank": 1, "score": 0.0},
+                        "vector": list(request.vector),
+                    },
+                )
         return await self.inspect(ctx, request.target, request.operation_id)
 
     async def inspect(
@@ -44,7 +57,16 @@ class SQLiteProjection(SQLiteVectorStore):
         with self.uow.transaction() as tx:
             self.identity.authorize(tx, ctx, Permission.READ, self.ref(target))
             stored = tx.read("recall_vectors", target.vector_id)
-        exact = stored is not None and stored["target"] == target.model_dump(mode="json")
+            chunk = tx.read("generation_vectors", target.vector_id) if target.generation else None
+        exact = stored is not None and ProjectionTarget.model_validate(stored["target"]) == target
+        if target.generation:
+            exact = bool(
+                exact
+                and chunk
+                and stored
+                and chunk["hit"] == {**target.model_dump(mode="json"), "rank": 1, "score": 0.0}
+                and chunk["vector"] == stored["vector"]
+            )
         return ProjectionResult(
             operation_id=operation_id,
             target=target,
@@ -60,13 +82,22 @@ class SQLiteProjection(SQLiteVectorStore):
         self.check(ctx)
         with self.uow.transaction() as tx:
             self.identity.authorize(tx, ctx, Permission.DELETE, self.ref(target))
+            tx.write("projection_tombstones", target.vector_id, True)
             tx.raw.delete("p3_rf_recall_vectors", "system", target.vector_id)
+            tx.raw.delete("p3_rf_generation_vectors", "system", target.vector_id)
         return await self.inspect(ctx, target, operation_id)
 
 
 class MilvusProjection(MilvusConnection):
     def guard(self, ctx: TrustedContext, target: ProjectionTarget, permission: Permission) -> None:
-        expected = projection_target(target.memory, target.input_hash, target.model_space)
+        expected = projection_target(
+            target.memory,
+            target.input_hash,
+            target.model_space,
+            chunk_index=target.chunk_index,
+            generation=target.generation,
+            body_hash=target.body_hash,
+        )
         if target != expected or target.model_space != self.model_space:
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "invalid projection identity")
         with self.uow.transaction() as tx:
@@ -138,7 +169,8 @@ class MilvusProjection(MilvusConnection):
         if (
             not intent
             or "vector" not in intent["data"]
-            or rows[0]["target"] != target.model_dump(mode="json")
+            or ProjectionTarget.model_validate(rows[0]["target"]) != target
+            or intent["deleted"]
             or len(rows[0]["vector"]) != self.dimensions
             or not all(
                 math.isclose(float(a), float(b), rel_tol=1e-5, abs_tol=1e-7)
@@ -183,14 +215,25 @@ class MilvusProjection(MilvusConnection):
 
 
 def projection_target(
-    memory: MemoryRef, content_hash: str, model_space: str = SPACE
+    memory: MemoryRef,
+    content_hash: str,
+    model_space: str = SPACE,
+    *,
+    chunk_index: int = 0,
+    generation: str | None = None,
+    body_hash: str | None = None,
 ) -> ProjectionTarget:
     return ProjectionTarget(
         memory=memory,
         model_space=model_space,
-        chunk_index=0,
+        chunk_index=chunk_index,
         input_hash=content_hash,
-        vector_id=fingerprint([memory.model_dump(mode="json"), model_space, content_hash]),
+        vector_id=fingerprint(
+            [memory.model_dump(mode="json"), model_space, content_hash]
+            + ([generation, chunk_index, body_hash] if generation else [])
+        ),
+        generation=generation,
+        body_hash=body_hash,
     )
 
 

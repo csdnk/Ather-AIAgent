@@ -51,6 +51,19 @@
       "title": "Content",
       "type": "string"
     },
+    "expected_object_revision": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expected Object Revision"
+    },
     "expected_version": {
       "minimum": 1,
       "title": "Expected Version",

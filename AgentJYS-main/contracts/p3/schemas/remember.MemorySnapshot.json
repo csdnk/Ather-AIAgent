@@ -199,6 +199,29 @@
       "default": null,
       "title": "Expires At"
     },
+    "importance": {
+      "default": 0.2,
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Importance",
+      "type": "number"
+    },
+    "importance_policy_version": {
+      "default": "remember_v2",
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Importance Policy Version",
+      "type": "string"
+    },
+    "importance_reason": {
+      "default": "ordinary_observation",
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Importance Reason",
+      "type": "string"
+    },
     "kind": {
       "$ref": "#/$defs/MemoryKind"
     },

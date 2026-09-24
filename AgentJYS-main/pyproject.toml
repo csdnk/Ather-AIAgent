@@ -57,6 +57,7 @@ b1-sidecar = [
   "onnxruntime>=1.20,<2",
   "threadpoolctl>=3.6.0,<4",
   "uvicorn>=0.35,<1",
+  "tiktoken>=0.9,<1",
 ]
 b1-int8 = [
   "fastembed>=0.8.0,<0.9",

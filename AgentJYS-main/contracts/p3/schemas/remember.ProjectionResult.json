@@ -30,10 +30,38 @@
     "ProjectionTarget": {
       "additionalProperties": false,
       "properties": {
+        "body_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Body Hash"
+        },
         "chunk_index": {
           "minimum": 0,
           "title": "Chunk Index",
           "type": "integer"
+        },
+        "generation": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Generation"
         },
         "input_hash": {
           "pattern": "^[0-9a-f]{64}$",

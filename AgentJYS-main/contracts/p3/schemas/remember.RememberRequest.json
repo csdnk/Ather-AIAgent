@@ -212,11 +212,40 @@
       ],
       "title": "Content"
     },
+    "importance_category": {
+      "default": "observation",
+      "enum": [
+        "observation",
+        "event",
+        "fact",
+        "decision",
+        "explicit_constraint"
+      ],
+      "title": "Importance Category",
+      "type": "string"
+    },
     "selection": {
       "$ref": "#/$defs/ScopeSelector"
     },
     "source": {
       "$ref": "#/$defs/SourceInput"
+    },
+    "task_context": {
+      "default": "",
+      "maxLength": 4096,
+      "title": "Task Context",
+      "type": "string"
+    },
+    "trigger": {
+      "default": "remember",
+      "enum": [
+        "remember",
+        "observe",
+        "task_complete",
+        "review"
+      ],
+      "title": "Trigger",
+      "type": "string"
     }
   },
   "required": [

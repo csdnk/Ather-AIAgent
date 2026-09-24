@@ -1,5 +1,14 @@
 {
   "$defs": {
+    "MemoryKind": {
+      "enum": [
+        "working",
+        "episodic",
+        "semantic"
+      ],
+      "title": "MemoryKind",
+      "type": "string"
+    },
     "MemoryRef": {
       "additionalProperties": false,
       "properties": {
@@ -141,25 +150,165 @@
       "title": "Change",
       "type": "string"
     },
+    "change_seq": {
+      "default": 1,
+      "minimum": 1,
+      "title": "Change Seq",
+      "type": "integer"
+    },
+    "content_bytes": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Content Bytes",
+      "type": "integer"
+    },
     "content_hash": {
       "pattern": "^[0-9a-f]{64}$",
       "title": "Content Hash",
       "type": "string"
     },
+    "content_ref": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Content Ref"
+    },
+    "deleted": {
+      "default": false,
+      "title": "Deleted",
+      "type": "boolean"
+    },
+    "expires_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expires At"
+    },
+    "importance": {
+      "default": 0.2,
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Importance",
+      "type": "number"
+    },
+    "importance_basis": {
+      "default": [],
+      "items": {
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9_-]+$",
+        "type": "string"
+      },
+      "title": "Importance Basis",
+      "type": "array"
+    },
+    "importance_policy_version": {
+      "default": "remember_v2",
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Importance Policy Version",
+      "type": "string"
+    },
+    "importance_reason": {
+      "default": "ordinary_observation",
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Importance Reason",
+      "type": "string"
+    },
     "memory": {
       "$ref": "#/$defs/MemoryRef"
+    },
+    "memory_kind": {
+      "$ref": "#/$defs/MemoryKind",
+      "default": "working"
+    },
+    "memory_space_id": {
+      "default": "legacy_scope",
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Memory Space Id",
+      "type": "string"
     },
     "object_revision": {
       "minimum": 1,
       "title": "Object Revision",
       "type": "integer"
     },
+    "previous_state": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MemoryStatus"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "projection_state": {
       "$ref": "#/$defs/ProjectionState"
+    },
+    "reason_code": {
+      "default": "legacy_change",
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Reason Code",
+      "type": "string"
+    },
+    "relations_revision": {
+      "default": 1,
+      "minimum": 1,
+      "title": "Relations Revision",
+      "type": "integer"
+    },
+    "requires_operate_evaluation": {
+      "default": true,
+      "title": "Requires Operate Evaluation",
+      "type": "boolean"
+    },
+    "semantic_revision": {
+      "default": 1,
+      "minimum": 1,
+      "title": "Semantic Revision",
+      "type": "integer"
+    },
+    "signal_type": {
+      "default": "legacy_changed",
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Signal Type",
+      "type": "string"
     },
     "source_count": {
       "minimum": 0,
       "title": "Source Count",
+      "type": "integer"
+    },
+    "space_commit_seq": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Space Commit Seq",
       "type": "integer"
     },
     "status": {

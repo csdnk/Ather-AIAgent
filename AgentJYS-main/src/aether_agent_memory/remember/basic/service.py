@@ -45,7 +45,7 @@ from aether_agent_memory.runtime.contracts.models import (
     TrustedContext,
 )
 from aether_agent_memory.runtime.contracts.ports import Transaction
-from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
+from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint, later
 from aether_agent_memory.runtime.foundation.events import Events
 from aether_agent_memory.runtime.foundation.identity import Identity
 from aether_agent_memory.runtime.foundation.requests import (
@@ -115,6 +115,29 @@ class Remember:
     def emit(
         self, tx: SQLiteTransaction, ctx: TrustedContext, memory: MemorySnapshot, change: str
     ) -> None:
+        if change == "corrected" and hasattr(self, "retention"):
+            self.retention.version_started_in(tx, memory)
+        if change in {"archived", "expired"} and hasattr(self, "retention"):
+            self.retention.inactive_in(tx, memory)
+        prior = tx.read("remember_signal_state", memory.ref.memory_id) or {}
+        semantic_hash = fingerprint(
+            [
+                memory.ref.version,
+                memory.content_hash,
+                memory.status.value,
+                [s.model_dump(mode="json") for s in memory.sources],
+                memory.expires_at,
+            ]
+        )
+        sources_hash = fingerprint([s.model_dump(mode="json") for s in memory.sources])
+        sequence = prior.get("change_seq", 0) + 1
+        semantic_revision = prior.get("semantic_revision", 0) + (
+            prior.get("semantic_hash") != semantic_hash or change == "processing"
+        )
+        relations_revision = prior.get("relations_revision", 0) + (
+            prior.get("sources_hash") != sources_hash or change == "processing"
+        )
+        space_id = fingerprint(memory.ref.scope.model_dump(mode="json"))
         payload = StorageChanged(
             memory=memory.ref,
             object_revision=memory.object_revision,
@@ -123,6 +146,38 @@ class Remember:
             projection_state=memory.projection_state,
             content_hash=memory.content_hash,
             source_count=len(memory.sources),
+            content_bytes=len(memory.content.encode("utf-8")),
+            content_ref=self.bodies.location(memory.ref.scope, memory.content).object_key
+            if hasattr(self, "bodies")
+            else None,
+            importance=memory.importance,
+            importance_reason=memory.importance_reason,
+            importance_policy_version=memory.importance_policy_version,
+            memory_kind=memory.kind,
+            expires_at=memory.expires_at,
+            previous_state=prior.get("status"),
+            change_seq=sequence,
+            semantic_revision=max(1, semantic_revision),
+            relations_revision=max(1, relations_revision),
+            space_commit_seq=tx.read("remember_space_seq", space_id) or 0,
+            memory_space_id=space_id,
+            signal_type=change,
+            deleted=memory.status == MemoryStatus.DELETED,
+            reason_code=change,
+            importance_basis=tuple(s.source_id for s in memory.sources),
+            requires_operate_evaluation=change not in {"artifact_ready", "projection_ready"},
+        )
+        tx.write(
+            "remember_signal_state",
+            memory.ref.memory_id,
+            {
+                "change_seq": sequence,
+                "semantic_revision": payload.semantic_revision,
+                "relations_revision": payload.relations_revision,
+                "semantic_hash": semantic_hash,
+                "sources_hash": sources_hash,
+                "status": memory.status.value,
+            },
         )
         self.events.append(
             tx,
@@ -150,6 +205,9 @@ class Remember:
         raw = None if pointer is None else tx.get(RecordRef.model_validate(pointer))
         if raw is None:
             raise FoundationError(ErrorCode.NOT_FOUND, "memory not found")
+        return self.decode(tx, raw)
+
+    def decode(self, tx: SQLiteTransaction, raw: Any) -> MemorySnapshot:
         return MemorySnapshot.model_validate(raw)
 
     def put(self, tx: SQLiteTransaction, snapshot: MemorySnapshot) -> None:
@@ -228,9 +286,28 @@ class Remember:
     def enqueue(
         self, tx: SQLiteTransaction, ctx: TrustedContext, memory: MemorySnapshot, kind: str
     ) -> str:
+        deadline_key = request_key(ctx, "remember.processing")
+        deadline = tx.read("remember_deadlines", deadline_key)
+        if deadline is None:
+            deadline = later(self.identity.clock(), getattr(self, "processing_seconds", 86400))
+            tx.write("remember_deadlines", deadline_key, deadline)
+        ctx = ctx.model_copy(update={"deadline_at": deadline})
         task_id = fingerprint([kind, memory.ref.model_dump(mode="json"), ctx.operation_id])
         ref = memory_ref(memory.ref, versioned=True)
         content = tx.get(ref)
+        if content is None:
+            tx.abort(ErrorCode.NOT_FOUND, "task input memory missing")
+        input_ref = RecordRef(
+            owner=Flow.REMEMBER,
+            object_type="processing_input",
+            object_id=task_id,
+            scope=memory.ref.scope,
+        )
+        frozen = tx.get(input_ref)
+        if frozen is None:
+            tx.put_if_revision(input_ref, content, None)
+        else:
+            content = frozen
         task = self.tasks.enqueue(
             tx,
             ctx,
@@ -239,7 +316,7 @@ class Remember:
                 owner_flow=Flow.REMEMBER,
                 kind=kind,
                 subject=memory_ref(memory.ref),
-                input_ref=ref,
+                input_ref=input_ref,
                 idempotency_key=task_id,
                 input_hash=fingerprint(content),
                 initiator_id=ctx.principal.principal_id,
@@ -254,10 +331,17 @@ class Remember:
     ) -> tuple[str, dict[str, Any] | None]:
         key = request_key(ctx, endpoint)
         previous = tx.read("remember_operations", key)
-        signature = fingerprint(request.model_dump(mode="json"))
+        signature = self.operation_signature(request)
         if previous and previous["signature"] != signature:
             tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "same operation with different content")
         return key, previous
+
+    @staticmethod
+    def operation_signature(request: Any) -> str:
+        payload = request.model_dump(mode="json")
+        if isinstance(request, RememberRequest) and not request.task_context:
+            payload.pop("task_context", None)  # Replay requests stored before this optional field.
+        return fingerprint(payload)
 
     @staticmethod
     def remember_result(tx: SQLiteTransaction, key: str, request: Any, result: Any) -> None:
@@ -265,7 +349,7 @@ class Remember:
             "remember_operations",
             key,
             {
-                "signature": fingerprint(request.model_dump(mode="json")),
+                "signature": Remember.operation_signature(request),
                 "result": result.model_dump(mode="json"),
             },
         )
@@ -277,8 +361,12 @@ class Remember:
                 ErrorCode.INVALID_ARGUMENT,
                 "document adapter is not configured in the basic profile",
             )
-        if len(request.content.text.encode()) > 65536:
-            raise FoundationError(ErrorCode.INVALID_ARGUMENT, "basic text input limit is 64 KiB")
+        if not request.content.text.strip() or len(request.content.text.encode()) > getattr(
+            self, "max_input_bytes", 65536
+        ):
+            raise FoundationError(
+                ErrorCode.INVALID_ARGUMENT, "text exceeds configured input limits"
+            )
         with self.uow.transaction() as tx:
             key, previous = self.replay(tx, ctx, "remember.save", request)
             ref = MemoryRef(scope=scope, memory_id=key, version=1)
@@ -331,7 +419,7 @@ class Remember:
                     and (
                         derived.status != MemoryStatus.DELETED
                         if deleting
-                        else derived.status == MemoryStatus.ACTIVE
+                        else derived.status in {MemoryStatus.ACTIVE, MemoryStatus.ARCHIVED}
                     )
                     and set(s.source_id for s in derived.sources)
                     & set(s.source_id for s in item.sources)
@@ -345,28 +433,42 @@ class Remember:
                     if deleting:
                         self.enqueue(tx, ctx, derived, "remember.cleanup")
                     self.emit(tx, ctx, derived, "deleted" if deleting else "projection_stale")
-        for source in item.sources:
-            row = tx.read("remember_sources", source.source_id)
-            if row and row["working_id"] and row["working_id"] != item.ref.memory_id:
-                working = self.current(tx, row["working_id"])
-                if working.status == MemoryStatus.ACTIVE:
-                    working = self.change(
-                        tx,
-                        working,
-                        status=MemoryStatus.DELETED if deleting else MemoryStatus.SUPERSEDED,
-                    )
-                    self.emit(tx, ctx, working, "deleted" if deleting else "archived")
+        # Keep the legacy basic profile compatible; the pipeline owns independent sources.
+        if not getattr(self, "independent_working_sources", False):
+            for source in item.sources:
+                row = tx.read("remember_sources", source.source_id)
+                if row and row["working_id"] and row["working_id"] != item.ref.memory_id:
+                    working = self.current(tx, row["working_id"])
+                    if working.status == MemoryStatus.ACTIVE:
+                        working = self.change(
+                            tx,
+                            working,
+                            status=MemoryStatus.DELETED if deleting else MemoryStatus.SUPERSEDED,
+                        )
+                        self.emit(tx, ctx, working, "deleted" if deleting else "archived")
 
     def correct(
         self, ctx: TrustedContext, memory_id: str, request: CorrectionRequest
     ) -> RememberReceipt:
+        if not request.content.strip() or len(request.content.encode()) > getattr(
+            self, "max_input_bytes", 65536
+        ):
+            raise FoundationError(ErrorCode.INVALID_ARGUMENT, "correction exceeds input limits")
         with self.uow.transaction() as tx:
             item = self.current(tx, memory_id)
             self.identity.authorize(tx, ctx, Permission.CORRECT, memory_ref(item.ref))
             key, previous = self.replay(tx, ctx, "correct_" + memory_id, request)
             if previous:
                 return RememberReceipt.model_validate(previous["result"])
-            if item.status == MemoryStatus.DELETED or item.ref.version != request.expected_version:
+            if (
+                item.status
+                not in {MemoryStatus.ACTIVE, MemoryStatus.ARCHIVED, MemoryStatus.EXPIRED}
+                or item.ref.version != request.expected_version
+                or (
+                    request.expected_object_revision is not None
+                    and request.expected_object_revision != item.object_revision
+                )
+            ):
                 tx.abort(ErrorCode.VERSION_CONFLICT, "memory deleted or version changed")
             self.invalidate_working(tx, ctx, item)
             old = self.change(
@@ -380,14 +482,19 @@ class Remember:
                 request.content,
                 item.ref.memory_id if item.kind == MemoryKind.WORKING else None,
             )
+            body = (
+                self.working_correction_body(tx, ctx, item, source, request)
+                if item.kind == MemoryKind.WORKING
+                else request.content
+            )
             updated = MemorySnapshot.model_validate(
                 {
                     **item.model_dump(),
                     "ref": {**item.ref.model_dump(), "version": item.ref.version + 1},
                     "revision": 1,
                     "object_revision": old.object_revision + 1,
-                    "content": request.content,
-                    "content_hash": text_hash(request.content),
+                    "content": body,
+                    "content_hash": text_hash(body),
                     "sources": (source,),
                     "status": MemoryStatus.ACTIVE,
                     "projection_state": ProjectionState.NOT_REQUIRED
@@ -395,6 +502,8 @@ class Remember:
                     else ProjectionState.PENDING,
                     "model_space": None,
                     "supersedes": item.ref,
+                    "created_at": self.identity.clock(),
+                    "expires_at": None if item.status == MemoryStatus.EXPIRED else item.expires_at,
                 }
             )
             tx.write(
@@ -405,7 +514,9 @@ class Remember:
                 tx,
                 ctx,
                 updated,
-                "remember.extract" if item.kind == MemoryKind.WORKING else "remember.project",
+                self.working_task_kind(tx, updated)
+                if item.kind == MemoryKind.WORKING
+                else "remember.project",
             )
             self.emit(tx, ctx, updated, "corrected")
             result = RememberReceipt(
@@ -417,7 +528,30 @@ class Remember:
                 phase="processing",
             )
             self.remember_result(tx, key, request, result)
+            tx.write(
+                "remember_audit",
+                key,
+                {
+                    "action": "correct",
+                    "reason": request.reason,
+                    "memory": updated.ref.model_dump(mode="json"),
+                    "principal": ctx.principal.principal_id,
+                },
+            )
             return result
+
+    def working_correction_body(
+        self,
+        tx: SQLiteTransaction,
+        ctx: TrustedContext,
+        item: MemorySnapshot,
+        source: SourceRef,
+        request: CorrectionRequest,
+    ) -> str:
+        return request.content
+
+    def working_task_kind(self, tx: SQLiteTransaction, item: MemorySnapshot) -> str:
+        return "remember.extract"
 
     def lifecycle(
         self, ctx: TrustedContext, memory_id: str, request: LifecycleRequest
@@ -433,6 +567,23 @@ class Remember:
                 MemoryStatus.ARCHIVED,
             }:
                 tx.abort(ErrorCode.VERSION_CONFLICT, "cannot change this lifecycle")
+            if (
+                request.expected_object_revision is not None
+                and item.object_revision != request.expected_object_revision
+            ):
+                tx.abort(ErrorCode.VERSION_CONFLICT, "object revision changed")
+            if item.status.value == request.target:
+                self.remember_result(tx, key, request, item)
+                return item
+            if request.target == "active" and (
+                item.expires_at is not None
+                and item.expires_at <= self.identity.clock()
+                or any(
+                    not (tx.read("remember_sources", s.source_id) or {}).get("valid")
+                    for s in item.sources
+                )
+            ):
+                tx.abort(ErrorCode.MEMORY_GONE, "expired or revoked source cannot reactivate")
             updated = self.change(
                 tx,
                 item,
@@ -443,38 +594,59 @@ class Remember:
                 if request.target == "active"
                 else ProjectionState.STALE,
             )
-            if request.target == "archived":
+            if request.target == "archived" and not getattr(
+                self, "independent_working_sources", False
+            ):
                 self.invalidate_working(tx, ctx, item)
-            elif item.kind != MemoryKind.WORKING:
+            if request.target == "active" and hasattr(self, "retention"):
+                self.retention.activated_in(tx, updated)
+            if request.target == "active" and item.kind != MemoryKind.WORKING:
                 self.enqueue(tx, ctx, updated, "remember.project")
+            elif request.target == "active":
+                self.enqueue(tx, ctx, updated, "remember.extract")
             self.emit(tx, ctx, updated, "activated" if request.target == "active" else "archived")
             self.remember_result(tx, key, request, updated)
+            tx.write(
+                "remember_audit",
+                key,
+                {
+                    "action": request.target,
+                    "reason": request.reason,
+                    "memory": updated.ref.model_dump(mode="json"),
+                },
+            )
             return updated
 
     def delete(self, ctx: TrustedContext, memory_id: str, request: DeleteRequest) -> DeleteReceipt:
         with self.uow.transaction() as tx:
-            item = self.current(tx, memory_id)
-            self.identity.authorize(tx, ctx, Permission.DELETE, memory_ref(item.ref))
-            key, previous = self.replay(tx, ctx, "delete_" + memory_id, request)
-            if previous:
-                return DeleteReceipt.model_validate(previous["result"])
-            if item.object_revision != request.expected_revision:
-                tx.abort(ErrorCode.VERSION_CONFLICT, "object revision changed")
-            self.invalidate_working(tx, ctx, item, deleting=True)
-            updated = self.change(
-                tx, item, status=MemoryStatus.DELETED, projection_state=ProjectionState.STALE
-            )
-            task_id = self.enqueue(tx, ctx, updated, "remember.cleanup")
-            self.emit(tx, ctx, updated, "deleted")
-            result = DeleteReceipt(
-                operation_id=ctx.operation_id,
-                blocked=True,
-                cleanup_state="pending",
-                task_ids=(task_id,),
-                remaining_targets=("vector_versions", "operate_cache", "retained_source_policy"),
-            )
-            self.remember_result(tx, key, request, result)
-            return result
+            return self.delete_in(tx, ctx, memory_id, request)
+
+    def delete_in(
+        self, tx: SQLiteTransaction, ctx: TrustedContext, memory_id: str, request: DeleteRequest
+    ) -> DeleteReceipt:
+        """Shared authorized tombstone commit for explicit and enrolled deletion."""
+        item = self.current(tx, memory_id)
+        self.identity.authorize(tx, ctx, Permission.DELETE, memory_ref(item.ref))
+        key, previous = self.replay(tx, ctx, "delete_" + memory_id, request)
+        if previous:
+            return DeleteReceipt.model_validate(previous["result"])
+        if item.object_revision != request.expected_revision:
+            tx.abort(ErrorCode.VERSION_CONFLICT, "object revision changed")
+        self.invalidate_working(tx, ctx, item, deleting=True)
+        updated = self.change(
+            tx, item, status=MemoryStatus.DELETED, projection_state=ProjectionState.STALE
+        )
+        task_id = self.enqueue(tx, ctx, updated, "remember.cleanup")
+        self.emit(tx, ctx, updated, "deleted")
+        result = DeleteReceipt(
+            operation_id=ctx.operation_id,
+            blocked=True,
+            cleanup_state="pending",
+            task_ids=(task_id,),
+            remaining_targets=("vector_versions", "operate_cache", "retained_source_policy"),
+        )
+        self.remember_result(tx, key, request, result)
+        return result
 
     def delete_source(
         self, ctx: TrustedContext, source_id: str, request: DeleteRequest
@@ -545,7 +717,7 @@ class Remember:
             except FoundationError:
                 current = None
             exact = sql.get(memory_ref(ref, versioned=True))
-            item = None if exact is None else MemorySnapshot.model_validate(exact)
+            item = None if exact is None else self.decode(sql, exact)
             reason = "allowed"
             if not allowed:
                 reason = "unauthorized"
@@ -584,7 +756,7 @@ class Remember:
         with self.uow.transaction() as tx:
             eligibility = self.final_guard(tx, ctx, refs, "recall")
             items = tuple(
-                MemorySnapshot.model_validate(tx.get(memory_ref(e.ref, versioned=True)))
+                self.decode(tx, tx.get(memory_ref(e.ref, versioned=True)))
                 for e in eligibility.items
                 if e.decision == "allowed"
             )
@@ -630,7 +802,7 @@ class Remember:
             eligibility = self.final_guard(tx, ctx, tuple(values), "history")
             return MemoryReadBatch(
                 items=tuple(
-                    MemorySnapshot.model_validate(tx.get(memory_ref(e.ref, versioned=True)))
+                    self.decode(tx, tx.get(memory_ref(e.ref, versioned=True)))
                     for e in eligibility.items
                     if e.decision == "allowed"
                 ),
@@ -665,7 +837,7 @@ class Remember:
         with self.uow.transaction() as tx:
             self.tasks.guard(tx, task)
             item = self.current(tx, task.subject.object_id)
-            input_snapshot = MemorySnapshot.model_validate(tx.get(task.input_ref))
+            input_snapshot = self.decode(tx, tx.get(task.input_ref))
             valid = (
                 self.final_guard(
                     tx,
@@ -736,7 +908,7 @@ class Remember:
                         )
                     )
                 if raw:
-                    old = MemorySnapshot.model_validate(raw)
+                    old = self.decode(tx, raw)
                     cleaned = await self.projections.delete(
                         ctx,
                         projection_target(old.ref, old.content_hash, self.model_space),
@@ -835,12 +1007,12 @@ class Remember:
         with self.uow.transaction() as tx:
             self.tasks.guard(tx, task)
             item = self.current(tx, task.subject.object_id)
-            original = MemorySnapshot.model_validate(tx.get(task.input_ref))
+            original = self.decode(tx, tx.get(task.input_ref))
             valid = (
                 self.final_guard(
                     tx,
                     ctx,
-                    (MemorySnapshot.model_validate(tx.get(task.input_ref)).ref,),
+                    (self.decode(tx, tx.get(task.input_ref)).ref,),
                     "cleanup" if task.kind.endswith("cleanup") else "recall",
                 )
                 .items[0]

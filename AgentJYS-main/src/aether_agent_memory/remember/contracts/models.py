@@ -34,6 +34,37 @@ class MemoryStatus(StrEnum):
     DELETED = "deleted"
 
 
+class RetentionRequest(ContractModel):
+    expected_version: Positive
+    expected_object_revision: Positive
+    enabled: bool = True
+    completed: bool = False
+    archive_after_idle_hours: float = Field(default=168, ge=24, le=87600, allow_inf_nan=False)
+    delete_after_archive_hours: float | None = Field(default=None, ge=24, le=87600)
+    delete_below_strength: float = Field(default=0.05, gt=0, lt=0.2)
+    legal_hold: bool = False
+    expires_at: Timestamp | None = None
+    reason: NonEmpty
+
+
+class ReflectionRequest(ContractModel):
+    selection: ScopeSelector
+    expected_revision: Count = 0
+    enabled: bool = True
+    min_episodes: int = Field(default=3, ge=2, le=32)
+    importance_threshold: float = Field(default=0.8, ge=0.8, le=1)
+    min_reinforcements: int = Field(default=3, ge=1)
+    period_hours: float = Field(default=24, ge=1, le=720)
+    max_episodes: int = Field(default=8, ge=2, le=32)
+    reason: NonEmpty
+
+    @model_validator(mode="after")
+    def bounded_batch(self) -> Self:
+        if self.max_episodes < self.min_episodes:
+            raise ValueError("max_episodes must cover min_episodes")
+        return self
+
+
 class ProjectionState(StrEnum):
     NOT_REQUIRED = "not_required"
     PENDING = "pending"
@@ -105,6 +136,11 @@ class RememberRequest(ContractModel):
     source: SourceInput
     selection: ScopeSelector
     content: TextInput | DocumentInput = Field(discriminator="kind")
+    trigger: Literal["remember", "observe", "task_complete", "review"] = "remember"
+    task_context: str = Field(default="", max_length=4096)
+    importance_category: Literal[
+        "observation", "event", "fact", "decision", "explicit_constraint"
+    ] = "observation"
 
 
 class RememberReceipt(ContractModel):
@@ -136,6 +172,9 @@ class MemorySnapshot(ContractModel):
     expires_at: Timestamp | None = None
     supersedes: MemoryRef | None = None
     created_at: Timestamp
+    importance: float = Field(default=0.2, ge=0, le=1)
+    importance_reason: Identifier = "ordinary_observation"
+    importance_policy_version: Identifier = "remember_v2"
 
     @model_validator(mode="after")
     def projection_binding(self) -> Self:
@@ -157,12 +196,14 @@ class CorrectionRequest(ContractModel):
     content: NonEmpty
     source: SourceInput
     reason: NonEmpty
+    expected_object_revision: Positive | None = None
 
 
 class LifecycleRequest(ContractModel):
     expected_version: Positive
     target: Literal["archived", "active"]
     reason: NonEmpty
+    expected_object_revision: Positive | None = None
 
 
 class DeleteRequest(ContractModel):
@@ -199,10 +240,28 @@ class ArtifactRecord(ContractModel):
     sources: tuple[SourceRef, ...] = Field(min_length=1)
 
 
+class FactEvidence(ContractModel):
+    source: SourceRef
+    start_char: Count
+    end_char: Positive
+    quote: NonEmpty
+
+    @model_validator(mode="after")
+    def exact_length(self) -> Self:
+        if self.end_char - self.start_char != len(self.quote):
+            raise ValueError("evidence must identify an exact Unicode slice")
+        return self
+
+
 class CandidateFact(ContractModel):
     text: NonEmpty
     sources: tuple[SourceRef, ...] = Field(min_length=1)
     evidence_status: Literal["candidate", "supported", "insufficient"]
+    kind: Literal["episodic", "semantic"] = "episodic"
+    evidence: tuple[FactEvidence, ...] = ()
+    event_key: Identifier | None = None
+    fact_key: Identifier | None = None
+    importance_category: Literal["event", "fact", "decision", "explicit_constraint"] = "event"
 
 
 class ExtractionRequest(ContractModel):
@@ -272,6 +331,24 @@ class StorageChanged(ContractModel):
     projection_state: ProjectionState
     content_hash: Digest
     source_count: Count
+    content_bytes: Count = 0
+    content_ref: NonEmpty | None = None
+    importance: float = Field(default=0.2, ge=0, le=1)
+    importance_reason: Identifier = "ordinary_observation"
+    importance_policy_version: Identifier = "remember_v2"
+    memory_kind: MemoryKind = MemoryKind.WORKING
+    previous_state: MemoryStatus | None = None
+    expires_at: Timestamp | None = None
+    change_seq: Positive = 1
+    semantic_revision: Positive = 1
+    relations_revision: Positive = 1
+    space_commit_seq: Count = 0
+    memory_space_id: Identifier = "legacy_scope"
+    signal_type: Identifier = "legacy_changed"
+    deleted: bool = False
+    reason_code: Identifier = "legacy_change"
+    importance_basis: tuple[Identifier, ...] = ()
+    requires_operate_evaluation: bool = True
 
 
 class ProjectionTarget(ContractModel):
@@ -280,6 +357,8 @@ class ProjectionTarget(ContractModel):
     chunk_index: Count
     vector_id: Digest
     input_hash: Digest
+    generation: Identifier | None = None
+    body_hash: Digest | None = None
 
 
 class ProjectionRequest(ContractModel):

@@ -243,4 +243,8 @@ def create_app(
         # 结果重取必须走服务层最终复核，不能把数据库中的历史包直接作为 HTTP 响应。
         return runtime.recall.result(ctx, recall_id)
 
+    if hasattr(runtime.remember, "read_source"):
+        from aether_agent_memory.remember.http import attach_routes
+
+        attach_routes(app, runtime.remember, trusted_dependency)
     return app
