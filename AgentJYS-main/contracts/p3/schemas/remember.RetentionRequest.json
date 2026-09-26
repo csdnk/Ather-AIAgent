@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "archive_after_idle_hours": {
+      "default": 168,
+      "maximum": 87600,
+      "minimum": 24,
+      "title": "Archive After Idle Hours",
+      "type": "number"
+    },
+    "completed": {
+      "default": false,
+      "title": "Completed",
+      "type": "boolean"
+    },
+    "delete_after_archive_hours": {
+      "anyOf": [
+        {
+          "maximum": 87600,
+          "minimum": 24,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Delete After Archive Hours"
+    },
+    "delete_below_strength": {
+      "default": 0.05,
+      "exclusiveMaximum": 0.2,
+      "exclusiveMinimum": 0,
+      "title": "Delete Below Strength",
+      "type": "number"
+    },
+    "enabled": {
+      "default": true,
+      "title": "Enabled",
+      "type": "boolean"
+    },
+    "expected_object_revision": {
+      "minimum": 1,
+      "title": "Expected Object Revision",
+      "type": "integer"
+    },
+    "expected_version": {
+      "minimum": 1,
+      "title": "Expected Version",
+      "type": "integer"
+    },
+    "expires_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expires At"
+    },
+    "legal_hold": {
+      "default": false,
+      "title": "Legal Hold",
+      "type": "boolean"
+    },
+    "reason": {
+      "minLength": 1,
+      "title": "Reason",
+      "type": "string"
+    }
+  },
+  "required": [
+    "expected_version",
+    "expected_object_revision",
+    "reason"
+  ],
+  "title": "RetentionRequest",
+  "type": "object",
+  "x-contract-model": "remember.RetentionRequest"
+}

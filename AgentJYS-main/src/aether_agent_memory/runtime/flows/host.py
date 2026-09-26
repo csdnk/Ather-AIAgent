@@ -7,7 +7,7 @@ import secrets
 import tempfile
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from aether_agent_memory.operate.basic.executor import LocalCacheExecutor
 from aether_agent_memory.operate.basic.service import Operate
@@ -64,6 +64,7 @@ class ThreeFlows:
         log_max_records: int = 200_000,
         maintenance_principals: tuple[str, ...] = (),
         backup_root: str | Path | None = None,
+        remember_factory: Any = None,
     ) -> None:
         self.recall_settings = recall_settings or (
             RecallSettings.model_validate(
@@ -163,7 +164,7 @@ class ThreeFlows:
         )
         self.projections = ProjectionAccess(self.vectors)
         self.vector_search = SearchAccess(self.vectors)
-        self.remember = Remember(
+        self.remember = (remember_factory or Remember)(
             self.foundation.uow,
             self.foundation.identity,
             self.foundation.tasks,
@@ -302,6 +303,9 @@ class ThreeFlows:
         ):
             self.health.register(name, probe)
 
+        if remember_factory is not None:
+            remember_factory.attach(self)
+
     def enable_generation_recall(
         self,
         *,
@@ -388,6 +392,8 @@ class ThreeFlows:
                     },
                 )
         worked = self.recall.recover_expired() > 0
+        if hasattr(self.remember, "periodic"):
+            worked = self.remember.periodic() > 0 or worked
         for _ in range(100):
             if not self.foundation.events.dispatch_once("flow_dispatcher"):
                 break

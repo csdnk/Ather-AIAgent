@@ -9570,5 +9570,83 @@
       "conflicts": [],
       "unexpected": true
     }
+  },
+  {
+    "id": "positive-remember.FactEvidence",
+    "model": "remember.FactEvidence",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "source": {
+        "source_id": "id_1",
+        "source_version": 1,
+        "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "locator": "id_1"
+      },
+      "start_char": 0,
+      "end_char": 4,
+      "quote": "fact"
+    }
+  },
+  {
+    "id": "bad-span-remember.FactEvidence",
+    "model": "remember.FactEvidence",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "source": {
+        "source_id": "id_1",
+        "source_version": 1,
+        "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "locator": "id_1"
+      },
+      "start_char": 0,
+      "end_char": 5,
+      "quote": "fact"
+    }
+  },
+  {
+    "id": "positive-remember.RetentionRequest",
+    "model": "remember.RetentionRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "expected_version": 1,
+      "expected_object_revision": 1,
+      "reason": "retention test"
+    }
+  },
+  {
+    "id": "extra-field-remember.RetentionRequest",
+    "model": "remember.RetentionRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "expected_version": 1,
+      "expected_object_revision": 1,
+      "reason": "retention test",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.ReflectionRequest",
+    "model": "remember.ReflectionRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "selection": {},
+      "reason": "reflection test"
+    }
+  },
+  {
+    "id": "extra-field-remember.ReflectionRequest",
+    "model": "remember.ReflectionRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "selection": {},
+      "reason": "reflection test",
+      "unexpected_field": "reject"
+    }
   }
 ]

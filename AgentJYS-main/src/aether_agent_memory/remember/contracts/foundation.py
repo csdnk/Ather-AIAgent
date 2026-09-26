@@ -186,6 +186,11 @@ class MemoryRecord(ContractModel):
     cache_location: ResourceLocation | None = None
     expires_at: Timestamp | None = None
     created_at: Timestamp
+    object_revision: Positive = 1
+    supersedes: MemoryRef | None = None
+    importance: float = Field(default=0.2, ge=0, le=1)
+    importance_reason: Identifier = "ordinary_observation"
+    importance_policy_version: Identifier = "remember_v2"
 
     @model_validator(mode="after")
     def authoritative_bindings(self) -> Self:

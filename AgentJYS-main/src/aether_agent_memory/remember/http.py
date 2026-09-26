@@ -1,0 +1,124 @@
+"""Remember routes; the host supplies its existing authenticated dependency."""
+
+from typing import Any
+
+from fastapi import FastAPI
+
+from aether_agent_memory.remember.contracts.models import (
+    CorrectionRequest,
+    DeleteRequest,
+    LifecycleRequest,
+    MemoryRef,
+    ReflectionRequest,
+    RetentionRequest,
+    SourceRef,
+)
+from aether_agent_memory.runtime.contracts.models import Identifier, ScopeSelector, TrustedContext
+
+from .basic.pipeline import RememberPipeline
+from .basic.service import Remember
+
+
+def attach_routes(app: FastAPI, provider: Remember, trusted_dependency: Any) -> None:
+    if not isinstance(provider, RememberPipeline):
+        raise TypeError("Remember routes require the pipeline provider")
+    remember = provider
+    @app.post("/p3/remember/consolidate")
+    def consolidate(
+        selection: ScopeSelector, ctx: TrustedContext = trusted_dependency
+    ) -> dict[str, Any]:
+        return {"task_ids": remember.consolidate(ctx, selection)}
+
+    @app.post("/p3/remember/reflection")
+    def reflection_configure(
+        request: ReflectionRequest, ctx: TrustedContext = trusted_dependency
+    ) -> dict[str, Any]:
+        return remember.reflection.configure(ctx, request)
+
+    @app.get("/p3/remember/reflection")
+    def reflection_read(
+        session_id: Identifier | None = None,
+        task_id: Identifier | None = None,
+        ctx: TrustedContext = trusted_dependency,
+    ) -> dict[str, Any]:
+        return remember.reflection.read(ctx, ScopeSelector(session_id=session_id, task_id=task_id))
+
+    @app.post("/p3/remember/distill")
+    def distill(
+        refs: tuple[MemoryRef, ...], ctx: TrustedContext = trusted_dependency
+    ) -> dict[str, Any]:
+        return {"task_id": remember.distill(ctx, refs)}
+
+    @app.get("/p3/remember/{memory_id}")
+    def memory(memory_id: str, ctx: TrustedContext = trusted_dependency) -> Any:
+        return remember.get(ctx, memory_id)
+
+    @app.get("/p3/remember/{memory_id}/processing")
+    def processing(memory_id: str, ctx: TrustedContext = trusted_dependency) -> dict[str, Any]:
+        return remember.processing(ctx, memory_id)
+
+    @app.post("/p3/remember/body")
+    async def body(ref: MemoryRef, ctx: TrustedContext = trusted_dependency) -> Any:
+        return await remember.read_body(ctx, ref)
+
+    @app.post("/p3/remember/body/range")
+    async def body_range(
+        ref: MemoryRef,
+        start: int = 0,
+        end: int | None = None,
+        ctx: TrustedContext = trusted_dependency,
+    ) -> Any:
+        return await remember.read_range(ctx, ref, start, end)
+
+    @app.post("/p3/sources/read-range")
+    async def source_range(
+        ref: SourceRef,
+        start: int = 0,
+        end: int | None = None,
+        ctx: TrustedContext = trusted_dependency,
+    ) -> Any:
+        return await remember.read_source(ctx, ref, start, end)
+
+    @app.post("/p3/remember/{memory_id}/correct")
+    async def correct(
+        memory_id: str, request: CorrectionRequest, ctx: TrustedContext = trusted_dependency
+    ) -> Any:
+        return await remember.correct_async(ctx, memory_id, request)
+
+    @app.get("/p3/remember/{memory_id}/retention")
+    def retention_read(memory_id: str, ctx: TrustedContext = trusted_dependency) -> dict[str, Any]:
+        return remember.retention.read(ctx, memory_id)
+
+    @app.post("/p3/remember/{memory_id}/retention")
+    def retention_configure(
+        memory_id: str, request: RetentionRequest, ctx: TrustedContext = trusted_dependency
+    ) -> dict[str, Any]:
+        return remember.retention.configure(ctx, memory_id, request)
+
+    @app.post("/p3/remember/{memory_id}/lifecycle")
+    def lifecycle(
+        memory_id: str, request: LifecycleRequest, ctx: TrustedContext = trusted_dependency
+    ) -> Any:
+        return remember.lifecycle(ctx, memory_id, request)
+
+    @app.post("/p3/remember/{memory_id}/delete")
+    def delete(
+        memory_id: str, request: DeleteRequest, ctx: TrustedContext = trusted_dependency
+    ) -> Any:
+        return remember.delete(ctx, memory_id, request)
+
+    @app.post("/p3/remember/{memory_id}/reprocess")
+    def reprocess(memory_id: str, ctx: TrustedContext = trusted_dependency) -> dict[str, Any]:
+        return {"task_id": remember.reprocess(ctx, memory_id)}
+
+    @app.post("/p3/sources/{source_id}/delete")
+    def delete_source(
+        source_id: str, request: DeleteRequest, ctx: TrustedContext = trusted_dependency
+    ) -> Any:
+        return remember.delete_source(ctx, source_id, request)
+
+    @app.post("/p3/sources/{source_id}/revoke")
+    def revoke_source(
+        source_id: str, request: DeleteRequest, ctx: TrustedContext = trusted_dependency
+    ) -> Any:
+        return remember.revoke_source(ctx, source_id, request)
