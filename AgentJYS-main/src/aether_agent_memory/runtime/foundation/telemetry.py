@@ -337,6 +337,71 @@ class Telemetry:
         finally:
             current_node.reset(token)
 
+    def traces(
+        self,
+        ctx: TrustedContext,
+        *,
+        before: int | None = None,
+        limit: int = 50,
+        flow: str | None = None,
+    ) -> dict[str, Any]:
+        """Retained trace metadata only; caller must authorize before and after reading.
+
+        Order by first retained sequence, not changing activity time. Keyset paging
+        excludes newly arriving traces from subsequent pages. Retention can still
+        remove records; this catalog never claims completeness or business success.
+        """
+        if not 1 <= limit <= 100 or (before is not None and before < 1):
+            raise ValueError("invalid trace page")
+        if flow not in {None, "business", "remember", "recall", "operate", "runtime"}:
+            raise ValueError("invalid trace flow")
+        self.prune()
+        with self.connect() as db:
+            rows = db.execute(
+                "SELECT trace_id, MIN(sequence), MIN(occurred_at), MAX(occurred_at), "
+                "COUNT(*), COUNT(DISTINCT span_id), "
+                "COUNT(DISTINCT CASE WHEN phase='failed' THEN span_id END) "
+                "FROM node_logs WHERE principal_id=? AND scope=? "
+                "GROUP BY trace_id HAVING (? IS NULL OR MIN(sequence) < ?) "
+                "AND (? IS NULL OR MAX(CASE WHEN "
+                "json_extract(data,'$.contract.flow') = ? OR "
+                "(?='business' AND json_extract(data,'$.contract.flow') "
+                "IN ('remember','recall','operate')) THEN 1 ELSE 0 END)=1) "
+                "ORDER BY MIN(sequence) DESC LIMIT ?",
+                (
+                    ctx.principal.principal_id,
+                    ctx.principal.home_scope.model_dump_json(),
+                    before,
+                    before,
+                    flow,
+                    flow,
+                    flow,
+                    limit + 1,
+                ),
+            ).fetchall()
+            items = []
+            for trace_id, first, started, last, records, spans, failed in rows[:limit]:
+                raw = db.execute("SELECT data FROM node_logs WHERE sequence=?", (first,)).fetchone()
+                contract = json.loads(raw[0]).get("contract", {})
+                items.append(
+                    {
+                        "trace_id": trace_id,
+                        "first_sequence": first,
+                        "started_at": started,
+                        "last_seen": last,
+                        "record_count": records,
+                        "span_count": spans,
+                        "failed_span_count": failed,
+                        "entry_node": contract.get("node", "unknown"),
+                        "flow": contract.get("flow", "runtime"),
+                    }
+                )
+        return {
+            "items": items,
+            "next_before": rows[limit - 1][1] if len(rows) > limit else None,
+            "coverage": "retained_records_only",
+        }
+
     def page(
         self, ctx: TrustedContext, trace_id: str, *, after: int = 0, limit: int = 100
     ) -> dict[str, Any]:

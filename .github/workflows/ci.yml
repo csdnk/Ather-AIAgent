@@ -8,6 +8,23 @@ defaults:
   run:
     working-directory: AgentJYS-main
 jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: AgentJYS-main/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: AgentJYS-main/web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
   python:
     runs-on: ubuntu-latest
     steps:

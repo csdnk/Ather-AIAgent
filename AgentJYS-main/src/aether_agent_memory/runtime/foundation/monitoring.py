@@ -203,6 +203,19 @@ class Monitoring:
             raise ValueError("typed logs require their matching trusted span")
         self.telemetry.emit_record(node.ctx, record)
 
+    def traces(
+        self,
+        ctx: TrustedContext,
+        *,
+        before: int | None = None,
+        limit: int = 50,
+        flow: str | None = None,
+    ) -> dict[str, Any]:
+        self.authorize(ctx)
+        result = self.telemetry.traces(ctx, before=before, limit=limit, flow=flow)
+        self.authorize(ctx)
+        return result
+
     def logs(
         self, ctx: TrustedContext, trace_id: str, *, after: int = 0, limit: int = 100
     ) -> dict[str, Any]:

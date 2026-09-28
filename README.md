@@ -12,6 +12,7 @@ Aether P3 是面向 AI Agent 的持久记忆服务：接收对话、任务信息
 |---|---|
 | 保存 → 后台长期化 → 索引发布 → 授权召回 → 结果再次获取 | 已实现并通过本地 HTTP/SQLite 验证 |
 | 原生 BGE 编码、共享授权与撤权、本地文件缓存调度 | 已有实现和本地验证 |
+| 真实监测 Web | 已接统一接口，提供健康、任务、异常和 Trace 瀑布图；云端 APM 接入待完成 |
 | LLM、P2、Milvus 接口 | 已有适配；真实服务集成及业务质量待验收 |
 | Docker、24/72 小时长稳、性能、多实例、完整灾备、云端部署 | 待实际环境验证；Docker 当前仅验证配置解析 |
 | PRD FR16（P1）预测预热 | 未实现 |
@@ -31,6 +32,8 @@ cd AgentJYS-main
 标准入口为 `python -m aether_agent_memory`（安装后也可用 `aether-p3`），使用 `init`、`check-config`、`serve` 三个命令。启动后访问 [接口文档](http://127.0.0.1:8080/docs)，再按代码 README 运行保存与长期召回冒烟。服务只在进程运行期间处理任务；关闭终端会停止前台服务。
 
 容器使用业务目录内的 `compose.p3.yaml`。旧 `compose.yaml`、`aether_agent_memory.app` 和 `/api/v1/...` 属于兼容栈，其配置与 API 不适用于新统一入口。
+
+要打开监测页面，后端启动后在 `AgentJYS-main/web` 执行 `npm ci`、`npm run dev`（Node.js 22），访问 `http://127.0.0.1:5173` 并输入部署凭据。统一 Compose 的 Web 默认端口为 `3000`。详见 [真实监测 Web 使用指南](AgentJYS-main/web/README.md)。
 
 ## 项目导航
 
