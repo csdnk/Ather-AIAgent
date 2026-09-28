@@ -51,7 +51,7 @@ from aether_agent_memory.runtime.contracts.models import (
 )
 from aether_agent_memory.runtime.contracts.ports import Transaction
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
-from aether_agent_memory.runtime.foundation.requests import matches, select_scope, text_hash
+from aether_agent_memory.runtime.foundation.requests import select_scope, text_hash
 from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction, native
 from aether_agent_memory.runtime.foundation.telemetry import observed
 
@@ -173,6 +173,20 @@ class ContextAssembly:
         relation_guards: dict[str, GuardStamp] = {}
         source_ranks: dict[str, dict[str, int]] = {}
 
+        def visible(ref: MemoryRef) -> bool:
+            with self.uow.transaction() as tx:
+                return self.identity.discoverable(
+                    tx,
+                    ctx,
+                    RecordRef(
+                        owner=Flow.REMEMBER,
+                        object_type="memory",
+                        object_id=ref.memory_id,
+                        scope=ref.scope,
+                    ),
+                    request.selection,
+                )
+
         def accept_batch(batch: MemoryReadBatch, requested: set[str] | None) -> list[str]:
             # 严格对齐 eligibility 和快照：allowed 必须有对应正文快照及正确修订。
             # 明确 excluded 是正常排除；unverifiable 则降低可交付覆盖结论。
@@ -197,7 +211,7 @@ class ContextAssembly:
             for key, item in items.items():
                 verdict = eligibility.get(key)
                 if (
-                    not matches(item.ref.scope, scope)
+                    not visible(item.ref)
                     or verdict is None
                     or verdict.decision != "allowed"
                     or verdict.checked_revision != item.object_revision
@@ -216,7 +230,7 @@ class ContextAssembly:
             for group in batch.conflicts:
                 if not any(m.model_dump_json() in eligibility for m in group.members):
                     raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "unrelated conflict group")
-                if any(not matches(m.scope, scope) for m in group.members):
+                if any(not visible(m) for m in group.members):
                     raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "conflict scope mismatch")
                 if group.group_id in conflicts and conflicts[group.group_id] != group:
                     raise FoundationError(

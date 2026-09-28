@@ -1,0 +1,12 @@
+FROM python:3.13-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /app
+COPY pyproject.toml README.md ./
+COPY src ./src
+COPY scripts/generate_proto.py ./scripts/generate_proto.py
+COPY engine/proto ./engine/proto
+RUN pip install --no-cache-dir '.[embedding-onnx,resource-documents]' \
+    && python scripts/generate_proto.py \
+    && pip install --no-cache-dir --no-deps .
+EXPOSE 8080
+CMD ["python", "-m", "aether_agent_memory", "serve", "--config", "/deployment/service.yaml"]

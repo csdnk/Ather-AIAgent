@@ -37,6 +37,8 @@ def main() -> int:
                     "-c",
                     "tests/runtime/p3/pytest.ini",
                     "tests/runtime/flows",
+                    "tests/integration/test_continuous_service.py",
+                    "tests/unit/test_service_model_provider.py",
                     "-q",
                     "-o",
                     f"cache_dir={tmp}/pytest",

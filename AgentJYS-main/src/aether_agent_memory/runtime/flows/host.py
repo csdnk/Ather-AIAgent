@@ -65,6 +65,7 @@ class ThreeFlows:
         maintenance_principals: tuple[str, ...] = (),
         backup_root: str | Path | None = None,
         remember_factory: Any = None,
+        operate_factory: Any = None,
     ) -> None:
         self.recall_settings = recall_settings or (
             RecallSettings.model_validate(
@@ -195,7 +196,7 @@ class ThreeFlows:
             reranker=reranker,
         )
         self.executor = LocalCacheExecutor(cache_root)
-        self.operate = Operate(
+        self.operate = (operate_factory or Operate)(
             self.foundation.uow,
             self.foundation.identity,
             self.foundation.tasks,
@@ -375,7 +376,12 @@ class ThreeFlows:
         self.health.register("recall_generation", probe or unknown_probe)
 
     async def tick(
-        self, *, periodic: bool = False, maintenance_context: TrustedContext | None = None
+        self,
+        *,
+        periodic: bool = False,
+        maintenance_context: TrustedContext | None = None,
+        run_tasks: bool = True,
+        periodic_interval: float = 5,
     ) -> bool:
         with self.foundation.uow.transaction() as tx:
             for flow in ("remember", "operate"):
@@ -398,15 +404,16 @@ class ThreeFlows:
             if not self.foundation.events.dispatch_once("flow_dispatcher"):
                 break
             worked = True
-        for flow in ("remember", "operate", "maintenance", "io", "model"):
-            worked = (
-                await self.foundation.tasks.run_once(self.worker_prefix + "_" + flow, flow)
-                or worked
-            )
+        if run_tasks:
+            for flow in ("remember", "operate", "maintenance", "io", "model"):
+                worked = (
+                    await self.foundation.tasks.run_once(self.worker_prefix + "_" + flow, flow)
+                    or worked
+                )
         if maintenance_context is not None:
             result = await self.foundation.dispositions.cycle(maintenance_context)
             worked = bool(result["sampled"] or result["reconciled"]) or worked
-        period = str(int(time.time() // 5))
+        period = str(int(time.time() // periodic_interval))
         if periodic and period != self.last_period:
             self.operate.periodic(period)
             self.last_period = period

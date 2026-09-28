@@ -10,16 +10,20 @@ from aether_agent_memory.recall.contracts.models import (
 )
 from aether_agent_memory.recall.contracts.ports import VectorSearchPort
 from aether_agent_memory.remember.contracts.models import ProjectionTarget
-from aether_agent_memory.runtime.contracts.models import ErrorCode, Permission, TrustedContext
+from aether_agent_memory.runtime.contracts.models import (
+    AuthorizationGrant,
+    ErrorCode,
+    TrustedContext,
+)
 from aether_agent_memory.runtime.foundation.common import FoundationError
-from aether_agent_memory.runtime.foundation.requests import matches, select_scope
+from aether_agent_memory.runtime.foundation.requests import select_scope
 from aether_agent_memory.runtime.vector_backend import MilvusConnection, SQLiteVectorStore
 
 
 class SQLiteVectorSearch(SQLiteVectorStore):
     async def search(self, ctx: TrustedContext, request: VectorSearchRequest) -> VectorSearchResult:
         self.check(ctx)
-        scope = select_scope(ctx, request.selection)
+        select_scope(ctx, request.selection)
         if (
             request.model_space != self.model_space
             or len(request.vector) != self.dimensions
@@ -31,11 +35,12 @@ class SQLiteVectorSearch(SQLiteVectorStore):
             items = []
             for _, stored in tx.rows("recall_vectors"):
                 target = ProjectionTarget.model_validate(stored["target"])
-                if target.model_space != request.model_space or not matches(
-                    target.memory.scope, scope
+                if target.model_space != request.model_space or not self.identity.discoverable(
+                    tx,
+                    ctx,
+                    self.ref(target),
+                    request.selection,
                 ):
-                    continue
-                if not self.identity.permits(tx, ctx, Permission.READ, self.ref(target)):
                     continue
                 if len(stored["vector"]) != self.dimensions or not all(
                     isinstance(v, (int, float)) and math.isfinite(v) for v in stored["vector"]
@@ -66,12 +71,36 @@ class MilvusVectorSearch(MilvusConnection):
             raise FoundationError(ErrorCode.INVALID_ARGUMENT, "invalid vector search")
         await self.prepare(ctx)
         # Field names are constant; values are JSON-escaped, never raw caller expressions.
-        conditions = [
+        own = [
             f"{field} == {json.dumps(value, ensure_ascii=True)}"
             for field, value in scope.model_dump().items()
             if value is not None
         ]
-        conditions.append("model_space == " + json.dumps(self.model_space))
+        alternatives = ["(" + " and ".join(own) + ")"]
+        with self.uow.transaction() as tx:
+            self.identity.revalidate(tx, ctx)
+            for raw in tx.read("settings", "grants") or []:
+                grant = AuthorizationGrant.model_validate(raw)
+                if grant.resource.object_type != "memory" or not self.identity.discoverable(
+                    tx,
+                    ctx,
+                    grant.resource,
+                    request.selection,
+                ):
+                    continue
+                fields = [
+                    f"{k} == {json.dumps(v, ensure_ascii=True)}"
+                    for k, v in grant.resource.scope.model_dump().items()
+                    if v is not None
+                ]
+                fields.append(
+                    'target["memory"]["memory_id"] == ' + json.dumps(grant.resource.object_id)
+                )
+                alternatives.append("(" + " and ".join(fields) + ")")
+        conditions = [
+            "(" + " or ".join(alternatives) + ")",
+            "model_space == " + json.dumps(self.model_space),
+        ]
         hits = await self.call(
             ctx,
             "search",
@@ -88,12 +117,11 @@ class MilvusVectorSearch(MilvusConnection):
             self.identity.revalidate(tx, ctx)
             for hit in hits[0] if hits else []:
                 target = ProjectionTarget.model_validate(hit["entity"]["target"])
-                if (
-                    target.model_space != self.model_space
-                    or not matches(target.memory.scope, scope)
-                    or not self.identity.permits(
-                        tx, ctx, Permission.READ, SQLiteVectorStore.ref(target)
-                    )
+                if target.model_space != self.model_space or not self.identity.discoverable(
+                    tx,
+                    ctx,
+                    SQLiteVectorStore.ref(target),
+                    request.selection,
                 ):
                     continue
                 score = float(hit["distance"])

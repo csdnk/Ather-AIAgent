@@ -1,0 +1,30 @@
+# Copy to an external deployment directory and replace the model/endpoint values.
+# Identity file is produced by `python -m aether_agent_memory init`.
+profile: production
+host: 0.0.0.0
+port: 8080
+data_dir: state
+identity_file: identities.yaml
+embedding_profile: native
+embedding_config: embedding.json
+p2_endpoint: engine:50052
+p2_bucket: p3-memory
+language_model:
+  endpoint: http://host.docker.internal:11434/v1
+  model: REPLACE_WITH_INSTALLED_CHAT_MODEL
+  api_key_env: AETHER_LLM_API_KEY
+  timeout_seconds: 60
+  concurrency: 2
+maintenance_principals: [local_admin]
+poll_seconds: 0.25
+periodic_seconds: 1
+identity_reload_seconds: 2
+shutdown_seconds: 15
+cache_capacity_bytes: 268435456
+operate_decay_seconds: 3600
+operate_audit_seconds: 300
+operate_stats_retention_seconds: 3600
+remember:
+  consolidation_messages: 32
+  consolidation_tokens: 8000
+  consolidation_seconds: 600

@@ -33,7 +33,7 @@ from aether_agent_memory.runtime.contracts.models import (
 )
 from aether_agent_memory.runtime.foundation.common import FoundationError
 from aether_agent_memory.runtime.foundation.identity import Identity
-from aether_agent_memory.runtime.foundation.requests import matches, select_scope
+from aether_agent_memory.runtime.foundation.requests import select_scope
 from aether_agent_memory.runtime.foundation.storage import SQLiteUnitOfWork
 from aether_agent_memory.runtime.foundation.telemetry import observed
 
@@ -170,10 +170,23 @@ class MemoryCandidates:
                     rounds += 1
                     if page.request != page_request:
                         raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "search page mismatch")
-                    if any(
-                        not matches(h.memory.scope, scope) or not math.isfinite(h.score)
-                        for h in page.hits
-                    ):
+                    with self.uow.transaction() as tx:
+                        safe = all(
+                            self.identity.discoverable(
+                                tx,
+                                ctx,
+                                RecordRef(
+                                    owner=Flow.REMEMBER,
+                                    object_type="memory",
+                                    object_id=h.memory.memory_id,
+                                    scope=h.memory.scope,
+                                ),
+                                request.selection,
+                            )
+                            and math.isfinite(h.score)
+                            for h in page.hits
+                        )
+                    if not safe:
                         raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "unsafe chunk hit")
                     if [h.score for h in page.hits] != sorted(
                         (h.score for h in page.hits), reverse=True

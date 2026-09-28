@@ -26,7 +26,12 @@ class Identity:
         self.uow, self.clock = uow, clock
 
     def provision(
-        self, principals: Sequence[tuple[str, Principal]], grants: Sequence[AuthorizationGrant] = ()
+        self,
+        principals: Sequence[tuple[str, Principal]],
+        grants: Sequence[AuthorizationGrant] = (),
+        *,
+        tenants: dict[str, bool] | None = None,
+        configuration_revision: int | None = None,
     ) -> None:
         """Trusted deployment operation. Digests, not API secrets, are persisted.
 
@@ -38,6 +43,48 @@ class Identity:
         ) != len(principals):
             raise ValueError("duplicate principal or credential digest")
         with self.uow.transaction() as tx:
+            configuration = {
+                "principals": [(d, p.model_dump(mode="json")) for d, p in principals],
+                "grants": [g.model_dump(mode="json") for g in grants],
+                "tenants": tenants,
+            }
+            if configuration_revision is not None:
+                previous_config = tx.read("settings", "identity_revision")
+                signature = fingerprint(configuration)
+                if previous_config and (
+                    configuration_revision < previous_config["revision"]
+                    or (
+                        configuration_revision == previous_config["revision"]
+                        and signature != previous_config["signature"]
+                    )
+                ):
+                    raise ValueError(
+                        "identity configuration must advance; old grants cannot be restored"
+                    )
+                tx.write(
+                    "settings",
+                    "identity_revision",
+                    {"revision": configuration_revision, "signature": signature},
+                )
+            if tenants is not None:
+                if any(p.home_scope.tenant_id not in tenants for _, p in principals):
+                    raise ValueError("identity has no registered business tenant")
+                # Disabled tenants fence every in-flight principal epoch permanently.
+                for _, principal in principals:
+                    if not tenants[principal.home_scope.tenant_id]:
+                        previous = tx.read("tenant_epoch_fences", principal.principal_id) or 0
+                        tx.write(
+                            "tenant_epoch_fences",
+                            principal.principal_id,
+                            max(previous, principal.auth_epoch),
+                        )
+                    else:
+                        fence = tx.read("tenant_epoch_fences", principal.principal_id) or 0
+                        if principal.auth_epoch <= fence:
+                            raise ValueError(
+                                "tenant reactivation requires fresh principal auth_epoch"
+                            )
+                tx.write("settings", "business_tenants", tenants)
             old = dict(tx.rows("identities"))
             for digest, principal in principals:
                 if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
@@ -72,6 +119,7 @@ class Identity:
                 {
                     "identities": [(digest, p.model_dump(mode="json")) for digest, p in principals],
                     "grants": [g.model_dump(mode="json") for g in grants],
+                    "tenants": tenants,
                 }
             )
             if tx.read("settings", "identity_config_hash") != snapshot_hash:
@@ -84,6 +132,7 @@ class Identity:
                         "config_hash": snapshot_hash,
                         "principal_ids": sorted(present),
                         "grant_ids": sorted(g.grant_id for g in grants),
+                        "tenants": tenants,
                     },
                 )
                 tx.write("settings", "identity_config_hash", snapshot_hash)
@@ -93,7 +142,13 @@ class Identity:
         with self.uow.transaction() as tx:
             for _, row in tx.rows("identities"):
                 if row["enabled"] and secrets.compare_digest(row["digest"], digest):
-                    return Principal.model_validate(row["principal"])
+                    principal = Principal.model_validate(row["principal"])
+                    tenants = tx.read("settings", "business_tenants")
+                    if tenants is not None and not tenants.get(
+                        principal.home_scope.tenant_id, False
+                    ):
+                        raise FoundationError(ErrorCode.FORBIDDEN, "business tenant disabled")
+                    return principal
         raise FoundationError(ErrorCode.UNAUTHENTICATED, "invalid credential")
 
     def context(
@@ -125,10 +180,12 @@ class Identity:
     def revalidate(self, tx: Transaction, ctx: TrustedContext) -> None:
         sql = native(tx)
         current = sql.read("identities", ctx.principal.principal_id)
+        tenants = sql.read("settings", "business_tenants")
         if (
             not current
             or not current["enabled"]
             or current["principal"] != ctx.principal.model_dump(mode="json")
+            or (tenants is not None and not tenants.get(ctx.principal.home_scope.tenant_id, False))
         ):
             sql.abort(ErrorCode.FORBIDDEN, "principal revoked or changed")
         if self.clock() >= ctx.deadline_at:
@@ -139,6 +196,23 @@ class Identity:
     ) -> None:
         if not self.permits(tx, ctx, permission, target):
             native(tx).abort(ErrorCode.FORBIDDEN, "no permission for this object")
+
+    def discoverable(
+        self,
+        tx: Transaction,
+        ctx: TrustedContext,
+        target: RecordRef,
+        selection: ScopeSelector,
+    ) -> bool:
+        """Home resources plus explicitly granted resources, intersected with the request."""
+        if any(
+            getattr(target.scope, key) != value
+            for key, value in selection.model_dump(exclude_none=True).items()
+        ):
+            return False
+        # Memory grants cover the logical memory; a version is still checked by B.
+        logical = target.model_copy(update={"version": None})
+        return self.permits(tx, ctx, Permission.READ, logical)
 
     def permits(
         self, tx: Transaction, ctx: TrustedContext, permission: Permission, target: RecordRef
@@ -164,7 +238,13 @@ class Identity:
             grant = AuthorizationGrant.model_validate(raw)
             if (
                 grant.grantee_id == principal.principal_id
-                and grant.resource == target
+                and (
+                    grant.resource == target
+                    or (
+                        grant.resource.version is None
+                        and grant.resource == target.model_copy(update={"version": None})
+                    )
+                )
                 and permission in grant.permissions
                 and (grant.expires_at is None or self.clock() < grant.expires_at)
             ):

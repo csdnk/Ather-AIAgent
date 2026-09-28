@@ -23,6 +23,33 @@ class AlwaysCreate:
         return ComparisonDecision(outcome="create", reason="adversarial_create")
 
 
+def test_concurrent_spool_winner_requires_exact_bytes_and_removes_temporary(app, monkeypatch):
+    import os
+
+    bodies = app.remember.bodies
+    scope = context(app).principal.home_scope
+    location = bodies.location(scope, "same immutable text")
+
+    def race(temporary, target):
+        target.write_bytes(temporary.read_bytes())
+        raise PermissionError("another writer published while the file is being read")
+
+    monkeypatch.setattr(os, "replace", race)
+    bodies._spool(location, "same immutable text")
+    assert bodies.path(location).read_text("utf-8") == "same immutable text"
+    assert not list(bodies.root.glob("*.tmp"))
+
+    def corrupt(temporary, target):
+        target.write_bytes(b"different bytes")
+        raise PermissionError("conflicting content")
+
+    monkeypatch.setattr(os, "replace", corrupt)
+    bodies.path(location).write_bytes(b"corrupted")
+    with pytest.raises(PermissionError):
+        bodies._spool(location, "same immutable text")
+    assert not list(bodies.root.glob("*.tmp"))
+
+
 class Semantic:
     async def extract(self, ctx, request):
         return ExtractionResult(

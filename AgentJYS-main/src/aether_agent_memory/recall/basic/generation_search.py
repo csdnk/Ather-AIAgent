@@ -19,7 +19,7 @@ from aether_agent_memory.runtime.contracts.models import (
 )
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
 from aether_agent_memory.runtime.foundation.identity import Identity
-from aether_agent_memory.runtime.foundation.requests import matches, select_scope
+from aether_agent_memory.runtime.foundation.requests import select_scope
 from aether_agent_memory.runtime.foundation.storage import SQLiteUnitOfWork
 from aether_agent_memory.runtime.foundation.telemetry import observed
 
@@ -57,7 +57,18 @@ class SQLiteGenerationSearch:
                 if self.identity.clock() >= request.deadline_at:
                     raise FoundationError(ErrorCode.DEADLINE_EXCEEDED, "chunk scan expired")
                 hit = ChunkHit.model_validate(row["hit"])
-                if hit.model_space != space.model_space or not matches(hit.memory.scope, scope):
+                target = RecordRef(
+                    owner=Flow.REMEMBER,
+                    object_type="memory",
+                    object_id=hit.memory.memory_id,
+                    scope=hit.memory.scope,
+                )
+                if hit.model_space != space.model_space or not self.identity.discoverable(
+                    tx,
+                    ctx,
+                    target,
+                    request.selection,
+                ):
                     continue
                 vector = row["vector"]
                 if len(vector) != space.dimensions or not all(

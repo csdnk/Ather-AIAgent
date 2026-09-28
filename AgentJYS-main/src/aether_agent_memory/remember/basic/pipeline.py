@@ -57,7 +57,7 @@ from aether_agent_memory.runtime.contracts.models import (
 )
 from aether_agent_memory.runtime.contracts.ports import Transaction
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint, later
-from aether_agent_memory.runtime.foundation.requests import matches, select_scope, text_hash
+from aether_agent_memory.runtime.foundation.requests import select_scope, text_hash
 from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction, native
 from aether_agent_memory.runtime.foundation.telemetry import observed
 
@@ -886,9 +886,7 @@ class RememberPipeline(Revalidation):
                 from aether_agent_memory.runtime.contracts.models import RecordRef
 
                 record_ref = RecordRef.model_validate(pointer)
-                if not matches(record_ref.scope, scope) or not self.identity.permits(
-                    tx, ctx, Permission.READ, record_ref
-                ):
+                if not self.identity.discoverable(tx, ctx, record_ref, selection):
                     continue
                 raw = required_record(tx, record_ref)
                 if raw["kind"] == "working":

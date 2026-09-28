@@ -101,6 +101,7 @@ b2-dataset = [
 ]
 
 [project.scripts]
+aether-p3 = "aether_agent_memory.runtime.flows.cli:main"
 aether-embedding-inspect = "aether_agent_memory.recall.embedding.__main__:main"
 aether-b1-sidecar = "aether_agent_memory.b1.sidecar:main"
 aether-b1-dashboard = "aether_agent_memory.b1.dashboard:main"
@@ -113,7 +114,7 @@ aether-p4-simulator = "aether_p4_simulator.server:main"
 
 [dependency-groups]
 dev = [
-  "fakeredis>=2.38,<3",
+  "fakeredis[lua]>=2.38,<3",
   "mypy>=2.1.0",
   "pre-commit>=4.6.0",
   "pytest>=9.1.1",
@@ -173,9 +174,10 @@ mypy_path = "src"
 exclude = ["^src/aether_agent_memory/p2/generated/"]
 
 [[tool.mypy.overrides]]
-module = ["aether_agent_memory.p2.generated.*"]
+module = ["aether_agent_memory.p2.generated", "aether_agent_memory.p2.generated.*"]
 follow_imports = "skip"
 ignore_errors = true
+ignore_missing_imports = true
 
 # CrossEncoder is an optional extra; keep checking our adapter without downloading
 # the model stack in the default CI environment.

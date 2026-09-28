@@ -8,7 +8,7 @@ from dataclasses import replace
 
 from .controller import Controller
 from .mock_p2 import MockP2
-from .models import Feedback, MemoryKey
+from .models import Feedback, Memory, MemoryKey, Tier
 from .policy import Settings
 from .runner import ManualClock, settle
 
@@ -42,7 +42,7 @@ def build(
     small_buffer: bool = False,
     retention_seconds: float = 3600,
     max_memories: int = 10000,
-):
+) -> tuple[Controller, MockP2, ManualClock]:
     settings = Settings(
         decay_seconds=60,
         audit_seconds=30,
@@ -58,19 +58,26 @@ def build(
     return controller, p2, clock
 
 
-def add(controller, p2, memory_id="M1", *, tenant="T1", base="cold"):
+def add(
+    controller: Controller,
+    p2: MockP2,
+    memory_id: str = "M1",
+    *,
+    tenant: str = "T1",
+    base: Tier = "cold",
+) -> MemoryKey:
     key = MemoryKey(tenant, memory_id)
     memory = p2.seed(key, "示例记忆正文：用户偏好简洁回答。", base=base)
     controller.register(memory)
     return key
 
 
-def burst(controller, key, count=12, prefix="access"):
+def burst(controller: Controller, key: MemoryKey, count: int = 12, prefix: str = "access") -> None:
     for i in range(count):
         controller.access(key, f"{prefix}-{i}")
 
 
-async def show(label, controller, p2, key):
+async def show(label: str, controller: Controller, p2: MockP2, key: MemoryKey) -> None:
     observed = await p2.observe(key)
     print(label)
     print(
@@ -357,7 +364,7 @@ async def run_scenario(name: str) -> None:
         clock.advance(1)
         await controller.tick()
         assert controller.store.pending[key].intent.action_id == original
-        assert "verification failed" in controller.snapshot(key)["reason"]
+        assert "verification failed" in str(controller.snapshot(key)["reason"])
         assert not await p2.verify_read(controller.store.stats[key].memory, "hot")
         assert len(p2.actions) == 1
         await show("热副本存在但读取校验失败，不能确认计划完成。", controller, p2, key)
@@ -420,7 +427,7 @@ async def run_scenario(name: str) -> None:
         original_verify = p2.verify_read
         injected = False
 
-        async def verify_with_access(memory, tier):
+        async def verify_with_access(memory: Memory, tier: Tier) -> bool:
             nonlocal injected
             if not injected:
                 injected = True
@@ -428,11 +435,11 @@ async def run_scenario(name: str) -> None:
                 print("故障时序注入：到期对账正在等待读取核验，此时送入新的有效访问。")
             return await original_verify(memory, tier)
 
-        p2.verify_read = verify_with_access
+        p2.verify_read = verify_with_access  # type: ignore[method-assign]
         try:
             await controller.tick()
         finally:
-            p2.verify_read = original_verify
+            p2.verify_read = original_verify  # type: ignore[method-assign]
         assert injected and controller.store.stats[key] is stats
         assert stats.access_count == 1 and stats.cold_since is None
         assert key in controller.store.ready
