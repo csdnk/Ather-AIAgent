@@ -54,10 +54,15 @@ def create_app(
     *,
     run_worker: bool = True,
     maintenance_credential: Callable[[], str] | None = None,
+    supervisor: Any = None,
+    close: Any = None,
 ) -> FastAPI:
     """Caller owns runtime lifetime. Credentials are supplied at use, never logged."""
     stopped = asyncio.Event()
     state: dict[str, Any] = {"worker": "disabled" if not run_worker else "starting"}
+    if supervisor is not None:
+        state = supervisor.state
+        run_worker = False
 
     async def worker() -> None:
         while not stopped.is_set():
@@ -83,8 +88,11 @@ def create_app(
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         stopped.clear()
-        task = asyncio.create_task(worker()) if run_worker else None
+        task = None
         try:
+            if supervisor is not None:
+                await supervisor.start()
+            task = asyncio.create_task(worker()) if run_worker else None
             yield
         finally:
             stopped.set()
@@ -95,8 +103,14 @@ def create_app(
                     task.cancel()
                     await asyncio.gather(task, return_exceptions=True)
             state["worker"] = "stopped"
+            if supervisor is not None:
+                await supervisor.stop()
+            if close is not None:
+                await close()
 
     app = FastAPI(title="P3 runtime", lifespan=lifespan)
+    app.state.runtime = runtime
+    app.state.supervisor = supervisor
 
     def context(
         request: Request,
@@ -124,6 +138,8 @@ def create_app(
             ErrorCode.IDEMPOTENCY_CONFLICT: 409,
             ErrorCode.DEPENDENCY_UNAVAILABLE: 503,
             ErrorCode.DEADLINE_EXCEEDED: 504,
+            ErrorCode.RESULT_INVALIDATED: 410,
+            ErrorCode.MEMORY_GONE: 410,
         }.get(error.code, 400)
         result = ErrorResponse(
             code=error.code,
@@ -152,7 +168,12 @@ def create_app(
 
     @app.get("/p3/runtime")
     def runtime_state(ctx: TrustedContext = trusted_dependency) -> dict[str, Any]:
-        return {**runtime.health.runtime(ctx), "http_worker": state["worker"]}
+        return {
+            **runtime.health.runtime(ctx),
+            "http_worker": state["worker"],
+            "worker_lanes": state.get("lanes", {}),
+            "identity_configuration": state.get("identity", "static"),
+        }
 
     @app.get("/p3/health", response_model=RuntimeHealthSnapshot)
     async def health(ctx: TrustedContext = trusted_dependency) -> RuntimeHealthSnapshot:
@@ -163,7 +184,10 @@ def create_app(
     async def ready(ctx: TrustedContext = trusted_dependency) -> JSONResponse:
         snapshot = await health(ctx)
         return JSONResponse(
-            status_code=200 if snapshot.readiness == "ready" else 503,
+            status_code=200
+            if snapshot.readiness == "ready"
+            and (supervisor is None or state["worker"] == "running")
+            else 503,
             content=snapshot.model_dump(mode="json"),
         )
 
@@ -247,4 +271,5 @@ def create_app(
         from aether_agent_memory.remember.http import attach_routes
 
         attach_routes(app, runtime.remember, trusted_dependency)
+    app.state.trusted_dependency = trusted_dependency
     return app

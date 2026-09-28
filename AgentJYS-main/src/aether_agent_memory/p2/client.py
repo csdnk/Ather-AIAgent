@@ -333,6 +333,23 @@ class P2GrpcClient:
         result = await self.get_object_result(key)
         return result.data if result is not None else None
 
+    async def read_range(self, key: str, start: int, end: int) -> bytes:
+        """Read [start,end); adapt the P2 wire's inclusive end without full hydration."""
+        if start < 0 or end < start:
+            raise ValueError("invalid object range")
+        if start == end:
+            return b""
+        await self.connect()
+        assert self._pb is not None and self._grpc is not None
+        response = await self._grpc.ObjectServiceStub(self._channel).GetObjectRange(
+            self._pb.GetObjectRangeRequest(bucket=self.bucket, key=key, start=start, end=end - 1),
+            timeout=self.timeout_seconds,
+        )
+        data = bytes(response.data)
+        if len(data) != end - start:
+            raise P2UnavailableError("P2 returned an incomplete object range")
+        return data
+
     async def get_object_result(self, key: str) -> P2ObjectBytes | None:
         """Preserve ObjectBytes.meta for the new contract adapter; keep legacy API unchanged."""
         await self.connect()

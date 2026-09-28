@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -31,6 +32,10 @@ from aether_agent_memory.runtime import RuntimeErrorBase
 
 def create_app(settings: AppSettings | None = None) -> FastAPI:
     """Build the P3 ASGI application with one long-lived runtime."""
+    if settings is None and os.environ.get("AETHER_SERVICE_CONFIG"):
+        from aether_agent_memory.runtime.flows.application import application
+
+        return application()
     resolved = settings or AppSettings()
     resolved.validate_for_profile()
 
@@ -84,6 +89,20 @@ def main() -> None:
     """Run the P3 application host with uvicorn."""
     import uvicorn
 
+    if os.environ.get("AETHER_SERVICE_CONFIG"):
+        from pathlib import Path
+
+        from aether_agent_memory.runtime.flows.config import ServiceConfiguration
+
+        config = ServiceConfiguration.load(Path(os.environ["AETHER_SERVICE_CONFIG"]))
+        uvicorn.run(
+            "aether_agent_memory.runtime.flows.application:application",
+            factory=True,
+            host=config.host,
+            port=config.port,
+            workers=1,
+        )
+        return
     resolved = AppSettings()
     resolved.validate_for_profile()
     uvicorn.run(

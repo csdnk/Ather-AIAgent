@@ -136,11 +136,21 @@ class Bodies:
         if text_hash(text) != location.content_hash:
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "immutable body changed")
         temporary = path.with_suffix("." + secrets.token_hex(8) + ".tmp")
-        with temporary.open("xb") as stream:
-            stream.write(text.encode("utf-8"))
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        data = text.encode("utf-8")
+        try:
+            with temporary.open("xb") as stream:
+                stream.write(data)
+                stream.flush()
+                os.fsync(stream.fileno())
+            try:
+                os.replace(temporary, path)
+            except PermissionError:
+                # Windows may deny replacement while another delivery reads the
+                # same immutable file. Only an exact already-published copy is success.
+                if not path.is_file() or path.read_bytes() != data:
+                    raise
+        finally:
+            temporary.unlink(missing_ok=True)
 
     async def persist(self, ctx: TrustedContext, scope: Scope, text: str) -> ResourceLocation:
         location = self.location(scope, text)

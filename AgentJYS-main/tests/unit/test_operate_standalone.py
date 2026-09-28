@@ -1,15 +1,15 @@
-"""Executable regression tests, kept inside Operate to honor the change boundary."""
+"""Regression tests for the independent Operate reference controller."""
 
 import asyncio
 import unittest
 from dataclasses import replace
 
-from .controller import Controller
-from .demo import add, build, burst
-from .mock_p2 import MockP2
-from .models import Feedback, MemoryKey
-from .policy import Settings, evaluate
-from .runner import ManualClock, settle
+from aether_agent_memory.operate.standalone.controller import Controller
+from aether_agent_memory.operate.standalone.demo import add, build, burst
+from aether_agent_memory.operate.standalone.mock_p2 import MockP2
+from aether_agent_memory.operate.standalone.models import Feedback, MemoryKey
+from aether_agent_memory.operate.standalone.policy import Settings, evaluate
+from aether_agent_memory.operate.standalone.runner import ManualClock, settle
 
 
 class OperateTests(unittest.IsolatedAsyncioTestCase):

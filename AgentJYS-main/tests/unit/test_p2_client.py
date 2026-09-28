@@ -16,6 +16,7 @@ class _Message:
 
 
 class _Proto:
+    GetObjectRangeRequest = _Message
     CreateCollectionRequest = _Message
     InsertVectorRequest = _Message
     VectorRecord = _Message
@@ -55,6 +56,30 @@ class _VectorStub:
 
 class _Grpc:
     VectorServiceStub = _VectorStub
+
+
+async def test_half_open_object_range_adapts_wire_end_and_checks_length():
+    from types import SimpleNamespace
+
+    from aether_agent_memory.p2.client import P2UnavailableError
+
+    class ObjectStub:
+        async def GetObjectRange(self, request, *, timeout):
+            assert request.start == 2 and request.end == 4
+            assert timeout == 10
+            return _Message(data=self.data)
+
+    stub = ObjectStub()
+    stub.data = b"cde"
+    client = P2GrpcClient("fixture")
+    client._channel = object()
+    client._pb = _Proto
+    client._grpc = SimpleNamespace(ObjectServiceStub=lambda channel: stub)
+    assert await client.read_range("key", 2, 5) == b"cde"
+    assert await client.read_range("key", 2, 2) == b""
+    stub.data = b"cd"
+    with pytest.raises(P2UnavailableError):
+        await client.read_range("key", 2, 5)
 
 
 class _SegmentStub:

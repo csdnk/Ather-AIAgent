@@ -45,6 +45,7 @@ class Health:
         self.app = app
         self.uow = app.foundation.uow
         self.probes: dict[str, Probe] = {}
+        self.required_dependencies: tuple[str, ...] = ("database", "logs")
 
     def register(self, name: str, probe: Probe, *, replace: bool = False) -> None:
         if name in self.probes and not replace:
@@ -130,6 +131,9 @@ class Health:
         }
         capabilities["context_budget"] = dependencies["tokenizer"]["state"]
         capabilities["rerank"] = dependencies["reranker"]["state"]
+        capabilities["deployment_dependencies"] = (
+            "available" if all(available(k) for k in self.required_dependencies) else "unavailable"
+        )
         if self.app.recall_settings.rerank_policy == "required" and not available("reranker"):
             capabilities["long_term"] = "degraded"
             capabilities["working_read"] = "degraded"
@@ -141,7 +145,7 @@ class Health:
             "model_space": self.app.model_space,
             "liveness": self.liveness(),
             "readiness": "ready"
-            if all(available(k) for k in ("database", "logs"))
+            if all(available(k) for k in self.required_dependencies)
             else "not_ready",
             "capabilities": capabilities,
             "dependencies": dependencies,

@@ -1,0 +1,33 @@
+# Unified service. The legacy compose.yaml remains the B1/B2/B3 compatibility demo.
+services:
+  p3:
+    build:
+      context: .
+      dockerfile: Dockerfile.p3
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    environment:
+      AETHER_LLM_API_KEY: ${AETHER_LLM_API_KEY:-}
+    volumes:
+      - ${AETHER_DEPLOYMENT_DIR:?Set an absolute deployment directory}:/deployment
+    ports:
+      - "127.0.0.1:${AETHER_HOST_P3_PORT:-8080}:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/p3/live', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+  engine:
+    profiles: [p2]
+    build:
+      context: ./engine
+    restart: unless-stopped
+    environment:
+      AETHER_P2_DATA_DIR: /var/lib/aether-engine
+    volumes:
+      - p2-data:/var/lib/aether-engine
+volumes:
+  p2-data:

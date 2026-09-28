@@ -46,7 +46,7 @@ from aether_agent_memory.runtime.foundation.storage import (
 from aether_agent_memory.runtime.foundation.tasks import Tasks
 from aether_agent_memory.runtime.foundation.telemetry import observed
 
-from .executor import LocalCacheExecutor
+from .executor import CacheCapacityError, LocalCacheExecutor
 
 
 @observed("operate")
@@ -142,6 +142,8 @@ class Operate:
             view["storage_watermark"] = change.object_revision
             view["cleanup"] = change.status != "active"
             view["permanent"] = change.status == "deleted"
+            view["cleanup_completed"] = False
+            view["scheduler_event"] = event.model_dump(mode="json")
         else:
             seen_key = fingerprint([key, access.access_key])
             if sql.read("operate_access_keys", seen_key):
@@ -149,8 +151,31 @@ class Operate:
             sql.write("operate_access_keys", seen_key, True)
             view["access_watermark"] += 1
             view["successful_reads"] += 1
+            if self.identity.permits(
+                sql,
+                ctx,
+                Permission.READ,
+                RecordRef(
+                    owner=Flow.OPERATE,
+                    object_type="evaluation",
+                    object_id=memory.memory_id,
+                    scope=memory.scope,
+                ),
+            ):
+                # An authorized owner read refreshes the scheduling epoch. A grant
+                # limited to Remember resources cannot confer Operate authority.
+                view["scheduler_event"] = event.model_dump(mode="json")
         view["event"] = event.model_dump(mode="json")
         sql.write("operate_views", key, view)
+        scheduling_event = view.get("scheduler_event")
+        if scheduling_event is None and not change:
+            # A shared reader does not acquire authority over the owner's scheduler.
+            # Preserve the input; the durable storage event establishes its work context.
+            return
+        if scheduling_event is not None:
+            ctx = event_context(
+                sql, EventEnvelope.model_validate(scheduling_event), self.identity.clock()
+            )
         self.enqueue(
             sql,
             ctx,
@@ -461,7 +486,11 @@ class Operate:
         if existing and existing["state"] in {"generated", "submitted", "unknown"}:
             intent = ActionRecord.model_validate(existing).intent
         else:
-            self.executor.ensure(item)
+            try:
+                self.executor.ensure(item)
+            except CacheCapacityError:
+                with self.uow.transaction() as tx:
+                    return self.finish(tx, ctx, task, {"deferred": "cache_capacity"})
             observation = await self.executor.observe(ctx, memory, "original")
             resources = await self.executor.resources(ctx)
             with self.uow.transaction() as tx:
@@ -475,7 +504,7 @@ class Operate:
                     access_watermark=view["access_watermark"],
                     successful_reads=view["successful_reads"],
                     current_tier=observation.tier,
-                    importance=0.5,
+                    importance=item.importance,
                     available_bytes=resources.available_bytes,
                     content_bytes=len(item.content.encode()),
                     coverage="complete" if observation.readable else "unknown",
@@ -495,6 +524,7 @@ class Operate:
                         decision.current_tier,
                         decision.target_tier,
                         resources.epoch,
+                        task.task_id,
                     ]
                 ),
                 decision=decision,
@@ -508,6 +538,10 @@ class Operate:
             )
         with self.uow.transaction() as tx:
             self.tasks.guard(tx, task)
+            pending = tx.read("operate_pending", key)
+            prior = tx.read("operate_actions", pending) if pending else None
+            if prior and prior["state"] in {"generated", "submitted", "unknown"}:
+                intent = ActionRecord.model_validate(prior).intent
             tx.write("operate_task_actions", task.task_id, intent.model_dump(mode="json"))
             tx.write("operate_pending", key, intent.action_id)
         action = await self.execute(ctx, intent)
@@ -589,7 +623,7 @@ class Operate:
             try:
                 with self.uow.transaction() as tx:
                     view = tx.read("operate_views", key)
-                    event = EventEnvelope.model_validate(view["event"])
+                    event = EventEnvelope.model_validate(view.get("scheduler_event", view["event"]))
                     ctx = event_context(tx, event, self.identity.clock())
                     self.enqueue(
                         tx,

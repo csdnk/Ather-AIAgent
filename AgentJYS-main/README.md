@@ -1,396 +1,266 @@
-# AetherStore
+# Aether P3 — Agent 持久记忆服务
 
-> **Recall 流程增量（2026-09-20）：** 已实现独立候选检索、融合、可配置 CrossEncoder、真实 token 预算及 Milvus VectorPort。使用与验证方式见[流程实现说明](../交付成果/架构设计/Recall与Embedding_流程实现说明.md)。默认本地模式保留 SQLite；Milvus 真实联调状态以本批验收记录为准。
+P3 将对话、任务信息和文档保存为可追溯记忆，并按请求身份、来源、版本、有效性及 token 预算返回上下文，供上层 Agent 使用。对外业务是 **Remember（存储记忆）**和 **Recall（召回记忆）**；Operate 是内部持续运行的热度、缓存与恢复机制。
 
-> **团队协作入口：[开发与提交规范](CONTRIBUTING.md)**；完整交付见[协同开发基线](../交付成果/开发协作/README.md)。
+**状态更新：2026-09-28。当前已形成可启动、持续处理任务、持久化恢复的本地统一服务；真实外部集成和生产验收仍待完成。** 当前实现与验证边界见下方“当前状态”，完整证据见 [9 月 26 日整合验收报告](../交付成果/测试与验收/P3_统一运行整合与验收_20260926.md)。
 
-> **P3 当前入口（PRD V1.3）：[总体设计与协作契约](docs/p3/README.md)。** [三个流程基础实现](docs/p3/development/05_三个流程基础实现与联调.md)已接入公共底座，可独立运行写入、召回与自动本地缓存调度。指标暂缓；真实记忆提取模型、生产存储及新HTTP路由尚未接通；Milvus适配已交付、真实联调待环境，旧服务说明不代表新契约已完成产品验收。
-
-> 已补齐[本地日志、Trace 与健康检测](docs/p3/development/06_日志追踪与健康检测.md)：按 trace_id 查询节点过程及持久任务/事件状态，提供授权健康查询；本批不含容器和云端采集。
-
-> [真实 Embedding](docs/p3/development/07_真实Embedding接入与旧实现清理.md)已接入 Remember/Recall，默认 BGE 中文 512 维 CPU 推理；完整三流程真实模型联调已通过。
-
-AetherStore 是以 **P3 Intelligent Memory System** 为核心的 Agent 上下文与记忆运行时。
-它把文本向量化、记忆形成与召回、上下文组织、派生投影和语义调度整合为一个可长期运行、
-可观测、可恢复的工程系统，目标是通过稳定的 HTTP 契约供现有 Agent、企业平台和多端应用接入；当前新流程运行入口为 Python Host/CLI。
-
-本仓库同时包含 P2 存储基座和 P4 参考应用，但二者主要用于验证 P3 的上下游边界：
-
-- **P3 是当前产品与工程重点**：新框架按 Recall、Remember、Operate 三个流程组织，统一 Context Runtime 负责接入。
-- **P2 是可替换的基础设施 Provider**：提供对象、向量和段控制能力，不反向定义 Memory Domain。
-- **P4 是上层接入模拟器**：只通过冻结的 P3 Northbound v1 HTTP Contract 调用 P3。
-
-> 新框架入口：`recall/`、`remember/`、`operate/`。Recall 的受理与执行骨架、共享
-> 三流程当前实现位于各自 `basic/`，公共机制位于 `runtime/foundation/`，
-> 由 `runtime/flows/host.py` 装配。旧 B1/B2/B3 及旧 Recall 骨架有兼容消费者，修改或删除须先验证引用与回归。
-> 详见 [三个流程的结构与迁移边界](docs/flow_architecture.md) 和
-> [Recall 第一批交付](docs/recall_admission_first_batch.md)。
-
-## 新框架开发入口
+## 服务如何工作
 
 ```text
-Recall                   Remember                   Operate
-请求受理、选路、执行      记忆形成与生命周期          调度与优化
-  ├── embedding/         批准 Passage 输入           策略与控制器
-  └── vector_projection/ 投影领域状态                动作执行 Port
-           \                |                         /
-                  公共契约 + RF / P2 Port
+对话 / 任务 / 文档 → Remember → 当前记忆 → 后台抽取、核验与长期化 → 正文和索引
+查询 + 当前身份   → Recall   → 候选资格检查 → 精确版本正文 → 最终复核 → 上下文与来源
+存储与成功读取事件 → 内部 Operate → 热度与定时衰减 → 缓存准备、读回确认及恢复
+                         RF 为以上流程提供事务、持久任务、事件与权限校验
 ```
 
-新代码直接导入 `aether_agent_memory.recall` 下的实现。Embedding 的契约、共享执行和重试
-位于 `recall/embedding/`，通过 Port 注入推理后端；不调用 B1 的 Embedding。
-真实 ONNX/OpenVINO/IPEX 引擎已迁入该目录，ONNX 已完成本地真实推理验证，
-启动与装配方式见 [真实 Embedding 使用说明](docs/recall_embedding_native.md)。
-数据库、本地持久化及单机恢复由 RF 提供，生产恢复另验。当前统一门禁：
-
-```text
-python scripts/p3/validate_collaboration.py
-```
-
-以下仅为保留的旧受理骨架例子，不是当前三流程开发入口：
-
-```bash
-python examples/recall_admission.py
-python -m pytest tests/unit/recall
-```
-
-以下旧系统说明记录仍在运行的兼容能力，不代表三个新流程已经全部迁移完成。
-
-## 旧系统兼容架构
-
-```text
-企业平台 / Agent / Web / 微信小程序 / P4 Simulator
-                         |
-                 P3 Northbound API v1
-                         |
-                 AetherStore P3 Runtime
-        +----------------+----------------+
-        |                |                |
-   B1 Embedding      B2 Memory       B3 Scheduler
-        |                |                |
-        +-------- Context Kernel ---------+
-                         |
-              Ports + Provider Adapters
-                         |
-           P2 / Redis / Milvus / Celery
-```
-
-浏览器、企业平台和小程序不直接访问 Redis、Milvus、Celery、B1 或 P2。所有调用统一经过 P3，
-由 P3 负责身份 Scope、幂等、错误语义、降级边界和审计轨迹。
-
-## 核心能力
-
-### B1 Embedding Sidecar
-
-B1 是独立 CPU Embedding 服务，负责旁路拦截、文本分块、向量化和吞吐指标：
-
-- 支持单条与批量文本，返回 512 维归一化 FP32 向量。
-- 支持 Query/Passage 输入语义。
-- 已实现跨请求动态批处理、长度感知批处理、有界队列和 deadline fairness。
-- 支持 FastEmbed/ONNX Runtime CPU 后端。
-- Production Profile 已绑定 OpenVINO INT8、`AsyncInferQueue`、多 InferRequest，并禁止静默回退。
-- 分别统计 `request_qps`、`effective_item_qps` 和 `vector_qps`。
-
-合同中的 QPS 口径按 **Effective Embedding Item QPS** 管理：一条独立待向量化文本 Item
-计为一次 Query，Batch 只是内部优化，不重复乘算。历史隔离实验曾达到
-`2134.5 item/s`，但该结果不等于当前提交已完成正式验收；当前代码仍需在服务器 CPU 独占窗口
-按冻结的模型、数据集、并发、亲和性和报告口径重新测试。
-
-### B2 Memory Runtime
-
-B2 已从“写入 + 检索脚本”扩展为完整的 Memory Application 层：
-
-- Working、Episodic、Semantic Memory 的业务语义保持兼容。
-- `Memory` 业务事实与 Projection、Processing、Placement、Value State 分离。
-- `MemoryFormationPolicy` 将 Observation/Event 转换为 Memory、NoMemory 或 Pending。
-- 统一 Recall Pipeline：Candidate Source → 校准/融合 → 策略过滤 → 排序 → Token Budget → ContextPack。
-- 长文本经 Celery 异步处理，B1 负责分块与向量化，P2 保存对象和向量事实，Milvus 可作为可选投影。
-- Recall 访问通过 best-effort telemetry 记录，不要求逐条同步重写主 Memory。
-- 幂等生命周期、任务 Scope 校验、投影状态归一化和旧数据兼容已实现。
-
-### B3 Semantic Scheduler
-
-B3 将访问频率、语义相关性、时间因素、业务优先级和迁移成本转换为 Heat Score 与调度动作：
-
-- 支持 `KEEP`、`PREFETCH`、`PROMOTE`、`DEMOTE` 等控制面动作。
-- 候选转换和 signal logic 位于 B3 Application/Domain，不在 HTTP 层拼装。
-- Action Log 和 Signal 可持久化并按 tenant/user/agent Scope 隔离。
-- Production 默认使用 Shadow Mode，避免未验证策略直接改变数据面。
-- 当前 P2 执行器完成的是确定性逻辑路由和状态回写，不代表真实对象字节已经物理迁移。
-
-### Unified Context Kernel
-
-P3 参考 [OpenViking](https://github.com/volcengine/OpenViking) 的统一上下文组织模式，建立了
-自己的 provider-neutral Context Kernel；这里只参考架构思路，不复制其 AGPL 实现：
-
-- 使用规范化 `aether://` URI 组织 Memory、Resource、Skill 和 Session。
-- 提供 L0 Abstract、L1 Overview、L2 Detail/Transcript 分层内容。
-- Context Catalog 支持目录浏览、单项读取、层级检索和有界 Reindex。
-- Resource、Skill 和 Session Archive 均可进入独立派生投影队列。
-- Session 支持消息追加、当前窗口、Commit、Archive 和异步 Memory Extraction。
-- Context 查询记录 provider-neutral Retrieval Trace，便于解释命中来源与降级原因。
-- Catalog 已作为 Recall Candidate Source 接入 `/api/v1/context`，新增来源不需要修改 Runtime 主流程。
-
-## 旧系统运行时架构
-
-P3 的稳定依赖方向为：
-
-```text
-FastAPI Host / API Routers
-            |
-      MemoryRuntime Facade
-            |
-   Application Use Cases
-            |
- Memory Domain + Canonical Ports
-            |
-      Provider Adapters
-   +--------+--------+---------+
-   |        |        |         |
-  B1       P2      Redis   Milvus/Celery
-```
-
-关键工程约束：
-
-- `aether_agent_memory.app` 是唯一真实 P3 HTTP Host；`scripts/p3_service.py` 仅为兼容 wrapper。
-- `AppSettings` 是 Host 的唯一配置 Source of Truth，经 Composition Root 构建长期存活的 Runtime。
-- API Router 只调用 Runtime/Application Service，不直接访问 P2、Redis、Celery、Milvus 或具体 B1 Client。
-- `MemoryRuntime` 是 Facade，不承载全部业务实现；Remember、BuildContext、SearchMemory、
-  IngestLongMemory、ScheduleMemory 等 Use Case 位于 Application 层。
-- Domain/Application 依赖 typed Ports 和 DTO；Adapter 负责把 Provider 数据转换为内部模型。
-- P2 collection/namespace 规则封装为 Vector Namespace Strategy，不是 Memory Domain 规则。
-
-异步恢复路径独立于同步北向请求：
-
-```text
-Memory write
-   +--> Memory Projection Queue --> Projection Worker --> B1 + P2 vector projection
-   |
-Resource / Skill / Session Archive
-   +--> Context Projection Queue --> Context Projection Worker --> semantic index
-   |
-Session commit
-   +--> Session Extraction Queue --> Session Worker --> Formation Policy --> Memory
-```
-
-队列失败不回滚权威事实；租约、重试、Reconcile/Reindex 用于恢复漏投和临时 Provider 故障。
-
-## 项目结构
-
-```text
-.
-├── src/aether_agent_memory/
-│   ├── recall/                 # 新 Recall 流程，含 embedding/、vector_projection/
-│   ├── remember/               # 新 Remember 流程入口（实现待迁移）
-│   ├── operate/                # Operate 模型、策略、控制器与 Port
-│   ├── api/                    # FastAPI routers、dependencies、HTTP mappers
-│   ├── application/            # P3 application use cases
-│   ├── bootstrap/              # Composition Root
-│   ├── core/                   # Memory Domain、Scope、enums、exceptions
-│   ├── memory/                 # formation、retrieval、projection、repository
-│   ├── context_store/          # URI、Catalog、层级检索、Reindex
-│   ├── resource/               # Context Resource 模型与解析边界
-│   ├── skill/                  # Skill 描述与 Port
-│   ├── session/                # Session 生命周期、Archive、Extraction
-│   ├── b1/                     # CPU Embedding Sidecar 与后端
-│   ├── b2/                     # 长文本、压缩、任务状态与 Provider bridges
-│   ├── b3/                     # Heat、策略、动作与执行边界
-│   ├── adapters/               # P2/Redis/Milvus/Celery/B1 等实现
-│   ├── runtime/                # 长生命周期 Facade、DTO、health、reliability
-│   └── app.py                  # 唯一 P3 ASGI Host
-├── src/aether_p4_simulator/    # 仅通过 P3 v1 契约接入的上层模拟器
-├── engine/                     # P2 Rust 存储基座，当前不作为 P3 重构重点
-├── web/                        # React + Vite + TypeScript 展示前端
-├── contracts/                  # 冻结契约及验收输入
-├── docs/adr/                   # 架构决策记录
-├── benchmarks/                 # B1/B2/系统级性能脚本
-├── scripts/                    # 兼容入口、部署、冒烟和验收脚本
-├── tests/                      # 单元、契约、集成与 Compose 测试
-├── compose.yaml                # integration 编排
-└── compose.production.yaml     # production fail-closed override
-```
+默认部署在一个 Python 进程内装配 HTTP 和后台执行循环。任务不需要调用方手动推进；默认正文与向量使用本地 SQLite，缓存使用文件系统。可通过配置接入原生 BGE、LLM、P2 及 Milvus。Working/Episodic/Semantic 是业务记忆类型；hot/warm/cold 是内部访问准备层级。
 
 ## 快速启动
 
-### Docker Compose 联调
+以下命令均在 **`AgentJYS-main/`** 中执行。从仓库根目录开始时先运行 `cd AgentJYS-main`。建议使用 Python **3.13**（包声明为 `>=3.13`，当前验证基线为 3.13），先用 `lexical` 模式跑通保存与查询，不需要外部服务或 BGE 模型下载。
 
-要求 Docker、Compose 和足够的模型下载空间。默认启动 P2、P3、B1、Redis、Celery 及三个 P3
-后台 Worker；Demo 与 Milvus 投影默认关闭。
+### Windows PowerShell
+
+虚拟环境和部署数据保存在仓库外；`$P3Home` 可改为自己的外部工作目录。直接调用虚拟环境解释器，无需修改 PowerShell 激活策略。
+
+```powershell
+$P3Home = Join-Path (Resolve-Path ../..).Path '.agent-work/aether/workspace-support/p3-local'
+$P3Python = Join-Path $P3Home 'venv/Scripts/python.exe'
+$P3Deploy = Join-Path $P3Home 'deployment'
+python --version
+python -m venv (Join-Path $P3Home 'venv')
+& $P3Python -m pip install -e .
+& $P3Python -m aether_agent_memory init --directory $P3Deploy --embedding-profile lexical
+& $P3Python -m aether_agent_memory check-config --config (Join-Path $P3Deploy 'service.yaml')
+& $P3Python -m aether_agent_memory serve --config (Join-Path $P3Deploy 'service.yaml')
+```
+
+### Linux / macOS
 
 ```bash
-docker compose up -d --build
-docker compose ps
-curl http://localhost:8080/health
+P3_HOME="$HOME/.local/share/aether/p3-local"
+P3_PYTHON="$P3_HOME/venv/bin/python"
+P3_DEPLOY="$P3_HOME/deployment"
+python3.13 -m venv "$P3_HOME/venv"
+"$P3_PYTHON" -m pip install -e .
+"$P3_PYTHON" -m aether_agent_memory init --directory "$P3_DEPLOY" --embedding-profile lexical
+"$P3_PYTHON" -m aether_agent_memory check-config --config "$P3_DEPLOY/service.yaml"
+"$P3_PYTHON" -m aether_agent_memory serve --config "$P3_DEPLOY/service.yaml"
 ```
 
-启用 P4 参考应用：
+`check-config` 成功输出 `{"valid": true, "profile": "local"}`；它只检查配置，不证明模型或外部服务可用。`serve` 持续占用当前终端，默认监听 `127.0.0.1:8080`。打开 [接口文档](http://127.0.0.1:8080/docs) 或 [存活检查](http://127.0.0.1:8080/p3/live)。安装后也可用 `aether-p3` 代替 `python -m aether_agent_memory`。
+
+初始化产生以下文件：
+
+| 文件 | 用途 |
+|---|---|
+| `service.yaml` | 服务、后台任务和 Provider 配置 |
+| `identities.yaml` | 租户、身份权限、凭据 SHA256 与共享授权 |
+| `credential` | 本地管理员的 Bearer 凭据；不要提交或公开 |
+| `embedding.json` | 仅 native 初始化时生成，含部署目录中的模型缓存位置 |
+| `state/` | 服务运行后生成的持久业务数据与缓存 |
+
+`init` 遇到已有配置或凭据会拒绝覆盖。后续启动只需执行 `serve`，不要反复初始化。配置中的 `data_dir`、`identity_file`、`embedding_config` 和 `recall_config` 相对 **配置文件所在目录**解析。
+
+### 验证首次保存与长期召回
+
+保持服务运行，另开终端，进入 `AgentJYS-main`，重新设置相同变量后执行：
+
+```powershell
+$P3Home = Join-Path (Resolve-Path ../..).Path '.agent-work/aether/workspace-support/p3-local'
+$P3Python = Join-Path $P3Home 'venv/Scripts/python.exe'
+$P3Deploy = Join-Path $P3Home 'deployment'
+& $P3Python scripts/p3/smoke_service.py --url http://127.0.0.1:8080 --credential-file (Join-Path $P3Deploy 'credential')
+```
+
+Linux/macOS 在第二个终端重新设置前述变量，再执行：
 
 ```bash
-docker compose --profile p4 up -d --build
+"$P3_PYTHON" scripts/p3/smoke_service.py --url http://127.0.0.1:8080 --credential-file "$P3_DEPLOY/credential"
 ```
 
-启用可选 Milvus 投影：
+脚本会写入一条带唯一标识的测试记忆、主动结束批次、等待长期索引、查询并再次获取结果。成功输出含 `"passed": true`、`operation_id` 和 `recall_id`；不会输出凭据。测试记忆会保留在部署数据中。
 
-```bash
-AETHER_B2_MILVUS_PROJECTION=true docker compose --profile milvus up -d --build
+## 调用业务接口
+
+受保护接口使用 `Authorization: Bearer <credential 文件内容>`。初始化身份拥有全部权限，仅用于本地接入起点；正式部署应配置实际身份和权限。请求的 `selection` 用于缩小业务范围，不能覆盖认证身份或租户。
+
+下面是在 PowerShell 中保存一条偏好的示例，需先设置前述 `$P3Deploy`：
+
+```powershell
+$P3Headers = @{
+    Authorization = 'Bearer ' + (Get-Content -Raw -Encoding UTF8 (Join-Path $P3Deploy 'credential')).Trim()
+    'X-Operation-ID' = [guid]::NewGuid().ToString('N')
+}
+$P3Session = 'example-' + [guid]::NewGuid().ToString('N')
+$P3Body = @{
+    source = @{
+        kind = 'conversation'
+        external_id = $P3Session
+        external_version = '1'
+        occurred_at = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+    }
+    selection = @{ session_id = $P3Session }
+    content = @{ kind = 'text'; text = '用户喝咖啡不加糖。' }
+} | ConvertTo-Json -Depth 5
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8080/p3/remember -Headers $P3Headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($P3Body))
+
+# 新业务操作使用新 ID；重试同一次操作时保留原 ID 和请求体。
+$P3Headers['X-Operation-ID'] = [guid]::NewGuid().ToString('N')
+$P3Query = @{
+    query = '用户喝咖啡不加糖'
+    selection = @{ session_id = $P3Session }
+    sources = 'both'
+    token_budget = 1000
+} | ConvertTo-Json -Depth 5
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8080/p3/recall -Headers $P3Headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($P3Query))
 ```
 
-Production Profile 使用 OpenVINO INT8 且 fail-closed：
+词法模式依赖词项相似度，示例使用相近措辞。未配置 LLM 时采用保守原文事件基线，不代表具备模型抽取、推理或压缩质量。Recall 的 `sources` 支持 `working`、`long_term`、`both`、`auto`。
 
-```bash
-docker compose -f compose.yaml -f compose.production.yaml up -d --build
+**保存成功不等于长期索引已就绪。** 默认累计 32 条、8000 token 或等待 600 秒触发长期化。要主动结束会话批次，可向 `POST /p3/remember/consolidate` 发送 `{"session_id":"实际会话 ID"}`，再查处理状态或等待长期 Recall；上面的冒烟脚本已包含这一步。
+
+| 接口 | 用途 |
+|---|---|
+| `POST /p3/remember` / `POST /p3/recall` | 保存记忆 / 返回上下文及来源 |
+| `PUT /p3/documents/{id}?version=1` | 上传不可变版本原件，返回可交给 Remember 的 `content` |
+| `GET /p3/memories` | 授权范围内的记忆目录 |
+| `GET /p3/remember/{id}/processing` | 后台处理状态与任务 |
+| `POST /p3/remember/{id}/correct`、`.../lifecycle`、`.../delete` | 更正、归档/激活、先阻断再清理 |
+| `POST /p3/sources/{id}/revoke` | 撤销来源并传播使用阻断 |
+| `/p3/remember/{id}/retention` | 保留策略 |
+| `POST /p3/remember/reflection`、`/p3/remember/distill` | 条件化反思与显式提炼 |
+| `GET /p3/recalls/{id}`、`.../result` | 查询进度、再次取结果；仍按当前版本和权限复核 |
+
+字段、版本条件和错误响应以当前运行服务的 `/docs` 为准。TXT 可直接解析；PDF/DOCX 需安装 `resource-documents` 扩展。旧 `/api/v1/...` 文档对应兼容栈。
+
+## 接入真实模型与存储
+
+在相同虚拟环境中安装可选依赖（Linux/macOS 将 `& $P3Python` 换为 `"$P3_PYTHON"`）：
+
+```powershell
+& $P3Python -m pip install -e '.[embedding-onnx,resource-documents]'
+# 使用新的部署目录，首次启动需要下载或提供 BGE 模型。
+$P3NativeDeploy = Join-Path $P3Home 'deployment-native'
+& $P3Python -m aether_agent_memory init --directory $P3NativeDeploy --embedding-profile native
 ```
 
-服务地址：
+编辑新目录的 `service.yaml` 后，对它执行 `check-config` 和 `serve`。`init` 默认就是 native；首跑步骤显式选择 lexical 是为了先验证本地链路。不要直接把 lexical 数据库改为 native，也不要直接替换已绑定的正文 Provider；模型空间与存储绑定会拒绝隐式迁移，应使用新数据目录并单独设计数据及索引迁移。
 
-| 服务 | 默认地址 | 说明 |
-| --- | --- | --- |
-| P3 API / OpenAPI | `http://localhost:8080` / `/docs` | 唯一北向入口 |
-| B1 Sidecar | `http://localhost:18081` | P3 内部依赖，不建议直接暴露给业务端 |
-| P2 gRPC | `localhost:50052` | P3 Provider |
-| P4 Simulator | `http://localhost:8090` | 需启用 `p4` profile |
+| 配置 | 作用及接入要求 |
+|---|---|
+| `embedding_profile: native`、`embedding_config` | BGE 中文 512 维编码；可在 `embedding.json` 指定已有 `model_path` |
+| `language_model` | 配置模型 `endpoint`、`model`，用于抽取、比较、压缩及摘要 |
+| `verifier_model` | 可选独立审核模型；省略时由同一模型另行审核 |
+| `p2_endpoint`、`p2_bucket` | P2 gRPC 正文/原件 Provider；接入前运行 `python scripts/generate_proto.py`（使用同一虚拟环境） |
+| `recall_config` | Recall 预算、可选 CrossEncoder、Milvus 等参数 |
+| `redis_url_env` | 可选 Redis URL 的环境变量名 |
 
-查看日志和停止：
+模型服务需兼容 `/chat/completions` 的 JSON object 输出和 `/models` 模型查询。初始化时可附加 `--model 实际模型名 --model-endpoint http://模型服务/v1`，密钥由环境变量 `AETHER_LLM_API_KEY` 提供（可用 `api_key_env` 改名）。真实模型的抽取、冲突判断、压缩质量需单独评测。
 
-```bash
-docker compose logs -f p3 b1-sidecar celery-worker \
-  p3-session-worker p3-projection-worker p3-context-projection-worker engine
-docker compose down
+[生产配置样例](configs/p3.production.example.yaml) 给出完整字段；其中占位模型名和端点必须替换。`profile: production` 强制要求 native、LLM 与 P2 配置，它是配置门槛，不是生产认证。完整配置与身份变更说明见 [运行指南](../交付成果/部署运行/P3_统一服务运行指南_20260926.md)。
+
+## 持续运行与排障
+
+`serve` 会启动 HTTP、任务 worker、事件投递、定时检查、身份重载和维护采样。使用单进程宿主 `workers=1`，同一个部署目录只启动一个宿主；不要同时启动独立 Operate 演示控制器。需要进程退出后自动重启时，使用进程管理器或下方 Compose。
+
+按 `Ctrl+C` 正常停止，服务先等待在途任务，超时取消本次执行；下次使用同一配置启动后，按持久任务状态与租约恢复。结果未知（Unknown）的动作应查询原动作 ID，不能换一个 ID 重做副作用。
+
+| 检查入口 | 判断内容 |
+|---|---|
+| `GET /p3/live` | 无需鉴权；仅表示进程可响应 |
+| `GET /p3/ready`、`/p3/health` | 需要 DIAGNOSE 权限；检查必需依赖及能力证据 |
+| `GET /p3/runtime` | worker、队列、过期租约和 Unknown 动作 |
+| `GET /p3/tasks/{id}`、`.../progress` | 任务进度与恢复证据 |
+| `GET /p3/operate/memories/{id}` | 热度、输入水位和缓存动作 |
+| `GET /p3/incidents`、`/p3/logs/{trace_id}` | 维护事件及受控诊断日志 |
+
+常见问题：
+
+- **端口占用**：初始化时增加 `--port 8081`，或修改现有 `service.yaml` 的 `port`，同时调整请求地址。
+- **401/403**：检查 Bearer 凭据、租户启用状态、身份 epoch 和接口权限。修改身份配置需增加 `revision`，身份权限变更需增加 `auth_epoch`。
+- **保存后长期 Recall 为空**：检查 processing，确认批次已结束、任务成功且索引发布完成；lexical 查询应包含相近词项。
+- **native 启动失败**：检查扩展依赖、模型下载/目录、空间绑定；不要用更换已有数据库模式的方式绕过校验。
+- **live 正常但 ready 不可用**：查看授权 `/p3/health` 中失败的依赖，配置校验通过不能替代实际连接检查。
+
+部署目录应持续保存。备份需覆盖 RF、正文 Provider、配置、索引及模型绑定；仅备份 RF 数据库不足以完成灾备。业务历史和动作证据仍需容量规划、归档与备份周期；日志保留上限不代表所有业务数据已自动回收。
+
+## Docker 部署
+
+统一宿主使用 [compose.p3.yaml](compose.p3.yaml) 和 [Dockerfile.p3](Dockerfile.p3)。以下 PowerShell 示例使用单独的容器部署目录；需先具备可用的 Docker Engine 与 Compose：
+
+```powershell
+$env:AETHER_DEPLOYMENT_DIR = Join-Path (Resolve-Path ../..).Path '.agent-work/aether/workspace-support/p3-container'
+docker compose -f compose.p3.yaml run --build --rm --no-deps p3 python -m aether_agent_memory init --directory /deployment --embedding-profile lexical --host 0.0.0.0
+docker compose -f compose.p3.yaml up -d --build
+docker compose -f compose.p3.yaml logs -f p3
+# 停止服务；部署目录保留，后续用 up 再次启动。
+docker compose -f compose.p3.yaml down
 ```
 
-### 本地 Python 开发
+Linux/macOS 使用 `export AETHER_DEPLOYMENT_DIR="$HOME/.local/share/aether/p3-container"`，随后执行相同 Docker 命令。初始化只执行一次；容器内配置用 `/deployment` 路径，监听地址必须为 `0.0.0.0`。端口默认仅发布到宿主机 `127.0.0.1:8080`，可用 `AETHER_HOST_P3_PORT` 改宿主端口。
 
-当前 P3 要求 Python 3.13：
+接内置 P2 时，在新部署配置中设置 `p2_endpoint: engine:50052`，再用 `docker compose -f compose.p3.yaml --profile p2 up -d --build`。容器访问宿主模型可使用 `host.docker.internal`。`restart: unless-stopped` 负责进程重启，healthcheck 只检查 `/p3/live`，业务就绪仍需查询授权 `/p3/ready`。
 
-```bash
-uv sync --extra b1-sidecar --group dev --group demo
-uv run python scripts/generate_proto.py
-uv run python -m aether_agent_memory.app
+**当前仅通过 Compose 配置解析；新镜像构建、容器完整联调尚未验证。**
+
+## 当前状态
+
+| 能力 | 当前实现与验证范围 |
+|---|---|
+| Remember → Recall 统一链路 | 保存、后台长期化、多块完整索引发布、资格检查、精确正文、最终复核、结果重取已接通并本地验证 |
+| RF 持久底座 | SQLite 事务、任务租约、Outbox/Inbox、身份校验与恢复已接入；不等于跨 Provider 全部灾备 |
+| 原生 Embedding | 真 BGE 保存与召回已测；业务检索质量和生产吞吐仍需独立验收 |
+| 租户与共享 | 本地已测隔离、共享发现、撤权、停用及重新启用 epoch 栅栏；P4 真实身份平台待集成 |
+| 内部 Operate | 持久热度、定时衰减、缓存准备、读回确认、回收再唤醒已测；当前执行本地文件缓存，生产物理存储迁移待验收 |
+| 文档与模型加工 | 原件上传和解析入口、JSON 模型适配已接通；PDF/DOCX 需可选依赖，真实 LLM 质量及 5 倍压缩指标未验收 |
+| P2 / Milvus | 已有适配和协议测试；真实集群联调待验证 |
+| 部署与运营 | Docker 实跑、24/72 小时长稳、性能、多实例、完整灾备、Azure/AKS/P4 真实部署待验证 |
+| FR16（P1）预测预热 | 未实现，基础热度调度不能替代预测预热 |
+
+2026-09-26 工程记录：
+
+| 检查 | 结果 |
+|---|---|
+| 全仓 Python 回归（启用真 BGE，排除 Docker 环境项） | **1305 passed** |
+| 收尾统一 HTTP 回归 | **16 passed**；与上项重叠，不相加 |
+| 真实 TCP 保存、长期化、召回、重启后原结果重取 | 通过 |
+| Ruff / 严格 Mypy | 通过 / **356 source files** 通过 |
+| 合约、RF、三流程协作门禁 | 通过，具体分组与跳过项见验收报告 |
+| Compose 配置 | 解析通过；无新容器实跑证据 |
+
+上述数字引用 [该次工作区验收报告](../交付成果/测试与验收/P3_统一运行整合与验收_20260926.md)，不是本次 README 更新重新执行的全仓结果，也不代表新的远端 CI 或产品验收。短时回归不能替代长期运行及产品指标验收。
+
+本次 README 校核（2026-09-28）：在 Windows 已有 Python 3.13 环境中，使用新部署目录与 lexical 模式，通过初始化、配置校验、真实 TCP 就绪检查、长期召回冒烟及本文 PowerShell 保存/召回示例；临时服务已停止。未重新验证全新环境安装、Linux/macOS 实跑或 Docker 部署。
+
+## 开发与文档导航
+
+| 目录 / 文件 | 用途 |
+|---|---|
+| `src/aether_agent_memory/runtime/flows/` | 统一 CLI、配置、装配、HTTP 与持续执行器 |
+| `src/aether_agent_memory/runtime/foundation/` | RF 事务、任务、事件、身份与诊断 |
+| `src/aether_agent_memory/remember/` | 保存、长期化、文档与模型加工 |
+| `src/aether_agent_memory/recall/` | 原生编码、候选、正文、复核与上下文组装 |
+| `src/aether_agent_memory/operate/` | 热度算法、持续调度和文件缓存执行 |
+| `contracts/p3/`、`docs/p3/` | 需求基线、接口契约、架构与开发约束 |
+| `tests/`、`scripts/p3/` | 回归、协作门禁与公开 HTTP 冒烟 |
+| `configs/p3.production.example.yaml` | 统一服务配置样例 |
+| `engine/` | P2 引擎与协议 |
+
+在虚拟环境中安装工程测试依赖后运行静态检查和统一服务回归（Linux/macOS 同样替换解释器变量）：
+
+```powershell
+& $P3Python -m pip install -r scripts/p3/requirements-ci.txt
+& $P3Python -m ruff check src tests scripts benchmarks
+& $P3Python -m mypy src
+& $P3Python -m pytest -q tests/integration/test_continuous_service.py
 ```
 
-兼容入口仍可使用，但最终会转发到同一个 Host：
+完整回归和真模型测试需要相应扩展依赖与环境，执行范围及证据要求参见 [协作门禁脚本](scripts/p3/validate_collaboration.py) 和 [验收报告](../交付成果/测试与验收/P3_统一运行整合与验收_20260926.md)。
 
-```bash
-uv run python scripts/p3_service.py
-```
+- [完整部署运行指南](../交付成果/部署运行/P3_统一服务运行指南_20260926.md)
+- [PRD V1.3 基线](contracts/p3/prd-baseline.yaml) / [总体架构与流程](../交付成果/架构设计/总体架构与流程.md)
+- [项目与交付成果入口](../README.md)
+- 旧兼容栈参考：[Runtime 架构](docs/p3_runtime_architecture.md)、[旧 Northbound API v1](docs/P3_NORTHBOUND_API_V1.md)、[旧 ADR](docs/adr/README.md)、[Web 展示前端](web/README.md)、[历史服务器回归](docs/SERVER_REGRESSION_20260825.md)。这些文档保留原日期及背景，不作为统一宿主的默认启动说明。
 
-### Web 展示前端
-
-前端只调用 P3 API，不直接连接基础设施：
-
-```bash
-cd web
-npm install
-npm run dev
-```
-
-默认页面包括 Overview、B1 Embedding、B2 Memory 和 B3 Scheduler。配置与真实 API 支持情况见
-[web/README.md](web/README.md)。正式模式默认不使用 Mock；启用 Mock 时页面会显示 `MOCK MODE`。
-
-## Runtime Profiles
-
-| 能力 | demo | integration | production |
-| --- | --- | --- | --- |
-| Demo API | 可启用 | 默认关闭 | 禁止 |
-| Mock/Fallback | 允许 | 受配置控制 | 禁止静默回退 |
-| P2、Redis、B1 | 可选 | 联调依赖 | 必须且启动校验 |
-| B1 默认策略 | Mock/ONNX | ONNX/真实 Sidecar | OpenVINO INT8 |
-| B3 | Heuristic/Shadow | Heuristic/Shadow | 默认 Shadow |
-
-使用 `AETHER_RUNTIME_PROFILE=demo|integration|production` 选择 Profile。Production 缺少真实依赖、
-启用 Demo 或允许 B1 fallback 时，`AppSettings.validate_for_profile()` 会拒绝启动。
-
-## HTTP API
-
-### 冻结的 Northbound v1
-
-以下路径的核心请求字段与成功状态码保持兼容，详细契约见
-[docs/P3_NORTHBOUND_API_V1.md](docs/P3_NORTHBOUND_API_V1.md)：
-
-| 方法 | 路径 | 作用 |
-| --- | --- | --- |
-| `GET` | `/health` | 核心 Runtime 与真实可探测组件状态 |
-| `POST` | `/api/v1/memory/events` | 写入 Memory Event |
-| `POST` | `/api/v1/context` | 构建带 Token Budget 的 ContextPack |
-| `POST` | `/api/v1/b2/long-text` | 提交异步长文本任务 |
-| `GET` | `/api/v1/b2/tasks/{task_id}` | 查询任务状态并校验 Scope |
-| `POST` | `/api/v1/b2/search` | 检索长文本/向量记忆 |
-
-### P3 扩展 API
-
-| 范围 | 路径 |
-| --- | --- |
-| B1 | `/api/v1/embeddings`、`/api/v1/b1/embeddings`、`/api/v1/b1/status` |
-| B3 | `/api/v1/b3/candidates`、`/api/v1/schedules` |
-| Context Catalog | `/api/v1/context/catalog/children`、`item`、`search`、`reindex` |
-| Resource | `/api/v1/context/resources`、`/api/v1/context/resources/{resource_id}/delete` |
-| Skill | `/api/v1/context/skills`、`/api/v1/context/skills/{skill_id}/delete` |
-| Session | `/api/v1/sessions/messages`、`current`、`commit`、`consolidate` |
-| Recovery | `/api/v1/projections/reconcile` |
-| Demo/Observability | `/api/status`、`/api/flows`、`/api/schedules`、`/api/run-smoke` |
-
-HTTP 层统一返回可识别的 Invalid Argument、Not Found、Busy、Timeout、Unavailable 和 Internal
-错误语义。API 不暴露 Provider 凭据或 Redis/Milvus/P2 Client。
-
-## 验证
-
-```bash
-python -m pytest -q
-python -m ruff check src tests scripts benchmarks
-python -m mypy src
-python -m compileall -q src
-```
-
-当前提交在本地验证结果：
-
-```text
-pytest       390 passed, 3 skipped
-ruff         All checks passed
-mypy src     200 source files, no issues
-compileall   passed
-```
-
-真实模型和性能实验应回到安装了 `aether` Conda 环境、B1 模型及生产依赖的服务器执行；本地测试
-主要用于功能、契约和架构回归，不能替代正式性能证据。服务器回归记录见
-[docs/SERVER_REGRESSION_20260825.md](docs/SERVER_REGRESSION_20260825.md)。
-
-## 当前边界
-
-下列项目未被包装为“已完成”：
-
-1. **2000 Effective QPS 尚需当前代码正式复验**：历史 OpenVINO INT8 结果证明方案具备潜力，
-   但必须在 CPU 独占窗口按冻结 Acceptance Profile 重跑并归档证据。
-2. **B3 物理迁移未完成**：现阶段是 Control-plane 决策、逻辑路由与状态回写，不宣称完成
-   Milvus/P2/Redis 之间的真实字节搬运。
-3. **Prediction Model 未部署**：当前 B3 使用 `heuristic-v1`，生产默认 Shadow Mode。
-4. **语义 Memory Extraction Provider 未部署验收**：框架已有 typed Port 和可选 HTTP Adapter，
-   默认仍使用确定性兼容策略。
-5. **跨存储 Domain Event Outbox 未实现**：现有 Projection Queue、租约、重试和 Reconcile
-   解决派生任务恢复，但不等同于完整事务 Outbox。
-6. **索引物理回收仍需完善**：逻辑 tombstone 和查询过滤已实现，P2 stale vector 的物理删除、
-   批量回收和服务器 reindex 压测仍待完成。
-7. **原文所有权仍需收口**：长文本全文在 Memory 与 P2 E2 之间存在过渡期双写，需要按
-   ADR-0003 统一引用、保留和删除策略。
-8. **真实故障注入不足**：需要补充 Redis/P2/B1/Celery 中断、重复投递、租约过期和恢复演练。
-
-## 后续优先级
-
-1. 在服务器 CPU 独占窗口完成 B1 OpenVINO INT8 正式验收，冻结数据集、模型哈希、并发、
-   CPU 亲和性及 Effective Item QPS 计数口径。
-2. 完成 Context/Memory 派生索引物理回收与批量 Reindex 的生产验证。
-3. 接入公司真实 Memory Extraction Provider，验证 Session Archive → Formation → Memory 闭环。
-4. 建立持久 Domain Event Outbox，补齐跨存储对账、重复投递和断点恢复。
-5. 冻结降级矩阵、数据保留/删除、部署拓扑、监控与容量规划等公司落地 ADR。
-
-P2 与 P4 暂不做架构扩张；后续优化继续围绕 P3 的产品化、可靠性、性能与企业接入边界展开。
-
-## 文档索引
-
-- [P3 Runtime 架构](docs/p3_runtime_architecture.md)
-- [P3 Northbound API v1](docs/P3_NORTHBOUND_API_V1.md)
-- [架构决策记录](docs/adr/README.md)
-- [工程审计](docs/ENGINEERING_AUDIT.md)
-- [工程交付报告](docs/ENGINEERING_DELIVERY.md)
-- [服务器回归](docs/SERVER_REGRESSION_20260825.md)
-- [Web 展示前端](web/README.md)
-- [手动场景测试](docs/MANUAL_SCENARIO_TEST.md)
+旧 `python -m aether_agent_memory.app`、旧 `compose.yaml`、B1/B2/B3 演示和 `/api/v1/...` 继续保留兼容用途。新用户从本 README 的统一入口开始；可运行 Mock 是独立产品演示，不代表已经连接此服务。

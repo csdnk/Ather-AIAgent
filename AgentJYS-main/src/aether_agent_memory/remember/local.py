@@ -79,7 +79,7 @@ class RememberFactory:
             space = host.native_embedding.space
             backend = host.native_embedding.backends["Passage"]
             remember.embedding_count = lambda text: backend.count_tokens(text, "Passage")
-            remember.embedding_tokenizer_id = "native_passage"
+            remember.embedding_tokenizer_id = space.tokenizer_id
             if self.policy.projection_chunk_tokens > backend.max_input_tokens:
                 raise ValueError("Remember chunks exceed the passage model budget")
         elif space is None and isinstance(host.embedding, LexicalEmbedding):
@@ -97,8 +97,11 @@ class RememberFactory:
             )
         if space is None:
             raise ValueError("injected embedding needs an explicit EmbeddingSpace")
+        remember.embedding_tokenizer_id = space.tokenizer_id
         if host.owned_vectors is not None and self.generation_search is None:
-            raise ValueError("non-SQLite vectors need a generation search provider")
+            from aether_agent_memory.recall.basic.milvus_generation import MilvusGenerationSearch
+
+            self.generation_search = MilvusGenerationSearch(host.owned_vectors)
         host.enable_generation_recall(
             memories=remember,
             qualification=boundary,

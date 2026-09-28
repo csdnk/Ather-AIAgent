@@ -28,6 +28,10 @@ from aether_agent_memory.runtime.foundation.common import encode, fingerprint, n
 from aether_agent_memory.runtime.foundation.requests import text_hash
 
 
+class CacheCapacityError(ValueError):
+    """No external effect occurred; the controller may defer until space is freed."""
+
+
 class LocalCacheExecutor:
     provider_id = "local_filesystem_cache"
     mode = "real"
@@ -112,7 +116,7 @@ class LocalCacheExecutor:
                 return
             content = memory.content.encode("utf-8")
             if self.bytes_used() + len(content) > self.capacity:
-                raise ValueError("local cache capacity exhausted")
+                raise CacheCapacityError("local cache capacity exhausted")
             self.write_atomic(self.path(memory.ref, Tier.COLD), content)
             db.execute(
                 "INSERT INTO copies VALUES (?,?,?,?)",

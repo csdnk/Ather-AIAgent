@@ -35,7 +35,13 @@ class Monitoring:
     ) -> None:
         self.uow, self.identity, self.telemetry, self.clock = uow, identity, telemetry, clock
         self.config_version = "foundation_2"
-        self.required = ("save", "working_read", "context_budget", "long_term", "scheduling")
+        self.required: tuple[str, ...] = (
+            "save",
+            "working_read",
+            "context_budget",
+            "long_term",
+            "scheduling",
+        )
 
     def authorize(self, ctx: TrustedContext) -> None:
         with self.uow.transaction() as tx:
