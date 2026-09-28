@@ -6,9 +6,9 @@ import asyncio
 import secrets
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager, suppress
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import Depends, FastAPI, Header, Request
+from fastapi import Depends, FastAPI, Header, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
@@ -25,8 +25,10 @@ from aether_agent_memory.runtime.contracts.models import (
     ErrorResponse,
     Identifier,
     OperationRecord,
+    PageRequest,
     RecoveryRequest,
     TaskRecord,
+    TaskState,
     TrustedContext,
 )
 from aether_agent_memory.runtime.foundation.common import FoundationError, now
@@ -189,6 +191,26 @@ def create_app(
             and (supervisor is None or state["worker"] == "running")
             else 503,
             content=snapshot.model_dump(mode="json"),
+        )
+
+    @app.get("/p3/traces")
+    def traces(
+        flow: Literal["business", "remember", "recall", "operate", "runtime"] | None = None,
+        before: int | None = Query(default=None, ge=1),
+        limit: int = Query(default=50, ge=1, le=100),
+        ctx: TrustedContext = trusted_dependency,
+    ) -> dict[str, Any]:
+        return runtime.foundation.monitoring.traces(ctx, before=before, limit=limit, flow=flow)
+
+    @app.get("/p3/tasks")
+    def tasks(
+        state: TaskState | None = None,
+        cursor: str | None = None,
+        limit: int = Query(default=50, ge=1, le=100),
+        ctx: TrustedContext = trusted_dependency,
+    ) -> dict[str, Any]:
+        return runtime.foundation.diagnostics.tasks_page(
+            ctx, PageRequest(limit=limit, cursor=cursor), state
         )
 
     @app.get("/p3/logs/{trace_id}")

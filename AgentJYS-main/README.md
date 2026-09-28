@@ -81,6 +81,8 @@ Linux/macOS 在第二个终端重新设置前述变量，再执行：
 
 脚本会写入一条带唯一标识的测试记忆、主动结束批次、等待长期索引、查询并再次获取结果。成功输出含 `"passed": true`、`operation_id` 和 `recall_id`；不会输出凭据。测试记忆会保留在部署数据中。
 
+若要在 Web 中观察三流程运行，将命令中的 `smoke_service.py` 换为 `monitor_demo.py`。它额外验证 Working 召回、连续读取触发 Operate 自动 hot 放置、放置后的召回和三流程诊断记录，输出可在监控页查询的任务 ID 与 Trace ID。详见 [边测试边监测](web/README.md#一边运行三流程用例一边查看真实轨迹)。
+
 ## 调用业务接口
 
 受保护接口使用 `Authorization: Bearer <credential 文件内容>`。初始化身份拥有全部权限，仅用于本地接入起点；正式部署应配置实际身份和权限。请求的 `selection` 用于缩小业务范围，不能覆盖认证身份或租户。
@@ -133,6 +135,19 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8080/p3/recall -Headers $P3
 | `GET /p3/recalls/{id}`、`.../result` | 查询进度、再次取结果；仍按当前版本和权限复核 |
 
 字段、版本条件和错误响应以当前运行服务的 `/docs` 为准。TXT 可直接解析；PDF/DOCX 需安装 `resource-documents` 扩展。旧 `/api/v1/...` 文档对应兼容栈。
+
+## 打开真实监测 Web
+
+后端启动后，在另一个终端进入 `AgentJYS-main/web`，使用 Node.js 22 执行：
+
+```sh
+npm ci
+npm run dev
+```
+
+打开 [http://127.0.0.1:5173](http://127.0.0.1:5173)，点击“配置连接”，输入部署目录 `credential` 文件内容。页面通过同源 `/p3` 代理读取真实的健康、Worker、任务、异常与 Trace；后台地址默认是 `127.0.0.1:8080`。权限、端口修改、容器部署及限制见 [Web 使用指南](web/README.md)。
+
+监测界面提供运行总览、依赖探测、任务分页与详情、业务链路筛选、Trace 瀑布图和异常记录。趋势仅来自连接后的实际采样；凭据只保留在页面内存。统一 Compose 同时启动 Web，默认访问 `http://127.0.0.1:3000`。
 
 ## 接入真实模型与存储
 
@@ -212,6 +227,7 @@ Linux/macOS 使用 `export AETHER_DEPLOYMENT_DIR="$HOME/.local/share/aether/p3-c
 | RF 持久底座 | SQLite 事务、任务租约、Outbox/Inbox、身份校验与恢复已接入；不等于跨 Provider 全部灾备 |
 | 原生 Embedding | 真 BGE 保存与召回已测；业务检索质量和生产吞吐仍需独立验收 |
 | 租户与共享 | 本地已测隔离、共享发现、撤权、停用及重新启用 epoch 栅栏；P4 真实身份平台待集成 |
+| 监测 Web | 已接统一 `/p3` 接口，提供健康、任务、异常和 Trace 瀑布图；尚无跨实例聚合、持久历史指标和云端 APM 接入 |
 | 内部 Operate | 持久热度、定时衰减、缓存准备、读回确认、回收再唤醒已测；当前执行本地文件缓存，生产物理存储迁移待验收 |
 | 文档与模型加工 | 原件上传和解析入口、JSON 模型适配已接通；PDF/DOCX 需可选依赖，真实 LLM 质量及 5 倍压缩指标未验收 |
 | P2 / Milvus | 已有适配和协议测试；真实集群联调待验证 |
@@ -261,6 +277,7 @@ Linux/macOS 使用 `export AETHER_DEPLOYMENT_DIR="$HOME/.local/share/aether/p3-c
 - [完整部署运行指南](../交付成果/部署运行/P3_统一服务运行指南_20260926.md)
 - [PRD V1.3 基线](contracts/p3/prd-baseline.yaml) / [总体架构与流程](../交付成果/架构设计/总体架构与流程.md)
 - [项目与交付成果入口](../README.md)
-- 旧兼容栈参考：[Runtime 架构](docs/p3_runtime_architecture.md)、[旧 Northbound API v1](docs/P3_NORTHBOUND_API_V1.md)、[旧 ADR](docs/adr/README.md)、[Web 展示前端](web/README.md)、[历史服务器回归](docs/SERVER_REGRESSION_20260825.md)。这些文档保留原日期及背景，不作为统一宿主的默认启动说明。
+- [真实监测 Web](web/README.md)
+- 旧兼容栈参考：[Runtime 架构](docs/p3_runtime_architecture.md)、[旧 Northbound API v1](docs/P3_NORTHBOUND_API_V1.md)、[旧 ADR](docs/adr/README.md)、[历史服务器回归](docs/SERVER_REGRESSION_20260825.md)。这些文档保留原日期及背景，不作为统一宿主的默认启动说明。
 
 旧 `python -m aether_agent_memory.app`、旧 `compose.yaml`、B1/B2/B3 演示和 `/api/v1/...` 继续保留兼容用途。新用户从本 README 的统一入口开始；可运行 Mock 是独立产品演示，不代表已经连接此服务。

@@ -8,9 +8,16 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    cacheDir: env.AETHER_WEB_CACHE_DIR || "node_modules/.vite",
+    build: { outDir: env.AETHER_WEB_BUILD_DIR || "dist" },
     server: {
+      host: "127.0.0.1",
       port: 5173,
       proxy: {
+        "/p3": {
+          target: proxyTarget,
+          changeOrigin: true,
+        },
         "/p4-api": {
           target: p4ProxyTarget,
           changeOrigin: true,

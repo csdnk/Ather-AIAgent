@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 
 from aether_agent_memory.runtime.contracts.models import (
@@ -17,6 +18,7 @@ from aether_agent_memory.runtime.contracts.models import (
     RecordRef,
     RelatedRecords,
     TaskRecord,
+    TaskState,
     TrustedContext,
 )
 from aether_agent_memory.runtime.contracts.ports import Transaction
@@ -132,6 +134,56 @@ class Diagnostics:
         if existing and existing != data:
             sql.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "maintenance ID already used")
         sql.write("maintenance", record.record_id, data)
+
+    def tasks_page(
+        self, ctx: TrustedContext, page: PageRequest, state: TaskState | None = None
+    ) -> dict[str, Any]:
+        self.authorize(ctx)
+        with self.uow.transaction() as tx:
+            self.identity.revalidate(tx, ctx)
+            items = []
+            for _, row in tx.rows("tasks"):
+                task = TaskRecord.model_validate(row["record"])
+                if state is not None and task.state != state:
+                    continue
+                if not self.identity.permits(tx, ctx, Permission.DIAGNOSE, task.subject):
+                    continue
+                created = row["created_at"]
+                # Stable reverse chronological key for signed, identity-bound cursors.
+                order = 10**20 - int(datetime.fromisoformat(created).timestamp() * 1_000_000)
+                value = {
+                    key: row["record"][key]
+                    for key in (
+                        "task_id",
+                        "kind",
+                        "owner_flow",
+                        "state",
+                        "attempt",
+                        "max_attempts",
+                        "effect_status",
+                        "error_code",
+                        "subject",
+                        "next_run_at",
+                        "deadline_at",
+                    )
+                }
+                value["created_at"] = created
+                # Object grants do not grant access to another initiator's full trace.
+                value["trace_id"] = (
+                    row["context"]["trace_id"]
+                    if row["context"]["principal"]["principal_id"] == ctx.principal.principal_id
+                    and row["context"]["principal"]["home_scope"]
+                    == ctx.principal.home_scope.model_dump(mode="json")
+                    else None
+                )
+                items.append((f"{order:021d}:{task.task_id}", value))
+            rows, cursor = tx.page(
+                items,
+                ["diagnostic_tasks", ctx.principal.model_dump(mode="json"), state],
+                page,
+            )
+        self.authorize(ctx)
+        return {"items": rows, "next_cursor": cursor}
 
     def task(self, ctx: TrustedContext, task_id: str) -> TaskRecord:
         with self.uow.transaction() as tx:

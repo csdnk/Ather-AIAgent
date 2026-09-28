@@ -1,5 +1,13 @@
 # Unified service. The legacy compose.yaml remains the B1/B2/B3 compatibility demo.
 services:
+  web:
+    build:
+      context: ./web
+    restart: unless-stopped
+    depends_on:
+      - p3
+    ports:
+      - "127.0.0.1:${AETHER_HOST_WEB_PORT:-3000}:80"
   p3:
     build:
       context: .
