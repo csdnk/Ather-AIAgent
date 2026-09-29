@@ -60,3 +60,18 @@ it("clears failed snapshots, keeps gaps unknown, and recovers on the next poll",
   });
   expect(get).toHaveBeenCalledTimes(calls);
 });
+
+it("shows fast resources while a health probe is still pending", async () => {
+  let resolveHealth!: (value: unknown) => void;
+  vi.mocked(get).mockImplementation(async (path) => path === "/p3/health"
+    ? new Promise((resolve) => { resolveHealth = resolve; })
+    : path === "/p3/runtime" ? {pending_tasks: 2, unacknowledged_deliveries: 0} : {items: []});
+  const hook = renderHook(() => useMonitor("test-token", 0, 0, null, "", null, "business"));
+  await act(async () => {});
+  expect(hook.result.current.snapshot.runtime.data?.pending_tasks).toBe(2);
+  expect(hook.result.current.snapshot.health.data).toBeUndefined();
+  expect(hook.result.current.busy).toBe(true);
+  await act(async () => resolveHealth({readiness: "ready"}));
+  expect(hook.result.current.snapshot.health.data?.readiness).toBe("ready");
+  hook.unmount();
+});

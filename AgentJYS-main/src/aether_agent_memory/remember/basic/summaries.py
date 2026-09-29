@@ -121,6 +121,16 @@ class WorkingSummaries:
                     checkpoint_key = fingerprint([task.task_id, start + offset, text_hash(text)])
                     with owner.uow.transaction() as tx:
                         checkpoint = tx.read("remember_summary_parts", checkpoint_key)
+                        if checkpoint is not None:
+                            owner.tasks.progress.part(
+                                tx,
+                                ctx,
+                                task,
+                                "summary",
+                                "remember_summary_parts",
+                                checkpoint_key,
+                                config_version=owner.policy.version,
+                            )
                     if checkpoint is None:
                         last_error = "summary_selection_invalid"
                         for _ in range(owner.policy.summary_attempts):
@@ -164,6 +174,15 @@ class WorkingSummaries:
                                 with owner.uow.transaction() as tx:
                                     owner.tasks.guard(tx, task)
                                     tx.write("remember_summary_parts", checkpoint_key, checkpoint)
+                                    owner.tasks.progress.part(
+                                        tx,
+                                        ctx,
+                                        task,
+                                        "summary",
+                                        "remember_summary_parts",
+                                        checkpoint_key,
+                                        config_version=owner.policy.version,
+                                    )
                                 break
                             except FoundationError:
                                 raise

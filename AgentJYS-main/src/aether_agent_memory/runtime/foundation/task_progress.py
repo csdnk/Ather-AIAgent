@@ -4,19 +4,23 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from pydantic import JsonValue
+
 from aether_agent_memory.runtime.contracts.foundation import (
     CheckpointRecord,
     TaskWaitRecord,
     WorkerHeartbeat,
 )
 from aether_agent_memory.runtime.contracts.models import (
+    EffectStatus,
     ErrorCode,
     Permission,
+    RecordRef,
     TaskRecord,
     TrustedContext,
 )
 
-from .common import later
+from .common import fingerprint, later
 from .storage import SQLiteTransaction
 
 if TYPE_CHECKING:
@@ -26,6 +30,109 @@ if TYPE_CHECKING:
 class TaskProgress:
     def __init__(self, tasks: Tasks, instance_id: str) -> None:
         self.tasks, self.instance_id = tasks, instance_id
+
+    def part(
+        self,
+        tx: SQLiteTransaction,
+        ctx: TrustedContext,
+        task: TaskRecord,
+        stage: str,
+        table: str,
+        key: str,
+        *,
+        config_version: str,
+    ) -> None:
+        """Index an existing durable business result, without copying its body.
+
+        Called in the same transaction as the result write, and also when an
+        older result is reused after restart. Each part contributes only once.
+        """
+        _, current = self.tasks.guard(tx, task)
+        value = tx.read(table, key)
+        if value is None:
+            tx.abort(ErrorCode.CONTRACT_VIOLATION, "stage result is not durable")
+        part_id = fingerprint([task.task_id, stage, table, key])
+        ref = RecordRef(
+            owner=task.subject.owner,
+            object_type="task_part",
+            object_id=part_id,
+            scope=task.subject.scope,
+        )
+        self.tasks.identity.authorize(tx, ctx, Permission.READ, ref)
+        payload: dict[str, JsonValue] = {
+            "table": table,
+            "key": key,
+            "result_hash": fingerprint(value),
+        }
+        prior = tx.get(ref)
+        if prior is None:
+            tx.put_if_revision(ref, payload, None)
+        elif prior != payload:
+            tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "committed stage result changed")
+        self.checkpoint(
+            tx,
+            ctx,
+            task,
+            CheckpointRecord(
+                task_id=task.task_id,
+                expected_task_revision=current.revision,
+                stage=stage + "_" + part_id[:32],
+                input_hash=task.input_hash,
+                output_refs=(ref,),
+                committed_at=self.tasks.clock(),
+                config_version=config_version,
+            ),
+        )
+        count_key = task.task_id + ":" + stage
+        summary = tx.read("task_stage_counts", count_key) or {
+            "task_id": task.task_id,
+            "stage": stage,
+            "completed_parts": 0,
+        }
+        if prior is None:
+            tx.write(
+                "task_stage_counts",
+                count_key,
+                {
+                    **summary,
+                    "completed_parts": summary["completed_parts"] + 1,
+                    "updated_at": self.tasks.clock(),
+                },
+            )
+
+    def defer(
+        self,
+        tx: SQLiteTransaction,
+        ctx: TrustedContext,
+        task: TaskRecord,
+        dependency: str,
+        reason: str,
+        operation_id: str,
+        effect: EffectStatus,
+    ) -> None:
+        """Record a real handler wait; scheduling remains owned by Tasks."""
+        _, current = self.tasks.guard(tx, task)
+        stamp = self.tasks.clock()
+        next_check = min(later(stamp, self.tasks.retry_seconds), task.deadline_at)
+        if next_check <= stamp:
+            return
+        self.wait(
+            tx,
+            ctx,
+            task,
+            TaskWaitRecord(
+                task_id=task.task_id,
+                expected_task_revision=current.revision,
+                dependency_id=dependency,
+                reason_code=reason,
+                wait_started_at=stamp,
+                next_check_at=next_check,
+                deadline_at=task.deadline_at,
+                original_operation_id=operation_id,
+                effect_status=effect,
+                resume_mode="query_only" if effect == EffectStatus.UNKNOWN else "resume",
+            ),
+        )
 
     def checkpoint(
         self, tx: SQLiteTransaction, ctx: TrustedContext, task: TaskRecord, record: CheckpointRecord
@@ -89,8 +196,15 @@ class TaskProgress:
         with self.tasks.uow.transaction() as tx:
             _, task = self.tasks.load(tx, task_id)
             self.tasks.identity.authorize(tx, ctx, Permission.DIAGNOSE, task.subject)
+            wait = tx.read("task_waits", task_id)
+            lease = tx.read("task_wait_leases", task_id)
+            if task.state.value not in {"retry_wait", "recovery_wait"} and (
+                not task.lease or not lease or lease["token"] != task.lease.token
+            ):
+                wait = None
             return {
-                "wait": tx.read("task_waits", task_id),
+                "wait": wait,
+                "stages": [v for _, v in tx.rows("task_stage_counts") if v["task_id"] == task_id],
                 "checkpoints": [
                     v for _, v in tx.rows("task_checkpoints") if v["task_id"] == task_id
                 ],

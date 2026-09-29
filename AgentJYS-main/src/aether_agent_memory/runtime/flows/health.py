@@ -172,7 +172,10 @@ class Health:
                     tx, ctx, Permission.DIAGNOSE, RecordRef.model_validate(raw)
                 )
 
-            tasks = [r for _, r in tx.rows("tasks") if permitted(r["record"]["subject"])]
+            tasks = [
+                r for _, r in tx.active_task_rows(include_attention=True)
+                if permitted(r["record"]["subject"])
+            ]
             pending = [
                 r
                 for r in tasks
@@ -183,12 +186,11 @@ class Health:
                 for r in pending
                 if r["record"].get("lease") and age(r["record"]["lease"]["until"]) > 0
             ]
-            outbox = {key for key, r in tx.rows("outbox") if permitted(r["event"]["subject"])}
-            deliveries = [
-                r
-                for _, r in tx.rows("deliveries")
-                if r["event_id"] in outbox and r["state"] != "acknowledged"
-            ]
+            deliveries = []
+            for _, delivery in tx.pending_delivery_rows(include_attention=True):
+                event = tx.read("outbox", delivery["event_id"])
+                if event and permitted(event["event"]["subject"]):
+                    deliveries.append(delivery)
             workers = [
                 {
                     "worker_id": key,
@@ -215,7 +217,7 @@ class Health:
                     "object_id": key,
                     "scope": raw["intent"]["decision"]["memory"]["scope"],
                 }
-                if permitted(ref) and raw["state"] == "unknown":
+                if raw["state"] == "unknown" and permitted(ref):
                     actions.append(key)
             return {
                 "state": "attention_required" if expired or actions else "observed",

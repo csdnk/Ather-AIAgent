@@ -163,6 +163,10 @@ class Telemetry:
                 "CREATE INDEX IF NOT EXISTS logs_trace ON node_logs"
                 "(trace_id,principal_id,scope,sequence);"
                 "CREATE INDEX IF NOT EXISTS logs_age ON node_logs(occurred_at);"
+                "CREATE INDEX IF NOT EXISTS logs_sequence ON node_logs(sequence);"
+                "CREATE INDEX IF NOT EXISTS logs_catalog ON node_logs"
+                "(principal_id,scope,trace_id,sequence,occurred_at,span_id,phase,"
+                "json_extract(data,'$.contract.flow'));"
                 "CREATE TABLE IF NOT EXISTS log_meta(key TEXT PRIMARY KEY,value TEXT);"
             )
         self.prune()
@@ -175,6 +179,27 @@ class Telemetry:
     def close(self) -> None:
         with self._lock:
             self._db.close()
+
+    @contextmanager
+    def reader(self) -> Iterator[sqlite3.Connection]:
+        # A dashboard query must never hold the writer's Python lock: emitting
+        # a span on the asyncio thread would otherwise stall the entire server.
+        db = sqlite3.connect(self.path.resolve().as_uri() + "?mode=ro", uri=True, timeout=0.25)
+        try:
+            db.execute("BEGIN")
+            yield db
+        finally:
+            db.close()
+
+    def retained_bounds(self, db: sqlite3.Connection) -> tuple[int, str]:
+        # Enforce retention in the read snapshot, without DELETEs or the write
+        # lock. Physical cleanup still runs on startup and every 100 writes.
+        row = db.execute(
+            "SELECT sequence FROM node_logs ORDER BY sequence DESC LIMIT 1 OFFSET ?",
+            (self.max_records,),
+        ).fetchone()
+        cutoff = (datetime.now(UTC) - timedelta(days=self.retention_days)).isoformat()
+        return (row[0] if row else 0), cutoff
 
     def prune(self) -> None:
         cutoff = (datetime.now(UTC) - timedelta(days=self.retention_days)).isoformat()
@@ -355,13 +380,14 @@ class Telemetry:
             raise ValueError("invalid trace page")
         if flow not in {None, "business", "remember", "recall", "operate", "runtime"}:
             raise ValueError("invalid trace flow")
-        self.prune()
-        with self.connect() as db:
+        with self.reader() as db:
+            floor, cutoff = self.retained_bounds(db)
             rows = db.execute(
                 "SELECT trace_id, MIN(sequence), MIN(occurred_at), MAX(occurred_at), "
                 "COUNT(*), COUNT(DISTINCT span_id), "
                 "COUNT(DISTINCT CASE WHEN phase='failed' THEN span_id END) "
                 "FROM node_logs WHERE principal_id=? AND scope=? "
+                "AND sequence>? AND occurred_at>=? "
                 "GROUP BY trace_id HAVING (? IS NULL OR MIN(sequence) < ?) "
                 "AND (? IS NULL OR MAX(CASE WHEN "
                 "json_extract(data,'$.contract.flow') = ? OR "
@@ -371,6 +397,8 @@ class Telemetry:
                 (
                     ctx.principal.principal_id,
                     ctx.principal.home_scope.model_dump_json(),
+                    floor,
+                    cutoff,
                     before,
                     before,
                     flow,
@@ -408,16 +436,17 @@ class Telemetry:
         """Internal query: caller MUST revalidate DIAGNOSE before and after reading."""
         if not 1 <= limit <= 500 or after < 0:
             raise ValueError("invalid log page")
-        self.prune()
-        with self.connect() as db:
+        with self.reader() as db:
+            floor, cutoff = self.retained_bounds(db)
             rows = db.execute(
                 "SELECT sequence,data FROM node_logs WHERE trace_id=? AND principal_id=? "
-                "AND scope=? AND sequence>? ORDER BY sequence LIMIT ?",
+                "AND scope=? AND sequence>? AND occurred_at>=? ORDER BY sequence LIMIT ?",
                 (
                     trace_id,
                     ctx.principal.principal_id,
                     ctx.principal.home_scope.model_dump_json(),
-                    after,
+                    max(after, floor),
+                    cutoff,
                     limit + 1,
                 ),
             ).fetchall()
@@ -425,8 +454,10 @@ class Telemetry:
             states = db.execute(
                 "SELECT span_id, MAX(phase='started'), MAX(phase='returned'), "
                 "MAX(phase='failed'), MAX(phase='cancelled') FROM node_logs "
-                "WHERE trace_id=? AND principal_id=? AND scope=? GROUP BY span_id",
-                (trace_id, ctx.principal.principal_id, ctx.principal.home_scope.model_dump_json()),
+                "WHERE trace_id=? AND principal_id=? AND scope=? "
+                "AND sequence>? AND occurred_at>=? GROUP BY span_id",
+                (trace_id, ctx.principal.principal_id, ctx.principal.home_scope.model_dump_json(),
+                 floor, cutoff),
             ).fetchall()
         open_spans = [s[0] for s in states if s[1] and not any(s[2:])]
         return {

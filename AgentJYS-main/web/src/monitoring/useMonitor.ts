@@ -47,23 +47,28 @@ export function useMonitor(
   const [busy, setBusy] = useState(false);
   const [checked, setChecked] = useState<number | null>(null);
   useEffect(() => {
-    if (!token) return;
-    setSnapshot((old) => ({ ...old, tasks: {}, traces: {} }));
+    setSnapshot(empty);
+    setSamples([]);
+    setChecked(null);
+    if (!token) { setBusy(false); return; }
     let stopped = false;
     let timer: ReturnType<typeof setTimeout>;
     const controller = new AbortController();
     async function poll() {
       setBusy(true);
-      const resource = async <T>(path: string): Promise<Resource<T>> => {
+      const resource = async <K extends keyof Snapshot>(key: K, path: string): Promise<Snapshot[K]> => {
+        let result: Snapshot[K];
         try {
-          return { data: await get<T>(path, token, controller.signal) };
+          result = { data: await get(path, token, controller.signal) } as Snapshot[K];
         } catch (error) {
-          return {
+          result = {
             error: controller.signal.aborted
               ? "请求超时，请刷新重试。"
               : message(error),
-          };
+          } as Snapshot[K];
         }
+        if (!stopped) setSnapshot((old) => ({ ...old, [key]: result }));
+        return result;
       };
       const taskQuery = new URLSearchParams({ limit: "30" });
       if (taskCursor) taskQuery.set("cursor", taskCursor);
@@ -71,17 +76,16 @@ export function useMonitor(
       const traceQuery = new URLSearchParams({ limit: "30" });
       if (traceFlow) traceQuery.set("flow", traceFlow);
       if (traceBefore) traceQuery.set("before", String(traceBefore));
-      const [health, runtime, capabilities, incidents, tasks, traces] =
+      const [, runtime] =
         await Promise.all([
-          resource<Health>("/p3/health"),
-          resource<Runtime>("/p3/runtime"),
-          resource<Capabilities>("/p3/capabilities"),
-          resource<Incident[]>("/p3/incidents"),
-          resource<TaskPage>(`/p3/tasks?${taskQuery}`),
-          resource<TracePage>(`/p3/traces?${traceQuery}`),
+          resource("health", "/p3/health"),
+          resource("runtime", "/p3/runtime"),
+          resource("capabilities", "/p3/capabilities"),
+          resource("incidents", "/p3/incidents"),
+          resource("tasks", `/p3/tasks?${taskQuery}`),
+          resource("traces", `/p3/traces?${traceQuery}`),
         ]);
       if (stopped) return;
-      setSnapshot({ health, runtime, capabilities, incidents, tasks, traces });
       setChecked(Date.now());
       setBusy(false);
       setSamples((old) =>

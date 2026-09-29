@@ -1,22 +1,23 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { ConfigProvider, Drawer, Modal, theme } from "antd";
-import {
-  ApartmentOutlined,
-  ArrowRightOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  CloseOutlined,
-  DashboardOutlined,
-  DatabaseOutlined,
-  DisconnectOutlined,
-  ExclamationCircleOutlined,
-  ExperimentOutlined,
-  LinkOutlined,
-  ReloadOutlined,
-  SearchOutlined,
-  ThunderboltFilled,
-  UnorderedListOutlined,
-} from "@ant-design/icons";
+import ConfigProvider from "antd/es/config-provider";
+import Drawer from "antd/es/drawer";
+import Modal from "antd/es/modal";
+import theme from "antd/es/theme";
+import ApartmentOutlined from "@ant-design/icons/ApartmentOutlined";
+import ArrowRightOutlined from "@ant-design/icons/ArrowRightOutlined";
+import CheckCircleOutlined from "@ant-design/icons/CheckCircleOutlined";
+import ClockCircleOutlined from "@ant-design/icons/ClockCircleOutlined";
+import CloseOutlined from "@ant-design/icons/CloseOutlined";
+import DashboardOutlined from "@ant-design/icons/DashboardOutlined";
+import DatabaseOutlined from "@ant-design/icons/DatabaseOutlined";
+import DisconnectOutlined from "@ant-design/icons/DisconnectOutlined";
+import ExclamationCircleOutlined from "@ant-design/icons/ExclamationCircleOutlined";
+import ExperimentOutlined from "@ant-design/icons/ExperimentOutlined";
+import LinkOutlined from "@ant-design/icons/LinkOutlined";
+import ReloadOutlined from "@ant-design/icons/ReloadOutlined";
+import SearchOutlined from "@ant-design/icons/SearchOutlined";
+import ThunderboltFilled from "@ant-design/icons/ThunderboltFilled";
+import UnorderedListOutlined from "@ant-design/icons/UnorderedListOutlined";
 import {
   get,
   message,
@@ -636,6 +637,7 @@ function TraceDetail({ id, token }: { id: string; token: string }) {
 }
 
 type Progress = {
+  stages?: { stage: string; completed_parts: number; updated_at: string }[];
   wait: {
     dependency_id: string;
     reason_code: string;
@@ -657,8 +659,9 @@ function TaskDetail({ id, token }: { id: string; token: string }) {
   >({});
   useEffect(() => {
     const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
     setData({});
-    Promise.all([
+    function refresh() { void Promise.all([
       get<Record<string, unknown>>(
         `/p3/tasks/${encodeURIComponent(id)}`,
         token,
@@ -672,11 +675,15 @@ function TaskDetail({ id, token }: { id: string; token: string }) {
     ])
       .then(([task, progress]) => {
         if (!controller.signal.aborted) setData({ data: { task, progress } });
+        if (!controller.signal.aborted && ["pending", "running", "retry_wait", "recovery_wait"].includes(String(task.state))) timer = setTimeout(refresh, 2000);
       })
       .catch((e) => {
         if (!controller.signal.aborted) setData({ error: message(e) });
+        if (!controller.signal.aborted) timer = setTimeout(refresh, 5000);
       });
-    return () => controller.abort();
+    }
+    refresh();
+    return () => { clearTimeout(timer); controller.abort(); };
   }, [id, token]);
   const task = data.data?.task;
   const progress = data.data?.progress;
@@ -713,6 +720,7 @@ function TaskDetail({ id, token }: { id: string; token: string }) {
             </div>
           )}
           <Panel title="已提交的处理检查点">
+            {progress?.stages?.map((stage) => <p key={stage.stage}>{({extraction: "内容抽取", compression: "内容压缩", embedding: "向量生成", summary: "工作摘要"} as Record<string, string>)[stage.stage] ?? stage.stage}：已保存 {stage.completed_parts} 个分块结果，可供恢复时复用。</p>)}
             {progress?.checkpoints.length ? (
               <div className="table-scroll">
                 <table>

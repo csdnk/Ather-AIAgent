@@ -1133,6 +1133,16 @@ class RememberPipeline(Revalidation):
                 checkpoint_key = fingerprint([task.task_id, index, text_hash(text)])
                 with self.uow.transaction() as tx:
                     checkpoint = tx.read("remember_compression_parts", checkpoint_key)
+                    if checkpoint is not None:
+                        self.tasks.progress.part(
+                            tx,
+                            ctx,
+                            task,
+                            "compression",
+                            "remember_compression_parts",
+                            checkpoint_key,
+                            config_version=self.policy.version,
+                        )
                 if checkpoint is None:
                     self.consume_call(task)
                     output = await self.compressor.compress(ctx, text)
@@ -1148,6 +1158,15 @@ class RememberPipeline(Revalidation):
                     with self.uow.transaction() as tx:
                         self.tasks.guard(tx, task)
                         tx.write("remember_compression_parts", checkpoint_key, checkpoint)
+                        self.tasks.progress.part(
+                            tx,
+                            ctx,
+                            task,
+                            "compression",
+                            "remember_compression_parts",
+                            checkpoint_key,
+                            config_version=self.policy.version,
+                        )
                 compressed.append(checkpoint["text"])
                 reports.append(checkpoint)
             output_text = "\n".join(compressed)
@@ -1300,6 +1319,16 @@ class RememberPipeline(Revalidation):
                     )
                     with self.uow.transaction() as tx:
                         checkpoint = tx.read("remember_extraction_parts", checkpoint_key)
+                        if checkpoint is not None:
+                            self.tasks.progress.part(
+                                tx,
+                                ctx,
+                                task,
+                                "extraction",
+                                "remember_extraction_parts",
+                                checkpoint_key,
+                                config_version=self.policy.version,
+                            )
                     if checkpoint is None:
                         for repair in range(3):
                             self.consume_call(task)
@@ -1325,6 +1354,15 @@ class RememberPipeline(Revalidation):
                                 "remember_extraction_parts",
                                 checkpoint_key,
                                 output.model_dump(mode="json"),
+                            )
+                            self.tasks.progress.part(
+                                tx,
+                                ctx,
+                                task,
+                                "extraction",
+                                "remember_extraction_parts",
+                                checkpoint_key,
+                                config_version=self.policy.version,
                             )
                     else:
                         output = ExtractionResult.model_validate(checkpoint)
@@ -1483,6 +1521,16 @@ class RememberPipeline(Revalidation):
                 )
                 with self.uow.transaction() as tx:
                     checkpoint = tx.read("remember_extraction_parts", checkpoint_key)
+                    if checkpoint is not None and task is not None:
+                        self.tasks.progress.part(
+                            tx,
+                            ctx,
+                            task,
+                            "extraction",
+                            "remember_extraction_parts",
+                            checkpoint_key,
+                            config_version=self.policy.version,
+                        )
                 if checkpoint is None:
                     for repair in range(3):
                         if task is not None:
@@ -1505,6 +1553,16 @@ class RememberPipeline(Revalidation):
                             checkpoint_key,
                             output.model_dump(mode="json"),
                         )
+                        if task is not None:
+                            self.tasks.progress.part(
+                                tx,
+                                ctx,
+                                task,
+                                "extraction",
+                                "remember_extraction_parts",
+                                checkpoint_key,
+                                config_version=self.policy.version,
+                            )
                 else:
                     output = ExtractionResult.model_validate(checkpoint)
                 offsets = {
@@ -2167,6 +2225,16 @@ class RememberPipeline(Revalidation):
             observed = await self.projections.inspect(ctx, target, task.task_id)
             with self.uow.transaction() as tx:
                 checkpoint = tx.read("remember_chunk_vectors", target.vector_id)
+                if checkpoint is not None:
+                    self.tasks.progress.part(
+                        tx,
+                        ctx,
+                        task,
+                        "embedding",
+                        "remember_chunk_vectors",
+                        target.vector_id,
+                        config_version=self.policy.version,
+                    )
             if checkpoint is None:
                 embedded = await self.embedding.embed(
                     ctx,
@@ -2193,6 +2261,15 @@ class RememberPipeline(Revalidation):
                 with self.uow.transaction() as tx:
                     self.tasks.guard(tx, task)
                     tx.write("remember_chunk_vectors", target.vector_id, checkpoint)
+                    self.tasks.progress.part(
+                        tx,
+                        ctx,
+                        task,
+                        "embedding",
+                        "remember_chunk_vectors",
+                        target.vector_id,
+                        config_version=self.policy.version,
+                    )
             if dimensions is not None and dimensions != len(checkpoint["vector"]):
                 raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "mixed embedding dimensions")
             dimensions = len(checkpoint["vector"])

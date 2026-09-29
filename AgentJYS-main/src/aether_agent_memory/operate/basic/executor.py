@@ -50,6 +50,8 @@ class LocalCacheExecutor:
                 "CREATE TABLE IF NOT EXISTS copies(key TEXT PRIMARY KEY, memory TEXT, "
                 "tier TEXT, content_hash TEXT); CREATE TABLE IF NOT EXISTS actions("
                 "id TEXT PRIMARY KEY,intent TEXT,feedback TEXT); "
+                "CREATE TABLE IF NOT EXISTS repairs("
+                "id TEXT PRIMARY KEY,memory TEXT,content_hash TEXT); "
                 "CREATE TABLE IF NOT EXISTS tombstones(id TEXT PRIMARY KEY,version INTEGER);"
             )
             db.execute(
@@ -127,6 +129,50 @@ class LocalCacheExecutor:
                     memory.content_hash,
                 ),
             )
+
+    def repair(self, memory: MemorySnapshot, operation_id: str) -> None:
+        """Restore one registered copy from verified authority, retaining its tier.
+
+        The caller holds the RF lease/authorization fence during this local
+        operation. The original operation is journaled before replacing bytes.
+        Deleted or concurrently removed copies are never recreated here.
+        """
+        if text_hash(memory.content) != memory.content_hash:
+            raise ValueError("repair body hash mismatch")
+        with self.db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            prior = db.execute(
+                "SELECT memory,content_hash FROM repairs WHERE id=?", (operation_id,)
+            ).fetchone()
+            binding = (memory.ref.model_dump_json(), memory.content_hash)
+            if prior is not None and prior != binding:
+                raise ValueError("repair operation changed")
+            db.execute("INSERT OR IGNORE INTO repairs VALUES (?,?,?)", (operation_id, *binding))
+        with self.db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT tier,content_hash FROM copies WHERE key=?", (self.key(memory.ref),)
+            ).fetchone()
+            tombstone = db.execute(
+                "SELECT version FROM tombstones WHERE id=?", (memory.ref.memory_id,)
+            ).fetchone()
+            if (
+                not row
+                or row[1] != memory.content_hash
+                or (tombstone and memory.ref.version <= tombstone[0])
+            ):
+                raise ValueError("repair target changed or deleted")
+            path = self.path(memory.ref, Tier(row[0]))
+            data = memory.content.encode("utf-8")
+            if path.exists() and path.read_bytes() == data:
+                return
+            old_size = path.stat().st_size if path.exists() else 0
+            if self.bytes_used() - old_size + len(data) > self.capacity:
+                raise CacheCapacityError("repair exceeds cache capacity")
+            self.write_atomic(path, data)
+            if path.read_bytes() != data:
+                raise ValueError("repair readback failed")
+            db.execute("UPDATE meta SET value=CAST(value AS INTEGER)+1 WHERE key='epoch'")
 
     async def resources(self, ctx: TrustedContext) -> ResourceSnapshot:
         with self.db() as db:
