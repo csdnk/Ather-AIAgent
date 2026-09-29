@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from aether_agent_memory.recall.basic.adapters import LexicalEmbedding
-from aether_agent_memory.recall.basic.tokenization import ModelTokenizer
+from aether_agent_memory.recall.basic.tokenization import TokenCounter
 from aether_agent_memory.recall.basic.vector_search import SearchAccess
 from aether_agent_memory.recall.contracts.foundation import EmbeddingSpace
 from aether_agent_memory.runtime.flows.host import ThreeFlows
@@ -38,7 +38,7 @@ class RememberFactory:
         self.redis, self.providers = redis, providers
         self.generation_search, self.space = generation_search, space
 
-    def __call__(self, *args: Any) -> RememberPipeline:
+    def __call__(self, *args: Any, tokenizer: TokenCounter) -> RememberPipeline:
         bodies = Bodies(
             self.root,
             self.policy,
@@ -61,7 +61,7 @@ class RememberFactory:
             *args,
             bodies=bodies,
             policy=self.policy,
-            tokenizer=ModelTokenizer("cl100k_base"),
+            tokenizer=tokenizer,
             **self.providers,
         )
 

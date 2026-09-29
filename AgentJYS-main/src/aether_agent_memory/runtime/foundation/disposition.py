@@ -211,7 +211,11 @@ class Dispositions:
             rules = [
                 DispositionRule.model_validate(r["rule"])
                 for _, r in tx.rows("disposition_rules")
-                if r["scope"] == scope and r["rule"]["signal_id"] == definition.signal_id
+                # Rules belong to the configuring identity's scope. A subject
+                # may be in a narrower session/task scope; object authorization
+                # above still gates every measurement and maintenance action.
+                if r["scope"] == ctx.principal.home_scope.model_dump(mode="json")
+                and r["rule"]["signal_id"] == definition.signal_id
             ]
             for rule in rules:
                 compare = {

@@ -231,7 +231,16 @@ class Tasks:
     def sweep(self) -> int:
         count = 0
         with self.uow.transaction() as tx:
-            for _, row in tx.rows("tasks"):
+            for _, row in tx.active_task_rows():
+                # Completed history is immutable for scheduling. Do not rebuild
+                # every nested Pydantic model on each idle worker poll.
+                record = row["record"]
+                if (
+                    record["state"] not in {TaskState.RUNNING, TaskState.RECOVERY_WAIT}
+                    or not record.get("lease")
+                    or record["lease"]["until"] > self.clock()
+                ):
+                    continue
                 task = TaskRecord.model_validate(row["record"])
                 if (
                     task.state in {TaskState.RUNNING, TaskState.RECOVERY_WAIT}
@@ -268,7 +277,7 @@ class Tasks:
         self.sweep()
         with self.uow.transaction() as tx:
             rows = sorted(
-                (r for _, r in tx.rows("tasks")),
+                (r for _, r in tx.active_task_rows()),
                 key=lambda r: (r["created_at"], r["record"]["task_id"]),
             )
             leased = [
@@ -284,6 +293,18 @@ class Tasks:
             ):
                 return None
             for row in rows:
+                wanted = (
+                    {TaskState.RECOVERY_WAIT}
+                    if recovery
+                    else {TaskState.PENDING, TaskState.RETRY_WAIT}
+                )
+                record = row["record"]
+                if (
+                    record["state"] not in wanted
+                    or row["class"] != execution_class
+                    or record["kind"] not in self.handlers
+                ):
+                    continue
                 task = TaskRecord.model_validate(row["record"])
                 if (
                     sum(
@@ -293,17 +314,6 @@ class Tasks:
                         for r in leased
                     )
                     >= self.per_tenant_running
-                ):
-                    continue
-                wanted = (
-                    {TaskState.RECOVERY_WAIT}
-                    if recovery
-                    else {TaskState.PENDING, TaskState.RETRY_WAIT}
-                )
-                if (
-                    task.state not in wanted
-                    or row["class"] != execution_class
-                    or task.kind not in self.handlers
                 ):
                     continue
                 if self.handlers[task.kind][0] != row["class"]:

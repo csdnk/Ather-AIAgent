@@ -174,6 +174,7 @@ class ThreeFlows:
             self.embedding,
             self.projections,
             self.model_space,
+            **({"tokenizer": selected_tokenizer} if remember_factory else {}),
         )
         if reranker is None and self.recall_settings.rerank_policy != "disabled":
             self.owned_reranker = CrossEncoderReranker(
@@ -404,6 +405,9 @@ class ThreeFlows:
             if not self.foundation.events.dispatch_once("flow_dispatcher"):
                 break
             worked = True
+            # Each delivery commits before yielding. A backlog must not monopolize
+            # the HTTP event loop for an entire 100-delivery batch.
+            await asyncio.sleep(0)
         if run_tasks:
             for flow in ("remember", "operate", "maintenance", "io", "model"):
                 worked = (

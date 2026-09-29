@@ -19,7 +19,11 @@ from typing import Any, NoReturn
 
 from pydantic import JsonValue
 
-from aether_agent_memory.runtime.capability_store import RecordTransaction, SQLiteCapabilityStore
+from aether_agent_memory.runtime.capability_store import (
+    RecordTransaction,
+    SQLiteCapabilityStore,
+    _SQLiteTransaction,
+)
 from aether_agent_memory.runtime.contracts.models import (
     ErrorCode,
     PageRequest,
@@ -64,6 +68,45 @@ class SQLiteTransaction:
     def rows(self, table: str) -> list[tuple[str, Any]]:
         self.check()
         return [(k, json.loads(v)) for _, k, v in self.raw.scan("p3_rf_" + table)]
+
+    def active_task_rows(self, *, include_attention: bool = False) -> list[tuple[str, Any]]:
+        """SQLite queue projection, evaluated in the same fenced transaction.
+
+        Terminal task records remain queryable, but cannot inflate idle worker
+        polling. The expression index follows all task writes atomically.
+        """
+        self.check()
+        if not isinstance(self.raw, _SQLiteTransaction):
+            raise TypeError("foundation requires its SQLite record transaction")
+        states = ["pending", "running", "retry_wait", "recovery_wait"]
+        if include_attention:
+            states.append("attention_required")
+        rows = self.raw.connection.execute(
+            # Prefer the state projection even when SQLite estimates that the
+            # generic namespace index is cheaper; that index scans all history.
+            "SELECT key,value FROM capability_records INDEXED BY p3_active_task_states "
+            "WHERE namespace='p3_rf_tasks' "
+            "AND json_extract(value,'$.record.state') IN "
+            "(" + ",".join("?" for _ in states) + ")",
+            states,
+        ).fetchall()
+        return [(key, json.loads(value)) for key, value in rows]
+
+    def pending_delivery_rows(self, *, include_attention: bool = False) -> list[tuple[str, Any]]:
+        """Exclude acknowledged history before hydrating event envelopes."""
+        self.check()
+        if not isinstance(self.raw, _SQLiteTransaction):
+            raise TypeError("foundation requires its SQLite record transaction")
+        states = ["pending", "sent", "retry_wait"]
+        if include_attention:
+            states.append("attention_required")
+        rows = self.raw.connection.execute(
+            "SELECT key,value FROM capability_records INDEXED BY p3_pending_delivery_states "
+            "WHERE namespace='p3_rf_deliveries' "
+            "AND json_extract(value,'$.state') IN (" + ",".join("?" for _ in states) + ")",
+            states,
+        ).fetchall()
+        return [(key, json.loads(value)) for key, value in rows]
 
     @staticmethod
     def key(ref: RecordRef) -> str:
@@ -153,6 +196,15 @@ class SQLiteUnitOfWork:
         self.store = SQLiteCapabilityStore(self.path)
         self.telemetry: Telemetry | None = None
         with self.store.transaction() as raw:
+            if isinstance(raw, _SQLiteTransaction):
+                raw.connection.execute(
+                    "CREATE INDEX IF NOT EXISTS p3_active_task_states ON capability_records "
+                    "(json_extract(value,'$.record.state')) WHERE namespace='p3_rf_tasks'"
+                )
+                raw.connection.execute(
+                    "CREATE INDEX IF NOT EXISTS p3_pending_delivery_states ON capability_records "
+                    "(json_extract(value,'$.state')) WHERE namespace='p3_rf_deliveries'"
+                )
             config = raw.get("p3_rf_meta", "system", "schema")
             if config is None:
                 config = encode({"version": 1, "cursor_key": secrets.token_hex(32)})

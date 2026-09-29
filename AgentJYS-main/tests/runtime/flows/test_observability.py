@@ -298,9 +298,12 @@ def test_retention_and_pagination_report_partial_coverage(app):
             pass
     page = app.foundation.diagnostics.trace(ctx, ctx.trace_id, limit=10)
     assert len(page["records"]) == 10 and page["next_after"]
-    assert page["last_pruned_at"] and page["coverage"] == "retained_records_only"
+    assert page["coverage"] == "retained_records_only"
     logs = records(app, ctx, ctx.trace_id)
     assert len(logs) == 100 and len({r["sequence"] for r in logs}) == 100
+    # Reads enforce the logical limit without taking the writer lock or deleting.
+    log.prune()
+    assert log.page(ctx, ctx.trace_id)["last_pruned_at"]
     with log.connect() as db:
         db.execute("UPDATE node_logs SET occurred_at='2000-01-01T00:00:00.000000Z'")
     assert records(app, ctx, ctx.trace_id) == []

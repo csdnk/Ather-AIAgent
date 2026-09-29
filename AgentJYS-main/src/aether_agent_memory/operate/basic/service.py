@@ -546,6 +546,16 @@ class Operate:
             tx.write("operate_pending", key, intent.action_id)
         action = await self.execute(ctx, intent)
         if action.state == ActionState.UNKNOWN:
+            with self.uow.transaction() as tx:
+                self.tasks.progress.defer(
+                    tx,
+                    ctx,
+                    task,
+                    "cache_executor",
+                    "original_action_unknown",
+                    intent.action_id,
+                    EffectStatus.UNKNOWN,
+                )
             return RunResult(
                 outcome="uncertain",
                 effect_status=EffectStatus.UNKNOWN,

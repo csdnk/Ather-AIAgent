@@ -5,7 +5,7 @@ import logging
 import os
 from functools import partial
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import yaml
 from fastapi import FastAPI
@@ -13,7 +13,6 @@ from fastapi import FastAPI
 from aether_agent_memory.operate.basic.body_cache import TieredBodyCache
 from aether_agent_memory.operate.basic.continuous import ContinuousOperate
 from aether_agent_memory.operate.standalone.policy import Settings
-from aether_agent_memory.p2.client import P2GrpcClient
 from aether_agent_memory.remember.basic.comparison import (
     LangMemComparison,
     ModelEquivalenceVerifier,
@@ -22,17 +21,15 @@ from aether_agent_memory.remember.basic.compression import ModelCompression
 from aether_agent_memory.remember.basic.extraction import LangMemBatchExtraction
 from aether_agent_memory.remember.documents import Documents
 from aether_agent_memory.remember.local import create_runtime
-from aether_agent_memory.remember.model_provider import (
-    CompressionVerifier,
-    ModelProvider,
-    SupportVerifier,
-)
 from aether_agent_memory.runtime.contracts.models import TrustedContext
 
 from .config import IdentityConfiguration, ServiceConfiguration
 from .health import sqlite_probe
 from .http import create_app
 from .supervisor import Supervisor
+
+if TYPE_CHECKING:
+    from aether_agent_memory.remember.model_provider import ModelProvider
 
 
 class Service:
@@ -49,6 +46,12 @@ class Service:
             raise ValueError("configured Redis environment variable is missing")
         config.data_dir.mkdir(parents=True, exist_ok=True)
         if config.language_model:
+            from aether_agent_memory.remember.model_provider import (
+                CompressionVerifier,
+                ModelProvider,
+                SupportVerifier,
+            )
+
             model = ModelProvider(config.language_model)
             verifier = ModelProvider(config.verifier_model) if config.verifier_model else model
             self.closers.append(model.close)
@@ -65,6 +68,8 @@ class Service:
             }
             providers = {**defaults, **providers}
         if config.p2_endpoint and "p2" not in providers:
+            from aether_agent_memory.p2.client import P2GrpcClient
+
             p2 = P2GrpcClient(config.p2_endpoint, bucket=config.p2_bucket)
             providers["p2"] = p2
             self.closers.append(p2.close)
@@ -112,6 +117,10 @@ class Service:
             raise
         self.supervisor = Supervisor(self.runtime, config, self.reload_identity)
         self.install_probes()
+        if config.automatic_cache_repair:
+            from aether_agent_memory.operate.basic.maintenance import CacheMaintenance
+
+            self.cache_maintenance = CacheMaintenance(self.runtime)
 
     def install_probes(self) -> None:
         remember = cast(Any, self.runtime.remember)
@@ -153,7 +162,7 @@ class Service:
         if self.config.language_model:
 
             async def model(ctx: TrustedContext) -> dict[str, object]:
-                manager = cast(ModelProvider, remember.extraction.manager)
+                manager = cast("ModelProvider", remember.extraction.manager)
                 return await manager.health()
 
             health.register("extraction", model, replace=True)

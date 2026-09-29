@@ -157,16 +157,16 @@ class Events:
         """lose_ack is a deterministic fault-injection hook after consumer commit."""
         selected = None
         with self.uow.transaction() as tx:
-            for key, row in sorted(tx.rows("deliveries")):
+            for key, row in sorted(tx.pending_delivery_rows()):
+                if (row["lease"] and row["lease"]["until"] > self.clock()) or row[
+                    "next_run_at"
+                ] > self.clock():
+                    continue
                 event = EventEnvelope.model_validate(tx.read("outbox", row["event_id"])["event"])
                 if (
                     row["state"] in {"acknowledged", "attention_required"}
                     or (event.event_type, row["consumer_id"]) not in self.consumers
                 ):
-                    continue
-                if (row["lease"] and row["lease"]["until"] > self.clock()) or row[
-                    "next_run_at"
-                ] > self.clock():
                     continue
                 # A committed inbox is authoritative even if every ACK was lost.
                 if tx.read("inbox", key):

@@ -67,6 +67,7 @@ class ServiceConfiguration(ContractModel):
     p2_bucket: str = "p3-memory"
     redis_url_env: str | None = None
     maintenance_principals: tuple[str, ...] = ()
+    automatic_cache_repair: bool = True
     remember: RememberPolicy = Field(default_factory=RememberPolicy)
     poll_seconds: float = Field(default=0.25, ge=0.01, le=30)
     periodic_seconds: float = Field(default=1, ge=0.01, le=60)
