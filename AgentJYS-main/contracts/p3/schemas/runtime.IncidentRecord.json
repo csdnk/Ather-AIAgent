@@ -167,6 +167,19 @@
       "default": null,
       "title": "Operation Id"
     },
+    "reason_code": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason Code"
+    },
     "revision": {
       "minimum": 1,
       "title": "Revision",
