@@ -157,6 +157,7 @@ class RememberPipeline(Revalidation):
         task_id = super().enqueue(tx, ctx, memory, kind)
         if tx.read("remember_task_policy", task_id) is None:
             tx.write("remember_task_policy", task_id, self.policy.model_dump(mode="json"))
+            tx.write("remember_task_binding", task_id, self.checkpoint_binding())
         if not tx.read("remember_outbox", task_id):
             tx.write(
                 "remember_outbox",
@@ -406,13 +407,19 @@ class RememberPipeline(Revalidation):
         return None
 
     async def save(self, ctx: TrustedContext, request: RememberRequest) -> RememberReceipt:
+        prepared = await self.prepare_save(ctx, request)
+        await self.persist_save(ctx, prepared)
+        result = self.commit_save(ctx, request, prepared)
+        return await self.admit_save_cache(ctx, prepared, result)
+
+    async def prepare_save(self, ctx: TrustedContext, request: RememberRequest) -> dict[str, Any]:
         scope = select_scope(ctx, request.selection)
         with self.uow.transaction() as tx:
             key, previous = self.replay(tx, ctx, "remember.save", request)
             ref = MemoryRef(scope=scope, memory_id=key, version=1)
             self.identity.authorize(tx, ctx, Permission.WRITE, memory_ref(ref))
             if previous:
-                return RememberReceipt.model_validate(previous["result"])
+                return {"previous": previous["result"]}
         document = None
         if request.content.kind == "document":
             reader = self.documents.get(request.content.provider_id)
@@ -460,8 +467,7 @@ class RememberPipeline(Revalidation):
             self.identity.authorize(tx, ctx, Permission.WRITE, memory_ref(ref))
             duplicate = self.source_replay(tx, ctx, request, scope, text, key)
             if duplicate is not None:
-                return duplicate
-        await self.bodies.persist(ctx, scope, text)
+                return {"previous": duplicate.model_dump(mode="json")}
         summarized = self.summaries.needed(text, request.content.kind == "document")
         source_ref = SourceRef(
             source_id=fingerprint([key, "source"]),
@@ -474,8 +480,32 @@ class RememberPipeline(Revalidation):
             if summarized
             else text
         )
-        if summarized:
-            await self.bodies.persist(ctx, scope, working_text)
+        return {
+            "scope": scope.model_dump(mode="json"),
+            "key": key,
+            "text": text,
+            "working_text": working_text,
+            "document": document,
+            "summarized": summarized,
+        }
+
+    async def persist_save(self, ctx: TrustedContext, prepared: dict[str, Any]) -> None:
+        if "previous" in prepared:
+            return
+        scope = Scope.model_validate(prepared["scope"])
+        await self.bodies.persist(ctx, scope, prepared["text"])
+        if prepared["summarized"]:
+            await self.bodies.persist(ctx, scope, prepared["working_text"])
+
+    def commit_save(
+        self, ctx: TrustedContext, request: RememberRequest, prepared: dict[str, Any]
+    ) -> RememberReceipt:
+        if "previous" in prepared:
+            return RememberReceipt.model_validate(prepared["previous"])
+        scope, key = Scope.model_validate(prepared["scope"]), prepared["key"]
+        ref = MemoryRef(scope=scope, memory_id=key, version=1)
+        text, working_text = prepared["text"], prepared["working_text"]
+        document, summarized = prepared["document"], prepared["summarized"]
         with self.uow.transaction() as tx:
             key, previous = self.replay(tx, ctx, "remember.save", request)
             self.identity.authorize(tx, ctx, Permission.WRITE, memory_ref(ref))
@@ -526,6 +556,7 @@ class RememberPipeline(Revalidation):
                 task_ids = [self.enqueue(tx, ctx, item, "remember.summarize")]
             else:
                 task_ids = list(self.schedule(tx, ctx, scope, force=request.trigger != "observe"))
+                task_ids.append(self.enqueue(tx, ctx, item, "remember.project"))
             if not summarized and len(text.encode("utf-8")) >= self.policy.compression_min_bytes:
                 task_ids.append(self.enqueue(tx, ctx, item, "remember.compress"))
             self.emit(tx, ctx, item, "saved")
@@ -546,19 +577,27 @@ class RememberPipeline(Revalidation):
                     "result": result.model_dump(mode="json"),
                 },
             )
+        return result
+
+    async def admit_save_cache(
+        self, ctx: TrustedContext, prepared: dict[str, Any], result: RememberReceipt
+    ) -> RememberReceipt:
+        if "previous" in prepared:
+            return result
+        scope, key = Scope.model_validate(prepared["scope"]), prepared["key"]
+        working_text = prepared["working_text"]
+        memory = result.memories[0]
         with self.uow.transaction() as tx:
-            allowed = (
-                self.final_guard(tx, ctx, (item.ref,), "recall").items[0].decision == "allowed"
-            )
+            allowed = self.final_guard(tx, ctx, (memory,), "recall").items[0].decision == "allowed"
         cache = await self.bodies.admit(scope, working_text) if allowed else "ineligible"
         with self.uow.transaction() as tx:
             still_allowed = (
-                self.final_guard(tx, ctx, (item.ref,), "recall").items[0].decision == "allowed"
+                self.final_guard(tx, ctx, (memory,), "recall").items[0].decision == "allowed"
             )
         if not still_allowed and self.bodies.cache:
             # Reads always guard metadata, including while this compensating delete retries.
             try:
-                await self.bodies.cache.delete(scope, item.content_hash)
+                await self.bodies.cache.delete(scope, text_hash(working_text))
                 cache = "invalidated"
             except Exception:
                 cache = "cleanup_pending"
@@ -784,9 +823,32 @@ class RememberPipeline(Revalidation):
                 continue
         return count
 
+    def periodic_pending(self, tx: SQLiteTransaction, key: str) -> int:
+        row = tx.read("remember_pending", key)
+        if not row or row["state"] != "pending":
+            return 0
+        scope = MemoryRef.model_validate(row["ref"]).scope
+        ctx = TrustedContext.model_validate(row["context"]).model_copy(
+            update={
+                "deadline_at": later(self.identity.clock(), self.processing_seconds),
+                "operation_id": fingerprint(["consolidate", row["ref"]]),
+            }
+        )
+        self.identity.revalidate(tx, ctx)
+        return len(self.schedule(tx, ctx, scope))
+
     async def correct_async(
         self, ctx: TrustedContext, memory_id: str, request: CorrectionRequest
     ) -> RememberReceipt:
+        prepared = self.prepare_correction(ctx, memory_id, request)
+        scope = Scope.model_validate(prepared["scope"])
+        for body in dict.fromkeys((prepared["text"], prepared["working_text"])):
+            await self.bodies.persist(ctx, scope, body)
+        return self.correct(ctx, memory_id, request)
+
+    def prepare_correction(
+        self, ctx: TrustedContext, memory_id: str, request: CorrectionRequest
+    ) -> dict[str, Any]:
         with self.uow.transaction() as tx:
             item = self.current(tx, memory_id)
             self.identity.authorize(tx, ctx, Permission.CORRECT, memory_ref(item.ref))
@@ -795,7 +857,7 @@ class RememberPipeline(Revalidation):
             or len(request.content.encode("utf-8")) > self.max_input_bytes
         ):
             raise FoundationError(ErrorCode.INVALID_ARGUMENT, "correction exceeds input policy")
-        await self.bodies.persist(ctx, item.ref.scope, request.content)
+        working_text = request.content
         if item.kind == MemoryKind.WORKING:
             with self.uow.transaction() as tx:
                 key, _ = self.replay(tx, ctx, "correct_" + memory_id, request)
@@ -810,8 +872,13 @@ class RememberPipeline(Revalidation):
                 body = self.summaries.descriptor(
                     source, request.content, (prior or {}).get("task_context", "")
                 )
-                await self.bodies.persist(ctx, item.ref.scope, body)
-        return self.correct(ctx, memory_id, request)
+                working_text = body
+        return {
+            "scope": item.ref.scope.model_dump(mode="json"),
+            "text": request.content,
+            "working_text": working_text,
+            "memory_id": memory_id,
+        }
 
     def working_correction_body(
         self,
@@ -849,9 +916,17 @@ class RememberPipeline(Revalidation):
 
     def working_task_kind(self, tx: SQLiteTransaction, item: MemorySnapshot) -> str:
         row = tx.read("remember_working_summaries", item.ref.memory_id)
-        if row and row["memory"] == item.ref.model_dump(mode="json") and row["state"] == "pending":
+        if row and row["memory"] == item.ref.model_dump(mode="json") and row["state"] != "ready":
             return "remember.summarize"
         return "remember.extract"
+
+    def projection_buildable(self, tx: SQLiteTransaction, item: MemorySnapshot) -> bool:
+        if item.kind != MemoryKind.WORKING:
+            return True
+        row = tx.read("remember_working_summaries", item.ref.memory_id)
+        return (
+            not row or row["memory"] != item.ref.model_dump(mode="json") or row["state"] == "ready"
+        )
 
     async def hydrate(
         self, ctx: TrustedContext, refs: tuple[MemoryRef, ...], purpose: str = "recall"
@@ -1001,7 +1076,9 @@ class RememberPipeline(Revalidation):
         finally:
             _task_policy.reset(token)
 
-    async def run_bound(self, ctx: TrustedContext, task: TaskRecord) -> RunResult:
+    async def prepare_background(
+        self, ctx: TrustedContext, task: TaskRecord
+    ) -> tuple[MemorySnapshot, ...] | RunResult:
         with self.uow.transaction() as tx:
             self.tasks.guard(tx, task)
             raw = required_record(tx, task.input_ref)
@@ -1042,14 +1119,8 @@ class RememberPipeline(Revalidation):
             items = tuple(
                 self.decode(tx, required_record(tx, memory_ref(r, versioned=True))) for r in refs
             )
-        if task.kind == "remember.summarize":
-            return await self.summaries.process(ctx, task, items[0])
-        if task.kind == "remember.extract":
-            return await self.extract_batch(
-                ctx, task, await self.source_access.originals(ctx, items)
-            )
-        if task.kind == "remember.revalidate":
-            return await self.revalidate_sources(ctx, task, items[0])
+        if task.kind in {"remember.extract", "remember.compress"}:
+            return await self.source_access.originals(ctx, items)
         if task.kind == "remember.distill":
             if not hasattr(self.extraction, "review_episodes"):
                 return RunResult(
@@ -1100,13 +1171,34 @@ class RememberPipeline(Revalidation):
                     task.task_id,
                     {"episodes": [i.model_dump(mode="json") for i in items]},
                 )
-            return await self.extract_batch(ctx, task, tuple(originals))
+            return tuple(originals)
+        return items
+
+    async def run_bound(self, ctx: TrustedContext, task: TaskRecord) -> RunResult:
+        items = await self.prepare_background(ctx, task)
+        if isinstance(items, RunResult):
+            return items
+        if task.kind == "remember.summarize":
+            return await self.summaries.process(ctx, task, items[0])
+        if task.kind in {"remember.extract", "remember.distill"}:
+            return await self.extract_batch(ctx, task, items)
+        if task.kind == "remember.revalidate":
+            return await self.revalidate_sources(ctx, task, items[0])
         if task.kind == "remember.compress":
-            source_items = await self.source_access.originals(ctx, items)
-            return await self.compress(ctx, task, source_items[0])
+            return await self.compress(ctx, task, items[0])
         if task.kind == "remember.cleanup":
             return await self.cleanup(ctx, task, items[0])
         return await self.project(ctx, task, items[0])
+
+    def checkpoint_binding(self) -> str:
+        return fingerprint(
+            [
+                self.policy.model_dump(mode="json"),
+                self.model_space,
+                self.tokenizer.identifier,
+                getattr(self, "embedding_tokenizer_id", self.tokenizer.identifier),
+            ]
+        )
 
     def consume_call(self, task: TaskRecord) -> None:
         with self.uow.transaction() as tx:
@@ -1119,6 +1211,15 @@ class RememberPipeline(Revalidation):
     async def compress(
         self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot
     ) -> RunResult:
+        prepared = await self.generate_compression(ctx, task, item)
+        if prepared["text"] is not None:
+            await self.bodies.persist(ctx, item.ref.scope, prepared["text"])
+        return self.commit_compression(ctx, task, item, prepared)
+
+    async def generate_compression(
+        self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot
+    ) -> dict[str, Any]:
+        output_text = ""
         result: dict[str, Any] = {
             "quality": "failed",
             "published": False,
@@ -1130,7 +1231,15 @@ class RememberPipeline(Revalidation):
             parts = chunks(item.content, self.tokenizer.count, self.policy.extraction_chunk_tokens)
             compressed, reports = [], []
             for index, (start, end, text) in enumerate(parts):
-                checkpoint_key = fingerprint([task.task_id, index, text_hash(text)])
+                checkpoint_key = fingerprint(
+                    [
+                        task.task_id,
+                        self.checkpoint_binding(),
+                        item.content_hash,
+                        index,
+                        text_hash(text),
+                    ]
+                )
                 with self.uow.transaction() as tx:
                     checkpoint = tx.read("remember_compression_parts", checkpoint_key)
                     if checkpoint is not None:
@@ -1194,7 +1303,7 @@ class RememberPipeline(Revalidation):
                 else "supported_summary",
             )
             if quality_ok and (ratio_met or not self.policy.compression_require_ratio):
-                location = await self.bodies.persist(ctx, item.ref.scope, output_text)
+                location = self.bodies.location(item.ref.scope, output_text)
                 result.update(
                     quality="passed",
                     published=True,
@@ -1203,6 +1312,12 @@ class RememberPipeline(Revalidation):
                         mode="json"
                     ),
                 )
+        return {"result": result, "text": output_text if result["published"] else None}
+
+    def commit_compression(
+        self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot, prepared: dict[str, Any]
+    ) -> RunResult:
+        result = prepared["result"]
         with self.uow.transaction() as tx:
             self.tasks.guard(tx, task)
             if self.final_guard(tx, ctx, (item.ref,), "recall").items[0].decision != "allowed":
@@ -1271,7 +1386,7 @@ class RememberPipeline(Revalidation):
     ) -> tuple[CandidateFact, ...]:
         with self.uow.transaction() as tx:
             stored = tx.read("remember_candidates", task.task_id)
-        if stored:
+        if stored and stored.get("binding") == self.checkpoint_binding():
             return tuple(
                 self.validate_candidate(CandidateFact.model_validate(c), items)
                 for c in stored["candidates"]
@@ -1315,7 +1430,13 @@ class RememberPipeline(Revalidation):
                 )
                 for offset, _, piece in pieces:
                     checkpoint_key = fingerprint(
-                        [task.task_id, item.ref.model_dump(mode="json"), offset, text_hash(piece)]
+                        [
+                            task.task_id,
+                            self.checkpoint_binding(),
+                            item.ref.model_dump(mode="json"),
+                            offset,
+                            text_hash(piece),
+                        ]
                     )
                     with self.uow.transaction() as tx:
                         checkpoint = tx.read("remember_extraction_parts", checkpoint_key)
@@ -1441,7 +1562,10 @@ class RememberPipeline(Revalidation):
             tx.write(
                 "remember_candidates",
                 task.task_id,
-                {"candidates": [c.model_dump(mode="json") for c in merged.values()]},
+                {
+                    "binding": self.checkpoint_binding(),
+                    "candidates": [c.model_dump(mode="json") for c in merged.values()],
+                },
             )
         return tuple(merged.values())
 
@@ -1513,6 +1637,7 @@ class RememberPipeline(Revalidation):
                 checkpoint_key = fingerprint(
                     [
                         task.task_id if task else ctx.operation_id,
+                        self.checkpoint_binding(),
                         [
                             (u[0].ref.model_dump(mode="json"), u[1], text_hash(u[0].content), u[3])
                             for u in group
@@ -1626,6 +1751,7 @@ class RememberPipeline(Revalidation):
             result = await self.vector_search.search(
                 ctx,
                 VectorSearchRequest(
+                    memory_source="long_term",
                     selection=ScopeSelector(
                         **scope.model_dump(
                             exclude={"tenant_id", "application_id", "user_id", "agent_id"}
@@ -1684,6 +1810,23 @@ class RememberPipeline(Revalidation):
     async def extract_batch(
         self, ctx: TrustedContext, task: TaskRecord, items: tuple[MemorySnapshot, ...]
     ) -> RunResult:
+        for _ in range(self.policy.max_commit_retries + 1):
+            prepared = await self.generate_extraction(ctx, task, items)
+            for candidate, decision, _ in prepared["proposals"]:
+                if decision["outcome"] not in {"no_change", "equivalent", "reject"}:
+                    await self.bodies.persist(ctx, items[0].ref.scope, candidate["text"])
+            result = self.commit_extraction(ctx, task, items, prepared)
+            if result is not None:
+                return result
+        return RunResult(
+            outcome="failed",
+            effect_status=EffectStatus.NO_EFFECT,
+            reason="comparison commit conflict retry budget exhausted",
+        )
+
+    async def generate_extraction(
+        self, ctx: TrustedContext, task: TaskRecord, items: tuple[MemorySnapshot, ...]
+    ) -> dict[str, Any]:
         candidates = await self.candidates(ctx, task, items)
         if task.kind == "remember.distill":
             candidates = tuple(c for c in candidates if c.kind == "semantic")
@@ -1694,450 +1837,475 @@ class RememberPipeline(Revalidation):
             if batch
             else tuple(x.ref for x in items)
         )
-        for attempt in range(self.policy.max_commit_retries + 1):
+        with self.uow.transaction() as tx:
+            attempt = (tx.read("remember_comparison_retries", task.task_id) or {}).get(
+                "attempts", 0
+            )
+        if attempt > self.policy.max_commit_retries:
+            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "comparison retry budget exhausted")
+        with self.uow.transaction() as tx:
+            space_key = self.space_key(items[0].ref.scope)
+            expected_space_seq = tx.read("remember_space_seq", space_key) or 0
+        proposals: list[tuple[CandidateFact, ComparisonDecision, MemorySnapshot | None]] = []
+        virtual: dict[str, MemorySnapshot] = {}
+        virtual_relations: dict[str, Any] = {}
+        for candidate in candidates:
+            existing: tuple[MemorySnapshot, ...]
             with self.uow.transaction() as tx:
-                space_key = self.space_key(items[0].ref.scope)
-                expected_space_seq = tx.read("remember_space_seq", space_key) or 0
-            proposals: list[tuple[CandidateFact, ComparisonDecision, MemorySnapshot | None]] = []
-            virtual: dict[str, MemorySnapshot] = {}
-            virtual_relations: dict[str, Any] = {}
-            for candidate in candidates:
-                existing: tuple[MemorySnapshot, ...]
+                duplicate = self.duplicate_in(tx, ctx, candidate, items[0].ref.scope)
+            if duplicate is not None:
+                existing = (duplicate,)
+                decision = ComparisonDecision(
+                    outcome="no_change",
+                    target_id=duplicate.ref.memory_id,
+                    reason="deterministic_duplicate_v1",
+                )
+            else:
+                existing = (
+                    *await self.related(ctx, candidate, items[0].ref.scope),
+                    *virtual.values(),
+                )
+                context_tokens = self.tokenizer.count(candidate.text) + sum(
+                    self.tokenizer.count(x.content) for x in existing
+                )
+                if context_tokens > self.policy.comparison_context_tokens:
+                    raise FoundationError(
+                        ErrorCode.CONTRACT_VIOLATION,
+                        "comparison context budget exceeded; split extraction input",
+                    )
+                self.consume_call(task)
                 with self.uow.transaction() as tx:
-                    duplicate = self.duplicate_in(tx, ctx, candidate, items[0].ref.scope)
-                if duplicate is not None:
-                    existing = (duplicate,)
-                    decision = ComparisonDecision(
-                        outcome="no_change",
-                        target_id=duplicate.ref.memory_id,
-                        reason="deterministic_duplicate_v1",
+                    relations = {
+                        x.ref.memory_id: tx.read("remember_relations", x.ref.memory_id)
+                        or virtual_relations.get(x.ref.memory_id, {})
+                        for x in existing
+                    }
+                if hasattr(self.comparison, "compare_with_relations"):
+                    raw_decision = await self.comparison.compare_with_relations(
+                        ctx, candidate, existing, relations
                     )
                 else:
-                    existing = (
-                        *await self.related(ctx, candidate, items[0].ref.scope),
-                        *virtual.values(),
+                    raw_decision = await self.comparison.compare(ctx, candidate, existing)
+                decision = ComparisonDecision.model_validate(raw_decision)
+            target = next((x for x in existing if x.ref.memory_id == decision.target_id), None)
+            if decision.outcome == "create" and candidate.event_key:
+                with self.uow.transaction() as tx:
+                    same_events = [
+                        x
+                        for x in existing
+                        if (tx.read("remember_relations", x.ref.memory_id) or {}).get("event_key")
+                        == candidate.event_key
+                        and x.kind == MemoryKind.EPISODIC
+                    ]
+                if len(same_events) == 1:
+                    target = same_events[0]
+                    decision = ComparisonDecision(
+                        outcome="no_change"
+                        if target.content == candidate.text
+                        else "amend"
+                        if target.content in candidate.text
+                        else "conflict",
+                        target_id=target.ref.memory_id,
+                        reason="stable_event_identity",
                     )
-                    context_tokens = self.tokenizer.count(candidate.text) + sum(
-                        self.tokenizer.count(x.content) for x in existing
+            if (
+                decision.outcome in {"no_change", "equivalent", "amend", "correct", "conflict"}
+                and target is None
+            ):
+                raise FoundationError(
+                    ErrorCode.CONTRACT_VIOLATION, "comparison target was not a candidate"
+                )
+            if decision.outcome in {"create", "reject"} and decision.target_id is not None:
+                raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "unexpected comparison target")
+            if (
+                decision.outcome == "no_change"
+                and target is not None
+                and (
+                    canonical_text(target.content) != canonical_text(candidate.text)
+                    or target.kind.value != candidate.kind
+                )
+            ):
+                raise FoundationError(
+                    ErrorCode.CONTRACT_VIOLATION,
+                    "semantic similarity is not proof of duplicate",
+                )
+            if decision.outcome == "no_change" and candidate.kind == "episodic":
+                assert target is not None
+                with self.uow.transaction() as tx:
+                    relation = tx.read("remember_relations", target.ref.memory_id) or {}
+                same_origin = bool(
+                    {fingerprint(e) for e in relation.get("evidence", [])}
+                    & {fingerprint(e.model_dump(mode="json")) for e in candidate.evidence}
+                )
+                same_event = bool(
+                    candidate.event_key and relation.get("event_key") == candidate.event_key
+                )
+                if not same_origin and not same_event:
+                    decision = ComparisonDecision(
+                        outcome="create", reason="same_text_does_not_prove_same_event"
                     )
-                    if context_tokens > self.policy.comparison_context_tokens:
-                        raise FoundationError(
-                            ErrorCode.CONTRACT_VIOLATION,
-                            "comparison context budget exceeded; split extraction input",
-                        )
-                    self.consume_call(task)
-                    with self.uow.transaction() as tx:
-                        relations = {
-                            x.ref.memory_id: tx.read("remember_relations", x.ref.memory_id)
-                            or virtual_relations.get(x.ref.memory_id, {})
-                            for x in existing
-                        }
-                    if hasattr(self.comparison, "compare_with_relations"):
-                        raw_decision = await self.comparison.compare_with_relations(
-                            ctx, candidate, existing, relations
-                        )
-                    else:
-                        raw_decision = await self.comparison.compare(ctx, candidate, existing)
-                    decision = ComparisonDecision.model_validate(raw_decision)
-                target = next((x for x in existing if x.ref.memory_id == decision.target_id), None)
-                if decision.outcome == "create" and candidate.event_key:
-                    with self.uow.transaction() as tx:
-                        same_events = [
-                            x
-                            for x in existing
-                            if (tx.read("remember_relations", x.ref.memory_id) or {}).get(
-                                "event_key"
-                            )
-                            == candidate.event_key
-                            and x.kind == MemoryKind.EPISODIC
-                        ]
-                    if len(same_events) == 1:
-                        target = same_events[0]
-                        decision = ComparisonDecision(
-                            outcome="no_change"
-                            if target.content == candidate.text
-                            else "amend"
-                            if target.content in candidate.text
-                            else "conflict",
-                            target_id=target.ref.memory_id,
-                            reason="stable_event_identity",
-                        )
-                if (
-                    decision.outcome in {"no_change", "equivalent", "amend", "correct", "conflict"}
-                    and target is None
+                    target = None
+            if decision.outcome == "equivalent":
+                if target is None or target.kind.value != candidate.kind:
+                    raise FoundationError(
+                        ErrorCode.CONTRACT_VIOLATION, "equivalence target kind mismatch"
+                    )
+                if self.equivalence_verifier is None:
+                    raise FoundationError(
+                        ErrorCode.DEPENDENCY_UNAVAILABLE,
+                        "semantic equivalence verifier is not configured",
+                    )
+                self.consume_call(task)
+                verdict = EquivalenceVerdict.model_validate(
+                    await self.equivalence_verifier.verify(ctx, candidate, target)
+                )
+                with self.uow.transaction() as tx:
+                    self.tasks.guard(tx, task)
+                    tx.write(
+                        "remember_equivalence_checks",
+                        fingerprint([task.task_id, attempt, len(proposals)]),
+                        verdict.model_dump(mode="json"),
+                    )
+                    relation = tx.read(
+                        "remember_relations", target.ref.memory_id
+                    ) or virtual_relations.get(target.ref.memory_id, {})
+                same_event = candidate.kind == "semantic" or bool(
+                    candidate.event_key and candidate.event_key == relation.get("event_key")
+                )
+                if not (
+                    verdict.equivalent
+                    and verdict.same_identity
+                    and verdict.preserves_conditions
+                    and verdict.candidate_quote == candidate.text
+                    and verdict.existing_quote == target.content
+                    and same_event
                 ):
-                    raise FoundationError(
-                        ErrorCode.CONTRACT_VIOLATION, "comparison target was not a candidate"
+                    decision = ComparisonDecision(
+                        outcome="create", reason="equivalence_not_verified_preserve_candidate"
                     )
-                if decision.outcome in {"create", "reject"} and decision.target_id is not None:
-                    raise FoundationError(
-                        ErrorCode.CONTRACT_VIOLATION, "unexpected comparison target"
-                    )
-                if (
-                    decision.outcome == "no_change"
-                    and target is not None
-                    and (
-                        canonical_text(target.content) != canonical_text(candidate.text)
-                        or target.kind.value != candidate.kind
-                    )
+                    target = None
+            if decision.outcome == "correct":
+                # Model proposals preserve both facts until an explicit correction.
+                decision = decision.model_copy(
+                    update={
+                        "outcome": "conflict",
+                        "reason": "proposed_correction_requires_explicit_confirmation: "
+                        + decision.reason,
+                    }
+                )
+            if decision.outcome == "amend":
+                assert target is not None
+                with self.uow.transaction() as tx:
+                    relation = tx.read("remember_relations", target.ref.memory_id) or {}
+                    self.identity.authorize(tx, ctx, Permission.CORRECT, memory_ref(target.ref))
+                if not (
+                    candidate.kind == "episodic"
+                    and candidate.event_key
+                    and relation.get("event_key") == candidate.event_key
+                    and target.content in candidate.text
                 ):
                     raise FoundationError(
                         ErrorCode.CONTRACT_VIOLATION,
-                        "semantic similarity is not proof of duplicate",
+                        "amend requires same event and supported additive content",
                     )
-                if decision.outcome == "no_change" and candidate.kind == "episodic":
-                    assert target is not None
-                    with self.uow.transaction() as tx:
-                        relation = tx.read("remember_relations", target.ref.memory_id) or {}
-                    same_origin = bool(
-                        {fingerprint(e) for e in relation.get("evidence", [])}
-                        & {fingerprint(e.model_dump(mode="json")) for e in candidate.evidence}
-                    )
-                    same_event = bool(
-                        candidate.event_key and relation.get("event_key") == candidate.event_key
-                    )
-                    if not same_origin and not same_event:
+            proposals.append((candidate, decision, target))
+            if decision.outcome in {"create", "conflict"}:
+                virtual_id = fingerprint([task.task_id, len(proposals) - 1])
+                virtual[virtual_id] = items[0].model_copy(
+                    update={
+                        "ref": items[0].ref.model_copy(
+                            update={"memory_id": virtual_id, "version": 1}
+                        ),
+                        "kind": MemoryKind(candidate.kind),
+                        "content": candidate.text,
+                        "content_hash": text_hash(candidate.text),
+                        "sources": candidate.sources,
+                        "revision": 1,
+                        "object_revision": 1,
+                    }
+                )
+                virtual_relations[virtual_id] = {
+                    "event_key": candidate.event_key,
+                    "fact_key": candidate.fact_key,
+                }
+        return {
+            "attempt": attempt,
+            "space_key": space_key,
+            "expected_space_seq": expected_space_seq,
+            "refs": [r.model_dump(mode="json") for r in refs],
+            "virtual": list(virtual),
+            "candidate_count": len(candidates),
+            "proposals": [
+                [
+                    c.model_dump(mode="json"),
+                    d.model_dump(mode="json"),
+                    t.model_dump(mode="json") if t else None,
+                ]
+                for c, d, t in proposals
+            ],
+        }
+
+    def commit_extraction(
+        self,
+        ctx: TrustedContext,
+        task: TaskRecord,
+        items: tuple[MemorySnapshot, ...],
+        prepared: dict[str, Any],
+    ) -> RunResult | None:
+        attempt, space_key = prepared["attempt"], prepared["space_key"]
+        expected_space_seq, virtual = prepared["expected_space_seq"], prepared["virtual"]
+        refs = tuple(MemoryRef.model_validate(r) for r in prepared["refs"])
+        proposals = [
+            (
+                CandidateFact.model_validate(c),
+                ComparisonDecision.model_validate(d),
+                MemorySnapshot.model_validate(t) if t else None,
+            )
+            for c, d, t in prepared["proposals"]
+        ]
+        with self.uow.transaction() as tx:
+            self.tasks.guard(tx, task)
+            if (tx.read("remember_space_seq", space_key) or 0) != expected_space_seq:
+                tx.write("remember_comparison_retries", task.task_id, {"attempts": attempt + 1})
+                return None
+            if any(
+                x.decision != "allowed" for x in self.final_guard(tx, ctx, refs, "recall").items
+            ):
+                return RunResult(
+                    outcome="obsolete",
+                    effect_status=EffectStatus.NO_EFFECT,
+                    reason="sources changed during extraction",
+                )
+            if any(
+                target
+                and target.ref.memory_id not in virtual
+                and (
+                    self.current(tx, target.ref.memory_id).object_revision != target.object_revision
+                    or self.final_guard(tx, ctx, (target.ref,), "recall").items[0].decision
+                    != "allowed"
+                )
+                for _, _, target in proposals
+            ):
+                tx.write("remember_comparison_retries", task.task_id, {"attempts": attempt + 1})
+                return None
+            outputs, decisions = [], []
+            for index, (candidate, decision, target) in enumerate(proposals):
+                # Recheck within the write transaction: earlier candidates in
+                # this batch may already have created the canonical memory.
+                if decision.outcome == "create":
+                    duplicate = self.duplicate_in(tx, ctx, candidate, items[0].ref.scope)
+                    if duplicate is not None:
+                        target = duplicate
                         decision = ComparisonDecision(
-                            outcome="create", reason="same_text_does_not_prove_same_event"
+                            outcome="no_change",
+                            target_id=target.ref.memory_id,
+                            reason="commit_duplicate_v1",
                         )
-                        target = None
-                if decision.outcome == "equivalent":
-                    if target is None or target.kind.value != candidate.kind:
-                        raise FoundationError(
-                            ErrorCode.CONTRACT_VIOLATION, "equivalence target kind mismatch"
-                        )
-                    if self.equivalence_verifier is None:
-                        raise FoundationError(
-                            ErrorCode.DEPENDENCY_UNAVAILABLE,
-                            "semantic equivalence verifier is not configured",
-                        )
-                    self.consume_call(task)
-                    verdict = EquivalenceVerdict.model_validate(
-                        await self.equivalence_verifier.verify(ctx, candidate, target)
-                    )
-                    with self.uow.transaction() as tx:
-                        self.tasks.guard(tx, task)
-                        tx.write(
-                            "remember_equivalence_checks",
-                            fingerprint([task.task_id, attempt, len(proposals)]),
-                            verdict.model_dump(mode="json"),
-                        )
-                        relation = tx.read(
-                            "remember_relations", target.ref.memory_id
-                        ) or virtual_relations.get(target.ref.memory_id, {})
-                    same_event = candidate.kind == "semantic" or bool(
-                        candidate.event_key and candidate.event_key == relation.get("event_key")
-                    )
-                    if not (
-                        verdict.equivalent
-                        and verdict.same_identity
-                        and verdict.preserves_conditions
-                        and verdict.candidate_quote == candidate.text
-                        and verdict.existing_quote == target.content
-                        and same_event
-                    ):
-                        decision = ComparisonDecision(
-                            outcome="create", reason="equivalence_not_verified_preserve_candidate"
-                        )
-                        target = None
-                if decision.outcome == "correct":
-                    # Model proposals preserve both facts until an explicit correction.
-                    decision = decision.model_copy(
-                        update={
-                            "outcome": "conflict",
-                            "reason": "proposed_correction_requires_explicit_confirmation: "
-                            + decision.reason,
-                        }
-                    )
-                if decision.outcome == "amend":
+                decisions.append(
+                    {
+                        "candidate": candidate.model_dump(mode="json"),
+                        "decision": decision.model_dump(mode="json"),
+                        "expected_object_revision": target.object_revision if target else None,
+                    }
+                )
+                if decision.outcome == "reject":
+                    continue
+                if decision.outcome in {"no_change", "equivalent"}:
                     assert target is not None
-                    with self.uow.transaction() as tx:
-                        relation = tx.read("remember_relations", target.ref.memory_id) or {}
-                        self.identity.authorize(tx, ctx, Permission.CORRECT, memory_ref(target.ref))
-                    if not (
-                        candidate.kind == "episodic"
-                        and candidate.event_key
-                        and relation.get("event_key") == candidate.event_key
-                        and target.content in candidate.text
-                    ):
-                        raise FoundationError(
-                            ErrorCode.CONTRACT_VIOLATION,
-                            "amend requires same event and supported additive content",
+                    # Preserve every new provenance edge even when content is unchanged.
+                    current = self.current(tx, target.ref.memory_id)
+                    sources = tuple(
+                        {
+                            s.model_dump_json(): s for s in (*current.sources, *candidate.sources)
+                        }.values()
+                    )
+                    explicit_protection = (
+                        candidate.importance_category == "explicit_constraint"
+                        and any(
+                            (tx.read("remember_source_policy", source.source_id) or {}).get(
+                                "importance_category"
+                            )
+                            == "explicit_constraint"
+                            for source in candidate.sources
                         )
-                proposals.append((candidate, decision, target))
-                if decision.outcome in {"create", "conflict"}:
-                    virtual_id = fingerprint([task.task_id, len(proposals) - 1])
-                    virtual[virtual_id] = items[0].model_copy(
-                        update={
-                            "ref": items[0].ref.model_copy(
-                                update={"memory_id": virtual_id, "version": 1}
-                            ),
-                            "kind": MemoryKind(candidate.kind),
+                    )
+                    updates: dict[str, Any] = {"sources": sources}
+                    if explicit_protection and current.importance < 1.0:
+                        updates.update(
+                            importance=1.0,
+                            importance_reason="explicit_user_constraint",
+                            importance_policy_version=self.policy.version,
+                        )
+                    if sources == current.sources and len(updates) == 1:
+                        fact = current
+                    else:
+                        fact = self.change(tx, current, **updates)
+                        self.emit(tx, ctx, fact, "processing")
+                elif decision.outcome == "amend":
+                    assert target is not None
+                    old = self.change(
+                        tx,
+                        self.current(tx, target.ref.memory_id),
+                        status=MemoryStatus.SUPERSEDED,
+                        projection_state=ProjectionState.STALE,
+                    )
+                    self.emit(tx, ctx, old, "projection_stale")
+                    fact = MemorySnapshot.model_validate(
+                        {
+                            **old.model_dump(),
+                            "ref": old.ref.model_copy(update={"version": old.ref.version + 1}),
+                            "revision": 1,
+                            "object_revision": old.object_revision + 1,
                             "content": candidate.text,
                             "content_hash": text_hash(candidate.text),
                             "sources": candidate.sources,
-                            "revision": 1,
-                            "object_revision": 1,
+                            "status": MemoryStatus.ACTIVE,
+                            "projection_state": ProjectionState.PENDING,
+                            "model_space": None,
+                            "supersedes": old.ref,
                         }
                     )
-                    virtual_relations[virtual_id] = {
-                        "event_key": candidate.event_key,
-                        "fact_key": candidate.fact_key,
-                    }
-                if decision.outcome not in {"no_change", "equivalent", "reject"}:
-                    await self.bodies.persist(ctx, items[0].ref.scope, candidate.text)
-            with self.uow.transaction() as tx:
-                self.tasks.guard(tx, task)
-                if (tx.read("remember_space_seq", space_key) or 0) != expected_space_seq:
-                    tx.write("remember_comparison_retries", task.task_id, {"attempts": attempt + 1})
-                    continue
-                if any(
-                    x.decision != "allowed" for x in self.final_guard(tx, ctx, refs, "recall").items
-                ):
-                    return RunResult(
-                        outcome="obsolete",
-                        effect_status=EffectStatus.NO_EFFECT,
-                        reason="sources changed during extraction",
+                    self.put(tx, fact)
+                    self.enqueue(tx, ctx, fact, "remember.project")
+                    self.emit(tx, ctx, fact, "corrected")
+                else:
+                    fact = self.new_memory(
+                        tx,
+                        fingerprint([task.task_id, index]),
+                        items[0].ref.scope,
+                        candidate.text,
+                        candidate.sources,
+                        MemoryKind(candidate.kind),
                     )
-                if any(
-                    target
-                    and target.ref.memory_id not in virtual
-                    and (
-                        self.current(tx, target.ref.memory_id).object_revision
-                        != target.object_revision
-                        or self.final_guard(tx, ctx, (target.ref,), "recall").items[0].decision
-                        != "allowed"
-                    )
-                    for _, _, target in proposals
-                ):
-                    tx.write("remember_comparison_retries", task.task_id, {"attempts": attempt + 1})
-                    continue
-                outputs, decisions = [], []
-                for index, (candidate, decision, target) in enumerate(proposals):
-                    # Recheck within the write transaction: earlier candidates in
-                    # this batch may already have created the canonical memory.
-                    if decision.outcome == "create":
-                        duplicate = self.duplicate_in(tx, ctx, candidate, items[0].ref.scope)
-                        if duplicate is not None:
-                            target = duplicate
-                            decision = ComparisonDecision(
-                                outcome="no_change",
-                                target_id=target.ref.memory_id,
-                                reason="commit_duplicate_v1",
+                    category = candidate.importance_category
+                    if category == "explicit_constraint":
+                        trusted = any(
+                            (tx.read("remember_source_policy", s.source_id) or {}).get(
+                                "importance_category"
                             )
-                    decisions.append(
-                        {
-                            "candidate": candidate.model_dump(mode="json"),
-                            "decision": decision.model_dump(mode="json"),
-                            "expected_object_revision": target.object_revision if target else None,
-                        }
-                    )
-                    if decision.outcome == "reject":
-                        continue
-                    if decision.outcome in {"no_change", "equivalent"}:
-                        assert target is not None
-                        # Preserve every new provenance edge even when content is unchanged.
-                        current = self.current(tx, target.ref.memory_id)
-                        sources = tuple(
-                            {
-                                s.model_dump_json(): s
-                                for s in (*current.sources, *candidate.sources)
-                            }.values()
+                            == "explicit_constraint"
+                            for s in candidate.sources
                         )
-                        explicit_protection = (
-                            candidate.importance_category == "explicit_constraint"
-                            and any(
-                                (tx.read("remember_source_policy", source.source_id) or {}).get(
-                                    "importance_category"
-                                )
-                                == "explicit_constraint"
-                                for source in candidate.sources
-                            )
-                        )
-                        updates: dict[str, Any] = {"sources": sources}
-                        if explicit_protection and current.importance < 1.0:
-                            updates.update(
-                                importance=1.0,
-                                importance_reason="explicit_user_constraint",
-                                importance_policy_version=self.policy.version,
-                            )
-                        if sources == current.sources and len(updates) == 1:
-                            fact = current
-                        else:
-                            fact = self.change(tx, current, **updates)
-                            self.emit(tx, ctx, fact, "processing")
-                    elif decision.outcome == "amend":
-                        assert target is not None
-                        old = self.change(
-                            tx,
-                            self.current(tx, target.ref.memory_id),
-                            status=MemoryStatus.SUPERSEDED,
-                            projection_state=ProjectionState.STALE,
-                        )
-                        self.emit(tx, ctx, old, "projection_stale")
-                        fact = MemorySnapshot.model_validate(
-                            {
-                                **old.model_dump(),
-                                "ref": old.ref.model_copy(update={"version": old.ref.version + 1}),
-                                "revision": 1,
-                                "object_revision": old.object_revision + 1,
-                                "content": candidate.text,
-                                "content_hash": text_hash(candidate.text),
-                                "sources": candidate.sources,
-                                "status": MemoryStatus.ACTIVE,
-                                "projection_state": ProjectionState.PENDING,
-                                "model_space": None,
-                                "supersedes": old.ref,
-                            }
-                        )
-                        self.put(tx, fact)
-                        self.enqueue(tx, ctx, fact, "remember.project")
-                        self.emit(tx, ctx, fact, "corrected")
-                    else:
-                        fact = self.new_memory(
-                            tx,
-                            fingerprint([task.task_id, index]),
-                            items[0].ref.scope,
-                            candidate.text,
-                            candidate.sources,
-                            MemoryKind(candidate.kind),
-                        )
-                        category = candidate.importance_category
-                        if category == "explicit_constraint":
-                            trusted = any(
-                                (tx.read("remember_source_policy", s.source_id) or {}).get(
-                                    "importance_category"
-                                )
-                                == "explicit_constraint"
-                                for s in candidate.sources
-                            )
-                            if not trusted:
-                                import re
+                        if not trusted:
+                            import re
 
-                                category = (
-                                    "decision"
-                                    if re.search(
-                                        r"\b(must|never|required)\b|必须|不得|禁止",
-                                        candidate.text,
-                                        re.IGNORECASE,
-                                    )
-                                    else "fact"
+                            category = (
+                                "decision"
+                                if re.search(
+                                    r"\b(must|never|required)\b|必须|不得|禁止",
+                                    candidate.text,
+                                    re.IGNORECASE,
                                 )
-                        value, reason = importance(category)
-                        fact = fact.model_copy(
-                            update={
-                                "importance": value,
-                                "importance_reason": reason,
-                                "importance_policy_version": self.policy.version,
-                            }
-                        )
-                        self.put(tx, fact)
-                        self.enqueue(tx, ctx, fact, "remember.project")
-                        self.emit(tx, ctx, fact, "saved")
-                    relation = tx.read("remember_relations", fact.ref.memory_id) or {}
-                    tx.write(
-                        "remember_relations",
-                        fact.ref.memory_id,
-                        {
-                            "event_key": relation.get("event_key") or candidate.event_key,
-                            "fact_key": relation.get("fact_key") or candidate.fact_key,
-                            "evidence": list(
-                                {
-                                    fingerprint(e): e
-                                    for e in [
-                                        *relation.get("evidence", []),
-                                        *[e.model_dump(mode="json") for e in candidate.evidence],
-                                    ]
-                                }.values()
-                            ),
-                            "working_refs": list(
-                                {
-                                    fingerprint(r): r
-                                    for r in [
-                                        *relation.get("working_refs", []),
-                                        *[
-                                            i.ref.model_dump(mode="json")
-                                            for i in items
-                                            if {s.source_id for s in i.sources}
-                                            & {s.source_id for s in candidate.sources}
-                                        ],
-                                    ]
-                                }.values()
-                            ),
-                            "derived_from": [r.model_dump(mode="json") for r in refs]
-                            if task.kind == "remember.distill"
-                            else relation.get("derived_from", []),
-                            "verification_level": "derived_tentative"
-                            if task.kind == "remember.distill"
-                            else "grounded",
-                        },
+                                else "fact"
+                            )
+                    value, reason = importance(category)
+                    fact = fact.model_copy(
+                        update={
+                            "importance": value,
+                            "importance_reason": reason,
+                            "importance_policy_version": self.policy.version,
+                        }
                     )
-                    if decision.outcome == "equivalent":
-                        tx.write(
-                            "remember_equivalent_forms",
-                            fingerprint([fact.ref.memory_id, candidate.model_dump(mode="json")]),
-                            {
-                                "memory_id": fact.ref.memory_id,
-                                "canonical_version": fact.ref.version,
-                                "text": candidate.text,
-                                "sources": [r.model_dump(mode="json") for r in candidate.sources],
-                                "task_id": task.task_id,
-                                "reason": decision.reason,
-                            },
-                        )
-                    if decision.outcome == "conflict":
-                        assert target is not None
-                        changed_target = self.change(tx, self.current(tx, target.ref.memory_id))
-                        self.emit(tx, ctx, changed_target, "processing")
-                        group = ConflictGroup(
-                            group_id=fingerprint(
-                                [
-                                    target.ref.model_dump(mode="json"),
-                                    fact.ref.model_dump(mode="json"),
-                                ]
-                            ),
-                            members=(target.ref, fact.ref),
-                            explanation=decision.reason,
-                        )
-                        tx.write(
-                            "remember_conflicts", group.group_id, group.model_dump(mode="json")
-                        )
-                    outputs.append(fact.ref.model_dump(mode="json"))
+                    self.put(tx, fact)
+                    self.enqueue(tx, ctx, fact, "remember.project")
+                    self.emit(tx, ctx, fact, "saved")
+                relation = tx.read("remember_relations", fact.ref.memory_id) or {}
                 tx.write(
-                    "remember_decisions",
-                    task.task_id,
-                    {"decisions": decisions, "policy_version": self.policy.version},
-                )
-                deferred = tx.read("remember_deferred_extraction", task.task_id) or []
-                for item in items:
-                    row = tx.read("remember_pending", item.ref.memory_id)
-                    if row and row.get("task_id") == task.task_id:
-                        tx.write(
-                            "remember_pending",
-                            item.ref.memory_id,
-                            {
-                                **row,
-                                "state": "awaiting_extractor"
-                                if item.ref.memory_id in deferred
-                                else "processed",
-                            },
-                        )
-                return self.finish(
-                    tx,
-                    ctx,
-                    task,
+                    "remember_relations",
+                    fact.ref.memory_id,
                     {
-                        "memories": list({fingerprint(r): r for r in outputs}.values()),
-                        "candidate_count": len(candidates),
-                        "zero_output": not outputs,
-                        "awaiting_extraction_provider": deferred,
+                        "event_key": relation.get("event_key") or candidate.event_key,
+                        "fact_key": relation.get("fact_key") or candidate.fact_key,
+                        "evidence": list(
+                            {
+                                fingerprint(e): e
+                                for e in [
+                                    *relation.get("evidence", []),
+                                    *[e.model_dump(mode="json") for e in candidate.evidence],
+                                ]
+                            }.values()
+                        ),
+                        "working_refs": list(
+                            {
+                                fingerprint(r): r
+                                for r in [
+                                    *relation.get("working_refs", []),
+                                    *[
+                                        i.ref.model_dump(mode="json")
+                                        for i in items
+                                        if {s.source_id for s in i.sources}
+                                        & {s.source_id for s in candidate.sources}
+                                    ],
+                                ]
+                            }.values()
+                        ),
+                        "derived_from": [r.model_dump(mode="json") for r in refs]
+                        if task.kind == "remember.distill"
+                        else relation.get("derived_from", []),
+                        "verification_level": "derived_tentative"
+                        if task.kind == "remember.distill"
+                        else "grounded",
                     },
                 )
-        return RunResult(
-            outcome="failed",
-            effect_status=EffectStatus.NO_EFFECT,
-            reason="comparison commit conflict retry budget exhausted",
-        )
+                if decision.outcome == "equivalent":
+                    tx.write(
+                        "remember_equivalent_forms",
+                        fingerprint([fact.ref.memory_id, candidate.model_dump(mode="json")]),
+                        {
+                            "memory_id": fact.ref.memory_id,
+                            "canonical_version": fact.ref.version,
+                            "text": candidate.text,
+                            "sources": [r.model_dump(mode="json") for r in candidate.sources],
+                            "task_id": task.task_id,
+                            "reason": decision.reason,
+                        },
+                    )
+                if decision.outcome == "conflict":
+                    assert target is not None
+                    changed_target = self.change(tx, self.current(tx, target.ref.memory_id))
+                    self.emit(tx, ctx, changed_target, "processing")
+                    group = ConflictGroup(
+                        group_id=fingerprint(
+                            [
+                                target.ref.model_dump(mode="json"),
+                                fact.ref.model_dump(mode="json"),
+                            ]
+                        ),
+                        members=(target.ref, fact.ref),
+                        explanation=decision.reason,
+                    )
+                    tx.write("remember_conflicts", group.group_id, group.model_dump(mode="json"))
+                outputs.append(fact.ref.model_dump(mode="json"))
+            tx.write(
+                "remember_decisions",
+                task.task_id,
+                {"decisions": decisions, "policy_version": self.policy.version},
+            )
+            deferred = tx.read("remember_deferred_extraction", task.task_id) or []
+            for item in items:
+                row = tx.read("remember_pending", item.ref.memory_id)
+                if row and row.get("task_id") == task.task_id:
+                    tx.write(
+                        "remember_pending",
+                        item.ref.memory_id,
+                        {
+                            **row,
+                            "state": "awaiting_extractor"
+                            if item.ref.memory_id in deferred
+                            else "processed",
+                        },
+                    )
+            return self.finish(
+                tx,
+                ctx,
+                task,
+                {
+                    "memories": list({fingerprint(r): r for r in outputs}.values()),
+                    "candidate_count": prepared["candidate_count"],
+                    "zero_output": not outputs,
+                    "awaiting_extraction_provider": deferred,
+                },
+            )
 
     def load(self, ctx: TrustedContext, refs: tuple[MemoryRef, ...]) -> MemoryReadBatch:
         batch = super().load(ctx, refs)
@@ -2188,6 +2356,24 @@ class RememberPipeline(Revalidation):
     async def project(
         self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot
     ) -> RunResult:
+        prepared = await self.generate_projection(ctx, task, item)
+        if isinstance(prepared, RunResult):
+            return prepared
+        result = await self.publish_projection(ctx, task, item, prepared)
+        if result is not None:
+            return result
+        return await self.commit_projection(ctx, task, item, prepared)
+
+    async def generate_projection(
+        self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot
+    ) -> dict[str, Any] | RunResult:
+        with self.uow.transaction() as tx:
+            if not self.projection_buildable(tx, item):
+                return RunResult(
+                    outcome="obsolete",
+                    effect_status=EffectStatus.NO_EFFECT,
+                    reason="Working summary is not ready for projection",
+                )
         pieces = self.project_chunks(item)
         generation = task.task_id
         targets = tuple(
@@ -2198,6 +2384,7 @@ class RememberPipeline(Revalidation):
                 chunk_index=i,
                 generation=generation,
                 body_hash=item.content_hash,
+                memory_source="working" if item.kind == MemoryKind.WORKING else "long_term",
             )
             for i, (_, _, text) in enumerate(pieces)
         )
@@ -2221,10 +2408,14 @@ class RememberPipeline(Revalidation):
                     self.final_guard(tx, ctx, (item.ref,), "recall").items[0].decision == "allowed"
                 )
             if not valid:
-                return await self.discard_projection(ctx, task, targets)
-            observed = await self.projections.inspect(ctx, target, task.task_id)
+                return RunResult(
+                    outcome="obsolete",
+                    effect_status=EffectStatus.NO_EFFECT,
+                    reason="source changed before embedding",
+                )
+            checkpoint_key = fingerprint([target.vector_id, self.checkpoint_binding()])
             with self.uow.transaction() as tx:
-                checkpoint = tx.read("remember_chunk_vectors", target.vector_id)
+                checkpoint = tx.read("remember_chunk_vectors", checkpoint_key)
                 if checkpoint is not None:
                     self.tasks.progress.part(
                         tx,
@@ -2232,10 +2423,11 @@ class RememberPipeline(Revalidation):
                         task,
                         "embedding",
                         "remember_chunk_vectors",
-                        target.vector_id,
+                        checkpoint_key,
                         config_version=self.policy.version,
                     )
             if checkpoint is None:
+                self.consume_call(task)
                 embedded = await self.embedding.embed(
                     ctx,
                     EmbeddingRequest(
@@ -2260,20 +2452,84 @@ class RememberPipeline(Revalidation):
                 checkpoint = {"vector": list(embedded.items[0].vector)}
                 with self.uow.transaction() as tx:
                     self.tasks.guard(tx, task)
-                    tx.write("remember_chunk_vectors", target.vector_id, checkpoint)
+                    tx.write("remember_chunk_vectors", checkpoint_key, checkpoint)
                     self.tasks.progress.part(
                         tx,
                         ctx,
                         task,
                         "embedding",
                         "remember_chunk_vectors",
-                        target.vector_id,
+                        checkpoint_key,
                         config_version=self.policy.version,
                     )
             if dimensions is not None and dimensions != len(checkpoint["vector"]):
                 raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "mixed embedding dimensions")
             dimensions = len(checkpoint["vector"])
+            descriptors.append(
+                ChunkDescriptor(
+                    chunk_index=target.chunk_index,
+                    vector_id=target.vector_id,
+                    start_char=start,
+                    end_char=end,
+                    input_hash=target.input_hash,
+                    verified=True,
+                )
+            )
+        return {
+            "targets": [t.model_dump(mode="json") for t in targets],
+            "descriptors": [d.model_dump(mode="json") for d in descriptors],
+            "dimensions": dimensions,
+            "binding": self.checkpoint_binding(),
+        }
+
+    async def publish_projection(
+        self,
+        ctx: TrustedContext,
+        task: TaskRecord,
+        item: MemorySnapshot,
+        prepared: dict[str, Any],
+        *,
+        reconcile: bool = False,
+    ) -> RunResult | None:
+        targets = tuple(ProjectionTarget.model_validate(t) for t in prepared["targets"])
+        for target in targets:
+            with self.uow.transaction() as tx:
+                self.tasks.guard(tx, task)
+                valid = (
+                    self.final_guard(tx, ctx, (item.ref,), "recall").items[0].decision == "allowed"
+                )
+                key = fingerprint([task.task_id, "project", target.vector_id])
+                started = tx.read("temporal_projection_writes", key)
+                vector_key = fingerprint([target.vector_id, prepared["binding"]])
+                checkpoint = tx.read("remember_chunk_vectors", vector_key)
+            if not valid:
+                return await self.discard_projection(ctx, task, targets)
+            observed = await self.projections.inspect(ctx, target, task.task_id)
+            if observed.target != target or observed.operation_id != task.task_id:
+                raise FoundationError(
+                    ErrorCode.CONTRACT_VIOLATION, "projection query binding mismatch"
+                )
             if observed.state != "verified":
+                if started:
+                    return RunResult(
+                        outcome="uncertain",
+                        effect_status=EffectStatus.UNKNOWN,
+                        operation_id=task.task_id,
+                        reason="projection write unconfirmed",
+                    )
+                if reconcile:
+                    return RunResult(
+                        outcome="retryable_no_effect",
+                        effect_status=EffectStatus.NO_EFFECT,
+                        reason="projection write never started",
+                    )
+                with self.uow.transaction() as tx:
+                    self.tasks.guard(tx, task)
+                    tx.write(
+                        "temporal_projection_writes",
+                        key,
+                        {"target": target.model_dump(mode="json")},
+                    )
                 observed = await self.projections.project(
                     ctx,
                     ProjectionRequest(
@@ -2292,18 +2548,16 @@ class RememberPipeline(Revalidation):
                     outcome="uncertain",
                     effect_status=EffectStatus.UNKNOWN,
                     operation_id=task.task_id,
-                    reason="chunk projection not verified",
+                    reason="projection write unconfirmed",
                 )
-            descriptors.append(
-                ChunkDescriptor(
-                    chunk_index=target.chunk_index,
-                    vector_id=target.vector_id,
-                    start_char=start,
-                    end_char=end,
-                    input_hash=target.input_hash,
-                    verified=True,
-                )
-            )
+        return None
+
+    async def commit_projection(
+        self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot, prepared: dict[str, Any]
+    ) -> RunResult:
+        targets = tuple(ProjectionTarget.model_validate(t) for t in prepared["targets"])
+        descriptors = tuple(ChunkDescriptor.model_validate(d) for d in prepared["descriptors"])
+        generation, dimensions = task.task_id, prepared["dimensions"]
         with self.uow.transaction() as tx:
             self.tasks.guard(tx, task)
             valid = self.final_guard(tx, ctx, (item.ref,), "recall").items[0].decision == "allowed"
@@ -2358,15 +2612,11 @@ class RememberPipeline(Revalidation):
     async def discard_projection(
         self, ctx: TrustedContext, task: TaskRecord, targets: tuple[ProjectionTarget, ...]
     ) -> RunResult:
-        for target in targets:
-            result = await self.projections.delete(ctx, target, task.task_id)
-            if result.state != "absent" or result.target != target:
-                return RunResult(
-                    outcome="uncertain",
-                    effect_status=EffectStatus.UNKNOWN,
-                    operation_id=task.task_id,
-                    reason="late projection cleanup not confirmed",
-                )
+        result = await self.publish_cleanup(
+            ctx, task, {"targets": [t.model_dump(mode="json") for t in targets], "legacy": []}
+        )
+        if result is not None:
+            return result
         return RunResult(
             outcome="obsolete",
             effect_status=EffectStatus.CONFIRMED,
@@ -2376,6 +2626,17 @@ class RememberPipeline(Revalidation):
     async def cleanup(
         self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot
     ) -> RunResult:
+        prepared = self.prepare_cleanup(ctx, task, item)
+        if isinstance(prepared, RunResult):
+            return prepared
+        result = await self.publish_cleanup(ctx, task, prepared)
+        if result is not None:
+            return result
+        return self.commit_cleanup(ctx, task)
+
+    def prepare_cleanup(
+        self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot
+    ) -> dict[str, Any] | RunResult:
         with self.uow.transaction() as tx:
             in_flight = [
                 row["record"]
@@ -2408,9 +2669,59 @@ class RememberPipeline(Revalidation):
                     legacy.append(old)
                     if "body_location" not in raw:
                         targets.append(projection_target(ref, old.content_hash, self.model_space))
+        return {
+            "targets": [t.model_dump(mode="json") for t in targets],
+            "legacy": [i.model_dump(mode="json") for i in legacy],
+        }
+
+    async def publish_cleanup(
+        self,
+        ctx: TrustedContext,
+        task: TaskRecord,
+        prepared: dict[str, Any],
+        *,
+        reconcile: bool = False,
+    ) -> RunResult | None:
+        targets = [ProjectionTarget.model_validate(t) for t in prepared["targets"]]
+        legacy = [MemorySnapshot.model_validate(i) for i in prepared["legacy"]]
         for target in targets:
-            result = await self.projections.delete(ctx, target, task.task_id)
-            if result.state != "absent" or result.target != target:
+            key = fingerprint([task.task_id, "delete", target.vector_id])
+            with self.uow.transaction() as tx:
+                self.tasks.guard(tx, task)
+                started = tx.read("temporal_projection_writes", key)
+            result = await self.projections.inspect(ctx, target, task.task_id)
+            if result.target != target or result.operation_id != task.task_id:
+                raise FoundationError(
+                    ErrorCode.CONTRACT_VIOLATION, "cleanup query binding mismatch"
+                )
+            if started:
+                if result.state != "absent":
+                    return RunResult(
+                        outcome="uncertain",
+                        effect_status=EffectStatus.UNKNOWN,
+                        operation_id=task.task_id,
+                        reason="cleanup write unconfirmed",
+                    )
+            else:
+                if reconcile:
+                    return RunResult(
+                        outcome="retryable_no_effect",
+                        effect_status=EffectStatus.NO_EFFECT,
+                        reason="cleanup write never started",
+                    )
+                with self.uow.transaction() as tx:
+                    self.tasks.guard(tx, task)
+                    tx.write(
+                        "temporal_projection_writes",
+                        key,
+                        {"target": target.model_dump(mode="json")},
+                    )
+                result = await self.projections.delete(ctx, target, task.task_id)
+            if (
+                result.state != "absent"
+                or result.target != target
+                or result.operation_id != task.task_id
+            ):
                 return RunResult(
                     outcome="uncertain",
                     effect_status=EffectStatus.UNKNOWN,
@@ -2436,6 +2747,9 @@ class RememberPipeline(Revalidation):
                         operation_id=task.task_id,
                         reason="body cache cleanup unconfirmed",
                     )
+        return None
+
+    def commit_cleanup(self, ctx: TrustedContext, task: TaskRecord) -> RunResult:
         with self.uow.transaction() as tx:
             self.tasks.guard(tx, task)
             return self.finish(

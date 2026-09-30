@@ -5,7 +5,6 @@ import json
 import os
 import secrets
 import tempfile
-import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -89,6 +88,7 @@ class ThreeFlows:
         self.owned_reranker = None
         self.worker_prefix = "flow_" + secrets.token_hex(6)
         self.closed = False
+        self.execution: Any = None
         self.native_embedding: NativeP3Embedding | None = None
         if embedding_profile not in {"native", "lexical"}:
             self.foundation.close()
@@ -331,7 +331,7 @@ class ThreeFlows:
             raise ValueError("generation Recall is already configured")
         # 这里检查接口齐备性；B 的业务正确性仍需消费者契约测试与真实联调验证。
         required = (
-            (memories, ("load", "working", "final_guard")),
+            (memories, ("load", "working", "final_guard", "projection_readiness")),
             (qualification, ("qualify",)),
             (bodies, ("load_bodies",)),
             (guards, ("relations", "revalidate_context")),
@@ -384,62 +384,17 @@ class ThreeFlows:
         run_tasks: bool = True,
         periodic_interval: float = 5,
     ) -> bool:
-        with self.foundation.uow.transaction() as tx:
-            for flow in ("remember", "operate"):
-                worker = self.worker_prefix + "_" + flow
-                self.foundation.tasks.progress.heartbeat(tx, worker, flow)
-                tx.write(
-                    "workers",
-                    worker,
-                    {
-                        "worker_id": worker,
-                        "execution_class": flow,
-                        "last_seen": now(),
-                        "state": "polling",
-                    },
-                )
-        worked = self.recall.recover_expired() > 0
-        if hasattr(self.remember, "periodic"):
-            worked = self.remember.periodic() > 0 or worked
-        for _ in range(100):
-            if not self.foundation.events.dispatch_once("flow_dispatcher"):
-                break
-            worked = True
-            # Each delivery commits before yielding. A backlog must not monopolize
-            # the HTTP event loop for an entire 100-delivery batch.
-            await asyncio.sleep(0)
-        if run_tasks:
-            for flow in ("remember", "operate", "maintenance", "io", "model"):
-                worked = (
-                    await self.foundation.tasks.run_once(self.worker_prefix + "_" + flow, flow)
-                    or worked
-                )
-        if maintenance_context is not None:
-            result = await self.foundation.dispositions.cycle(maintenance_context)
-            worked = bool(result["sampled"] or result["reconciled"]) or worked
-        period = str(int(time.time() // periodic_interval))
-        if periodic and period != self.last_period:
-            self.operate.periodic(period)
-            self.last_period = period
-        return worked
+        execution = getattr(self, "execution", None)
+        if execution is None:
+            raise RuntimeError("configure the Temporal service before draining P3 work")
+        await execution.drain()
+        return True
 
     async def drain(self, timeout_seconds: float = 12) -> None:
-        end = time.monotonic() + timeout_seconds
-        while time.monotonic() < end:
-            worked = await self.tick()
-            with self.foundation.uow.transaction() as tx:
-                pending = any(
-                    row["record"]["state"] in {"pending", "running", "retry_wait", "recovery_wait"}
-                    for _, row in tx.rows("tasks")
-                )
-                pending |= any(
-                    row["state"] not in {"acknowledged", "attention_required"}
-                    for _, row in tx.rows("deliveries")
-                )
-            if not worked and not pending:
-                return
-            await asyncio.sleep(0.02)
-        raise TimeoutError("flow drain has unresolved tasks; inspect foundation diagnostics")
+        execution = getattr(self, "execution", None)
+        if execution is None:
+            raise RuntimeError("configure the Temporal service before draining P3 work")
+        await execution.drain(timeout_seconds)
 
     def close(self) -> None:
         if self.closed:

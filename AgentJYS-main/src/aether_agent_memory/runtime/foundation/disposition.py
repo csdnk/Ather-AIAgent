@@ -32,6 +32,7 @@ from aether_agent_memory.runtime.contracts.models import (
 from aether_agent_memory.runtime.contracts.ports import TaskHandler
 
 from .common import fingerprint, later
+from .storage import SQLiteTransaction
 from .tasks import Tasks
 from .telemetry import observed
 
@@ -159,6 +160,16 @@ class Dispositions:
     def observe(
         self, ctx: TrustedContext, subject: RecordRef, observation: SignalObservation
     ) -> tuple[IncidentRecord, ...]:
+        with self.uow.transaction() as tx:
+            return self.observe_in(tx, ctx, subject, observation)
+
+    def observe_in(
+        self,
+        tx: SQLiteTransaction,
+        ctx: TrustedContext,
+        subject: RecordRef,
+        observation: SignalObservation,
+    ) -> tuple[IncidentRecord, ...]:
         observation = SignalObservation.model_validate_json(observation.model_dump_json())
         definition = self.signals.get(observation.signal.signal_id)
         if definition != observation.signal:
@@ -173,189 +184,180 @@ class Dispositions:
         label_key = fingerprint([definition.signal_id, scope, observation.labels])
         sample_key = fingerprint([subject_key, label_key])
         incidents = []
-        with self.uow.transaction() as tx:
-            self.identity.authorize(tx, ctx, Permission.DIAGNOSE, subject)
-            for ref in observation.evidence_refs:
-                self.identity.authorize(tx, ctx, Permission.READ, ref)
-                if ref.scope != subject.scope or tx.get(ref) is None:
-                    tx.abort(
-                        ErrorCode.CONTRACT_VIOLATION, "signal evidence missing or out of scope"
-                    )
-            labels = [
-                k
-                for k, r in tx.rows("signal_labels")
-                if r["signal_id"] == definition.signal_id and r["scope"] == scope
-            ]
-            if label_key not in labels and len(labels) >= definition.max_label_sets:
-                tx.abort(ErrorCode.CAPACITY_EXCEEDED, "signal label cardinality exceeded")
-            prior = tx.read("signal_samples", sample_key)
-            if prior and observation.observed_at <= prior["observation"]["observed_at"]:
-                if prior["observation"] == observation.model_dump(mode="json"):
-                    return ()
-                tx.abort(ErrorCode.VERSION_CONFLICT, "sample timestamp is not increasing")
-            if prior and observation.observed_at < later(
-                prior["observation"]["observed_at"], definition.sample_interval_ms / 1000
-            ):
-                tx.abort(ErrorCode.INVALID_ARGUMENT, "sample interval violated")
-            tx.write(
-                "signal_labels", label_key, {"signal_id": definition.signal_id, "scope": scope}
+        self.identity.authorize(tx, ctx, Permission.DIAGNOSE, subject)
+        for ref in observation.evidence_refs:
+            self.identity.authorize(tx, ctx, Permission.READ, ref)
+            if ref.scope != subject.scope or tx.get(ref) is None:
+                tx.abort(ErrorCode.CONTRACT_VIOLATION, "signal evidence missing or out of scope")
+        labels = [
+            k
+            for k, r in tx.rows("signal_labels")
+            if r["signal_id"] == definition.signal_id and r["scope"] == scope
+        ]
+        if label_key not in labels and len(labels) >= definition.max_label_sets:
+            tx.abort(ErrorCode.CAPACITY_EXCEEDED, "signal label cardinality exceeded")
+        prior = tx.read("signal_samples", sample_key)
+        if prior and observation.observed_at <= prior["observation"]["observed_at"]:
+            if prior["observation"] == observation.model_dump(mode="json"):
+                return ()
+            tx.abort(ErrorCode.VERSION_CONFLICT, "sample timestamp is not increasing")
+        if prior and observation.observed_at < later(
+            prior["observation"]["observed_at"], definition.sample_interval_ms / 1000
+        ):
+            tx.abort(ErrorCode.INVALID_ARGUMENT, "sample interval violated")
+        tx.write("signal_labels", label_key, {"signal_id": definition.signal_id, "scope": scope})
+        tx.write(
+            "signal_samples",
+            sample_key,
+            {
+                "subject": subject.model_dump(mode="json"),
+                "observation": observation.model_dump(mode="json"),
+            },
+        )
+        rules = [
+            DispositionRule.model_validate(r["rule"])
+            for _, r in tx.rows("disposition_rules")
+            # Rules belong to the configuring identity's scope. A subject
+            # may be in a narrower session/task scope; object authorization
+            # above still gates every measurement and maintenance action.
+            if r["scope"] == ctx.principal.home_scope.model_dump(mode="json")
+            and r["rule"]["signal_id"] == definition.signal_id
+        ]
+        for rule in rules:
+            compare = {
+                "gt": operator.gt,
+                "ge": operator.ge,
+                "lt": operator.lt,
+                "le": operator.le,
+                "eq": operator.eq,
+            }[rule.comparator]
+            matched = (
+                observation.state == "known"
+                and observation.value is not None
+                and compare(observation.value, rule.threshold)
             )
-            tx.write(
-                "signal_samples",
-                sample_key,
-                {
-                    "subject": subject.model_dump(mode="json"),
-                    "observation": observation.model_dump(mode="json"),
-                },
+            key = fingerprint([sample_key, rule.rule_id, rule.revision])
+            state = tx.read("rule_states", key) or {
+                "count": 0,
+                "sequence": 0,
+                "cooldown_until": stamp,
+            }
+            gap = (
+                prior is not None
+                and later(prior["observation"]["observed_at"], definition.stale_after_ms / 1000)
+                <= observation.observed_at
             )
-            rules = [
-                DispositionRule.model_validate(r["rule"])
-                for _, r in tx.rows("disposition_rules")
-                # Rules belong to the configuring identity's scope. A subject
-                # may be in a narrower session/task scope; object authorization
-                # above still gates every measurement and maintenance action.
-                if r["scope"] == ctx.principal.home_scope.model_dump(mode="json")
-                and r["rule"]["signal_id"] == definition.signal_id
-            ]
-            for rule in rules:
-                compare = {
-                    "gt": operator.gt,
-                    "ge": operator.ge,
-                    "lt": operator.lt,
-                    "le": operator.le,
-                    "eq": operator.eq,
-                }[rule.comparator]
-                matched = (
-                    observation.state == "known"
-                    and observation.value is not None
-                    and compare(observation.value, rule.threshold)
+            state["count"] = (0 if gap else state["count"]) + 1 if matched else 0
+            active = tx.read("incidents", state.get("active", ""))
+            if active and active["record"]["state"] != "resolved":
+                tx.write("rule_states", key, state)
+                continue
+            if state["count"] >= rule.consecutive_samples and stamp >= state["cooldown_until"]:
+                # Policy revision, new labels or another rule cannot sidestep
+                # an unresolved operation on the same exact subject.
+                unresolved = any(
+                    r["record"]["subject"] == subject.model_dump(mode="json")
+                    and r["record"]["state"] != "resolved"
+                    for _, r in tx.rows("incidents")
                 )
-                key = fingerprint([sample_key, rule.rule_id, rule.revision])
-                state = tx.read("rule_states", key) or {
-                    "count": 0,
-                    "sequence": 0,
-                    "cooldown_until": stamp,
-                }
-                gap = (
-                    prior is not None
-                    and later(prior["observation"]["observed_at"], definition.stale_after_ms / 1000)
-                    <= observation.observed_at
-                )
-                state["count"] = (0 if gap else state["count"]) + 1 if matched else 0
-                active = tx.read("incidents", state.get("active", ""))
-                if active and active["record"]["state"] != "resolved":
+                if unresolved:
                     tx.write("rule_states", key, state)
                     continue
-                if state["count"] >= rule.consecutive_samples and stamp >= state["cooldown_until"]:
-                    # Policy revision, new labels or another rule cannot sidestep
-                    # an unresolved operation on the same exact subject.
-                    unresolved = any(
-                        r["record"]["subject"] == subject.model_dump(mode="json")
-                        and r["record"]["state"] != "resolved"
-                        for _, r in tx.rows("incidents")
-                    )
-                    if unresolved:
-                        tx.write("rule_states", key, state)
-                        continue
-                    op = self.operations[rule.operation_kind]
-                    if subject.owner != op.owner:
-                        tx.abort(
-                            ErrorCode.CONTRACT_VIOLATION, "operation owner differs from subject"
-                        )
-                    self.identity.authorize(tx, ctx, op.permission, subject)
-                    sequence = state["sequence"] + 1
-                    incident_id = fingerprint([key, sequence])[:32]
-                    task_id = "maint_" + incident_id
-                    deadline = min(ctx.deadline_at, later(stamp, rule.deadline_ms / 1000))
-                    incident = IncidentRecord(
-                        incident_id=incident_id,
-                        rule_id=rule.rule_id,
-                        rule_revision=rule.revision,
+                op = self.operations[rule.operation_kind]
+                if subject.owner != op.owner:
+                    tx.abort(ErrorCode.CONTRACT_VIOLATION, "operation owner differs from subject")
+                self.identity.authorize(tx, ctx, op.permission, subject)
+                sequence = state["sequence"] + 1
+                incident_id = fingerprint([key, sequence])[:32]
+                task_id = "maint_" + incident_id
+                deadline = min(ctx.deadline_at, later(stamp, rule.deadline_ms / 1000))
+                incident = IncidentRecord(
+                    incident_id=incident_id,
+                    rule_id=rule.rule_id,
+                    rule_revision=rule.revision,
+                    subject=subject,
+                    revision=1,
+                    state="recovering",
+                    operation_id=task_id,
+                    evidence_refs=observation.evidence_refs,
+                    verification="pending",
+                    opened_at=stamp,
+                    updated_at=stamp,
+                )
+                input_ref = RecordRef(
+                    owner=subject.owner,
+                    object_type="maintenance_input",
+                    object_id=incident_id,
+                    scope=subject.scope,
+                )
+                payload = incident.model_dump(mode="json")
+                tx.put_if_revision(input_ref, payload, None)
+                self.tasks.enqueue(
+                    tx,
+                    ctx,
+                    TaskSpec(
+                        task_id=task_id,
+                        owner_flow=subject.owner,
+                        kind=rule.operation_kind,
                         subject=subject,
-                        revision=1,
-                        state="recovering",
-                        operation_id=task_id,
-                        evidence_refs=observation.evidence_refs,
-                        verification="pending",
-                        opened_at=stamp,
-                        updated_at=stamp,
-                    )
-                    input_ref = RecordRef(
-                        owner=subject.owner,
-                        object_type="maintenance_input",
-                        object_id=incident_id,
-                        scope=subject.scope,
-                    )
-                    payload = incident.model_dump(mode="json")
-                    tx.put_if_revision(input_ref, payload, None)
-                    self.tasks.enqueue(
-                        tx,
-                        ctx,
-                        TaskSpec(
-                            task_id=task_id,
-                            owner_flow=subject.owner,
-                            kind=rule.operation_kind,
-                            subject=subject,
-                            input_ref=input_ref,
-                            input_hash=fingerprint(payload),
-                            idempotency_key=incident_id,
-                            initiator_id=ctx.principal.principal_id,
-                            initiator_auth_epoch=ctx.principal.auth_epoch,
-                            deadline_at=deadline,
-                            max_attempts=rule.max_attempts,
-                        ),
-                    )
-                    operation = OperationRecord(
-                        operation_id=task_id,
-                        subject=subject,
-                        phase="maintenance",
-                        state="accepted",
-                        task_ids=(task_id,),
-                        reason="signal_rule_triggered",
-                    )
-                    tx.write(
-                        "operations",
-                        task_id,
-                        {
-                            "record": operation.model_dump(mode="json"),
-                            "signature": fingerprint([ctx.principal.principal_id, incident_id]),
-                        },
-                    )
-                    configuration = tx.read("runtime_configuration", "active")
-                    audit = MaintenanceRecord(
-                        record_id="audit_" + incident_id,
-                        actor_id=ctx.principal.principal_id,
-                        operation_id=task_id,
-                        subject=subject,
-                        reason="signal_rule_triggered",
-                        occurred_at=stamp,
-                        phase="accepted",
-                        config_version=configuration["version"]
-                        if configuration
-                        else "foundation_2",
-                    )
-                    tx.write("maintenance", audit.record_id, audit.model_dump(mode="json"))
-                    tx.write(
-                        "incidents",
-                        incident_id,
-                        {
-                            "record": incident.model_dump(mode="json"),
-                            "task_id": task_id,
-                            "rule": rule.model_dump(mode="json"),
-                            "deadline_at": deadline,
-                            "verify_after": stamp,
-                            "rule_state_key": key,
-                        },
-                    )
-                    state.update(
-                        sequence=sequence,
-                        active=incident_id,
-                        count=0,
-                        cooldown_until=later(stamp, rule.cooldown_ms / 1000),
-                    )
-                    incidents.append(incident)
-                tx.write("rule_states", key, state)
-            tx.before_commit.append(lambda: self.identity.revalidate(tx, ctx))
+                        input_ref=input_ref,
+                        input_hash=fingerprint(payload),
+                        idempotency_key=incident_id,
+                        initiator_id=ctx.principal.principal_id,
+                        initiator_auth_epoch=ctx.principal.auth_epoch,
+                        deadline_at=deadline,
+                        max_attempts=rule.max_attempts,
+                    ),
+                )
+                operation = OperationRecord(
+                    operation_id=task_id,
+                    subject=subject,
+                    phase="maintenance",
+                    state="accepted",
+                    task_ids=(task_id,),
+                    reason="signal_rule_triggered",
+                )
+                tx.write(
+                    "operations",
+                    task_id,
+                    {
+                        "record": operation.model_dump(mode="json"),
+                        "signature": fingerprint([ctx.principal.principal_id, incident_id]),
+                    },
+                )
+                configuration = tx.read("runtime_configuration", "active")
+                audit = MaintenanceRecord(
+                    record_id="audit_" + incident_id,
+                    actor_id=ctx.principal.principal_id,
+                    operation_id=task_id,
+                    subject=subject,
+                    reason="signal_rule_triggered",
+                    occurred_at=stamp,
+                    phase="accepted",
+                    config_version=configuration["version"] if configuration else "foundation_2",
+                )
+                tx.write("maintenance", audit.record_id, audit.model_dump(mode="json"))
+                tx.write(
+                    "incidents",
+                    incident_id,
+                    {
+                        "record": incident.model_dump(mode="json"),
+                        "task_id": task_id,
+                        "rule": rule.model_dump(mode="json"),
+                        "deadline_at": deadline,
+                        "verify_after": stamp,
+                        "rule_state_key": key,
+                    },
+                )
+                state.update(
+                    sequence=sequence,
+                    active=incident_id,
+                    count=0,
+                    cooldown_until=later(stamp, rule.cooldown_ms / 1000),
+                )
+                incidents.append(incident)
+            tx.write("rule_states", key, state)
+        tx.before_commit.append(lambda: self.identity.revalidate(tx, ctx))
         return tuple(incidents)
 
     def incidents(self, ctx: TrustedContext) -> tuple[IncidentRecord, ...]:
@@ -464,6 +466,46 @@ class Dispositions:
                     state["cooldown_until"] = later(self.tasks.clock(), rule.cooldown_ms / 1000)
                     tx.write("rule_states", current["rule_state_key"], state)
         return count
+
+    def resolve_verified(
+        self,
+        tx: SQLiteTransaction,
+        ctx: TrustedContext,
+        incident_id: str,
+        task_id: str,
+        refs: tuple[RecordRef, ...],
+    ) -> None:
+        """Commit independently checked evidence with the original repair task."""
+        row = tx.read("incidents", incident_id)
+        incident = IncidentRecord.model_validate(row["record"])
+        self.identity.authorize(tx, ctx, Permission.RECOVER, incident.subject)
+        if row["task_id"] != task_id or self.tasks.clock() >= row["deadline_at"]:
+            tx.abort(ErrorCode.VERSION_CONFLICT, "repair binding or deadline changed")
+        if not refs or any(
+            ref.scope != incident.subject.scope
+            or tx.get(ref) is None
+            or not self.identity.permits(tx, ctx, Permission.READ, ref)
+            for ref in refs
+        ):
+            tx.abort(ErrorCode.CONTRACT_VIOLATION, "independent verification evidence missing")
+        done = IncidentRecord.model_validate(
+            {
+                **incident.model_dump(),
+                "state": "resolved",
+                "verification": "passed",
+                "verification_refs": refs,
+                "revision": incident.revision + 1,
+                "updated_at": self.tasks.clock(),
+            }
+        )
+        tx.write("incidents", incident_id, {**row, "record": done.model_dump(mode="json")})
+        rule = DispositionRule.model_validate(row["rule"])
+        state = tx.read("rule_states", row["rule_state_key"])
+        tx.write(
+            "rule_states",
+            row["rule_state_key"],
+            {**state, "cooldown_until": later(self.tasks.clock(), rule.cooldown_ms / 1000)},
+        )
 
     async def cycle(self, ctx: TrustedContext) -> dict[str, int]:
         sampled = 0

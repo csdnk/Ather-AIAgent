@@ -1,12 +1,10 @@
 """Integrated RF services: persistence, fencing, tenant isolation and real restore."""
 
-import asyncio
 from hashlib import sha256
 
 import pytest
 
 from aether_agent_memory.runtime.contracts.foundation import (
-    CheckpointRecord,
     ConfigurationSnapshot,
     DispositionRule,
     IncidentRecord,
@@ -14,7 +12,6 @@ from aether_agent_memory.runtime.contracts.foundation import (
     OperationDefinition,
     SignalDefinition,
     SignalObservation,
-    TaskWaitRecord,
 )
 from aether_agent_memory.runtime.contracts.models import (
     Permission,
@@ -58,7 +55,9 @@ def identities():
 
 @pytest.fixture
 def app(tmp_path):
-    app = Foundation(tmp_path / "rf.db", maintenance_principals=("admin",))
+    app = Foundation(
+        tmp_path / "rf.db", maintenance_principals=("admin",), engineering_profile=True
+    )
     app.identity.provision(identities())
     clock = Clock()
     app.tasks.clock = app.identity.clock = app.monitoring.clock = clock
@@ -123,94 +122,6 @@ def test_health_cache_expiry_authorization_and_legacy_projection(app):
     app.identity.provision(identities()[1:])
     with pytest.raises(FoundationError):
         app.monitoring.health(context)
-
-
-def test_checkpoints_rollback_fencing_and_wait_schedule(app):
-    context = ctx(app)
-    pending = app.sample.submit(context, "checkpoint", "text")
-    task = app.tasks.claim("worker", "engineering", app.test_clock())
-    output = ref(context, "output")
-    with pytest.raises(RuntimeError), app.uow.transaction() as tx:
-        tx.put_if_revision(output, {"done": True}, None)
-        app.tasks.progress.checkpoint(
-            tx,
-            context,
-            task,
-            CheckpointRecord(
-                task_id=task.task_id,
-                expected_task_revision=task.revision,
-                stage="parsed",
-                input_hash=task.input_hash,
-                output_refs=(output,),
-                committed_at=app.test_clock(),
-                config_version="v1",
-            ),
-        )
-        raise RuntimeError("rollback")
-    assert app.tasks.progress.read(context, pending.task_id)["checkpoints"] == []
-    with app.uow.transaction() as tx:
-        tx.put_if_revision(output, {"done": True}, None)
-        app.tasks.progress.checkpoint(
-            tx,
-            context,
-            task,
-            CheckpointRecord(
-                task_id=task.task_id,
-                expected_task_revision=task.revision,
-                stage="parsed",
-                input_hash=task.input_hash,
-                output_refs=(output,),
-                committed_at=app.test_clock(),
-                config_version="v1",
-            ),
-        )
-        app.tasks.progress.wait(
-            tx,
-            context,
-            task,
-            TaskWaitRecord(
-                task_id=task.task_id,
-                expected_task_revision=task.revision,
-                dependency_id="vectors",
-                reason_code="unavailable",
-                wait_started_at=app.test_clock(),
-                next_check_at=later(app.test_clock(), 10),
-                deadline_at=task.deadline_at,
-                original_operation_id=context.operation_id,
-                effect_status="no_effect",
-                resume_mode="resume",
-            ),
-        )
-    app.tasks.apply_result(
-        task,
-        context,
-        RunResult(
-            outcome="retryable_no_effect",
-            effect_status="no_effect",
-            reason="dependency unavailable",
-        ),
-    )
-    assert app.tasks.claim("other_worker", "engineering", app.test_clock()) is None
-    app.test_clock.advance(11)
-    new = app.tasks.claim("other_worker", "engineering", app.test_clock())
-    assert new.task_id == task.task_id and new.lease.token != task.lease.token
-    with pytest.raises(FoundationError), app.uow.transaction() as tx:
-        app.tasks.progress.checkpoint(
-            tx,
-            context,
-            task,
-            CheckpointRecord(
-                task_id=task.task_id,
-                expected_task_revision=new.revision,
-                stage="late",
-                input_hash=task.input_hash,
-                output_refs=(output,),
-                committed_at=app.test_clock(),
-                config_version="v1",
-            ),
-        )
-    with pytest.raises(FoundationError):
-        app.tasks.progress.read(ctx(app, "other"), task.task_id)
 
 
 class Repair:
@@ -319,48 +230,6 @@ def seed(app):
     return context, target
 
 
-def test_signal_to_real_task_to_independent_business_verification(app):
-    signal, repair = configure(app)
-    context, target = seed(app)
-    first = sample(app, signal, target)
-    assert app.dispositions.observe(context, target, first) == ()
-    assert app.dispositions.observe(context, target, first) == ()  # delivery duplicate
-    app.test_clock.advance()
-    (incident,) = app.dispositions.observe(context, target, sample(app, signal, target))
-    assert incident.state == "recovering"
-    assert app.diagnostics.operation(context, incident.operation_id).state == "accepted"
-    assert asyncio.run(app.tasks.run_once("maintenance_worker", "maintenance"))
-    assert repair.calls == 1
-    assert app.diagnostics.operation(context, incident.operation_id).state == "completed"
-    assert app.dispositions.incidents(context)[0].state == "recovering"
-    asyncio.run(app.dispositions.reconcile(context))
-    result = app.dispositions.incidents(context)[0]
-    assert result.state == "resolved" and result.verification_refs
-    assert app.dispositions.incidents(ctx(app, "other")) == ()
-    with app.uow.transaction() as tx:
-        heartbeat = tx.read("worker_heartbeats", "maintenance_worker")
-        assert heartbeat["state"] == "polling" and heartbeat["task_id"] is None
-    app.test_clock.advance()
-    assert app.dispositions.observe(context, target, sample(app, signal, target)) == ()
-
-
-def test_maintenance_success_does_not_close_failed_business_verification(app):
-    signal, _ = configure(app, verification=False, samples=1)
-    context, target = seed(app)
-    app.dispositions.observe(context, target, sample(app, signal, target))
-    asyncio.run(app.tasks.run_once("worker", "maintenance"))
-    asyncio.run(app.dispositions.reconcile(context))
-    assert app.dispositions.incidents(context)[0].state == "verifying"
-    app.test_clock.advance(31)
-    asyncio.run(app.dispositions.reconcile(context))
-    result = app.dispositions.incidents(context)[0]
-    assert result.state == "attention_required" and result.verification == "unknown"
-    # A continuing fault cannot mint a new operation after an unresolved one.
-    app.test_clock.advance(10)
-    assert app.dispositions.observe(context, target, sample(app, signal, target)) == ()
-    assert len(app.dispositions.incidents(context)) == 1
-
-
 def test_signal_staleness_cardinality_and_cross_tenant_evidence(app):
     signal, _ = configure(app, samples=1)
     context, target = seed(app)
@@ -406,77 +275,6 @@ def test_configuration_and_real_backup_restore_without_overwriting_live_data(app
     app.lifecycle.path("snapshot_1").write_bytes(b"corrupt")
     with pytest.raises(ValueError, match="hash mismatch"):
         app.lifecycle.restore(context, "snapshot_1", "drill_2")
-
-
-def test_runtime_records_survive_host_restart(app):
-    signal, _ = configure(app, samples=1)
-    context, target = seed(app)
-    (incident,) = app.dispositions.observe(context, target, sample(app, signal, target))
-    # A second host simulates restart registration without discarding durable state.
-    other = Foundation(app.uow.path, maintenance_principals=("admin",))
-    try:
-        configure(other, samples=1)
-        assert (
-            other.dispositions.incidents(other.identity.context("admin"))[0].incident_id
-            == incident.incident_id
-        )
-        assert asyncio.run(other.tasks.run_once("after_restart", "maintenance"))
-        asyncio.run(other.dispositions.reconcile(other.identity.context("admin")))
-        assert other.dispositions.incidents(other.identity.context("admin"))[0].state == "resolved"
-    finally:
-        other.close()
-
-
-def test_sampler_cycle_respects_period_and_enqueues_in_shared_engine(app):
-    signal, repair = configure(app, samples=1)
-    context, target = seed(app)
-    calls = []
-
-    async def sampler(trusted):
-        calls.append(trusted.principal.principal_id)
-        return [(target, sample(app, signal, target))]
-
-    app.dispositions.register_signal(signal, sampler)
-    asyncio.run(app.dispositions.cycle(context))
-    asyncio.run(app.dispositions.cycle(context))
-    assert calls == ["admin"]
-    asyncio.run(app.tasks.run_once("worker", "maintenance"))
-    asyncio.run(app.dispositions.reconcile(context))
-    assert repair.calls == 1
-    assert app.dispositions.incidents(context)[0].state == "resolved"
-
-
-def test_revocation_during_business_verification_cannot_close_incident(app):
-    signal, _ = configure(app, samples=1)
-    context, target = seed(app)
-    app.dispositions.observe(context, target, sample(app, signal, target))
-    asyncio.run(app.tasks.run_once("worker", "maintenance"))
-
-    async def revoke(trusted, incident, task):
-        app.identity.provision(identities()[1:])
-        return (task.result_ref,)
-
-    app.dispositions.verifiers["verify_test"] = revoke
-    with pytest.raises(FoundationError):
-        asyncio.run(app.dispositions.reconcile(context))
-    with app.uow.transaction() as tx:
-        assert tx.rows("incidents")[0][1]["record"]["state"] == "verifying"
-
-
-def test_query_only_operation_cannot_resume_even_if_handler_requests_it(app):
-    from aether_agent_memory.runtime.foundation.disposition import RegisteredHandler
-
-    signal, repair = configure(app, samples=1)
-    definition = app.dispositions.operations["repair_test"].model_copy(
-        update={"side_effect": "external", "recovery": "query_only"}
-    )
-    wrapper = RegisteredHandler(definition, repair)
-    context, target = seed(app)
-    (incident,) = app.dispositions.observe(context, target, sample(app, signal, target))
-    task = app.tasks.claim("worker", "maintenance", app.test_clock())
-    decision = asyncio.run(wrapper.recover(context, task))
-    assert decision.action.value == "attention"
-    assert repair.calls == 0 and incident.operation_id == task.task_id
 
 
 def test_configuration_change_invalidates_previous_health_evidence(app):

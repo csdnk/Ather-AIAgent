@@ -6,6 +6,15 @@ from typing import Any, Literal
 
 from aether_agent_memory.recall.contracts.models import EmbeddingRequest
 from aether_agent_memory.recall.contracts.ports import EmbeddingPort
+from aether_agent_memory.remember.contracts.foundation import (
+    CandidateQualificationResult,
+    CandidateQualificationTarget,
+    ChunkDescriptor,
+    ContextGuardRequest,
+    GuardStamp,
+    ProjectionManifest,
+    ProjectionReadiness,
+)
 from aether_agent_memory.remember.contracts.models import (
     CorrectionRequest,
     DeleteReceipt,
@@ -21,12 +30,14 @@ from aether_agent_memory.remember.contracts.models import (
     MemoryStatus,
     ProjectionRequest,
     ProjectionState,
+    ProjectionTarget,
     RememberReceipt,
     RememberRequest,
     SourceRef,
     StorageChanged,
 )
 from aether_agent_memory.remember.contracts.ports import ExtractionPort, ProjectionPort
+from aether_agent_memory.runtime.contracts.foundation import ResourceLocation
 from aether_agent_memory.runtime.contracts.models import (
     EffectStatus,
     ErrorCode,
@@ -75,6 +86,40 @@ def memory_ref(ref: MemoryRef, *, versioned: bool = False) -> RecordRef:
 
 @observed("remember")
 class Remember:
+    @staticmethod
+    def refkey(ref: MemoryRef) -> str:
+        return fingerprint(ref.model_dump(mode="json"))
+
+    async def projection_readiness(
+        self,
+        ctx: TrustedContext,
+        selection: ScopeSelector,
+        memory_source: Literal["working", "long_term"],
+    ) -> ProjectionReadiness:
+        from .boundary import RememberBoundary
+
+        return await RememberBoundary(self).projection_readiness(ctx, selection, memory_source)
+
+    async def qualify(
+        self,
+        ctx: TrustedContext,
+        targets: tuple[CandidateQualificationTarget, ...],
+        purpose: Literal["recall", "extraction"],
+    ) -> tuple[CandidateQualificationResult, ...]:
+        from .boundary import RememberBoundary
+
+        return await RememberBoundary(self).qualify(ctx, targets, purpose)
+
+    def revalidate_context(
+        self,
+        tx: Transaction,
+        ctx: TrustedContext,
+        request: ContextGuardRequest,
+    ) -> tuple[GuardStamp, ...]:
+        from .boundary import RememberBoundary
+
+        return RememberBoundary(self).revalidate_context(tx, ctx, request)
+
     def __init__(
         self,
         uow: SQLiteUnitOfWork,
@@ -275,9 +320,7 @@ class Remember:
             content=text,
             content_hash=text_hash(text),
             sources=sources,
-            projection_state=ProjectionState.NOT_REQUIRED
-            if kind == MemoryKind.WORKING
-            else ProjectionState.PENDING,
+            projection_state=ProjectionState.PENDING,
             created_at=self.identity.clock(),
         )
         self.put(tx, item)
@@ -324,6 +367,7 @@ class Remember:
                 deadline_at=ctx.deadline_at,
             ),
         )
+        tx.write("remember_latest_task", fingerprint([memory.ref.memory_id, kind]), task.task_id)
         return task.task_id
 
     def replay(
@@ -383,13 +427,14 @@ class Remember:
                 tx, key, scope, request.content.text, (source,), MemoryKind.WORKING
             )
             task_id = self.enqueue(tx, ctx, item, "remember.extract")
+            projection_id = self.enqueue(tx, ctx, item, "remember.project")
             self.emit(tx, ctx, item, "saved")
             result = RememberReceipt(
                 operation_id=ctx.operation_id,
                 saved=True,
                 source=source,
                 memories=(item.ref,),
-                task_ids=(task_id,),
+                task_ids=(task_id, projection_id),
                 phase="saved",
             )
             self.remember_result(tx, key, request, result)
@@ -444,7 +489,10 @@ class Remember:
                             tx,
                             working,
                             status=MemoryStatus.DELETED if deleting else MemoryStatus.SUPERSEDED,
+                            projection_state=ProjectionState.STALE,
                         )
+                        if deleting:
+                            self.enqueue(tx, ctx, working, "remember.cleanup")
                         self.emit(tx, ctx, working, "deleted" if deleting else "archived")
 
     def correct(
@@ -497,9 +545,7 @@ class Remember:
                     "content_hash": text_hash(body),
                     "sources": (source,),
                     "status": MemoryStatus.ACTIVE,
-                    "projection_state": ProjectionState.NOT_REQUIRED
-                    if item.kind == MemoryKind.WORKING
-                    else ProjectionState.PENDING,
+                    "projection_state": ProjectionState.PENDING,
                     "model_space": None,
                     "supersedes": item.ref,
                     "created_at": self.identity.clock(),
@@ -518,13 +564,16 @@ class Remember:
                 if item.kind == MemoryKind.WORKING
                 else "remember.project",
             )
+            task_ids = [task_id]
+            if item.kind == MemoryKind.WORKING and self.projection_buildable(tx, updated):
+                task_ids.append(self.enqueue(tx, ctx, updated, "remember.project"))
             self.emit(tx, ctx, updated, "corrected")
             result = RememberReceipt(
                 operation_id=ctx.operation_id,
                 saved=True,
                 source=source,
                 memories=(updated.ref,),
-                task_ids=(task_id,),
+                task_ids=tuple(task_ids),
                 phase="processing",
             )
             self.remember_result(tx, key, request, result)
@@ -552,6 +601,56 @@ class Remember:
 
     def working_task_kind(self, tx: SQLiteTransaction, item: MemorySnapshot) -> str:
         return "remember.extract"
+
+    def projection_buildable(self, tx: SQLiteTransaction, item: MemorySnapshot) -> bool:
+        return True
+
+    def reindex(self, ctx: TrustedContext, memory_id: str) -> str:
+        """Queue the current body only; reuse unresolved work and never re-extract facts."""
+        with self.uow.transaction() as tx:
+            item = self.current(tx, memory_id)
+            self.identity.authorize(tx, ctx, Permission.WRITE, memory_ref(item.ref))
+            request = {"memory": item.ref.model_dump(mode="json"), "model_space": self.model_space}
+            key = request_key(ctx, "reindex_" + memory_id)
+            previous = tx.read("remember_operations", key)
+            if previous and previous["signature"] != fingerprint(request):
+                tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "reindex target changed")
+            if previous:
+                return str(previous["result"]["task_id"])
+            if self.final_guard(tx, ctx, (item.ref,), "recall").items[0].decision != "allowed":
+                tx.abort(ErrorCode.MEMORY_GONE, "inactive memory cannot be indexed")
+            if not self.projection_buildable(tx, item):
+                tx.abort(
+                    ErrorCode.REQUEST_IN_PROGRESS,
+                    "Working summary is not ready; recover it with reprocess before reindex",
+                )
+            kind = "remember.project"
+            task_id = tx.read("remember_latest_task", fingerprint([memory_id, kind]))
+            row = tx.read("tasks", task_id) if task_id else None
+            original = tx.get(RecordRef.model_validate(row["record"]["input_ref"])) if row else None
+            reuse = bool(
+                row
+                and original
+                and original["ref"] == item.ref.model_dump(mode="json")
+                and (
+                    row["record"]["effect_status"] == "unknown"
+                    or row["record"]["state"]
+                    not in {"succeeded", "failed", "cancelled", "attention_required"}
+                    or item.projection_state == ProjectionState.READY
+                    and kind == "remember.project"
+                )
+            )
+            if not reuse:
+                item = self.change(
+                    tx, item, projection_state=ProjectionState.PENDING, model_space=None
+                )
+                task_id = self.enqueue(tx, ctx, item, kind)
+            tx.write(
+                "remember_operations",
+                key,
+                {"signature": fingerprint(request), "result": {"task_id": task_id}},
+            )
+            return str(task_id)
 
     def lifecycle(
         self, ctx: TrustedContext, memory_id: str, request: LifecycleRequest
@@ -588,9 +687,7 @@ class Remember:
                 tx,
                 item,
                 status=request.target,
-                projection_state=ProjectionState.NOT_REQUIRED
-                if item.kind == MemoryKind.WORKING
-                else ProjectionState.PENDING
+                projection_state=ProjectionState.PENDING
                 if request.target == "active"
                 else ProjectionState.STALE,
             )
@@ -600,10 +697,11 @@ class Remember:
                 self.invalidate_working(tx, ctx, item)
             if request.target == "active" and hasattr(self, "retention"):
                 self.retention.activated_in(tx, updated)
-            if request.target == "active" and item.kind != MemoryKind.WORKING:
-                self.enqueue(tx, ctx, updated, "remember.project")
-            elif request.target == "active":
-                self.enqueue(tx, ctx, updated, "remember.extract")
+            if request.target == "active":
+                if item.kind == MemoryKind.WORKING:
+                    self.enqueue(tx, ctx, updated, self.working_task_kind(tx, updated))
+                if self.projection_buildable(tx, updated):
+                    self.enqueue(tx, ctx, updated, "remember.project")
             self.emit(tx, ctx, updated, "activated" if request.target == "active" else "archived")
             self.remember_result(tx, key, request, updated)
             tx.write(
@@ -897,6 +995,21 @@ class Remember:
                     tx, ctx, task, {"memories": refs, "extractor": extracted.model_id}
                 )
         if task.kind == "remember.cleanup":
+            with self.uow.transaction() as tx:
+                registered = [
+                    ProjectionTarget.model_validate(row["target"])
+                    for _, row in tx.rows("remember_projection_targets")
+                    if row["target"]["memory"]["memory_id"] == item.ref.memory_id
+                ]
+            for target in registered:
+                cleaned = await self.projections.delete(ctx, target, task.task_id)
+                if cleaned.state != "absent" or cleaned.target != target:
+                    return RunResult(
+                        outcome="uncertain",
+                        effect_status=EffectStatus.UNKNOWN,
+                        operation_id=task.task_id,
+                        reason="generation deletion not yet confirmed",
+                    )
             for version in range(1, item.ref.version + 1):
                 with self.uow.transaction() as tx:
                     raw = tx.get(
@@ -928,7 +1041,7 @@ class Remember:
                     task,
                     {"vector_cleanup": "completed", "source_retention": "pending_policy"},
                 )
-        target = projection_target(item.ref, item.content_hash, self.model_space)
+        target = self.basic_projection_target(item, task)
         embedded = await self.embedding.embed(
             ctx,
             EmbeddingRequest(
@@ -947,6 +1060,18 @@ class Remember:
             or embedded.items[0].input_hash != item.content_hash
         ):
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "embedding input binding mismatch")
+        with self.uow.transaction() as tx:
+            self.tasks.guard(tx, task)
+            tx.write(
+                "remember_projection_targets",
+                target.vector_id,
+                {
+                    "target": target.model_dump(mode="json"),
+                    "task_id": task.task_id,
+                    "dimensions": len(embedded.items[0].vector),
+                    "cleanup": "pending",
+                },
+            )
         projected = await self.projections.project(
             ctx,
             ProjectionRequest(
@@ -972,6 +1097,7 @@ class Remember:
                     reason="old vector excluded by authoritative version",
                 )
             current = self.current(tx, item.ref.memory_id)
+            self.publish_basic_working_manifest(tx, item, target, task)
             updated = self.change(
                 tx, current, projection_state=ProjectionState.READY, model_space=self.model_space
             )
@@ -982,6 +1108,67 @@ class Remember:
                 task,
                 {"memory": updated.ref.model_dump(mode="json"), "projection": "ready"},
             )
+
+    def basic_projection_target(self, item: MemorySnapshot, task: TaskRecord) -> ProjectionTarget:
+        from .projection import projection_target
+
+        working = item.kind == MemoryKind.WORKING
+        return projection_target(
+            item.ref,
+            item.content_hash,
+            self.model_space,
+            generation=task.task_id if working else None,
+            body_hash=item.content_hash if working else None,
+            memory_source="working" if working else "long_term",
+        )
+
+    def publish_basic_working_manifest(
+        self,
+        tx: SQLiteTransaction,
+        item: MemorySnapshot,
+        target: ProjectionTarget,
+        task: TaskRecord,
+    ) -> None:
+        if item.kind != MemoryKind.WORKING:
+            return
+        row = tx.read("remember_projection_targets", target.vector_id)
+        if not row or not row.get("dimensions"):
+            tx.abort(
+                ErrorCode.CONTRACT_VIOLATION, "verified Working projection lacks dimension evidence"
+            )
+        manifest = ProjectionManifest(
+            memory=item.ref,
+            generation=task.task_id,
+            body_hash=item.content_hash,
+            model_space=self.model_space,
+            dimensions=row["dimensions"],
+            chunker_version="whole_body_v1",
+            embedding_tokenizer="provider_input_budget",
+            expected_chunk_count=1,
+            chunks=(
+                ChunkDescriptor(
+                    chunk_index=0,
+                    vector_id=target.vector_id,
+                    start_char=0,
+                    end_char=len(item.content),
+                    input_hash=item.content_hash,
+                    verified=True,
+                ),
+            ),
+            state="ready",
+            task_id=task.task_id,
+            published_at=self.identity.clock(),
+            vector_location=ResourceLocation(
+                kind="vector",
+                provider_id="projection",
+                provider_instance_id=self.model_space,
+                namespace="remember_vectors",
+                object_key=self.refkey(item.ref),
+                generation=task.task_id,
+                content_hash=item.content_hash,
+            ),
+        )
+        tx.write("remember_manifests", self.refkey(item.ref), manifest.model_dump(mode="json"))
 
     def finish(
         self, tx: SQLiteTransaction, ctx: TrustedContext, task: TaskRecord, value: dict[str, Any]
@@ -1022,11 +1209,9 @@ class Remember:
         if not valid:
             effect = EffectStatus.NO_EFFECT
             if task.kind == "remember.project":
-                from aether_agent_memory.remember.basic.projection import projection_target
-
                 observed = await self.projections.inspect(
                     ctx,
-                    projection_target(original.ref, original.content_hash, self.model_space),
+                    self.basic_projection_target(original, task),
                     task.task_id,
                 )
                 if observed.state not in {"absent", "verified"}:
@@ -1049,9 +1234,7 @@ class Remember:
                 evidence=(task.input_ref,),
             )
         if task.kind == "remember.project":
-            from aether_agent_memory.remember.basic.projection import projection_target
-
-            target = projection_target(item.ref, item.content_hash, self.model_space)
+            target = self.basic_projection_target(item, task)
             observed = await self.projections.inspect(ctx, target, task.task_id)
             if observed.state == "verified":
                 with self.uow.transaction() as tx:
@@ -1066,6 +1249,7 @@ class Remember:
                             reason="version invalidated",
                             evidence=(task.input_ref,),
                         )
+                    self.publish_basic_working_manifest(tx, item, target, task)
                     updated = self.change(
                         tx,
                         self.current(tx, item.ref.memory_id),

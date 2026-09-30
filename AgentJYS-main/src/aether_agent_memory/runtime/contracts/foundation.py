@@ -246,6 +246,7 @@ class IncidentRecord(ContractModel):
     evidence_refs: tuple[RecordRef, ...] = Field(min_length=1)
     verification: Literal["pending", "passed", "failed", "unknown"]
     verification_refs: tuple[RecordRef, ...] = ()
+    reason_code: NonEmpty | None = None
     opened_at: Timestamp
     updated_at: Timestamp
 

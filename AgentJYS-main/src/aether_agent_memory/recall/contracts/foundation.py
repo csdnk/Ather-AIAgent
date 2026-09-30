@@ -51,6 +51,7 @@ class MemorySearchRequest(ContractModel):
     purpose: Literal["recall", "extraction"]
     query: NonEmpty
     selection: ScopeSelector
+    memory_source: Literal["working", "long_term"] = "long_term"
     model_space: Identifier
     memory_top_k: Positive
     chunk_page_size: Positive
@@ -67,6 +68,7 @@ class MemorySearchRequest(ContractModel):
 
 class ChunkHit(ContractModel):
     memory: MemoryRef
+    memory_source: Literal["working", "long_term"] = "long_term"
     generation: Identifier
     body_hash: Digest
     model_space: Identifier
@@ -81,6 +83,7 @@ class ChunkHit(ContractModel):
 class ChunkSearchRequest(ContractModel):
     operation_id: Identifier
     selection: ScopeSelector
+    memory_source: Literal["working", "long_term"] = "long_term"
     model_space: EmbeddingSpace
     vector: tuple[float, ...] = Field(min_length=1)
     limit: Positive
@@ -109,6 +112,8 @@ class ChunkSearchResult(ContractModel):
             raise ValueError("unavailable vector search cannot return hits")
         if any(h.model_space != self.request.model_space.model_space for h in self.hits):
             raise ValueError("vector search returned a different model space")
+        if any(h.memory_source != self.request.memory_source for h in self.hits):
+            raise ValueError("vector search returned a different memory source")
         for name, value in self.request.selection.model_dump(exclude_none=True).items():
             if any(getattr(h.memory.scope, name) != value for h in self.hits):
                 raise ValueError("chunk hit lies outside the requested restriction")
@@ -180,6 +185,7 @@ class MemorySearchResult(ContractModel):
         if any(
             c.memory.scope.tenant_id != self.scope.tenant_id
             or c.manifest.model_space != req.model_space
+            or any(h.memory_source != req.memory_source for h in c.hits)
             for c in self.candidates
         ):
             raise ValueError("candidate tenant/model space mismatch")
@@ -213,21 +219,24 @@ class RecallPlanRequest(ContractModel):
     policy_version: Identifier
     deadline_at: Timestamp
     long_term_search: MemorySearchRequest | None = None
+    working_search: MemorySearchRequest | None = None
 
     @model_validator(mode="after")
     def source_routing(self) -> Self:
         if len(set(self.sources)) != len(self.sources):
             raise ValueError("duplicate source")
-        if ("long_term" in self.sources) != (self.long_term_search is not None):
-            raise ValueError("Working-only bypasses embedding/vector search")
-        search = self.long_term_search
-        if search is not None and (
-            search.query != self.query
-            or search.selection != self.selection
-            or search.purpose != "recall"
-            or search.deadline_at > self.deadline_at
-        ):
-            raise ValueError("search must bind the same recall inputs and bounded deadline")
+        for source in ("working", "long_term"):
+            search = getattr(self, source + "_search")
+            if (source in self.sources) != (search is not None):
+                raise ValueError("each selected source requires its vector search plan")
+            if search is not None and (
+                search.query != self.query
+                or search.selection != self.selection
+                or search.memory_source != source
+                or search.purpose != "recall"
+                or search.deadline_at > self.deadline_at
+            ):
+                raise ValueError("search must bind the same recall inputs and bounded deadline")
         return self
 
 
@@ -311,9 +320,9 @@ class ContextAssemblyPlan(ContractModel):
             if any(getattr(r.scope, name) != value for r in refs):
                 raise ValueError("context lies outside the requested restriction")
         primary_count = sum(len(u.primary_memories) for u in self.units)
-        search = self.request.long_term_search
-        if primary_count > (search.memory_top_k if search else 0):
-            raise ValueError("only long-term primary memories occupy K slots")
+        searches = (self.request.working_search, self.request.long_term_search)
+        if primary_count > sum(search.memory_top_k for search in searches if search):
+            raise ValueError("primary memories exceed the selected source K budgets")
         evidence_keys = [(e.memory.model_dump_json(), e.source) for e in self.rank_evidence]
         if len(set(evidence_keys)) != len(evidence_keys):
             raise ValueError("duplicate memory/source RRF contribution")
@@ -323,8 +332,8 @@ class ContextAssemblyPlan(ContractModel):
             for e in self.rank_evidence
         ):
             raise ValueError("ranking evidence must describe admitted memories/selected sources")
-        if self.request.sources == ("working",) and self.rank_evidence:
-            raise ValueError("Working-only does not run RRF")
+        if len(self.request.sources) == 1 and self.rank_evidence:
+            raise ValueError("single-source recall does not run RRF")
         return self
 
 

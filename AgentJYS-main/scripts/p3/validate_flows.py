@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 import platform
 import subprocess
 import sys
@@ -24,7 +25,10 @@ TARGETS = [
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--report", type=Path)
+    parser.add_argument("--temporal-endpoint", default=os.environ.get("P3_TEMPORAL_ENDPOINT"))
     args = parser.parse_args()
+    if not args.temporal_endpoint:
+        parser.error("--temporal-endpoint (or P3_TEMPORAL_ENDPOINT) is required")
     checks = []
     with tempfile.TemporaryDirectory(prefix="p3-three-flows-") as tmp:
         xml = Path(tmp) / "flows.xml"
@@ -34,8 +38,6 @@ def main() -> int:
                 [
                     "-m",
                     "pytest",
-                    "-c",
-                    "tests/runtime/p3/pytest.ini",
                     "tests/runtime/flows",
                     "tests/integration/test_continuous_service.py",
                     "tests/integration/test_monitor_catalogs.py",
@@ -72,11 +74,20 @@ def main() -> int:
                     *TARGETS,
                 ],
             ),
-            ("foundation_and_contract_regression", ["scripts/p3/validate_foundation.py"]),
+            (
+                "foundation_and_contract_regression",
+                [
+                    "scripts/p3/validate_foundation.py",
+                    "--temporal-endpoint",
+                    args.temporal_endpoint,
+                ],
+            ),
             (
                 "three_flow_demo",
                 [
                     "scripts/p3/demo_flows.py",
+                    "--temporal-endpoint",
+                    args.temporal_endpoint,
                     "--embedding-profile",
                     "lexical",
                     "--directory",

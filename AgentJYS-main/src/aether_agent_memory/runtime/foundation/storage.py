@@ -36,6 +36,9 @@ from .common import FoundationError, encode, fingerprint
 from .telemetry import Telemetry, current_node
 
 _active: ContextVar[bool] = ContextVar("p3_foundation_transaction", default=False)
+business_write_guard: ContextVar[Callable[[SQLiteTransaction], None] | None] = ContextVar(
+    "p3_business_write_guard", default=None
+)
 
 
 class SQLiteTransaction:
@@ -68,6 +71,36 @@ class SQLiteTransaction:
     def rows(self, table: str) -> list[tuple[str, Any]]:
         self.check()
         return [(k, json.loads(v)) for _, k, v in self.raw.scan("p3_rf_" + table)]
+
+    def rows_after(
+        self, table: str, cursor: str = "", *, limit: int = 100
+    ) -> list[tuple[str, Any]]:
+        """Bounded keyset read for durable periodic cursors; no task claiming."""
+        self.check()
+        if not 1 <= limit <= 1000:
+            raise ValueError("invalid page limit")
+        if isinstance(self.raw, _SQLiteTransaction):
+            rows = self.raw.connection.execute(
+                "SELECT key,value FROM capability_records WHERE namespace=? AND tenant=? "
+                "AND key>? ORDER BY key LIMIT ?",
+                ("p3_rf_" + table, "system", cursor, limit),
+            ).fetchall()
+            return [(key, json.loads(value)) for key, value in rows]
+        return sorted((k, v) for k, v in self.rows(table) if k > cursor)[:limit]
+
+    def pending_intent_rows(self, kind: str, *, limit: int = 100) -> list[tuple[str, Any]]:
+        """Only unacknowledged RPC intents; never scan/claim business tasks."""
+        self.check()
+        if kind not in {"start", "control"} or not 1 <= limit <= 1000:
+            raise ValueError("invalid intent kind or batch limit")
+        if not isinstance(self.raw, _SQLiteTransaction):
+            raise TypeError("foundation requires its SQLite record transaction")
+        rows = self.raw.connection.execute(
+            "SELECT key,value FROM capability_records WHERE namespace=? "
+            "AND json_extract(value,'$.state')='pending' ORDER BY key LIMIT ?",
+            (f"p3_rf_temporal_{kind}_intents", limit),
+        ).fetchall()
+        return [(key, json.loads(value)) for key, value in rows]
 
     def active_task_rows(self, *, include_attention: bool = False) -> list[tuple[str, Any]]:
         """SQLite queue projection, evaluated in the same fenced transaction.
@@ -205,6 +238,11 @@ class SQLiteUnitOfWork:
                     "CREATE INDEX IF NOT EXISTS p3_pending_delivery_states ON capability_records "
                     "(json_extract(value,'$.state')) WHERE namespace='p3_rf_deliveries'"
                 )
+                raw.connection.execute(
+                    "CREATE INDEX IF NOT EXISTS p3_pending_temporal_intents ON capability_records "
+                    "(namespace,json_extract(value,'$.state'),key) WHERE namespace IN "
+                    "('p3_rf_temporal_start_intents','p3_rf_temporal_control_intents')"
+                )
             config = raw.get("p3_rf_meta", "system", "schema")
             if config is None:
                 config = encode({"version": 1, "cursor_key": secrets.token_hex(32)})
@@ -229,6 +267,9 @@ class SQLiteUnitOfWork:
                 tx = SQLiteTransaction(raw, self.cursor_key)
                 yield tx
                 tx.check()
+                execution_guard = business_write_guard.get()
+                if tx.writes and execution_guard is not None:
+                    execution_guard(tx)
                 for guard in tx.before_commit:
                     guard()
                 if tx.writes:

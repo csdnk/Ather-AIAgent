@@ -10,11 +10,19 @@ from aether_agent_memory.remember.contracts.foundation import (
     GuardStamp,
     MemoryRelationSnapshot,
     ProjectionManifest,
+    ProjectionReadiness,
 )
 from aether_agent_memory.remember.contracts.models import MemoryRef
-from aether_agent_memory.runtime.contracts.models import ErrorCode, Permission, TrustedContext
+from aether_agent_memory.runtime.contracts.models import (
+    ErrorCode,
+    Permission,
+    RecordRef,
+    ScopeSelector,
+    TrustedContext,
+)
 from aether_agent_memory.runtime.contracts.ports import Transaction
-from aether_agent_memory.runtime.foundation.common import FoundationError
+from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
+from aether_agent_memory.runtime.foundation.requests import select_scope
 from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction, native
 
 from .records import required_record
@@ -24,6 +32,73 @@ from .service import memory_ref
 class RememberBoundary:
     def __init__(self, remember: Any) -> None:
         self.remember = remember
+
+    async def projection_readiness(
+        self,
+        ctx: TrustedContext,
+        selection: ScopeSelector,
+        memory_source: Literal["working", "long_term"],
+    ) -> ProjectionReadiness:
+        if memory_source not in {"working", "long_term"}:
+            raise FoundationError(ErrorCode.INVALID_ARGUMENT, "invalid memory source")
+        select_scope(ctx, selection)
+        owner = self.remember
+        ready = pending = failed = 0
+        with owner.uow.transaction() as tx:
+            owner.identity.revalidate(tx, ctx)
+            for memory_id, pointer in tx.rows("remember_current"):
+                record_ref = RecordRef.model_validate(pointer)
+                if not owner.identity.discoverable(tx, ctx, record_ref, selection):
+                    continue
+                record = required_record(tx, record_ref)
+                actual = "working" if record["kind"] == "working" else "long_term"
+                if actual != memory_source:
+                    continue
+                ref = MemoryRef.model_validate(record["ref"])
+                if owner.final_guard(tx, ctx, (ref,), "recall").items[0].decision != "allowed":
+                    continue
+                summary = tx.read("remember_working_summaries", memory_id)
+                if summary and summary["memory"] == record["ref"] and summary["state"] != "ready":
+                    if summary["state"] == "failed":
+                        failed += 1
+                    else:
+                        pending += 1
+                    continue
+                raw = tx.read("remember_manifests", owner.refkey(ref))
+                manifest = ProjectionManifest.model_validate(raw) if raw else None
+                body_hash = (record.get("body_location") or {}).get(
+                    "content_hash", record.get("content_hash")
+                )
+                if (
+                    record["projection_state"] == "ready"
+                    and manifest is not None
+                    and manifest.state == "ready"
+                    and manifest.memory == ref
+                    and manifest.body_hash == body_hash
+                    and manifest.model_space == owner.model_space
+                ):
+                    ready += 1
+                    continue
+                task_id = tx.read(
+                    "remember_latest_task", fingerprint([memory_id, "remember.project"])
+                )
+                task = tx.read("tasks", task_id) if task_id else None
+                if (
+                    record["projection_state"] == "failed"
+                    or task
+                    and task["record"]["state"] in {"failed", "attention_required"}
+                ):
+                    failed += 1
+                else:
+                    pending += 1
+            owner.identity.revalidate(tx, ctx)
+        return ProjectionReadiness(
+            source=memory_source,
+            ready_count=ready,
+            pending_count=pending,
+            failed_count=failed,
+            complete=pending == failed == 0,
+        )
 
     @staticmethod
     def distinct(refs: tuple[MemoryRef, ...]) -> None:
@@ -72,6 +147,18 @@ class RememberBoundary:
                     record = required_record(tx, memory_ref(target.memory, versioned=True))
                     candidate = ProjectionManifest.model_validate(raw) if raw else None
                     reason = "unpublished_or_stale_chunk"
+                    actual_source = "working" if record["kind"] == "working" else "long_term"
+                    if target.memory_source != actual_source:
+                        results.append(
+                            CandidateQualificationResult(
+                                target=target,
+                                decision="excluded",
+                                reason_code="memory_source_mismatch",
+                                manifest=None,
+                                guard=None,
+                            )
+                        )
+                        continue
                     if candidate is not None and (
                         candidate.state == "ready"
                         and record["projection_state"] == "ready"

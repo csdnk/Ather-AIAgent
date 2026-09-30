@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Authorized current-memory coverage; no body reads or access reinforcement.",
+  "properties": {
+    "complete": {
+      "title": "Complete",
+      "type": "boolean"
+    },
+    "failed_count": {
+      "minimum": 0,
+      "title": "Failed Count",
+      "type": "integer"
+    },
+    "pending_count": {
+      "minimum": 0,
+      "title": "Pending Count",
+      "type": "integer"
+    },
+    "ready_count": {
+      "minimum": 0,
+      "title": "Ready Count",
+      "type": "integer"
+    },
+    "source": {
+      "enum": [
+        "working",
+        "long_term"
+      ],
+      "title": "Source",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source",
+    "ready_count",
+    "pending_count",
+    "failed_count",
+    "complete"
+  ],
+  "title": "ProjectionReadiness",
+  "type": "object",
+  "x-contract-model": "remember.ProjectionReadiness"
+}

@@ -36,13 +36,20 @@ class Documents:
         )
 
     async def upload(
+        self, ctx: TrustedContext, document_id: str, version: str, body: bytes, media_type: str
+    ) -> DocumentInput:
+        prepared = self.prepare_upload(ctx, document_id, version, body, media_type)
+        await self.persist_upload(prepared, body)
+        return self.commit_upload(ctx, prepared)
+
+    def prepare_upload(
         self,
         ctx: TrustedContext,
         document_id: str,
         version: str,
         body: bytes,
         media_type: str,
-    ) -> DocumentInput:
+    ) -> dict[str, Any]:
         if not body or len(body) > self.remember.policy.max_input_bytes:
             raise FoundationError(ErrorCode.INVALID_ARGUMENT, "document exceeds ingress limit")
         media_type = media_type.split(";", 1)[0].strip().lower()
@@ -76,10 +83,19 @@ class Documents:
                 tx.abort(
                     ErrorCode.IDEMPOTENCY_CONFLICT, "document version already has different content"
                 )
+        return {"key": key, "value": value}
+
+    async def persist_upload(self, prepared: dict[str, Any], body: bytes) -> None:
+        object_key = prepared["value"]["object_key"]
         await self.remember.bodies.p2_call("put_object", object_key, body)
         saved = await self.remember.bodies.p2_call("get_object", object_key)
         if saved != body:
             raise FoundationError(ErrorCode.COMMIT_UNCONFIRMED, "document bytes not confirmed")
+
+    def commit_upload(self, ctx: TrustedContext, prepared: dict[str, Any]) -> DocumentInput:
+        key, value = prepared["key"], prepared["value"]
+        ref = RecordRef.model_validate(value["ref"])
+        document = DocumentInput.model_validate(value["document"])
         with self.remember.uow.transaction() as tx:
             self.remember.identity.authorize(tx, ctx, Permission.WRITE, ref)
             old = tx.read("documents", key)

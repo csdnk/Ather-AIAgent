@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "current_run_id": {
+      "minLength": 1,
+      "title": "Current Run Id",
+      "type": "string"
+    },
+    "first_run_id": {
+      "minLength": 1,
+      "title": "First Run Id",
+      "type": "string"
+    },
+    "input_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Hash",
+      "type": "string"
+    },
+    "namespace": {
+      "minLength": 1,
+      "title": "Namespace",
+      "type": "string"
+    },
+    "plan_version": {
+      "minLength": 1,
+      "title": "Plan Version",
+      "type": "string"
+    },
+    "workflow_id": {
+      "minLength": 1,
+      "title": "Workflow Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "namespace",
+    "workflow_id",
+    "first_run_id",
+    "current_run_id",
+    "input_hash",
+    "plan_version"
+  ],
+  "title": "WorkflowBinding",
+  "type": "object",
+  "x-contract-model": "runtime.WorkflowBinding"
+}

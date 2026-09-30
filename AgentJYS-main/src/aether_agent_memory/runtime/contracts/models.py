@@ -211,6 +211,17 @@ class Lease(ContractModel):
     until: Timestamp
 
 
+class ExecutionRef(ContractModel):
+    """Persistent commit fence for one Temporal Activity delivery."""
+
+    namespace: NonEmpty
+    workflow_id: NonEmpty
+    run_id: NonEmpty
+    activity_id: NonEmpty
+    delivery_attempt: Positive
+    epoch: Count
+
+
 class TaskSpec(ContractModel):
     task_id: Identifier
     owner_flow: Flow
@@ -232,6 +243,7 @@ class TaskRecord(TaskSpec):
     query_attempt: Count = 0
     next_run_at: Timestamp | None = None
     lease: Lease | None = None
+    execution: ExecutionRef | None = None
     effect_status: EffectStatus
     required_outputs: tuple[RecordRef, ...] = ()
     result_ref: RecordRef | None = None
@@ -241,8 +253,10 @@ class TaskRecord(TaskSpec):
     def coherent_state(self) -> Self:
         if self.attempt > self.max_attempts:
             raise ValueError("attempt exceeds execution budget")
-        if self.state == TaskState.RUNNING and self.lease is None:
-            raise ValueError("running requires a lease")
+        if self.lease is not None and self.execution is not None:
+            raise ValueError("task cannot have two execution owners")
+        if self.state == TaskState.RUNNING and self.lease is None and self.execution is None:
+            raise ValueError("running requires a lease or Temporal execution")
         if self.state == TaskState.SUCCEEDED and self.result_ref is None:
             raise ValueError("success requires a result reference")
         if self.effect_status == EffectStatus.UNKNOWN and self.state in {
@@ -391,3 +405,36 @@ class RelatedRecords(ContractModel):
     subject: RecordRef
     records: tuple[DiagnosticRecord, ...]
     next_cursor: NonEmpty | None = None
+
+
+class WorkflowBinding(ContractModel):
+    namespace: NonEmpty
+    workflow_id: NonEmpty
+    first_run_id: NonEmpty
+    current_run_id: NonEmpty
+    input_hash: Digest
+    plan_version: NonEmpty
+
+
+class WorkflowDiagnostic(ContractModel):
+    reason_code: NonEmpty
+    technical_state: Literal[
+        "running", "completed", "failed", "cancelled", "terminated", "timed_out", "not_found"
+    ]
+    run_id: NonEmpty | None = None
+
+
+class OperationExecution(ContractModel):
+    workflow_id: NonEmpty | None
+    binding: WorkflowBinding | None
+    diagnostic: WorkflowDiagnostic | None
+
+    @model_validator(mode="after")
+    def same_workflow(self) -> Self:
+        if self.binding is not None and self.binding.workflow_id != self.workflow_id:
+            raise ValueError("operation execution binding differs")
+        return self
+
+
+class TaskOperationView(TaskRecord):
+    temporal: OperationExecution

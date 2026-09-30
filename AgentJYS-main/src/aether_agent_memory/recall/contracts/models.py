@@ -176,6 +176,7 @@ class EmbeddingResult(ContractModel):
 
 class VectorSearchRequest(ContractModel):
     selection: ScopeSelector
+    memory_source: Literal["working", "long_term"] | None = None
     vector: tuple[float, ...] = Field(min_length=1)
     model_space: Identifier
     limit: Positive = 20

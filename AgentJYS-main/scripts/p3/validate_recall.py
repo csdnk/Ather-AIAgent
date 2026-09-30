@@ -7,6 +7,7 @@ Use --report outside the source tree for raw machine evidence.
 import argparse
 import asyncio
 import json
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -24,13 +25,22 @@ def main() -> int:
     parser.add_argument("--recall-config", required=True, type=Path)
     parser.add_argument("--embedding-config", type=Path)
     parser.add_argument("--report", type=Path)
+    parser.add_argument("--temporal-endpoint", default=os.environ.get("P3_TEMPORAL_ENDPOINT"))
     args = parser.parse_args()
+    if not args.temporal_endpoint:
+        parser.error("--temporal-endpoint (or P3_TEMPORAL_ENDPOINT) is required")
     settings = RecallSettings.model_validate_json(args.recall_config.read_text(encoding="utf-8"))
     if settings.rerank_policy != "required":
         parser.error("real-chain acceptance requires rerank_policy=required")
     with tempfile.TemporaryDirectory(prefix="p3-recall-live-") as directory:
         result = asyncio.run(
-            demo(Path(directory), "native", args.embedding_config, args.recall_config)
+            demo(
+                Path(directory),
+                "native",
+                args.embedding_config,
+                args.recall_config,
+                args.temporal_endpoint,
+            )
         )
         evidence = json.loads((Path(directory) / "evidence.json").read_text(encoding="utf-8"))
     stages = evidence["trace"]["durable_facts"]["recall_stages"]

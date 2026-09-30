@@ -24,6 +24,7 @@ dependencies = [
   "structlog>=26.1.0",
   "uvicorn>=0.35,<1",
   "tiktoken>=0.9,<1",
+  "temporalio==1.33.0",
 ]
 
 [project.optional-dependencies]
@@ -159,7 +160,7 @@ known-first-party = ["aether_agent_memory"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-markers = ["unit: unit tests", "integration: integration tests (may require external services)"]
+markers = ["unit: unit tests", "integration: integration tests (may require external services)", "temporal_server: requires the pinned real Temporal CLI"]
 addopts = "-v --tb=short"
 
 # ── Mypy ──────────────────────────────────────────

@@ -58,6 +58,13 @@ export type Task = {
   deadline_at: string;
 };
 export type TaskPage = { items: Task[]; next_cursor: string | null };
+export type Operation = Task & {
+  temporal?: {
+    workflow_id: string | null;
+    binding?: { namespace: string; first_run_id: string; current_run_id: string } | null;
+    diagnostic?: { reason_code: string; technical_state: string } | null;
+  };
+};
 export type Trace = {
   trace_id: string;
   started_at: string;

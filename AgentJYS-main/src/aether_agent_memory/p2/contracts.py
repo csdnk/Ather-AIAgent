@@ -44,7 +44,7 @@ class P2SearchInput(ContractModel):
     model_binding: EmbeddingModelBinding
     retrieval_space_ref: Identifier
     scope: Scope
-    memory_types: list[Literal["Episodic", "Semantic"]]
+    memory_types: list[Literal["Working", "Episodic", "Semantic"]]
     occurred_after: Timestamp | None
     occurred_before: Timestamp | None
     top_k: PositiveInt
@@ -55,7 +55,9 @@ class P2SearchInput(ContractModel):
         if self.retrieval_space_ref != self.model_binding.retrieval_space_ref:
             raise ValueError("query vector and retrieval space disagree")
         if not self.memory_types or len(set(self.memory_types)) != len(self.memory_types):
-            raise ValueError("long-term memory types must be nonempty and unique")
+            raise ValueError("memory types must be nonempty and unique")
+        if "Working" in self.memory_types and not (self.scope.session_id or self.scope.task_id):
+            raise ValueError("Working vector search requires a current session or task")
         if (
             self.occurred_after is not None
             and self.occurred_before is not None

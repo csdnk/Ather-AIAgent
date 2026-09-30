@@ -31,7 +31,7 @@ def source(name="input"):
 
 
 @pytest.fixture
-def app(tmp_path):
+def app(tmp_path, temporal_server):
     host = ThreeFlows(tmp_path / "p3.db", tmp_path / "cache", embedding_profile="lexical")
     people = [
         Principal(
@@ -47,6 +47,9 @@ def app(tmp_path):
     host.foundation.identity.provision(
         [(sha256(p.principal_id.encode()).hexdigest(), p) for p in people]
     )
+    from temporal_test_support import seed_driver
+
+    seed_driver(host, temporal_server)
     yield host
     host.close()
 
@@ -65,7 +68,7 @@ def save(app, text="我喜欢无糖咖啡", session="session_1", user="alice", o
 
 
 def drain(app):
-    asyncio.run(app.drain())
+    asyncio.run(app.drain(timeout_seconds=60))
 
 
 def facts(app, receipt):
@@ -143,7 +146,7 @@ def test_correct_filters_old_vectors_and_invalidates_old_pack(app):
     assert failure.value.code == "RESULT_INVALIDATED"
     with app.foundation.uow.transaction() as tx:
         assert any(row["target"]["memory"]["version"] == 1 for _, row in tx.rows("recall_vectors"))
-    working = recall(app, sources="working")
+    working = recall(app, sources="working", selection=ScopeSelector(session_id="session_1"))
     assert working.outcome == "empty"
 
 
@@ -161,7 +164,10 @@ def test_delete_blocks_old_pack_and_cleans_cache(app):
     assert deleted.blocked and deleted.cleanup_state == "pending"
     drain(app)
     assert recall(app).outcome == "empty"
-    assert recall(app, sources="working").outcome == "empty"
+    assert (
+        recall(app, sources="working", selection=ScopeSelector(session_id="session_1")).outcome
+        == "empty"
+    )
     with pytest.raises(FoundationError):
         app.recall.result(context(app), old.recall_id)
     assert not any(app.executor.path(memory, tier).exists() for tier in Tier)
@@ -190,8 +196,9 @@ def test_vector_outage_is_degraded_or_failed_not_fake_empty(app):
     save(app)
     drain(app)
     app.vectors.available = False
-    pack = recall(app, sources="both")
-    assert pack.outcome == "degraded" and pack.coverage.long_term == "unavailable"
+    with pytest.raises(FoundationError) as failure:
+        recall(app, sources="both", selection=ScopeSelector(session_id="session_1"))
+    assert failure.value.code == "DEPENDENCY_UNAVAILABLE"
     with pytest.raises(FoundationError) as failure:
         recall(app)
     assert failure.value.code == "DEPENDENCY_UNAVAILABLE"
@@ -227,11 +234,9 @@ def test_lost_execution_response_queries_original_action(app):
     with app.foundation.uow.transaction() as tx:
         actions = [ActionRecord.model_validate(row) for _, row in tx.rows("operate_actions")]
         assert len(actions) == 1 and actions[0].state == ActionState.SUCCEEDED
-        recoveries = [r for _, r in tx.rows("recovery") if r["decision"]["action"] == "query_only"]
-        assert (
-            recoveries
-            and recoveries[0]["decision"]["original_operation_id"] == actions[0].intent.action_id
-        )
+        bound = [r for _, r in tx.rows("tasks") if r["record"]["kind"] == "operate.evaluate"]
+        assert any(r.get("original_operation_id") == actions[0].intent.action_id for r in bound)
+        assert any(r["record"]["query_attempt"] > 0 for r in bound)
     with app.executor.db() as db:
         assert db.execute("SELECT count(*) FROM actions").fetchone()[0] == 1
 
@@ -265,7 +270,10 @@ def test_delete_source_blocks_working_and_derived(app):
         DeleteRequest(expected_revision=1, reason="remove source"),
     )
     drain(app)
-    assert recall(app, sources="both").outcome == "empty"
+    assert (
+        recall(app, sources="both", selection=ScopeSelector(session_id="session_1")).outcome
+        == "empty"
+    )
 
 
 def test_inflight_extraction_cannot_resurrect_deleted_working(app):
@@ -284,7 +292,10 @@ def test_inflight_extraction_cannot_resurrect_deleted_working(app):
 
     app.remember.extraction = DeleteDuringExtract()
     drain(app)
-    assert recall(app, sources="both").outcome == "empty"
+    assert (
+        recall(app, sources="both", selection=ScopeSelector(session_id="session_1")).outcome
+        == "empty"
+    )
 
 
 def test_save_idempotency_same_operation_rejects_different_input(app):
@@ -329,17 +340,23 @@ def test_delete_original_working_also_blocks_derived_facts(app):
         DeleteRequest(expected_revision=working.object_revision, reason="remove conversation"),
     )
     drain(app)
-    assert recall(app, sources="both").outcome == "empty"
+    assert (
+        recall(app, sources="both", selection=ScopeSelector(session_id="session_1")).outcome
+        == "empty"
+    )
     with pytest.raises(FoundationError):
         app.remember.get(context(app), memory.memory_id)
 
 
-def test_restart_preserves_context_and_executor_evidence(app):
+def test_restart_preserves_context_and_executor_evidence(app, temporal_server):
     receipt = save(app)
     drain(app)
     pack = recall(app)
     drain(app)
     restarted = ThreeFlows(app.foundation.uow.path, app.executor.root, embedding_profile="lexical")
+    from temporal_test_support import seed_driver
+
+    seed_driver(restarted, temporal_server)
     try:
         assert restarted.recall.result(context(restarted), pack.recall_id) == pack
         assert facts(restarted, receipt)
@@ -352,22 +369,19 @@ def test_restart_preserves_context_and_executor_evidence(app):
         restarted.close()
 
 
-def test_lost_executor_history_stays_unknown(app, tmp_path):
+def test_lost_executor_history_stays_unknown(app, tmp_path, monkeypatch):
     app.executor.drop_next_response = True
     app.foundation.tasks.query_max_attempts = 2
-    app.foundation.tasks.retry_seconds = 0.02
+    original = app.executor.submit
+
+    async def lose_history(ctx, intent):
+        try:
+            return await original(ctx, intent)
+        finally:
+            app.operate.executor = LocalCacheExecutor(tmp_path / "new_empty_executor")
+
+    monkeypatch.setattr(app.executor, "submit", lose_history)
     save(app)
-
-    async def reach_unknown():
-        for _ in range(20):
-            await app.tick()
-            with app.foundation.uow.transaction() as tx:
-                if any(raw["state"] == "unknown" for _, raw in tx.rows("operate_actions")):
-                    return
-        raise AssertionError("fault point not reached")
-
-    asyncio.run(reach_unknown())
-    app.operate.executor = LocalCacheExecutor(tmp_path / "new_empty_executor")
     drain(app)
     with app.foundation.uow.transaction() as tx:
         assert any(raw["state"] == "unknown" for _, raw in tx.rows("operate_actions"))
@@ -384,8 +398,7 @@ def test_tampered_embedding_never_marks_projection_ready(app):
             return result.model_copy(update={"operation_id": "wrong_binding"})
 
     app.remember.embedding = Tampered()
-    asyncio.run(app.foundation.tasks.run_once("extract", "remember"))
-    asyncio.run(app.foundation.tasks.run_once("project", "remember"))
+    drain(app)
     memory = facts(app, receipt)[0]
     assert app.remember.get(context(app), memory.memory_id).projection_state != "ready"
 
@@ -424,42 +437,54 @@ def test_cache_verification_preserves_exact_crlf_bytes(app):
     assert app.executor.path(memory, observed.tier).read_bytes() == "第一行\r\n第二行".encode()
 
 
-def test_cli_repeat_operation_is_idempotent(app, tmp_path):
-    import json
-    import os
+def test_cli_requires_explicit_temporal_configuration(tmp_path):
     import subprocess
     import sys
-    from pathlib import Path
 
-    input_path = tmp_path / "input.txt"
-    input_path.write_text("终端输入", encoding="utf-8")
-    env = {
-        **os.environ,
-        "PYTHONPATH": str(Path(__file__).resolve().parents[3] / "src"),
-        "P3_API_KEY": "alice",
-        "PYTHONIOENCODING": "utf-8",
-    }
-    command = [
-        sys.executable,
-        "-m",
-        "aether_agent_memory.runtime.flows",
-        "--embedding-profile",
-        "lexical",
-        "--db",
-        str(app.foundation.uow.path),
-        "--cache-root",
-        str(app.executor.root),
-        "--operation-id",
-        "cli_fixed",
-        "remember",
-        "--text-file",
-        str(input_path),
-    ]
-    outputs = []
-    for _ in range(2):
-        completed = subprocess.run(
-            command, env=env, capture_output=True, text=True, encoding="utf-8", timeout=10
-        )
-        assert completed.returncode == 0, completed.stdout + completed.stderr
-        outputs.append(json.loads(completed.stdout))
-    assert outputs[0] == outputs[1]
+    command = [sys.executable, "-m", "aether_agent_memory.runtime.flows"]
+    created = subprocess.run(
+        command
+        + [
+            "init",
+            "--directory",
+            str(tmp_path / "deployment"),
+            "--embedding-profile",
+            "lexical",
+            "--temporal-endpoint",
+            "localhost:7233",
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=15,
+    )
+    assert created.returncode == 0, created.stderr
+    checked = subprocess.run(
+        command + ["check-config", "--config", str(tmp_path / "deployment" / "service.yaml")],
+        capture_output=True,
+        timeout=15,
+    )
+    assert checked.returncode == 0, checked.stderr
+    old = subprocess.run(
+        command + ["--db", str(tmp_path / "old.db"), "worker"], capture_output=True, timeout=15
+    )
+    assert old.returncode != 0
+
+
+def test_component_directories_do_not_join_each_others_workflows(app, tmp_path, temporal_server):
+    from temporal_test_support import seed_driver
+
+    first = save(app, operation="same-operation")
+    drain(app)
+    second = ThreeFlows(
+        tmp_path / "second" / "p3.db", tmp_path / "second" / "cache", embedding_profile="lexical"
+    )
+    second.foundation.identity.provision([(sha256(b"alice").hexdigest(), context(app).principal)])
+    seed_driver(second, temporal_server)
+    try:
+        receipt = save(second, operation="same-operation")
+        assert first.task_ids == receipt.task_ids
+        drain(second)
+        assert facts(second, receipt)
+    finally:
+        second.close()

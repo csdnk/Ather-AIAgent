@@ -2,6 +2,7 @@
 
 import json
 import math
+from typing import Literal
 
 from aether_agent_memory.remember.contracts.models import (
     MemoryRef,
@@ -34,7 +35,10 @@ class SQLiteProjection(SQLiteVectorStore):
                 "vector": list(request.vector),
             }
             existing = tx.read("recall_vectors", request.target.vector_id)
-            if existing and existing != data:
+            if existing and (
+                ProjectionTarget.model_validate(existing["target"]) != request.target
+                or existing["vector"] != data["vector"]
+            ):
                 tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "vector ID content changed")
             tx.write("recall_vectors", request.target.vector_id, data)
             if request.target.generation and request.target.body_hash:
@@ -64,7 +68,8 @@ class SQLiteProjection(SQLiteVectorStore):
                 exact
                 and chunk
                 and stored
-                and chunk["hit"] == {**target.model_dump(mode="json"), "rank": 1, "score": 0.0}
+                and {"memory_source": "long_term", **chunk["hit"]}
+                == {**target.model_dump(mode="json"), "rank": 1, "score": 0.0}
                 and chunk["vector"] == stored["vector"]
             )
         return ProjectionResult(
@@ -97,6 +102,7 @@ class MilvusProjection(MilvusConnection):
             chunk_index=target.chunk_index,
             generation=target.generation,
             body_hash=target.body_hash,
+            memory_source=target.memory_source,
         )
         if target != expected or target.model_space != self.model_space:
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "invalid projection identity")
@@ -115,7 +121,11 @@ class MilvusProjection(MilvusConnection):
         key = request.target.vector_id
         with self.uow.transaction() as tx:
             prior = tx.read("milvus_projections", key)
-            if prior and (prior["data"] != data or prior["deleted"]):
+            if prior and (
+                ProjectionTarget.model_validate(prior["data"]["target"]) != request.target
+                or prior["data"].get("vector") != data["vector"]
+                or prior["deleted"]
+            ):
                 tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "projection changed or deleted")
             tx.write("milvus_projections", key, {"data": data, "deleted": False})
         await self.prepare(ctx)
@@ -169,6 +179,7 @@ class MilvusProjection(MilvusConnection):
         if (
             not intent
             or "vector" not in intent["data"]
+            or ProjectionTarget.model_validate(intent["data"]["target"]) != target
             or ProjectionTarget.model_validate(rows[0]["target"]) != target
             or intent["deleted"]
             or len(rows[0]["vector"]) != self.dimensions
@@ -189,7 +200,11 @@ class MilvusProjection(MilvusConnection):
             search_params={"metric_type": "IP"},
             consistency_level="Strong",
         )
-        verified = bool(hits and hits[0] and hits[0][0]["entity"]["target"] == rows[0]["target"])
+        verified = bool(
+            hits
+            and hits[0]
+            and ProjectionTarget.model_validate(hits[0][0]["entity"]["target"]) == target
+        )
         return self.result(target, operation_id, "verified" if verified else "pending")
 
     async def delete(
@@ -222,6 +237,7 @@ def projection_target(
     chunk_index: int = 0,
     generation: str | None = None,
     body_hash: str | None = None,
+    memory_source: Literal["working", "long_term"] = "long_term",
 ) -> ProjectionTarget:
     return ProjectionTarget(
         memory=memory,
@@ -231,9 +247,11 @@ def projection_target(
         vector_id=fingerprint(
             [memory.model_dump(mode="json"), model_space, content_hash]
             + ([generation, chunk_index, body_hash] if generation else [])
+            + (["working"] if memory_source == "working" else [])
         ),
         generation=generation,
         body_hash=body_hash,
+        memory_source=memory_source,
     )
 
 

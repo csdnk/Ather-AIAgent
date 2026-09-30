@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import asyncio
 import secrets
 from collections.abc import AsyncIterator, Callable
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager
 from typing import Any, Literal
 
-from fastapi import Depends, FastAPI, Header, Query, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 
@@ -27,11 +26,13 @@ from aether_agent_memory.runtime.contracts.models import (
     OperationRecord,
     PageRequest,
     RecoveryRequest,
+    TaskOperationView,
     TaskRecord,
     TaskState,
     TrustedContext,
 )
 from aether_agent_memory.runtime.foundation.common import FoundationError, now
+from aether_agent_memory.runtime.temporal.controls import ControlRequest
 
 from .host import ThreeFlows
 
@@ -58,55 +59,22 @@ def create_app(
     maintenance_credential: Callable[[], str] | None = None,
     supervisor: Any = None,
     close: Any = None,
+    execution: Any = None,
 ) -> FastAPI:
     """Caller owns runtime lifetime. Credentials are supplied at use, never logged."""
-    stopped = asyncio.Event()
-    state: dict[str, Any] = {"worker": "disabled" if not run_worker else "starting"}
-    if supervisor is not None:
-        state = supervisor.state
-        run_worker = False
-
-    async def worker() -> None:
-        while not stopped.is_set():
-            try:
-                context = None
-                maintenance_unavailable = False
-                if maintenance_credential:
-                    try:
-                        context = runtime.foundation.identity.context(
-                            maintenance_credential(), timeout_seconds=60
-                        )
-                    except FoundationError:
-                        maintenance_unavailable = True
-                await runtime.tick(periodic=True, maintenance_context=context)
-                state["worker"] = "degraded" if maintenance_unavailable else "running"
-            except Exception:
-                # Preserve pending work and report the failure; never rewrite its
-                # effect status or dump provider messages/credentials to logs.
-                state["worker"] = "degraded"
-            with suppress(TimeoutError):
-                await asyncio.wait_for(stopped.wait(), timeout=0.25)
+    execution = execution or getattr(runtime, "execution", None)
+    if execution is None:
+        raise ValueError("HTTP requires a configured Temporal execution service")
+    supervisor = execution
+    state = execution.state
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        stopped.clear()
-        task = None
         try:
-            if supervisor is not None:
-                await supervisor.start()
-            task = asyncio.create_task(worker()) if run_worker else None
+            await execution.start()
             yield
         finally:
-            stopped.set()
-            if task is not None:
-                try:
-                    await asyncio.wait_for(task, timeout=5)
-                except TimeoutError:
-                    task.cancel()
-                    await asyncio.gather(task, return_exceptions=True)
-            state["worker"] = "stopped"
-            if supervisor is not None:
-                await supervisor.stop()
+            await execution.stop()
             if close is not None:
                 await close()
 
@@ -146,15 +114,41 @@ def create_app(
         result = ErrorResponse(
             code=error.code,
             message=error.code.value.lower(),
-            retryable=status in {503, 504},
+            retryable=status in {503, 504} or error.code == ErrorCode.REQUEST_IN_PROGRESS,
             request_id=trusted.request_id if trusted else secrets.token_hex(16),
             operation_id=trusted.operation_id if trusted else None,
         )
-        return JSONResponse(status_code=status, content=result.model_dump(mode="json"))
+        job_id = getattr(error, "job_id", None)
+        headers = (
+            {"Location": f"/p3/operations/{job_id}", "X-P3-Job-ID": job_id} if job_id else None
+        )
+        return JSONResponse(
+            status_code=status, content=result.model_dump(mode="json"), headers=headers
+        )
 
     @app.get("/p3/live")
     def live() -> dict[str, str]:
         return {"liveness": "alive", "checked_at": now()}
+
+    @app.get("/p3/readyz")
+    def readyz() -> JSONResponse:
+        result = (
+            execution.ready()
+            if execution is not None
+            else {"readiness": "not_ready", "reason_code": "TEMPORAL_NOT_CONFIGURED"}
+        )
+        return JSONResponse(
+            status_code=200 if result["readiness"] == "ready" else 503, content=result
+        )
+
+    @app.middleware("http")
+    async def admission_gate(request: Request, call_next: Any) -> Any:
+        if execution is not None and request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+            try:
+                execution.require_ready()
+            except FoundationError as exc:
+                return await foundation_error(request, exc)
+        return await call_next(request)
 
     @app.exception_handler(ValueError)
     async def invalid_request(request: Request, error: ValueError) -> JSONResponse:
@@ -228,11 +222,42 @@ def create_app(
         return runtime.foundation.tasks.progress.read(ctx, task_id)
 
     @app.post("/p3/recovery", response_model=OperationRecord)
-    def recovery(
+    async def recovery(
         request: RecoveryRequest, ctx: TrustedContext = trusted_dependency
     ) -> OperationRecord:
         with runtime.foundation.uow.transaction() as tx:
-            return runtime.foundation.tasks.request_recovery(tx, ctx, request)
+            result = runtime.foundation.tasks.request_recovery(tx, ctx, request)
+        await execution.bridge.flush()
+        return OperationRecord.model_validate(execution.controls.status(ctx, result.operation_id))
+
+    @app.post("/p3/tasks/{task_id}/control", response_model=OperationRecord)
+    async def task_control(
+        task_id: str, request: ControlRequest, ctx: TrustedContext = trusted_dependency
+    ) -> OperationRecord:
+        with runtime.foundation.uow.transaction() as tx:
+            result = execution.controls.task(tx, ctx, task_id, request)
+        await execution.bridge.flush()
+        return OperationRecord.model_validate(execution.controls.status(ctx, result.operation_id))
+
+    @app.get("/p3/controls/{operation_id}", response_model=OperationRecord)
+    def control_status(
+        operation_id: str, ctx: TrustedContext = trusted_dependency
+    ) -> OperationRecord:
+        return OperationRecord.model_validate(execution.controls.status(ctx, operation_id))
+
+    @app.get("/p3/periodic/control")
+    def periodic_control_status(ctx: TrustedContext = trusted_dependency) -> dict[str, Any]:
+        with runtime.foundation.uow.transaction() as tx:
+            return dict(execution.controls.periodic_snapshot(tx, ctx))
+
+    @app.post("/p3/periodic/control", response_model=OperationRecord)
+    async def periodic_control(
+        request: ControlRequest, ctx: TrustedContext = trusted_dependency
+    ) -> OperationRecord:
+        with runtime.foundation.uow.transaction() as tx:
+            result = execution.controls.periodic(tx, ctx, request)
+        await execution.bridge.flush()
+        return OperationRecord.model_validate(execution.controls.status(ctx, result.operation_id))
 
     @app.get("/p3/incidents", response_model=tuple[IncidentRecord, ...])
     def incidents(ctx: TrustedContext = trusted_dependency) -> tuple[IncidentRecord, ...]:
@@ -241,7 +266,11 @@ def create_app(
     @app.post("/p3/maintenance/cycle")
     async def cycle(ctx: TrustedContext = trusted_dependency) -> dict[str, int]:
         runtime.foundation.diagnostics.authorize(ctx)
-        return await runtime.foundation.dispositions.cycle(ctx)
+        execution.require_ready()
+        raise HTTPException(
+            status_code=410,
+            detail="Manual RF cycles are retired; use the Temporal periodic workflow",
+        )
 
     @app.put("/p3/configuration", response_model=ConfigurationSnapshot)
     def configure(
@@ -265,15 +294,35 @@ def create_app(
 
     @app.post("/p3/remember", response_model=RememberReceipt)
     async def remember(
-        request: RememberRequest, ctx: TrustedContext = trusted_dependency
+        request: RememberRequest, response: Response, ctx: TrustedContext = trusted_dependency
     ) -> RememberReceipt:
-        return await runtime.remember.save(ctx, request)
+        return RememberReceipt.model_validate(
+            await execution.execute(
+                ctx, "remember.save", request.model_dump(mode="json"), response.headers
+            )
+        )
 
     @app.post("/p3/recall", response_model=ContextPack)
     async def recall(
-        request: RecallRequest, ctx: TrustedContext = trusted_dependency
+        request: RecallRequest, response: Response, ctx: TrustedContext = trusted_dependency
     ) -> ContextPack:
-        return await runtime.recall.recall(ctx, request)
+        return ContextPack.model_validate(
+            await execution.execute(
+                ctx, "recall.execute", request.model_dump(mode="json"), response.headers
+            )
+        )
+
+    @app.get("/p3/operations/{job_id}", response_model=TaskOperationView)
+    def operation_status(job_id: Identifier, ctx: TrustedContext = trusted_dependency) -> Any:
+        if execution is None:
+            raise FoundationError(ErrorCode.DEPENDENCY_UNAVAILABLE, "Temporal not configured")
+        return execution.operation(ctx, job_id)
+
+    @app.get("/p3/operations/{job_id}/result")
+    def operation_result(job_id: Identifier, ctx: TrustedContext = trusted_dependency) -> Any:
+        if execution is None:
+            raise FoundationError(ErrorCode.DEPENDENCY_UNAVAILABLE, "Temporal not configured")
+        return execution.result(ctx, job_id)
 
     @app.get("/p3/recalls/{recall_id}", response_model=RecallRecord)
     def recall_status(
@@ -292,6 +341,6 @@ def create_app(
     if hasattr(runtime.remember, "read_source"):
         from aether_agent_memory.remember.http import attach_routes
 
-        attach_routes(app, runtime.remember, trusted_dependency)
+        attach_routes(app, runtime.remember, trusted_dependency, execution=execution)
     app.state.trusted_dependency = trusted_dependency
     return app

@@ -83,8 +83,8 @@ class RecallRequest(OnlineHeader):
             raise ValueError("scope, source selection and retrieval mode disagree")
         if self.token_budget == 0 or not self.query.strip():
             raise ValueError("query and token budget must be nonempty")
-        if (self.retrieval_mode == "working_only") != (self.retrieval_space_ref is None):
-            raise ValueError("long-term recall requires its fixed retrieval space")
+        if self.retrieval_space_ref is None:
+            raise ValueError("every recall source requires its fixed retrieval space")
         if "working" in sources and not (self.scope.session_id or self.scope.task_id):
             raise ValueError("Working needs an authorized current session or task")
         fields = {

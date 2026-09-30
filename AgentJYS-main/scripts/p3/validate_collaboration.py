@@ -27,16 +27,20 @@ def check_entrypoints() -> None:
             raise ValueError(f"missing collaboration file: {name}")
     content = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
     for target in re.findall(r"\]\(([^)]+)\)", content):
-        if not target.startswith(("https://", "http://", "#")) and not (
-            ROOT / target.split("#")[0]
-        ).exists():
+        if (
+            not target.startswith(("https://", "http://", "#"))
+            and not (ROOT / target.split("#")[0]).exists()
+        ):
             raise ValueError(f"broken contribution link: {target}")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report", type=Path, help="Raw JSON evidence; prefer outside checkout")
+    parser.add_argument("--temporal-endpoint", default=os.environ.get("P3_TEMPORAL_ENDPOINT"))
     args = parser.parse_args()
+    if not args.temporal_endpoint:
+        parser.error("--temporal-endpoint (or P3_TEMPORAL_ENDPOINT) is required")
     checks: list[dict[str, object]] = []
     try:
         check_entrypoints()
@@ -49,7 +53,10 @@ def main() -> int:
         # 门禁覆盖新增 A 流程、原生模型空间模块及 HTTP 验收脚本的静态检查。
         # 门禁本身不加载真实模型；真实模型和 TCP HTTP 验收需要另行运行专用脚本。
         commands = [
-            ("flows_foundation_contracts", ["scripts/p3/validate_flows.py"]),
+            (
+                "flows_foundation_contracts",
+                ["scripts/p3/validate_flows.py", "--temporal-endpoint", args.temporal_endpoint],
+            ),
             (
                 "legacy_recall_and_native_adapters",
                 [

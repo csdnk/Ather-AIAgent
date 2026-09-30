@@ -2,7 +2,7 @@
 
 P3 将对话、任务信息和文档保存为可追溯记忆，并按请求身份、来源、版本、有效性及 token 预算返回上下文，供上层 Agent 使用。对外业务是 **Remember（存储记忆）**和 **Recall（召回记忆）**；Operate 是内部持续运行的热度、缓存与恢复机制。
 
-**状态更新：2026-09-28。当前已形成可启动、持续处理任务、持久化恢复的本地统一服务；真实外部集成和生产验收仍待完成。** 当前实现与验证边界见下方“当前状态”，完整证据见 [9 月 26 日整合验收报告](../交付成果/测试与验收/P3_统一运行整合与验收_20260926.md)。
+**状态更新：2026-09-30。统一服务已接入 Temporal，启动时必须连接独立 Temporal Server。** 本地验证结果与未验收项见 [Temporal 工程验收](../交付成果/测试与验收/P3_Temporal接入工程验收_20260930.md)，新建与已有目录操作见 [运行和迁移指南](../交付成果/部署运行/P3_Temporal本地运行与迁移指南_20260930.md)。
 
 ## 服务如何工作
 
@@ -10,14 +10,14 @@ P3 将对话、任务信息和文档保存为可追溯记忆，并按请求身�
 对话 / 任务 / 文档 → Remember → 当前记忆 → 后台抽取、核验与长期化 → 正文和索引
 查询 + 当前身份   → Recall   → 候选资格检查 → 精确版本正文 → 最终复核 → 上下文与来源
 存储与成功读取事件 → 内部 Operate → 热度与定时衰减 → 缓存准备、读回确认及恢复
-                         RF 为以上流程提供事务、持久任务、事件与权限校验
+                         Temporal 编排持久任务；业务底座保留事务、幂等、事件与权限校验
 ```
 
-默认部署在一个 Python 进程内装配 HTTP 和后台执行循环。任务不需要调用方手动推进；默认正文与向量使用本地 SQLite，缓存使用文件系统。可通过配置接入原生 BGE、LLM、P2 及 Milvus。Working/Episodic/Semantic 是业务记忆类型；hot/warm/cold 是内部访问准备层级。
+默认在一个 Python 进程内装配 HTTP 与 Temporal SDK Workers，连接独立 Temporal Server。任务不需要调用方手动推进；默认正文与向量使用本地 SQLite，缓存使用文件系统。可通过配置接入原生 BGE、LLM、P2 及 Milvus。Working/Episodic/Semantic 是业务记忆类型；hot/warm/cold 是内部访问准备层级。
 
 ## 快速启动
 
-以下命令均在 **`AgentJYS-main/`** 中执行。从仓库根目录开始时先运行 `cd AgentJYS-main`。建议使用 Python **3.13**（包声明为 `>=3.13`，当前验证基线为 3.13），先用 `lexical` 模式跑通保存与查询，不需要外部服务或 BGE 模型下载。
+以下命令均在 **`AgentJYS-main/`** 中执行。从仓库根目录开始时先运行 `cd AgentJYS-main`。使用 Python **3.13**，先用 `lexical` 模式跑通保存与查询；需要 Temporal Server，无需下载 BGE 模型。当前 SDK 固定为 1.33.0，开发 CLI 固定为 1.9.1。
 
 ### Windows PowerShell
 
@@ -30,12 +30,14 @@ $P3Deploy = Join-Path $P3Home 'deployment'
 python --version
 python -m venv (Join-Path $P3Home 'venv')
 & $P3Python -m pip install -e .
-& $P3Python -m aether_agent_memory init --directory $P3Deploy --embedding-profile lexical
+& $P3Python scripts/p3/install_temporal_cli.py --directory (Join-Path $P3Home 'tools')
+$P3TemporalState = & $P3Python scripts/p3/temporal_dev.py start --directory (Join-Path $P3Home 'temporal') --binary (Join-Path $P3Home 'tools/temporal.exe') | ConvertFrom-Json
+& $P3Python -m aether_agent_memory init --directory $P3Deploy --embedding-profile lexical --temporal-endpoint $P3TemporalState.endpoint
 & $P3Python -m aether_agent_memory check-config --config (Join-Path $P3Deploy 'service.yaml')
 & $P3Python -m aether_agent_memory serve --config (Join-Path $P3Deploy 'service.yaml')
 ```
 
-### Linux / macOS
+### Linux AMD64
 
 ```bash
 P3_HOME="$HOME/.local/share/aether/p3-local"
@@ -43,7 +45,11 @@ P3_PYTHON="$P3_HOME/venv/bin/python"
 P3_DEPLOY="$P3_HOME/deployment"
 python3.13 -m venv "$P3_HOME/venv"
 "$P3_PYTHON" -m pip install -e .
-"$P3_PYTHON" -m aether_agent_memory init --directory "$P3_DEPLOY" --embedding-profile lexical
+"$P3_PYTHON" scripts/p3/install_temporal_cli.py --directory "$P3_HOME/tools"
+"$P3_PYTHON" scripts/p3/temporal_dev.py start --directory "$P3_HOME/temporal" --binary "$P3_HOME/tools/temporal"
+# 将上一条输出的 endpoint 填入此变量。
+P3_TEMPORAL_ENDPOINT='127.0.0.1:替换为实际端口'
+"$P3_PYTHON" -m aether_agent_memory init --directory "$P3_DEPLOY" --embedding-profile lexical --temporal-endpoint "$P3_TEMPORAL_ENDPOINT"
 "$P3_PYTHON" -m aether_agent_memory check-config --config "$P3_DEPLOY/service.yaml"
 "$P3_PYTHON" -m aether_agent_memory serve --config "$P3_DEPLOY/service.yaml"
 ```
@@ -157,7 +163,7 @@ npm run dev
 & $P3Python -m pip install -e '.[embedding-onnx,resource-documents]'
 # 使用新的部署目录，首次启动需要下载或提供 BGE 模型。
 $P3NativeDeploy = Join-Path $P3Home 'deployment-native'
-& $P3Python -m aether_agent_memory init --directory $P3NativeDeploy --embedding-profile native
+& $P3Python -m aether_agent_memory init --directory $P3NativeDeploy --embedding-profile native --temporal-endpoint $P3TemporalState.endpoint
 ```
 
 编辑新目录的 `service.yaml` 后，对它执行 `check-config` 和 `serve`。`init` 默认就是 native；首跑步骤显式选择 lexical 是为了先验证本地链路。不要直接把 lexical 数据库改为 native，也不要直接替换已绑定的正文 Provider；模型空间与存储绑定会拒绝隐式迁移，应使用新数据目录并单独设计数据及索引迁移。
@@ -177,16 +183,18 @@ $P3NativeDeploy = Join-Path $P3Home 'deployment-native'
 
 ## 持续运行与排障
 
-`serve` 会启动 HTTP、任务 worker、事件投递、定时检查、身份重载和维护采样。使用单进程宿主 `workers=1`，同一个部署目录只启动一个宿主；不要同时启动独立 Operate 演示控制器。需要进程退出后自动重启时，使用进程管理器或下方 Compose。
+`serve` 启动 HTTP、Temporal SDK Workers、事务意图转交、身份重载与依赖探测。业务事件、周期和维护由 Temporal Workflow 编排。使用单进程宿主 `workers=1`，同一个部署目录只启动一个宿主；目录锁拒绝第二个所有者。需要进程退出后自动重启时，使用进程管理器或下方 Compose。
 
-按 `Ctrl+C` 正常停止，服务先等待在途任务，超时取消本次执行；下次使用同一配置启动后，按持久任务状态与租约恢复。结果未知（Unknown）的动作应查询原动作 ID，不能换一个 ID 重做副作用。
+按 `Ctrl+C` 正常停止，服务先等待在途 Activity；下次使用同一配置、业务目录与 Temporal 持久历史启动后继续执行。HTTP 等待断开不取消 Workflow。结果未知（Unknown）的动作查询原动作 ID，不能换 ID 重做副作用。
 
 | 检查入口 | 判断内容 |
 |---|---|
 | `GET /p3/live` | 无需鉴权；仅表示进程可响应 |
+| `GET /p3/readyz` | 就绪探针；Temporal 不可用时返回 503，并暂停新接纳 |
 | `GET /p3/ready`、`/p3/health` | 需要 DIAGNOSE 权限；检查必需依赖及能力证据 |
 | `GET /p3/runtime` | worker、队列、过期租约和 Unknown 动作 |
 | `GET /p3/tasks/{id}`、`.../progress` | 任务进度与恢复证据 |
+| `GET /p3/operations/{job_id}`、`.../result` | 持久前台操作与重新鉴权后的结果 |
 | `GET /p3/operate/memories/{id}` | 热度、输入水位和缓存动作 |
 | `GET /p3/incidents`、`/p3/logs/{trace_id}` | 维护事件及受控诊断日志 |
 
@@ -206,25 +214,25 @@ $P3NativeDeploy = Join-Path $P3Home 'deployment-native'
 
 ```powershell
 $env:AETHER_DEPLOYMENT_DIR = Join-Path (Resolve-Path ../..).Path '.agent-work/aether/workspace-support/p3-container'
-docker compose -f compose.p3.yaml run --build --rm --no-deps p3 python -m aether_agent_memory init --directory /deployment --embedding-profile lexical --host 0.0.0.0
-docker compose -f compose.p3.yaml up -d --build
+docker compose -f compose.p3.yaml run --build --rm --no-deps p3 python -m aether_agent_memory init --directory /deployment --embedding-profile lexical --host 0.0.0.0 --temporal-endpoint temporal-dev:7233
+docker compose -f compose.p3.yaml --profile temporal-local up -d --build
 docker compose -f compose.p3.yaml logs -f p3
 # 停止服务；部署目录保留，后续用 up 再次启动。
-docker compose -f compose.p3.yaml down
+docker compose -f compose.p3.yaml --profile temporal-local down
 ```
 
 Linux/macOS 使用 `export AETHER_DEPLOYMENT_DIR="$HOME/.local/share/aether/p3-container"`，随后执行相同 Docker 命令。初始化只执行一次；容器内配置用 `/deployment` 路径，监听地址必须为 `0.0.0.0`。端口默认仅发布到宿主机 `127.0.0.1:8080`，可用 `AETHER_HOST_P3_PORT` 改宿主端口。
 
-接内置 P2 时，在新部署配置中设置 `p2_endpoint: engine:50052`，再用 `docker compose -f compose.p3.yaml --profile p2 up -d --build`。容器访问宿主模型可使用 `host.docker.internal`。`restart: unless-stopped` 负责进程重启，healthcheck 只检查 `/p3/live`，业务就绪仍需查询授权 `/p3/ready`。
+接内置 P2 时，在新部署配置中设置 `p2_endpoint: engine:50052`，再用 `docker compose -f compose.p3.yaml --profile temporal-local --profile p2 up -d --build`。容器访问宿主模型可使用 `host.docker.internal`。`restart: unless-stopped` 负责进程重启，P3 healthcheck 检查 `/p3/readyz`。`temporal-local` 用持久 volume 保存开发历史；连接已有 Server 时省略该 profile 并填写相应 endpoint。
 
-**当前仅通过 Compose 配置解析；新镜像构建、容器完整联调尚未验证。**
+**本轮构建在获取 `python:3.13-slim` 鉴权令牌时网络连接失败；新镜像、容器启动和持久恢复尚未通过验收。**
 
 ## 当前状态
 
 | 能力 | 当前实现与验证范围 |
 |---|---|
 | Remember → Recall 统一链路 | 保存、后台长期化、多块完整索引发布、资格检查、精确正文、最终复核、结果重取已接通并本地验证 |
-| RF 持久底座 | SQLite 事务、任务租约、Outbox/Inbox、身份校验与恢复已接入；不等于跨 Provider 全部灾备 |
+| Temporal 与业务底座 | Temporal 编排任务、事件和周期；保留 SQLite 事务、Outbox/Inbox、权限、幂等和完成证据。旧 RF 调度入口已退役 |
 | 原生 Embedding | 真 BGE 保存与召回已测；业务检索质量和生产吞吐仍需独立验收 |
 | 租户与共享 | 本地已测隔离、共享发现、撤权、停用及重新启用 epoch 栅栏；P4 真实身份平台待集成 |
 | 监测 Web | 已接统一 `/p3` 接口，提供健康、任务、异常和 Trace 瀑布图；尚无跨实例聚合、持久历史指标和云端 APM 接入 |
@@ -255,6 +263,7 @@ Linux/macOS 使用 `export AETHER_DEPLOYMENT_DIR="$HOME/.local/share/aether/p3-c
 |---|---|
 | `src/aether_agent_memory/runtime/flows/` | 统一 CLI、配置、装配、HTTP 与持续执行器 |
 | `src/aether_agent_memory/runtime/foundation/` | RF 事务、任务、事件、身份与诊断 |
+| `src/aether_agent_memory/runtime/temporal/` | Workflow、Activity、接纳绑定、幂等重放与迁移 |
 | `src/aether_agent_memory/remember/` | 保存、长期化、文档与模型加工 |
 | `src/aether_agent_memory/recall/` | 原生编码、候选、正文、复核与上下文组装 |
 | `src/aether_agent_memory/operate/` | 热度算法、持续调度和文件缓存执行 |
@@ -269,6 +278,7 @@ Linux/macOS 使用 `export AETHER_DEPLOYMENT_DIR="$HOME/.local/share/aether/p3-c
 & $P3Python -m pip install -r scripts/p3/requirements-ci.txt
 & $P3Python -m ruff check src tests scripts benchmarks
 & $P3Python -m mypy src
+$env:P3_TEMPORAL_CLI = Join-Path $P3Home 'tools/temporal.exe'
 & $P3Python -m pytest -q tests/integration/test_continuous_service.py
 ```
 

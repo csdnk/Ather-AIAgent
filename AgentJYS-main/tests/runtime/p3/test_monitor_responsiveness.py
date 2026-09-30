@@ -1,16 +1,41 @@
 """Regression for dashboard reads stalling writers and historical queue polling."""
 
-import asyncio
 import copy
+import runpy
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
+from pathlib import Path
 
+import httpx
 import pytest
 from test_foundation import app as app
 from test_foundation import submit
 
 from aether_agent_memory.runtime.contracts.models import EventEnvelope, TaskRecord
+
+
+def test_dialogue_timeout_identifies_request_without_retry_or_credential():
+    script = Path(__file__).resolve().parents[3] / "scripts/p3/dialogue_demo.py"
+    demo_type = runpy.run_path(str(script))["DialogueDemo"]
+    calls = []
+
+    def timeout(request):
+        calls.append(request)
+        raise httpx.ReadTimeout("provider message containing sensitive data", request=request)
+
+    with (
+        httpx.Client(
+            base_url="http://127.0.0.1:18080",
+            transport=httpx.MockTransport(timeout),
+            headers={"Authorization": "Bearer test-secret"},
+        ) as client,
+        pytest.raises(TimeoutError) as error,
+    ):
+        demo_type(client).call("就绪检查", "GET", "/p3/ready")
+    assert "就绪检查: GET /p3/ready" in str(error.value)
+    assert "test-secret" not in str(error.value) and "sensitive data" not in str(error.value)
+    assert len(calls) == 1
 
 
 def test_slow_trace_reader_does_not_block_span_writer(app, monkeypatch):
@@ -48,16 +73,45 @@ def test_slow_trace_reader_does_not_block_span_writer(app, monkeypatch):
         assert catalog.result(timeout=2)["items"]
 
 
+def test_dialogue_recall_wait_reports_expected_and_actual(monkeypatch):
+    script = Path(__file__).resolve().parents[3] / "scripts/p3/dialogue_demo.py"
+    demo = runpy.run_path(str(script))["DialogueDemo"](None)
+    pack = {"outcome": "available", "rendered_context": "我的饮品偏好是可乐。"}
+    monkeypatch.setattr(demo, "recall", lambda query: pack)
+
+    def one_probe(label, probe):
+        result = probe()
+        if result:
+            return result
+        raise TimeoutError(label + "超时")
+
+    monkeypatch.setattr(demo, "wait", one_probe)
+    assert demo.wait_for_recall("跨会话长期召回", "我的饮品偏好是什么？", "可乐") == pack
+    with pytest.raises(TimeoutError) as error:
+        demo.wait_for_recall("跨会话长期召回", "我的饮品偏好是什么？", "无糖咖啡")
+    assert "预期召回：'无糖咖啡'" in str(error.value)
+    assert "实际召回：'我的饮品偏好是可乐。'" in str(error.value)
+    assert "outcome=available" in str(error.value)
 
 
+def test_dialogue_recall_transport_timeout_stays_distinct(monkeypatch):
+    script = Path(__file__).resolve().parents[3] / "scripts/p3/dialogue_demo.py"
+    demo = runpy.run_path(str(script))["DialogueDemo"](None)
+
+    def timeout(query):
+        raise TimeoutError("POST /p3/recall 请求超时") from httpx.ReadTimeout("private")
+
+    monkeypatch.setattr(demo, "recall", timeout)
+    with pytest.raises(TimeoutError, match="^POST /p3/recall 请求超时$"):
+        demo.wait_for_recall("跨会话长期召回", "饮品偏好", "可乐")
 
 
-def test_claim_avoids_terminal_history_and_index_follows_rollback(app, monkeypatch):
+def test_active_projection_avoids_terminal_history_and_index_follows_rollback(app, monkeypatch):
     submit(app)
-    asyncio.run(app.tasks.run_once("history-worker", "engineering"))
     with app.uow.transaction() as tx:
         original = tx.rows("tasks")[0][1]
-        assert original["record"]["state"] == "succeeded"
+        original["record"]["state"] = "succeeded"
+        tx.write("tasks", original["record"]["task_id"], original)
         for index in range(1500):
             row = copy.deepcopy(original)
             row["record"]["task_id"] = f"history_{index}"
@@ -71,7 +125,8 @@ def test_claim_avoids_terminal_history_and_index_follows_rollback(app, monkeypat
         return validate(value, *args, **kwargs)
 
     monkeypatch.setattr(TaskRecord, "model_validate", counted)
-    assert app.tasks.claim("idle", "engineering", app.test_clock()) is None
+    with app.uow.transaction() as tx:
+        assert not tx.active_task_rows()
     assert calls == []
     # The queue projection is transactional, including failed writes and restart.
     with pytest.raises(RuntimeError), app.uow.transaction() as tx:
@@ -83,18 +138,18 @@ def test_claim_avoids_terminal_history_and_index_follows_rollback(app, monkeypat
     with app.uow.transaction() as tx:
         assert tx.active_task_rows() == []
     submit(app, key="after-history")
-    claimed = app.tasks.claim("next", "engineering", app.test_clock())
-    assert claimed and claimed.state == "running"
+    with app.uow.transaction() as tx:
+        assert len(tx.active_task_rows()) == 1
     assert not any(task_id.startswith("history_") for task_id in calls)
 
 
-def test_dispatch_skips_acknowledged_event_history(app, monkeypatch):
+def test_delivery_projection_skips_acknowledged_event_history(app, monkeypatch):
     submit(app)
-    asyncio.run(app.tasks.run_once("event-worker", "engineering"))
-    assert app.events.dispatch_once("event-worker")
     with app.uow.transaction() as tx:
         original = tx.rows("deliveries")[0][1]
-        assert original["state"] == "acknowledged"
+        original["state"] = "acknowledged"
+        for key, _ in tx.rows("deliveries"):
+            tx.write("deliveries", key, original)
         for index in range(1500):
             tx.write("deliveries", f"delivered_{index}", original)
         assert tx.pending_delivery_rows() == []
@@ -103,4 +158,5 @@ def test_dispatch_skips_acknowledged_event_history(app, monkeypatch):
         raise AssertionError("completed event was revalidated during idle dispatch")
 
     monkeypatch.setattr(EventEnvelope, "model_validate", unexpected)
-    assert not app.events.dispatch_once("idle")
+    with app.uow.transaction() as tx:
+        assert not tx.pending_delivery_rows()

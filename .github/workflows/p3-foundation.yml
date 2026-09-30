@@ -29,5 +29,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - run: python -m pip install -r scripts/p3/requirements.txt
-      - run: python scripts/p3/validate_foundation.py
+      - run: python -m pip install -r scripts/p3/requirements-flows.txt
+      - run: python scripts/p3/ci_temporal_gate.py foundation --directory "${{ runner.temp }}/p3-foundation"

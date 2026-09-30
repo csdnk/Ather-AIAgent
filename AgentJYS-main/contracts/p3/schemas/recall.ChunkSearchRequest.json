@@ -189,6 +189,15 @@
       "title": "Limit",
       "type": "integer"
     },
+    "memory_source": {
+      "default": "long_term",
+      "enum": [
+        "working",
+        "long_term"
+      ],
+      "title": "Memory Source",
+      "type": "string"
+    },
     "model_space": {
       "$ref": "#/$defs/EmbeddingSpace"
     },

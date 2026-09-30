@@ -9,6 +9,7 @@ import {
   type Incident,
   type TaskPage,
   type TracePage,
+  type Operation,
 } from "./api";
 
 export type Sample = {
@@ -32,6 +33,32 @@ const empty: Snapshot = {
   tasks: {},
   traces: {},
 };
+
+export function useOperation(id: string, token: string): Resource<{ operation: Operation; result?: unknown }> {
+  const owner = `${id}:${token}`;
+  const [snapshot, setSnapshot] = useState<{ owner: string; value: Resource<{ operation: Operation; result?: unknown }> }>({ owner, value: {} });
+  useEffect(() => {
+    setSnapshot({ owner, value: {} });
+    if (!id || !token) return;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    async function poll() {
+      try {
+        const path = `/p3/operations/${encodeURIComponent(id)}`;
+        const operation = await get<Operation>(path, token, controller.signal);
+        const result = operation.state === "succeeded" ? await get<unknown>(`${path}/result`, token, controller.signal) : undefined;
+        if (!controller.signal.aborted) setSnapshot({ owner, value: { data: { operation, result } } });
+      } catch (error) {
+        if (!controller.signal.aborted) setSnapshot({ owner, value: { error: message(error) } });
+      }
+      // Revalidate terminal results too: revocation must clear an open details view.
+      if (!controller.signal.aborted) timer = setTimeout(() => { void poll(); }, 2000);
+    }
+    void poll();
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [id, token, owner]);
+  return snapshot.owner === owner ? snapshot.value : {};
+}
 
 export function useMonitor(
   token: string,

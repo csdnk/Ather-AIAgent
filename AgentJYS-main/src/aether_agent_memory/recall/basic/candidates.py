@@ -113,6 +113,8 @@ class MemoryCandidates:
         # 返回候选及覆盖程度，不把依赖故障、预算耗尽或无法核验伪装成完整检索。
         request = MemorySearchRequest.model_validate_json(request.model_dump_json())
         scope = select_scope(ctx, request.selection)
+        if request.memory_source == "working" and not (scope.session_id or scope.task_id):
+            raise FoundationError(ErrorCode.INVALID_ARGUMENT, "Working requires task or session")
         if request.deadline_at > ctx.deadline_at:
             raise FoundationError(ErrorCode.INVALID_ARGUMENT, "search deadline exceeds context")
         with self.uow.transaction() as tx:
@@ -158,6 +160,7 @@ class MemoryCandidates:
                     page_request = ChunkSearchRequest(
                         operation_id=request.operation_id,
                         selection=request.selection,
+                        memory_source=request.memory_source,
                         model_space=space,
                         vector=encoded.items[0].vector,
                         limit=min(100, request.chunk_page_size, request.max_chunk_hits - examined),

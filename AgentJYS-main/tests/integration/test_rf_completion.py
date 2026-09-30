@@ -22,15 +22,18 @@ def test_cache_probe_preserves_crlf_and_rejects_invalid_utf8(configuration):
     service = Service(configuration)
     executor = service.runtime.executor
     memory = MemoryRef(
-        memory_id="line_endings", version=1,
+        memory_id="line_endings",
+        version=1,
         scope=service.runtime.foundation.identity.context("alice").principal.home_scope,
     )
     data = b"line one\r\nline two\r\n"
     digest = text_hash(data.decode("utf-8"))
     try:
         with executor.db() as db:
-            db.execute("INSERT INTO copies VALUES (?,?,?,?)",
-                       (executor.key(memory), memory.model_dump_json(), Tier.COLD, digest))
+            db.execute(
+                "INSERT INTO copies VALUES (?,?,?,?)",
+                (executor.key(memory), memory.model_dump_json(), Tier.COLD, digest),
+            )
         path = executor.path(memory, Tier.COLD)
         path.write_bytes(data)
         assert service.cache_maintenance.inspect(memory, digest)
@@ -40,16 +43,22 @@ def test_cache_probe_preserves_crlf_and_rejects_invalid_utf8(configuration):
         asyncio.run(service.close())
 
 
+def admit_command(service, ctx):
+    inputs = service.execution.inputs
+    ref = inputs.persist(ctx, ctx.operation_id, b'{"fixture":"durable input"}', "application/json")
+    return service.execution.commands.accept(ctx, "remember.save", ref)
+
+
 def test_runtime_counts_attention_without_scanning_completed_history(configuration, monkeypatch):
     service = Service(configuration)
     rf = service.runtime.foundation
     alice, eve = rf.identity.context("alice"), rf.identity.context("eve")
     try:
-        pending = rf.sample.submit(alice, "visible", "private")
-        hidden = rf.sample.submit(eve, "hidden", "private")
+        pending = admit_command(service, alice)
+        hidden = admit_command(service, eve)
         baseline_deliveries = service.runtime.health.runtime(alice)["unacknowledged_deliveries"]
         with rf.uow.transaction() as tx:
-            row = tx.read("tasks", pending.task_id)
+            row = tx.read("tasks", pending.job_id)
             for index in range(200):
                 history = copy.deepcopy(row)
                 history["record"].update(task_id=f"history_{index}", state="succeeded")
@@ -57,7 +66,7 @@ def test_runtime_counts_attention_without_scanning_completed_history(configurati
             attention = copy.deepcopy(row)
             attention["record"].update(task_id="needs_attention", state="attention_required")
             tx.write("tasks", "needs_attention", attention)
-            for key, task in [("visible", row), ("hidden", tx.read("tasks", hidden.task_id))]:
+            for key, task in [("visible", row), ("hidden", tx.read("tasks", hidden.job_id))]:
                 tx.write("outbox", key, {"event": {"subject": task["record"]["subject"]}})
                 tx.write("deliveries", key, {"event_id": key, "state": "attention_required"})
             tx.write("deliveries", "done", {"event_id": "visible", "state": "acknowledged"})
@@ -166,8 +175,12 @@ def test_other_scope_and_revoked_identity_cannot_repair(configuration):
         assert asyncio.run(service.cache_maintenance.sample(rf.identity.context("eve"))) == []
         ctx = rf.identity.context("alice")
         asyncio.run(rf.dispositions.cycle(ctx))
-        task = rf.tasks.claim("manual", "maintenance", rf.tasks.clock())
-        assert task is not None
+        with rf.uow.transaction() as tx:
+            task_id = next(
+                key
+                for key, row in tx.rows("tasks")
+                if row["record"]["kind"] == "operate_repair_cache"
+            )
         hydrate = service.cache_maintenance.remember.hydrate
 
         async def revoke(*args):
@@ -177,8 +190,19 @@ def test_other_scope_and_revoked_identity_cannot_repair(configuration):
                 tx.write("identities", "alice", {**raw, "enabled": False})
 
         service.cache_maintenance.remember.hydrate = revoke
-        with pytest.raises(Exception, match="revoked"):
-            asyncio.run(service.cache_maintenance.run(ctx, task))
+
+        def denied():
+            with rf.uow.transaction() as tx:
+                return tx.read("tasks", task_id)["record"]["state"] in {
+                    "failed",
+                    "attention_required",
+                    "cancelled",
+                }
+
+        with TestClient(service.app()):
+            eventually(denied)
+            with service.runtime.executor.db() as db:
+                assert db.execute("SELECT count(*) FROM repairs").fetchone()[0] == 0
         assert path.read_bytes() == b"broken"
     finally:
         asyncio.run(service.close())
@@ -238,9 +262,23 @@ def test_progress_part_rolls_back_with_business_result(configuration):
     service = Service(configuration)
     rf = service.runtime.foundation
     ctx = rf.identity.context("alice")
-    pending = rf.sample.submit(ctx, "progress_rollback", "private text")
-    task = rf.tasks.claim("test", "engineering", rf.tasks.clock())
-    assert task.task_id == pending.task_id
+    from aether_agent_memory.runtime.temporal.models import ExecutionRef, StepRequest
+
+    pending = admit_command(service, ctx)
+    with rf.uow.transaction() as tx:
+        service.execution.ledger.begin(
+            tx,
+            StepRequest(job=pending, stage="prepare", ordinal=0, mode="execute"),
+            ExecutionRef(
+                namespace="default",
+                workflow_id=f"p3/{configuration.temporal.deployment_id}/remember.save/{pending.job_id}",
+                run_id="transaction-unit",
+                activity_id="1",
+                delivery_attempt=1,
+                epoch=0,
+            ),
+        )
+        task = rf.tasks.load(tx, pending.job_id)[1]
     try:
         with pytest.raises(RuntimeError), rf.uow.transaction() as tx:
             tx.write("test_parts", "one", {"content": "private output"})

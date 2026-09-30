@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import math
+from typing import Any, cast
 
 from aether_agent_memory.recall.contracts.foundation import (
     ContextAssemblyPlan,
@@ -30,6 +31,7 @@ from aether_agent_memory.remember.contracts.foundation import (
     GuardStamp,
     MemoryRelationSnapshot,
     ProjectionManifest,
+    ProjectionReadiness,
 )
 from aether_agent_memory.remember.contracts.models import (
     ConflictGroup,
@@ -44,7 +46,6 @@ from aether_agent_memory.remember.contracts.ports import (
 from aether_agent_memory.runtime.contracts.models import (
     ErrorCode,
     Flow,
-    PageRequest,
     Permission,
     RecordRef,
     TrustedContext,
@@ -55,7 +56,6 @@ from aether_agent_memory.runtime.foundation.requests import select_scope, text_h
 from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction, native
 from aether_agent_memory.runtime.foundation.telemetry import observed
 
-from .adapters import LexicalEmbedding
 from .candidates import seconds_left
 from .service import Recall
 
@@ -160,6 +160,31 @@ class ContextAssembly:
             ) from exc
 
     async def build(self, ctx: TrustedContext, request: RecallPlanRequest) -> ContextAssemblyPlan:
+        discovered = await self.discover(ctx, request)
+        return await self.assemble_discovered(ctx, request, discovered)
+
+    def check_plan_policy(self, ctx: TrustedContext, request: RecallPlanRequest) -> None:
+        self.check(ctx, request)
+        if (
+            request.deadline_at > ctx.deadline_at
+            or request.context_tokenizer != self.base.tokenizer.identifier
+            or request.policy_version != self.base.policy_version
+        ):
+            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "assembly policy binding mismatch")
+
+    async def discover(self, ctx: TrustedContext, request: RecallPlanRequest) -> dict[str, Any]:
+        self.check_plan_policy(ctx, request)
+        return cast(dict[str, Any], await self._build_phase(ctx, request, None))
+
+    async def assemble_discovered(
+        self, ctx: TrustedContext, request: RecallPlanRequest, discovered: dict[str, Any]
+    ) -> ContextAssemblyPlan:
+        self.check_plan_policy(ctx, request)
+        return cast(ContextAssemblyPlan, await self._build_phase(ctx, request, discovered))
+
+    async def _build_phase(
+        self, ctx: TrustedContext, request: RecallPlanRequest, discovered: dict[str, Any] | None
+    ) -> dict[str, Any] | ContextAssemblyPlan:
         # 按来源收集可信内容，再以整条记忆或完整冲突组为单位进行排序和预算选择。
         scope = select_scope(ctx, request.selection)
         snapshots: dict[str, MemorySnapshot] = {}
@@ -263,86 +288,93 @@ class ContextAssembly:
                     relation_guards[key] = guard
             return list(items)
 
-        # 阶段一：长期候选已经过资格审查，但读取时仍须消费 B 的当前资格和快照。
-        if request.long_term_search:
-            try:
-                found = await self.candidates.search(ctx, request.long_term_search)
-                found = MemorySearchResult.model_validate_json(found.model_dump_json())
-                self.check(ctx, request)
-                if found.request != request.long_term_search or found.scope != scope:
-                    raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "candidate result mismatch")
-                coverage["long_term"] = found.coverage
-                if found.coverage != "complete":
-                    reasons.add("long_term_" + found.stop_reason)
-                source_ranks["long_term"] = {
-                    c.memory.model_dump_json(): c.rank for c in found.candidates
-                }
-                for candidate in found.candidates:
-                    key = candidate.memory.model_dump_json()
-                    manifests[key], candidate_guards[key] = candidate.manifest, candidate.guard
-                if found.candidates:
-                    refs = tuple(c.memory for c in found.candidates)
-                    accept_batch(
-                        self.base.memories.load(ctx, refs), {r.model_dump_json() for r in refs}
-                    )
-            except FoundationError as exc:
-                if exc.code != ErrorCode.DEPENDENCY_UNAVAILABLE:
-                    raise
-                coverage["long_term"] = "unavailable"
-                reasons.add("long_term_dependency")
-                source_ranks["long_term"] = {}
-                snapshots.clear()
-                conflicts.clear()
-                relation_guards.clear()
-                manifests.clear()
-                candidate_guards.clear()
-
-        # 阶段二：Working 使用 B 受控读取；本地词法排序不调用 Embedding 服务或向量索引。
-        if "working" in request.sources:
-            coverage["working"] = "complete"
-            cursor = None
-            seen_cursors: set[str] = set()
-            working_keys: set[str] = set()
-            for _ in range(10):
-                # 单页依赖失败时恢复该页之前的可信快照，保留已完成的其他来源内容。
-                saved = (snapshots.copy(), conflicts.copy(), relation_guards.copy())
+        # 每个来源独立进行向量候选发现；待发布索引不能冒充穷尽后的正常空结果。
+        if discovered is None:
+            for source in request.sources:
+                search = getattr(request, source + "_search")
+                assert search is not None
+                saved = (
+                    snapshots.copy(),
+                    conflicts.copy(),
+                    relation_guards.copy(),
+                    manifests.copy(),
+                    candidate_guards.copy(),
+                )
+                source_ranks[source] = {}
                 try:
-                    batch = self.base.memories.working(
-                        ctx, request.selection, PageRequest(limit=100, cursor=cursor)
+                    readiness = await self.base.memories.projection_readiness(
+                        ctx, request.selection, source
                     )
+                    readiness = ProjectionReadiness.model_validate_json(readiness.model_dump_json())
+                    if readiness.source != source:
+                        raise FoundationError(
+                            ErrorCode.CONTRACT_VIOLATION, "readiness source mismatch"
+                        )
+                    found = await self.candidates.search(ctx, search)
+                    found = MemorySearchResult.model_validate_json(found.model_dump_json())
                     self.check(ctx, request)
-                    working_keys.update(accept_batch(batch, None))
+                    if found.request != search or found.scope != scope:
+                        raise FoundationError(
+                            ErrorCode.CONTRACT_VIOLATION, "candidate result mismatch"
+                        )
+                    coverage[source] = found.coverage
+                    if found.coverage != "complete":
+                        reasons.add(source + "_" + found.stop_reason)
+                    if not readiness.complete:
+                        coverage[source] = "partial" if found.candidates else "unavailable"
+                        reasons.add(
+                            source
+                            + ("_index_failed" if readiness.failed_count else "_index_pending")
+                        )
+                    source_ranks[source] = {
+                        c.memory.model_dump_json(): c.rank for c in found.candidates
+                    }
+                    for candidate in found.candidates:
+                        key = candidate.memory.model_dump_json()
+                        manifests[key], candidate_guards[key] = candidate.manifest, candidate.guard
+                    if found.candidates:
+                        refs = tuple(c.memory for c in found.candidates)
+                        accept_batch(
+                            self.base.memories.load(ctx, refs), {r.model_dump_json() for r in refs}
+                        )
                 except FoundationError as exc:
                     if exc.code != ErrorCode.DEPENDENCY_UNAVAILABLE:
                         raise
-                    snapshots, conflicts, relation_guards = saved
-                    coverage["working"] = "partial" if working_keys else "unavailable"
-                    reasons.add("working_dependency")
-                    break
-                cursor = batch.next_cursor
-                if cursor is None:
-                    break
-                if cursor in seen_cursors:
-                    raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "working cursor repeated")
-                seen_cursors.add(cursor)
-                await asyncio.sleep(0)
-            if cursor:
-                coverage["working"] = "partial"
-                reasons.add("working_page_limit")
-            query = LexicalEmbedding.features(request.query)
-            ordered = sorted(
-                working_keys,
-                key=lambda key: (
-                    -sum(
-                        a * b
-                        for a, b in zip(
-                            query, LexicalEmbedding.features(snapshots[key].content), strict=True
-                        )
-                    ),
-                    key,
-                ),
-            )
-            source_ranks["working"] = {key: i + 1 for i, key in enumerate(ordered)}
+                    coverage[source] = "unavailable"
+                    reasons.add(source + "_dependency")
+                    source_ranks[source] = {}
+                    snapshots, conflicts, relation_guards, manifests, candidate_guards = saved
+
+            return {
+                "snapshots": {k: v.model_dump(mode="json") for k, v in snapshots.items()},
+                "conflicts": {k: v.model_dump(mode="json") for k, v in conflicts.items()},
+                "reasons": sorted(reasons),
+                "excluded": sorted(excluded),
+                "coverage": coverage,
+                "manifests": {k: v.model_dump(mode="json") for k, v in manifests.items()},
+                "candidate_guards": {
+                    k: v.model_dump(mode="json") for k, v in candidate_guards.items()
+                },
+                "relation_guards": {
+                    k: v.model_dump(mode="json") for k, v in relation_guards.items()
+                },
+                "source_ranks": source_ranks,
+            }
+        snapshots = {
+            k: MemorySnapshot.model_validate(v) for k, v in discovered["snapshots"].items()
+        }
+        conflicts = {k: ConflictGroup.model_validate(v) for k, v in discovered["conflicts"].items()}
+        reasons, excluded = set(discovered["reasons"]), set(discovered["excluded"])
+        coverage, source_ranks = discovered["coverage"], discovered["source_ranks"]
+        manifests = {
+            k: ProjectionManifest.model_validate(v) for k, v in discovered["manifests"].items()
+        }
+        candidate_guards = {
+            k: GuardStamp.model_validate(v) for k, v in discovered["candidate_guards"].items()
+        }
+        relation_guards = {
+            k: GuardStamp.model_validate(v) for k, v in discovered["relation_guards"].items()
+        }
 
         # 阶段三：补全冲突组成员；补读另设上限，不能让关系扩展突破工作预算。
         # Fetch relation members under B control, bounded independently from primary K.
@@ -360,13 +392,13 @@ class ContextAssembly:
                 reasons.add("relation_limit")
                 break
             queried.update(missing)
-            saved = (snapshots.copy(), conflicts.copy(), relation_guards.copy())
+            saved_relation = (snapshots.copy(), conflicts.copy(), relation_guards.copy())
             try:
                 accept_batch(self.base.memories.load(ctx, tuple(missing.values())), set(missing))
             except FoundationError as exc:
                 if exc.code != ErrorCode.DEPENDENCY_UNAVAILABLE:
                     raise
-                snapshots, conflicts, relation_guards = saved
+                snapshots, conflicts, relation_guards = saved_relation
                 reasons.add("relation_dependency")
                 break
             self.check(ctx, request)
@@ -429,9 +461,9 @@ class ContextAssembly:
         skipped: set[str] = set()
         done: set[str] = set()
         scores: dict[str, float] = {}
-        # Working-only 沿用词法名次；其他来源按记忆级 RRF 融合，每来源只贡献一次。
-        if request.sources == ("working",):
-            scores = {key: -float(rank) for key, rank in source_ranks["working"].items()}
+        # 单来源保留向量名次；多来源按记忆级 RRF 融合，每来源只贡献一次。
+        if len(request.sources) == 1:
+            scores = {key: -float(rank) for key, rank in source_ranks[request.sources[0]].items()}
         else:
             for ranks in source_ranks.values():
                 for key, rank in ranks.items():
@@ -528,7 +560,11 @@ class ContextAssembly:
             raise FoundationError(ErrorCode.BUDGET_TOO_SMALL, "no complete group fits budget")
         # 明确排除全部内容可返回正常空结果；无法核验导致的无内容必须报告依赖失败。
         if not selected and reasons:
-            raise FoundationError(ErrorCode.DEPENDENCY_UNAVAILABLE, "no verified group available")
+            pending_only = all(reason.endswith("_index_pending") for reason in reasons)
+            raise FoundationError(
+                ErrorCode.REQUEST_IN_PROGRESS if pending_only else ErrorCode.DEPENDENCY_UNAVAILABLE,
+                "no verified group available: " + ",".join(sorted(reasons)),
+            )
         evidence = (
             tuple(
                 RankingEvidence(
@@ -543,7 +579,7 @@ class ContextAssembly:
                 for source, ranks in source_ranks.items()
                 if (key := b.memory.model_dump_json()) in ranks
             )
-            if request.sources != ("working",)
+            if len(request.sources) > 1
             else ()
         )
         plan = ContextAssemblyPlan(
@@ -581,7 +617,7 @@ class ContextAssembly:
     def expectations(
         units: list[ContextPackUnit], manifests: dict[str, ProjectionManifest]
     ) -> ContextGuardRequest:
-        # 汇总所有入包成员凭据；只有长期主候选附带发布清单，关系补读成员不冒充主候选。
+        # 所有来源主候选都附带发布清单；关系补读成员不冒充主候选。
         return ContextGuardRequest(
             expected=tuple(b.guard for u in units for b in u.bodies if b.guard is not None),
             manifests=tuple(

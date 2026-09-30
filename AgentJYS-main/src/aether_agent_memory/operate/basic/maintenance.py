@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from aether_agent_memory.remember.basic.pipeline import RememberPipeline
-from aether_agent_memory.remember.contracts.models import MemoryRef
+from aether_agent_memory.remember.contracts.models import MemoryRef, MemorySnapshot
 from aether_agent_memory.runtime.contracts.foundation import (
     DispositionRule,
     IncidentRecord,
@@ -100,6 +100,16 @@ class CacheMaintenance:
             return False
 
     async def sample(self, ctx: TrustedContext) -> list[tuple[RecordRef, SignalObservation]]:
+        result, cursor_key, cursor = await self.sample_batch(ctx)
+        with self.rf.uow.transaction() as tx:
+            self.rf.identity.revalidate(tx, ctx)
+            tx.write("cache_sample_cursors", cursor_key, cursor)
+        return result
+
+    async def sample_batch(
+        self, ctx: TrustedContext
+    ) -> tuple[list[tuple[RecordRef, SignalObservation]], str, str]:
+        """Read a bounded batch; its caller advances the cursor with observed facts."""
         self.rf.dispositions.configure_rule(ctx, self.rule)
         cursor_key = fingerprint(ctx.principal.model_dump(mode="json"))
         with self.rf.uow.transaction() as tx:
@@ -163,10 +173,7 @@ class CacheMaintenance:
                     ),
                 )
             )
-        with self.rf.uow.transaction() as tx:
-            self.rf.identity.revalidate(tx, ctx)
-            tx.write("cache_sample_cursors", cursor_key, rows[-1][0] if rows else "")
-        return result
+        return result, cursor_key, rows[-1][0] if rows else ""
 
     def target(
         self, tx: SQLiteTransaction, ctx: TrustedContext, task: TaskRecord
@@ -205,6 +212,28 @@ class CacheMaintenance:
         )
 
     async def run(self, ctx: TrustedContext, task: TaskRecord) -> RunResult:
+        item = await self.prepare_repair(ctx, task)
+        if isinstance(item, RunResult):
+            return item
+        self.repair_prepared(ctx, task, item)
+        with self.rf.uow.transaction() as tx:
+            return self.finish(tx, ctx, task, item.content_hash)
+
+    def repair_prepared(self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot) -> None:
+        with self.rf.uow.transaction() as tx:
+            memory, digest = self.target(tx, ctx, task)
+            if (
+                item.ref != memory
+                or item.content_hash != digest
+                or not self.eligible(tx, ctx, memory)
+            ):
+                raise ValueError("cache target changed before repair")
+            self.executor.repair(item, task.task_id)
+            self.rf.tasks.guard(tx, task)
+
+    async def prepare_repair(
+        self, ctx: TrustedContext, task: TaskRecord
+    ) -> MemorySnapshot | RunResult:
         with self.rf.uow.transaction() as tx:
             memory, digest = self.target(tx, ctx, task)
             if not self.eligible(tx, ctx, memory):
@@ -225,8 +254,7 @@ class CacheMaintenance:
             item = self.remember.current(tx, memory.memory_id)
             if item.ref != memory or item.content_hash != digest:
                 raise ValueError("cache target version changed")
-            self.executor.repair(item, task.task_id)
-            return self.finish(tx, ctx, task, digest)
+            return item
 
     async def recover(self, ctx: TrustedContext, task: TaskRecord) -> RecoveryDecision:
         with self.rf.uow.transaction() as tx:

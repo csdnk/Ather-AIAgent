@@ -5,6 +5,7 @@ import asyncio
 import hashlib
 import json
 import math
+import os
 import platform
 import subprocess
 import sys
@@ -18,16 +19,21 @@ sys.path.insert(0, str(ROOT / "src"))
 from demo_flows import demo  # noqa: E402
 
 from aether_agent_memory.recall.contracts.models import EmbeddingRequest  # noqa: E402
-from aether_agent_memory.runtime.flows.host import ThreeFlows  # noqa: E402
+from aether_agent_memory.runtime.flows.application import Service  # noqa: E402
+from aether_agent_memory.runtime.flows.config import ServiceConfiguration  # noqa: E402
 
 
-async def live(directory: Path, config: Path | None) -> dict:
-    demonstration = await demo(directory, "native", config)
+async def live(directory: Path, config: Path | None, temporal_endpoint: str) -> dict:
+    demonstration = await demo(directory, "native", config, temporal_endpoint=temporal_endpoint)
     assert demonstration["passed"]
-    keys = json.loads((directory / "demo-credentials.json").read_text(encoding="utf-8"))
-    app = ThreeFlows(directory / "p3.db", directory / "cache", embedding_config=config)
+    credential = (directory / "credential").read_text(encoding="utf-8")
+    settings = ServiceConfiguration.load(directory / "service.yaml")
+    if config:
+        settings = settings.model_copy(update={"embedding_config": config})
+    service = Service(settings)
+    app = service.runtime
     try:
-        ctx = app.foundation.identity.context(keys["alice"], timeout_seconds=60)
+        ctx = app.foundation.identity.context(credential, timeout_seconds=60)
         vectors = []
         for usage in ("query", "passage"):
             result = await app.embedding.embed(
@@ -42,7 +48,7 @@ async def live(directory: Path, config: Path | None) -> dict:
             )
             vector = result.items[0].vector
             norm = math.sqrt(sum(v * v for v in vector))
-            assert result.dimensions == 512 and abs(norm - 1) < 1e-4
+            assert result.dimensions == app.embedding.dimensions and abs(norm - 1) < 1e-4
             vectors.append(vector)
         assert vectors[0] != vectors[1]
         health = await app.health.report(ctx)
@@ -60,7 +66,7 @@ async def live(directory: Path, config: Path | None) -> dict:
             "mode": "real_native_cpu_with_p3_foundation",
             "model_binding": binding,
             "query_passage_differ": True,
-            "dimensions": 512,
+            "dimensions": app.embedding.dimensions,
             "native_attempts": len(attempts),
             "backend_evidence_count": len(native_evidence),
             "native_health": "available",
@@ -78,22 +84,23 @@ async def live(directory: Path, config: Path | None) -> dict:
             ],
         }
     finally:
-        app.close()
+        await service.close()
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path)
     parser.add_argument("--report", type=Path)
+    parser.add_argument("--temporal-endpoint", default=os.environ.get("P3_TEMPORAL_ENDPOINT"))
     args = parser.parse_args()
+    if not args.temporal_endpoint:
+        parser.error("--temporal-endpoint (or P3_TEMPORAL_ENDPOINT) is required")
     with tempfile.TemporaryDirectory(prefix="p3-native-") as tmp:
         tests = subprocess.run(
             [
                 sys.executable,
                 "-m",
                 "pytest",
-                "-c",
-                "tests/runtime/p3/pytest.ini",
                 "tests/runtime/native",
                 "-q",
                 "-o",
@@ -110,7 +117,7 @@ def main() -> int:
         if tests.returncode:
             print(tests.stderr)
             return tests.returncode
-        result = asyncio.run(live(Path(tmp), args.config))
+        result = asyncio.run(live(Path(tmp), args.config, args.temporal_endpoint))
     result.update(
         {
             "generated_at": datetime.now(UTC).isoformat(),

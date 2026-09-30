@@ -130,7 +130,8 @@ def test_required_conflict_members_are_atomic_but_do_not_consume_primary_k():
 
 def test_working_only_and_empty_degraded_plan_are_representable():
     plan = example("recall.ContextAssemblyPlan")
-    plan["request"].update(sources=["working"], long_term_search=None)
+    working = {**plan["request"]["long_term_search"], "memory_source": "working"}
+    plan["request"].update(sources=["working"], long_term_search=None, working_search=working)
     plan["rank_evidence"] = []
     plan["units"][0]["primary_memories"] = []
     parse("recall.ContextAssemblyPlan", plan)

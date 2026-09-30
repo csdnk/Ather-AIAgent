@@ -120,7 +120,9 @@ class Health:
 
         capabilities = {
             "save": "available" if available("database") else "unavailable",
-            "working_read": "available" if available("database") else "unavailable",
+            "working_read": "available"
+            if all(available(k) for k in ("database", "embedding", "vectors"))
+            else "degraded",
             "long_term": "available"
             if all(available(k) for k in ("database", "embedding", "vectors"))
             else "degraded",

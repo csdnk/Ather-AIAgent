@@ -313,7 +313,8 @@ def test_summary_redis_eviction_and_working_archive_do_not_erase_source_or_es(ap
             await app.remember.bodies.cache.get(initial.ref.scope, receipt.source.content_hash)
             is None
         )
-        await app.drain()
+        # This multi-stage integration asserts convergence, not the host's 12s default wait.
+        await app.drain(timeout_seconds=60)
         item = app.remember.get(context(app), initial.ref.memory_id)
         assert (
             await app.remember.bodies.cache.get(item.ref.scope, item.content_hash) == item.content
@@ -376,7 +377,10 @@ def test_source_http_requires_authorization_and_returns_original_not_summary(app
 
     configure(app)
     receipt, text, _ = save_long(app)
-    with TestClient(create_app(app, run_worker=False)) as client:
+    from temporal_test_support import http_execution
+
+    http_execution(app, app.execution.endpoint)
+    with TestClient(create_app(app)) as client:
         endpoint = "/p3/sources/read-range?start=4&end=20"
         assert client.post(endpoint, json=receipt.source.model_dump(mode="json")).status_code == 401
         reply = client.post(

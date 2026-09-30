@@ -20,7 +20,7 @@ jobs:
           versionSpec: '3.13'
       - script: python -m pip install -r scripts/p3/requirements-collaboration.txt
         displayName: Install validation dependencies
-      - script: python scripts/p3/validate_collaboration.py --report "$(Agent.TempDirectory)/p3-gate.json"
+      - script: python scripts/p3/ci_temporal_gate.py collaboration --directory "$(Agent.TempDirectory)/p3-temporal" --report "$(Agent.TempDirectory)/p3-gate.json"
         displayName: Validate P3 contracts and implementation
         env:
           PYTHONUTF8: '1'

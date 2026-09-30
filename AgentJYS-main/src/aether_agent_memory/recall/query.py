@@ -86,6 +86,12 @@ class RecallQueryService:
     async def prepare(self, raw: RecallInput) -> PreparedQuery:
         admitted = await self.admission.admit(raw)
         request = admitted.request
+        memory_types = [
+            kind
+            for kind in request.retrieval_constraints.memory_types
+            if ("working" if kind == "Working" else "long_term")
+            in request.retrieval_constraints.allowed_sources
+        ]
         tenant, recall_id = request.tenant_id, request.recall_id
         token = uuid4().hex
         store = self.admission.store
@@ -99,7 +105,15 @@ class RecallQueryService:
             if cached is not None:
                 if utcnow() >= current.request.deadline_at:
                     raise RecallError("DEADLINE_EXCEEDED")
-                prepared = PreparedQuery.model_validate_json(cached)
+                try:
+                    prepared = PreparedQuery.model_validate_json(cached)
+                except ValueError as exc:
+                    raise RecallError("REPLAY_REVALIDATION_REQUIRED") from exc
+                if (
+                    prepared.search_input is None
+                    or prepared.search_input.memory_types != memory_types
+                ):
+                    raise RecallError("REPLAY_REVALIDATION_REQUIRED")
                 checkpoint_ref = current.execution.checkpoint_refs.get("RUNNING_QUERY_EMBEDDING")
                 saved = tx.get("recall-checkpoint", tenant, checkpoint_ref or "")
                 if saved is None:
@@ -139,7 +153,7 @@ class RecallQueryService:
                 state_version=execution.state_version + 1,
             )
             semantic_request: SemanticEmbeddingRequest | None = None
-            if request.retrieval_mode != "working_only":
+            if request.retrieval_space_ref is not None:
                 if request.retrieval_space_ref != self.model_binding.retrieval_space_ref:
                     raise RecallError("EMBEDDING_CONTRACT_MISMATCH")
                 previous = tx.get("recall-query-binding", tenant, recall_id)
@@ -260,9 +274,7 @@ class RecallQueryService:
                     model_binding=result.model_binding,
                     retrieval_space_ref=result.model_binding.retrieval_space_ref,
                     scope=request.scope,
-                    memory_types=[
-                        t for t in request.retrieval_constraints.memory_types if t != "Working"
-                    ],
+                    memory_types=memory_types,
                     occurred_after=request.retrieval_constraints.occurred_after,
                     occurred_before=request.retrieval_constraints.occurred_before,
                     top_k=current.policy.vector_top_k,

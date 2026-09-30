@@ -239,6 +239,23 @@ class CandidateQualificationTarget(ContractModel):
     chunk_index: Count
     vector_id: Digest
     input_hash: Digest
+    memory_source: Literal["working", "long_term"] = "long_term"
+
+
+class ProjectionReadiness(ContractModel):
+    """Authorized current-memory coverage; no body reads or access reinforcement."""
+
+    source: Literal["working", "long_term"]
+    ready_count: Count
+    pending_count: Count
+    failed_count: Count
+    complete: bool
+
+    @model_validator(mode="after")
+    def complete_coverage(self) -> Self:
+        if self.complete != (self.pending_count == 0 and self.failed_count == 0):
+            raise ValueError("complete requires no pending or failed current projections")
+        return self
 
 
 class CandidateQualificationResult(ContractModel):

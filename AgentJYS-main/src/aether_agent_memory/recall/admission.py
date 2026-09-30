@@ -398,12 +398,8 @@ class RecallAdmissionService:
             if sources[0] == "working"
             else "long_term_only"
         )
-        space = (
-            (old.retrieval_space_ref if old else policy.retrieval_space_ref)
-            if "long_term" in sources
-            else None
-        )
-        if "long_term" in sources and space is None:
+        space = old.retrieval_space_ref if old else policy.retrieval_space_ref
+        if space is None:
             raise RecallError("EMBEDDING_CONTRACT_MISMATCH")
         now = utcnow()
         values = dict(

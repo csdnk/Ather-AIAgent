@@ -1,5 +1,17 @@
-# Unified service. The legacy compose.yaml remains the B1/B2/B3 compatibility demo.
+# Single P3 service. Set service.yaml temporal.endpoint to an address reachable
+# from this container. The loopback-only development CLI is for host execution;
+# use a private-network Temporal server or an explicitly configured local proxy
+# for containers. Validate TCP/gRPC reachability separately on each platform.
 services:
+  temporal-dev:
+    profiles: [temporal-local]
+    image: temporalio/temporal:1.9.1
+    command: ["server", "start-dev", "--headless", "--ip", "0.0.0.0", "--db-filename", "/var/lib/temporal/temporal.db"]
+    restart: unless-stopped
+    volumes:
+      - temporal-dev-data:/var/lib/temporal
+    ports:
+      - "127.0.0.1:${AETHER_HOST_TEMPORAL_PORT:-7233}:7233"
   web:
     build:
       context: ./web
@@ -21,10 +33,8 @@ services:
       - ${AETHER_DEPLOYMENT_DIR:?Set an absolute deployment directory}:/deployment
     ports:
       - "127.0.0.1:${AETHER_HOST_P3_PORT:-8080}:8080"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/p3/live', timeout=3)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/p3/readyz', timeout=3)"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -39,3 +49,4 @@ services:
       - p2-data:/var/lib/aether-engine
 volumes:
   p2-data:
+  temporal-dev-data:

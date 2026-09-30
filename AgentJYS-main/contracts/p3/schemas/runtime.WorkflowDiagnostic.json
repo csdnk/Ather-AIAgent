@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "reason_code": {
+      "minLength": 1,
+      "title": "Reason Code",
+      "type": "string"
+    },
+    "run_id": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Run Id"
+    },
+    "technical_state": {
+      "enum": [
+        "running",
+        "completed",
+        "failed",
+        "cancelled",
+        "terminated",
+        "timed_out",
+        "not_found"
+      ],
+      "title": "Technical State",
+      "type": "string"
+    }
+  },
+  "required": [
+    "reason_code",
+    "technical_state"
+  ],
+  "title": "WorkflowDiagnostic",
+  "type": "object",
+  "x-contract-model": "runtime.WorkflowDiagnostic"
+}

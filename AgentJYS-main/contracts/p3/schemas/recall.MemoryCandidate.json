@@ -72,6 +72,15 @@
         "memory": {
           "$ref": "#/$defs/MemoryRef"
         },
+        "memory_source": {
+          "default": "long_term",
+          "enum": [
+            "working",
+            "long_term"
+          ],
+          "title": "Memory Source",
+          "type": "string"
+        },
         "model_space": {
           "maxLength": 128,
           "minLength": 1,

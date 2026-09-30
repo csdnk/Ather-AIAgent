@@ -1,0 +1,559 @@
+{
+  "$defs": {
+    "EffectStatus": {
+      "enum": [
+        "not_started",
+        "no_effect",
+        "unknown",
+        "confirmed"
+      ],
+      "title": "EffectStatus",
+      "type": "string"
+    },
+    "ErrorCode": {
+      "enum": [
+        "UNAUTHENTICATED",
+        "FORBIDDEN",
+        "NOT_FOUND",
+        "INVALID_ARGUMENT",
+        "VERSION_CONFLICT",
+        "IDEMPOTENCY_CONFLICT",
+        "REQUEST_IN_PROGRESS",
+        "RESULT_INVALIDATED",
+        "MEMORY_GONE",
+        "CAPACITY_EXCEEDED",
+        "BUDGET_TOO_SMALL",
+        "DEPENDENCY_UNAVAILABLE",
+        "COMMIT_UNCONFIRMED",
+        "DEADLINE_EXCEEDED",
+        "EXECUTION_INTERRUPTED",
+        "CONTRACT_VIOLATION",
+        "TASK_STILL_RUNNING"
+      ],
+      "title": "ErrorCode",
+      "type": "string"
+    },
+    "ExecutionRef": {
+      "additionalProperties": false,
+      "description": "Persistent commit fence for one Temporal Activity delivery.",
+      "properties": {
+        "activity_id": {
+          "minLength": 1,
+          "title": "Activity Id",
+          "type": "string"
+        },
+        "delivery_attempt": {
+          "minimum": 1,
+          "title": "Delivery Attempt",
+          "type": "integer"
+        },
+        "epoch": {
+          "minimum": 0,
+          "title": "Epoch",
+          "type": "integer"
+        },
+        "namespace": {
+          "minLength": 1,
+          "title": "Namespace",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "workflow_id": {
+          "minLength": 1,
+          "title": "Workflow Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "workflow_id",
+        "run_id",
+        "activity_id",
+        "delivery_attempt",
+        "epoch"
+      ],
+      "title": "ExecutionRef",
+      "type": "object"
+    },
+    "Flow": {
+      "enum": [
+        "runtime",
+        "remember",
+        "recall",
+        "operate"
+      ],
+      "title": "Flow",
+      "type": "string"
+    },
+    "Lease": {
+      "additionalProperties": false,
+      "properties": {
+        "owner_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Owner Id",
+          "type": "string"
+        },
+        "token": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Token",
+          "type": "string"
+        },
+        "until": {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "title": "Until",
+          "type": "string"
+        }
+      },
+      "required": [
+        "owner_id",
+        "token",
+        "until"
+      ],
+      "title": "Lease",
+      "type": "object"
+    },
+    "OperationExecution": {
+      "additionalProperties": false,
+      "properties": {
+        "binding": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorkflowBinding"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "diagnostic": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorkflowDiagnostic"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "workflow_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Workflow Id"
+        }
+      },
+      "required": [
+        "workflow_id",
+        "binding",
+        "diagnostic"
+      ],
+      "title": "OperationExecution",
+      "type": "object"
+    },
+    "RecordRef": {
+      "additionalProperties": false,
+      "properties": {
+        "object_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Object Id",
+          "type": "string"
+        },
+        "object_type": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Object Type",
+          "type": "string"
+        },
+        "owner": {
+          "$ref": "#/$defs/Flow"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "required": [
+        "owner",
+        "object_type",
+        "object_id",
+        "scope"
+      ],
+      "title": "RecordRef",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "application_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Application Id",
+          "type": "string"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        },
+        "tenant_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Tenant Id",
+          "type": "string"
+        },
+        "user_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "User Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenant_id",
+        "application_id",
+        "user_id",
+        "agent_id"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "TaskState": {
+      "enum": [
+        "pending",
+        "running",
+        "retry_wait",
+        "recovery_wait",
+        "succeeded",
+        "failed",
+        "cancelled",
+        "attention_required"
+      ],
+      "title": "TaskState",
+      "type": "string"
+    },
+    "WorkflowBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "current_run_id": {
+          "minLength": 1,
+          "title": "Current Run Id",
+          "type": "string"
+        },
+        "first_run_id": {
+          "minLength": 1,
+          "title": "First Run Id",
+          "type": "string"
+        },
+        "input_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Hash",
+          "type": "string"
+        },
+        "namespace": {
+          "minLength": 1,
+          "title": "Namespace",
+          "type": "string"
+        },
+        "plan_version": {
+          "minLength": 1,
+          "title": "Plan Version",
+          "type": "string"
+        },
+        "workflow_id": {
+          "minLength": 1,
+          "title": "Workflow Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "workflow_id",
+        "first_run_id",
+        "current_run_id",
+        "input_hash",
+        "plan_version"
+      ],
+      "title": "WorkflowBinding",
+      "type": "object"
+    },
+    "WorkflowDiagnostic": {
+      "additionalProperties": false,
+      "properties": {
+        "reason_code": {
+          "minLength": 1,
+          "title": "Reason Code",
+          "type": "string"
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Id"
+        },
+        "technical_state": {
+          "enum": [
+            "running",
+            "completed",
+            "failed",
+            "cancelled",
+            "terminated",
+            "timed_out",
+            "not_found"
+          ],
+          "title": "Technical State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason_code",
+        "technical_state"
+      ],
+      "title": "WorkflowDiagnostic",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "attempt": {
+      "minimum": 0,
+      "title": "Attempt",
+      "type": "integer"
+    },
+    "deadline_at": {
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "title": "Deadline At",
+      "type": "string"
+    },
+    "effect_status": {
+      "$ref": "#/$defs/EffectStatus"
+    },
+    "error_code": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ErrorCode"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "execution": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ExecutionRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "idempotency_key": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "initiator_auth_epoch": {
+      "minimum": 1,
+      "title": "Initiator Auth Epoch",
+      "type": "integer"
+    },
+    "initiator_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Initiator Id",
+      "type": "string"
+    },
+    "input_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Hash",
+      "type": "string"
+    },
+    "input_ref": {
+      "$ref": "#/$defs/RecordRef"
+    },
+    "kind": {
+      "minLength": 1,
+      "title": "Kind",
+      "type": "string"
+    },
+    "lease": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Lease"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "max_attempts": {
+      "default": 3,
+      "minimum": 1,
+      "title": "Max Attempts",
+      "type": "integer"
+    },
+    "next_run_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Next Run At"
+    },
+    "owner_flow": {
+      "$ref": "#/$defs/Flow"
+    },
+    "query_attempt": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Query Attempt",
+      "type": "integer"
+    },
+    "required_outputs": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/RecordRef"
+      },
+      "title": "Required Outputs",
+      "type": "array"
+    },
+    "result_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RecordRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "revision": {
+      "minimum": 1,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "state": {
+      "$ref": "#/$defs/TaskState"
+    },
+    "subject": {
+      "$ref": "#/$defs/RecordRef"
+    },
+    "task_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Task Id",
+      "type": "string"
+    },
+    "temporal": {
+      "$ref": "#/$defs/OperationExecution"
+    }
+  },
+  "required": [
+    "task_id",
+    "owner_flow",
+    "kind",
+    "subject",
+    "input_ref",
+    "idempotency_key",
+    "input_hash",
+    "initiator_id",
+    "initiator_auth_epoch",
+    "deadline_at",
+    "state",
+    "revision",
+    "attempt",
+    "effect_status",
+    "temporal"
+  ],
+  "title": "TaskOperationView",
+  "type": "object",
+  "x-contract-model": "runtime.TaskOperationView"
+}

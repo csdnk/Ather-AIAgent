@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Persistent commit fence for one Temporal Activity delivery.",
+  "properties": {
+    "activity_id": {
+      "minLength": 1,
+      "title": "Activity Id",
+      "type": "string"
+    },
+    "delivery_attempt": {
+      "minimum": 1,
+      "title": "Delivery Attempt",
+      "type": "integer"
+    },
+    "epoch": {
+      "minimum": 0,
+      "title": "Epoch",
+      "type": "integer"
+    },
+    "namespace": {
+      "minLength": 1,
+      "title": "Namespace",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "workflow_id": {
+      "minLength": 1,
+      "title": "Workflow Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "namespace",
+    "workflow_id",
+    "run_id",
+    "activity_id",
+    "delivery_attempt",
+    "epoch"
+  ],
+  "title": "ExecutionRef",
+  "type": "object",
+  "x-contract-model": "runtime.ExecutionRef"
+}
