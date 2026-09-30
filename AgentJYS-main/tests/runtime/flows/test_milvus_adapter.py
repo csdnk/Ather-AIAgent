@@ -140,6 +140,67 @@ def test_milvus_scope_filter_and_second_authorization_check(app, adapter):
     assert "model_space ==" in client.filters[-1]
 
 
+@pytest.mark.parametrize("source", ["working", "long_term"])
+def test_milvus_source_predicate_filters_before_top_k_and_keeps_legacy_long_term(
+    app, adapter, source
+):
+    provider, client = adapter
+    req = request(app)
+    original = client.search
+    expected = "working_memory" if source == "working" else "legacy_memory"
+    for name, memory_source, score in (
+        ("working_memory", "working", 0.5),
+        ("legacy_memory", None, 1.0),
+    ):
+        target = req.target.model_dump(mode="json")
+        target["memory"]["memory_id"] = name
+        if memory_source:
+            target["memory_source"] = memory_source
+        else:
+            target.pop("memory_source", None)
+        client.rows[name] = {
+            **req.target.memory.scope.model_dump(mode="json"),
+            "target": target,
+            "model_space": app.model_space,
+            "vector": [v * score for v in req.vector],
+        }
+
+    def scoped_search(*, data, filter, limit, **kwargs):
+        # Model the external engine's JSON predicate before its candidate limit.
+        rows = client.rows
+        if 'target["memory_source"] == "working"' in filter:
+            client.rows = {
+                k: r for k, r in rows.items() if r["target"].get("memory_source") == "working"
+            }
+        elif 'not exists target["memory_source"]' in filter:
+            client.rows = {
+                k: r
+                for k, r in rows.items()
+                if r["target"].get("memory_source", "long_term") == "long_term"
+            }
+        try:
+            return original(data=data, filter=filter, limit=limit, **kwargs)
+        finally:
+            client.rows = rows
+
+    client.search = scoped_search
+    ctx = context(app)
+    result = asyncio.run(
+        provider.search(
+            ctx,
+            VectorSearchRequest(
+                selection=ScopeSelector(),
+                vector=req.vector,
+                model_space=app.model_space,
+                memory_source=source,
+                limit=1,
+                deadline_at=ctx.deadline_at,
+            ),
+        )
+    )
+    assert [c.target.memory.memory_id for c in result.candidates] == [expected]
+
+
 def test_changed_vector_cannot_overwrite_projection(app, adapter):
     provider, _ = adapter
     req = request(app)

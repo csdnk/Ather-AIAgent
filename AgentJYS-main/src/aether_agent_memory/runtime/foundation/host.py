@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-import json
-from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-from .common import now
 from .diagnostics import Diagnostics
 from .disposition import Dispositions
 from .events import Events
@@ -34,6 +31,7 @@ class Foundation:
         log_max_records: int = 200_000,
         maintenance_principals: tuple[str, ...] = (),
         backup_root: str | Path | None = None,
+        engineering_profile: bool = False,
     ) -> None:
         options: dict[str, Any] = {}
         if profile is not None:
@@ -73,7 +71,17 @@ class Foundation:
             operators=maintenance_principals,
         )
         self.dispositions = Dispositions(self.tasks)
-        self.sample = Sample(self.uow, self.identity, self.tasks, self.events)
+        self._sample = (
+            Sample(self.uow, self.identity, self.tasks, self.events)
+            if engineering_profile
+            else None
+        )
+
+    @property
+    def sample(self) -> Sample:
+        if self._sample is None:
+            raise RuntimeError("engineering sample requires an explicit test/demo profile")
+        return self._sample
 
     def close(self) -> None:
         self.uow.close()
@@ -88,49 +96,4 @@ class Foundation:
         execution_class: str = "engineering",
         poll_seconds: float = 0.25,
     ) -> None:
-        """SIGTERM stops new claims; in-flight work remains fenced by its lease."""
-        try:
-            while not stop.is_set():
-                with self.uow.transaction() as tx:
-                    self.tasks.progress.heartbeat(tx, worker_id, execution_class)
-                    tx.write(
-                        "workers",
-                        worker_id,
-                        {
-                            "worker_id": worker_id,
-                            "execution_class": execution_class,
-                            "last_seen": now(),
-                            "state": "polling",
-                        },
-                    )
-                worked = await self.tasks.run_once(worker_id, execution_class)
-                delivered = self.events.dispatch_once(worker_id)
-                if worked or delivered:
-                    print(
-                        json.dumps(
-                            {
-                                "worker_id": worker_id,
-                                "stage": "iteration",
-                                "task_processed": worked,
-                                "delivery_processed": delivered,
-                            }
-                        ),
-                        flush=True,
-                    )
-                if once:
-                    return
-                with suppress(TimeoutError):
-                    await asyncio.wait_for(stop.wait(), timeout=poll_seconds)
-        finally:
-            with self.uow.transaction() as tx:
-                self.tasks.progress.heartbeat(tx, worker_id, execution_class, stopped=True)
-                tx.write(
-                    "workers",
-                    worker_id,
-                    {
-                        "worker_id": worker_id,
-                        "execution_class": execution_class,
-                        "last_seen": now(),
-                        "state": "stopped",
-                    },
-                )
+        raise RuntimeError("RF scheduling is retired; use the configured Temporal service")

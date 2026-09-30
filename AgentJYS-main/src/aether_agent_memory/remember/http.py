@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 
 from aether_agent_memory.remember.contracts.models import (
     CorrectionRequest,
@@ -13,16 +13,25 @@ from aether_agent_memory.remember.contracts.models import (
     RetentionRequest,
     SourceRef,
 )
-from aether_agent_memory.runtime.contracts.models import Identifier, ScopeSelector, TrustedContext
+from aether_agent_memory.runtime.contracts.models import (
+    ErrorCode,
+    Identifier,
+    ScopeSelector,
+    TrustedContext,
+)
+from aether_agent_memory.runtime.foundation.common import FoundationError
 
 from .basic.pipeline import RememberPipeline
 from .basic.service import Remember
 
 
-def attach_routes(app: FastAPI, provider: Remember, trusted_dependency: Any) -> None:
+def attach_routes(
+    app: FastAPI, provider: Remember, trusted_dependency: Any, *, execution: Any = None
+) -> None:
     if not isinstance(provider, RememberPipeline):
         raise TypeError("Remember routes require the pipeline provider")
     remember = provider
+
     @app.post("/p3/remember/consolidate")
     def consolidate(
         selection: ScopeSelector, ctx: TrustedContext = trusted_dependency
@@ -81,9 +90,19 @@ def attach_routes(app: FastAPI, provider: Remember, trusted_dependency: Any) -> 
 
     @app.post("/p3/remember/{memory_id}/correct")
     async def correct(
-        memory_id: str, request: CorrectionRequest, ctx: TrustedContext = trusted_dependency
+        memory_id: str,
+        request: CorrectionRequest,
+        response: Response,
+        ctx: TrustedContext = trusted_dependency,
     ) -> Any:
-        return await remember.correct_async(ctx, memory_id, request)
+        if execution is None:
+            raise FoundationError(ErrorCode.DEPENDENCY_UNAVAILABLE, "Temporal execution required")
+        return await execution.execute(
+            ctx,
+            "remember.correct",
+            {"memory_id": memory_id, "request": request.model_dump(mode="json")},
+            response.headers,
+        )
 
     @app.get("/p3/remember/{memory_id}/retention")
     def retention_read(memory_id: str, ctx: TrustedContext = trusted_dependency) -> dict[str, Any]:
@@ -110,6 +129,10 @@ def attach_routes(app: FastAPI, provider: Remember, trusted_dependency: Any) -> 
     @app.post("/p3/remember/{memory_id}/reprocess")
     def reprocess(memory_id: str, ctx: TrustedContext = trusted_dependency) -> dict[str, Any]:
         return {"task_id": remember.reprocess(ctx, memory_id)}
+
+    @app.post("/p3/remember/{memory_id}/reindex")
+    def reindex(memory_id: str, ctx: TrustedContext = trusted_dependency) -> dict[str, Any]:
+        return {"task_id": remember.reindex(ctx, memory_id), "phase": "processing"}
 
     @app.post("/p3/sources/{source_id}/delete")
     def delete_source(

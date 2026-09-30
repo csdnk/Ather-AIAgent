@@ -31,7 +31,7 @@ def records(host, ctx, trace_id):
         after = page["next_after"]
 
 
-def test_trace_survives_restart_and_reaches_automatic_operate(app):
+def test_trace_survives_restart_and_reaches_automatic_operate(app, temporal_server):
     ctx = context(app)
     receipt = asyncio.run(
         app.remember.save(
@@ -44,6 +44,9 @@ def test_trace_survives_restart_and_reaches_automatic_operate(app):
         )
     )
     restarted = ThreeFlows(app.foundation.uow.path, app.executor.root, embedding_profile="lexical")
+    from temporal_test_support import seed_driver
+
+    seed_driver(restarted, temporal_server)
     try:
         restarted.executor.drop_next_response = True
         drain(restarted)
@@ -55,17 +58,17 @@ def test_trace_survives_restart_and_reaches_automatic_operate(app):
             "extraction.extract",
             "embedding.embed",
             "vectors.project",
-            "runtime.events.deliver",
-            "operate.run",
+            "runtime.temporal.step",
+            "operate.submit_evaluation",
             "executor.submit",
             "executor.verify_read",
         } <= names
-        assert {"operate.recover", "operate.reconcile", "executor.query"} <= names
+        assert {"operate.reconcile", "executor.query"} <= names
         producer_spans = {r["span_id"] for r in logs if r["node"] == "runtime.tasks.enqueue"}
         invoke_spans = {
             r["span_id"]
             for r in logs
-            if r["node"] == "runtime.tasks.invoke" and r["parent_span_id"] in producer_spans
+            if r["node"] == "runtime.temporal.step" and r["parent_span_id"] in producer_spans
         }
         assert any(r["parent_span_id"] in invoke_spans for r in logs if r["node"] == "remember.run")
         assert receipt.task_ids[0] in json.dumps(logs)
@@ -122,44 +125,6 @@ def test_diagnostics_require_maintenance_permission(app):
         asyncio.run(app.health.report(ctx))
     with pytest.raises(FoundationError):
         app.health.runtime(ctx)
-
-
-def test_cli_failure_exposes_trace_id_and_health_is_live_probe(app):
-    base = [
-        sys.executable,
-        "-m",
-        "aether_agent_memory.runtime.flows",
-        "--embedding-profile",
-        "lexical",
-        "--db",
-        str(app.foundation.uow.path),
-        "--cache-root",
-        str(app.executor.root),
-    ]
-    env = {**os.environ, "PYTHONPATH": "src", "P3_API_KEY": "alice"}
-    failed = subprocess.run(
-        [*base, "memory", "--memory-id", "absent"],
-        env=env,
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=20,
-    )
-    assert failed.returncode == 2
-    trace_id = json.loads(failed.stderr)["trace_id"]
-    trace = subprocess.run(
-        [*base, "trace", "--trace-id", trace_id],
-        env=env,
-        capture_output=True,
-        text=True,
-        check=True,
-        timeout=20,
-    )
-    assert json.loads(trace.stdout)["overview"]["failed_span_count"] >= 1
-    health = subprocess.run(
-        [*base, "health"], env=env, capture_output=True, text=True, check=True, timeout=20
-    )
-    assert json.loads(health.stdout)["dependencies"]["database"]["state"] == "available"
 
 
 def test_process_kill_leaves_open_span_not_success(app, tmp_path):
@@ -222,7 +187,9 @@ def test_health_observes_dependencies_worker_staleness_and_no_recovery(app):
     save(app)
     drain(app)
     healthy = asyncio.run(app.health.report(context(app)))
-    assert healthy["runtime"]["worker_state"] == "available"
+    assert (
+        healthy["runtime"]["worker_state"] == "unavailable"
+    )  # Ephemeral test Workers have stopped.
     app.vectors.available = False
     with app.foundation.uow.transaction() as tx:
         for key, row in tx.rows("workers"):
@@ -249,28 +216,42 @@ def test_health_timeout_and_unconfigured_provider(app):
     assert result["dependencies"]["extraction"]["state"] == "unknown"
 
 
-def test_recall_trace_keeps_dependency_failure_and_degraded_outcome(app):
+@pytest.mark.parametrize("dependency", ["embedding", "vectors"])
+def test_working_health_requires_vector_dependencies_without_blocking_saved_body(app, dependency):
+    async def unavailable(ctx):
+        return {"state": "unavailable"}
+
+    receipt = save(app)
+    app.health.register(dependency, unavailable, replace=True)
+    ctx = context(app)
+    result = asyncio.run(app.health.report(ctx))
+    assert result["capabilities"]["working_read"] != "available"
+    assert result["capabilities"]["save"] == "available"
+    body = app.remember.get(ctx, receipt.memories[0].memory_id)
+    assert "无糖咖啡" in body.content
+
+
+def test_recall_trace_keeps_dependency_failure_without_lexical_fallback(app):
     save(app)
     drain(app)
     app.vectors.available = False
     ctx = context(app)
-    pack = asyncio.run(
-        app.recall.recall(
-            ctx,
-            RecallRequest(
-                query="咖啡", selection=ScopeSelector(), sources="both", token_budget=1024
-            ),
+    with pytest.raises(FoundationError) as failure:
+        asyncio.run(
+            app.recall.recall(
+                ctx,
+                RecallRequest(
+                    query="咖啡",
+                    selection=ScopeSelector(session_id="session_1"),
+                    sources="both",
+                    token_budget=1024,
+                ),
+            )
         )
-    )
-    assert pack.outcome == "degraded"
+    assert failure.value.code.value == "DEPENDENCY_UNAVAILABLE"
     logs = records(app, ctx, ctx.trace_id)
     assert any(r["node"] == "vectors.search" and r["phase"] == "failed" for r in logs)
-    assert any(
-        r["node"] == "recall.recall"
-        and r["phase"] == "returned"
-        and r["output"]["outcome"] == "degraded"
-        for r in logs
-    )
+    assert any(r["node"] == "recall.recall" and r["phase"] == "failed" for r in logs)
 
 
 def test_log_failure_does_not_rollback_business_and_is_unhealthy(app, monkeypatch):

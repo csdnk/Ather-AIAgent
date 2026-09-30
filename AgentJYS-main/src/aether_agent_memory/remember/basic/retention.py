@@ -215,149 +215,137 @@ class Retention:
 
     def periodic(self) -> int:
         with self.remember.uow.transaction() as tx:
-            rows = tx.rows("remember_retention_enrollment")
+            keys = [key for key, _ in tx.rows("remember_retention_enrollment")]
         count = 0
-        for memory_id, _ in rows:
+        for key in keys:
             try:
                 with self.remember.uow.transaction() as tx:
-                    # Re-read after acquiring the transaction: a concurrent hold,
-                    # disabled policy or changed principal must take effect now.
-                    row = tx.read("remember_retention_enrollment", memory_id)
-                    ctx = TrustedContext.model_validate(row["context"]).model_copy(
-                        update={
-                            "deadline_at": later(
-                                self.remember.identity.clock(), self.remember.processing_seconds
-                            )
-                        }
-                    )
-                    self.remember.identity.revalidate(tx, ctx)
-                    item = self.remember.current(tx, memory_id)
-                    if item.ref.version != row["version"] or item.status not in {
-                        "active",
-                        "archived",
-                        "expired",
-                    }:
-                        continue
-                    self.remember.identity.authorize(
-                        tx, ctx, Permission.WRITE, memory_ref(item.ref)
-                    )
-                    self.sync_packed_in(tx, item.ref)
-                    if (
-                        item.status != "expired"
-                        and item.expires_at
-                        and item.expires_at <= self.remember.identity.clock()
-                    ):
-                        updated = self.remember.change(
-                            tx, item, status="expired", projection_state="stale"
-                        )
-                        self.remember.enqueue(tx, ctx, updated, "remember.cleanup")
-                        self.remember.emit(tx, ctx, updated, "expired")
-                        count += 1
-                        continue
-                    if not row.get("enabled", False) or row.get("legal_hold", False):
-                        continue
-                    strength = self.snapshot_in(tx, item)
-                    if strength["protected"]:
-                        continue
-                    if item.status in {"archived", "expired"}:
-                        grace = row.get("delete_after_archive_hours")
-                        since = row.get("inactive_since")
-                        if (
-                            grace is None
-                            or since is None
-                            or hours(self.remember.identity.clock()) - hours(since) < grace
-                            or strength["strength"] >= row.get("delete_below_strength", 0.05)
-                            or self.has_dependents(tx, item)
-                        ):
-                            continue
-                        self.remember.identity.authorize(
-                            tx, ctx, Permission.DELETE, memory_ref(item.ref)
-                        )
-                        ctx = ctx.model_copy(
-                            update={
-                                "operation_id": fingerprint(
-                                    [
-                                        "decay_delete",
-                                        memory_id,
-                                        item.ref.version,
-                                        item.object_revision,
-                                    ]
-                                )
-                            }
-                        )
-                        # delete_in() shares this UOW, preserving lifecycle preconditions,
-                        # CAS, invalidation, cleanup task and Outbox atomically.
-                        self.remember.delete_in(
-                            tx,
-                            ctx,
-                            memory_id,
-                            DeleteRequest(
-                                expected_revision=item.object_revision, reason=row["reason"]
-                            ),
-                        )
-                        tx.write(
-                            "remember_retention_audit",
-                            ctx.operation_id,
-                            {
-                                "memory": item.ref.model_dump(mode="json"),
-                                "previous_state": item.status,
-                                "state": "deleted",
-                                "reason": row["reason"],
-                                "retention": strength,
-                                "physical_erasure": False,
-                            },
-                        )
-                        count += 1
-                        continue
-                    if (
-                        self.remember.final_guard(tx, ctx, (item.ref,), "recall").items[0].decision
-                        != "allowed"
-                    ):
-                        continue
-                    pending = tx.read("remember_pending", memory_id)
-                    if (
-                        strength["protected"]
-                        or strength["band"] != "dormant"
-                        or strength["elapsed_hours"] < row["idle_hours"]
-                        or item.kind == "working"
-                        and (not pending or pending["state"] != "processed")
-                    ):
-                        continue
-                    ctx = ctx.model_copy(
-                        update={
-                            "operation_id": fingerprint(
-                                ["decay_archive", memory_id, item.ref.version, item.object_revision]
-                            )
-                        }
-                    )
-                    # Keep the check and lifecycle CAS in the same serialized UOW
-                    # so a packed-use event cannot race the archive preconditions.
-                    self.remember.identity.authorize(
-                        tx, ctx, Permission.WRITE, memory_ref(item.ref)
-                    )
-                    updated = self.remember.change(
-                        tx,
-                        item,
-                        status="archived",
-                        projection_state="not_required" if item.kind == "working" else "stale",
-                    )
-                    self.remember.emit(tx, ctx, updated, "archived")
-                    tx.write(
-                        "remember_retention_audit",
-                        ctx.operation_id,
-                        {
-                            "memory": item.ref.model_dump(mode="json"),
-                            "previous_state": "active",
-                            "state": "archived",
-                            "reason": row["reason"],
-                            "retention": strength,
-                        },
-                    )
-                    count += 1
+                    count += self.periodic_item(tx, key)
             except FoundationError:
-                # Revocation, deletion or conflicting changes cannot be bypassed
-                # using privileged maintenance authority.
                 continue
+        return count
+
+    def periodic_item(self, tx: SQLiteTransaction, memory_id: str) -> int:
+        count = 0
+        row = tx.read("remember_retention_enrollment", memory_id)
+        ctx = TrustedContext.model_validate(row["context"]).model_copy(
+            update={
+                "deadline_at": later(
+                    self.remember.identity.clock(), self.remember.processing_seconds
+                )
+            }
+        )
+        self.remember.identity.revalidate(tx, ctx)
+        item = self.remember.current(tx, memory_id)
+        if item.ref.version != row["version"] or item.status not in {
+            "active",
+            "archived",
+            "expired",
+        }:
+            return count
+        self.remember.identity.authorize(tx, ctx, Permission.WRITE, memory_ref(item.ref))
+        self.sync_packed_in(tx, item.ref)
+        if (
+            item.status != "expired"
+            and item.expires_at
+            and item.expires_at <= self.remember.identity.clock()
+        ):
+            updated = self.remember.change(tx, item, status="expired", projection_state="stale")
+            self.remember.enqueue(tx, ctx, updated, "remember.cleanup")
+            self.remember.emit(tx, ctx, updated, "expired")
+            count += 1
+            return count
+        if not row.get("enabled", False) or row.get("legal_hold", False):
+            return count
+        strength = self.snapshot_in(tx, item)
+        if strength["protected"]:
+            return count
+        if item.status in {"archived", "expired"}:
+            grace = row.get("delete_after_archive_hours")
+            since = row.get("inactive_since")
+            if (
+                grace is None
+                or since is None
+                or hours(self.remember.identity.clock()) - hours(since) < grace
+                or strength["strength"] >= row.get("delete_below_strength", 0.05)
+                or self.has_dependents(tx, item)
+            ):
+                return count
+            self.remember.identity.authorize(tx, ctx, Permission.DELETE, memory_ref(item.ref))
+            ctx = ctx.model_copy(
+                update={
+                    "operation_id": fingerprint(
+                        [
+                            "decay_delete",
+                            memory_id,
+                            item.ref.version,
+                            item.object_revision,
+                        ]
+                    )
+                }
+            )
+            # delete_in() shares this UOW, preserving lifecycle preconditions,
+            # CAS, invalidation, cleanup task and Outbox atomically.
+            self.remember.delete_in(
+                tx,
+                ctx,
+                memory_id,
+                DeleteRequest(expected_revision=item.object_revision, reason=row["reason"]),
+            )
+            tx.write(
+                "remember_retention_audit",
+                ctx.operation_id,
+                {
+                    "memory": item.ref.model_dump(mode="json"),
+                    "previous_state": item.status,
+                    "state": "deleted",
+                    "reason": row["reason"],
+                    "retention": strength,
+                    "physical_erasure": False,
+                },
+            )
+            count += 1
+            return count
+        if self.remember.final_guard(tx, ctx, (item.ref,), "recall").items[0].decision != "allowed":
+            return count
+        pending = tx.read("remember_pending", memory_id)
+        if (
+            strength["protected"]
+            or strength["band"] != "dormant"
+            or strength["elapsed_hours"] < row["idle_hours"]
+            or item.kind == "working"
+            and (not pending or pending["state"] != "processed")
+        ):
+            return count
+        ctx = ctx.model_copy(
+            update={
+                "operation_id": fingerprint(
+                    ["decay_archive", memory_id, item.ref.version, item.object_revision]
+                )
+            }
+        )
+        # Keep the check and lifecycle CAS in the same serialized UOW
+        # so a packed-use event cannot race the archive preconditions.
+        self.remember.identity.authorize(tx, ctx, Permission.WRITE, memory_ref(item.ref))
+        updated = self.remember.change(
+            tx,
+            item,
+            status="archived",
+            projection_state="stale",
+        )
+        self.remember.emit(tx, ctx, updated, "archived")
+        tx.write(
+            "remember_retention_audit",
+            ctx.operation_id,
+            {
+                "memory": item.ref.model_dump(mode="json"),
+                "previous_state": "active",
+                "state": "archived",
+                "reason": row["reason"],
+                "retention": strength,
+            },
+        )
+        count += 1
         return count
 
     def sync_packed_in(self, tx: SQLiteTransaction, ref: MemoryRef) -> None:

@@ -1,0 +1,135 @@
+{
+  "$defs": {
+    "WorkflowBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "current_run_id": {
+          "minLength": 1,
+          "title": "Current Run Id",
+          "type": "string"
+        },
+        "first_run_id": {
+          "minLength": 1,
+          "title": "First Run Id",
+          "type": "string"
+        },
+        "input_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Hash",
+          "type": "string"
+        },
+        "namespace": {
+          "minLength": 1,
+          "title": "Namespace",
+          "type": "string"
+        },
+        "plan_version": {
+          "minLength": 1,
+          "title": "Plan Version",
+          "type": "string"
+        },
+        "workflow_id": {
+          "minLength": 1,
+          "title": "Workflow Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "namespace",
+        "workflow_id",
+        "first_run_id",
+        "current_run_id",
+        "input_hash",
+        "plan_version"
+      ],
+      "title": "WorkflowBinding",
+      "type": "object"
+    },
+    "WorkflowDiagnostic": {
+      "additionalProperties": false,
+      "properties": {
+        "reason_code": {
+          "minLength": 1,
+          "title": "Reason Code",
+          "type": "string"
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Id"
+        },
+        "technical_state": {
+          "enum": [
+            "running",
+            "completed",
+            "failed",
+            "cancelled",
+            "terminated",
+            "timed_out",
+            "not_found"
+          ],
+          "title": "Technical State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason_code",
+        "technical_state"
+      ],
+      "title": "WorkflowDiagnostic",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "binding": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WorkflowBinding"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "diagnostic": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WorkflowDiagnostic"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "workflow_id": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Workflow Id"
+    }
+  },
+  "required": [
+    "workflow_id",
+    "binding",
+    "diagnostic"
+  ],
+  "title": "OperationExecution",
+  "type": "object",
+  "x-contract-model": "runtime.OperationExecution"
+}

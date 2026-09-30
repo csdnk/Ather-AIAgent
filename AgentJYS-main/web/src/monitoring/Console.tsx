@@ -28,7 +28,7 @@ import {
   type Resource,
   type Observation,
 } from "./api";
-import { useMonitor, type Sample } from "./useMonitor";
+import { useMonitor, useOperation, type Sample } from "./useMonitor";
 import { buildSpans } from "./trace";
 import "./console.css";
 
@@ -651,9 +651,9 @@ type Progress = {
 };
 
 function TaskDetail({ id, token }: { id: string; token: string }) {
+  const execution = useOperation(id, token);
   const [data, setData] = useState<
     Resource<{
-      task: Record<string, unknown>;
       progress: Progress;
     }>
   >({});
@@ -661,21 +661,14 @@ function TaskDetail({ id, token }: { id: string; token: string }) {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
     setData({});
-    function refresh() { void Promise.all([
-      get<Record<string, unknown>>(
-        `/p3/tasks/${encodeURIComponent(id)}`,
-        token,
-        controller.signal,
-      ),
-      get<Progress>(
+    function refresh() { void get<Progress>(
         `/p3/tasks/${encodeURIComponent(id)}/progress`,
         token,
         controller.signal,
-      ),
-    ])
-      .then(([task, progress]) => {
-        if (!controller.signal.aborted) setData({ data: { task, progress } });
-        if (!controller.signal.aborted && ["pending", "running", "retry_wait", "recovery_wait"].includes(String(task.state))) timer = setTimeout(refresh, 2000);
+      )
+      .then((progress) => {
+        if (!controller.signal.aborted) setData({ data: { progress } });
+        if (!controller.signal.aborted) timer = setTimeout(refresh, 2000);
       })
       .catch((e) => {
         if (!controller.signal.aborted) setData({ error: message(e) });
@@ -685,12 +678,12 @@ function TaskDetail({ id, token }: { id: string; token: string }) {
     refresh();
     return () => { clearTimeout(timer); controller.abort(); };
   }, [id, token]);
-  const task = data.data?.task;
-  const progress = data.data?.progress;
+  const task = data.error ? undefined : execution.data?.operation;
+  const progress = task ? data.data?.progress : undefined;
   // Only IDs returned by an authorized diagnostic response can be followed.
   return (
     <>
-      <ErrorNotice text={data.error} />
+      <ErrorNotice text={execution.error ?? data.error} />
       {task ? (
         <>
           <div className="detail-toolbar">
@@ -710,7 +703,14 @@ function TaskDetail({ id, token }: { id: string; token: string }) {
             </dd>
             <dt>错误代码</dt>
             <dd>{String(task.error_code ?? "—")}</dd>
+            <dt>Temporal Workflow</dt>
+            <dd>{task.temporal?.workflow_id ?? "等待启动确认"}</dd>
+            <dt>当前 Run</dt>
+            <dd>{task.temporal?.binding?.current_run_id ?? "等待启动确认"}</dd>
+            <dt>执行核对</dt>
+            <dd>{task.temporal?.diagnostic?.reason_code ?? "尚无核对记录"}</dd>
           </dl>
+          {execution.data?.result !== undefined && <details><summary>已提交结果</summary><Json value={execution.data.result} /></details>}
           {progress?.wait && (
             <div className="notice">
               等待依赖 {progress.wait.dependency_id} ·{" "}

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import platform
 import subprocess
 import sys
@@ -19,7 +20,10 @@ ROOT = Path(__file__).resolve().parents[2]
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--report", type=Path)
+    parser.add_argument("--temporal-endpoint", default=os.environ.get("P3_TEMPORAL_ENDPOINT"))
     args = parser.parse_args()
+    if not args.temporal_endpoint:
+        parser.error("--temporal-endpoint (or P3_TEMPORAL_ENDPOINT) is required")
     target = "src/aether_agent_memory/runtime/foundation"
     with tempfile.TemporaryDirectory(prefix="p3-foundation-checks-") as tmp:
         junit = Path(tmp) / "runtime.xml"
@@ -29,8 +33,6 @@ def main() -> int:
                 [
                     "-m",
                     "pytest",
-                    "-c",
-                    "tests/runtime/p3/pytest.ini",
                     "tests/runtime/p3",
                     "-q",
                     "-o",
@@ -64,7 +66,16 @@ def main() -> int:
                 ],
             ),
             ("contract_regression", ["scripts/p3/validate_contracts.py"]),
-            ("engineering_demo", ["scripts/p3/demo_foundation.py", "--directory", f"{tmp}/demo"]),
+            (
+                "engineering_demo",
+                [
+                    "scripts/p3/demo_foundation.py",
+                    "--directory",
+                    f"{tmp}/demo",
+                    "--temporal-endpoint",
+                    args.temporal_endpoint,
+                ],
+            ),
         ]
         checks = []
         for name, command in commands:

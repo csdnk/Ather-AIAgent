@@ -1,4 +1,4 @@
-"""Celery is a wake-up transport. RF alone owns task state, leases and retries."""
+"""Optional legacy wake-up transport; Temporal owns P3 execution."""
 
 import asyncio
 import secrets
@@ -63,9 +63,9 @@ class CeleryWakeups:
 
 
 def register_worker(celery: Any, runtime_factory: Any) -> Any:
-    """Register on a deployment-owned Celery app; factory must bind the same RF DB.
+    """Register an optional wake-up adapter for a deployment-bound Temporal service.
 
-    Duplicate/delayed messages are harmless: a message only polls RF work. No body,
+    Duplicate/delayed messages only forward committed Temporal start intents. No body,
     credential or serialized TrustedContext is transported through the broker.
     """
 
@@ -77,11 +77,21 @@ def register_worker(celery: Any, runtime_factory: Any) -> Any:
                     row = tx.read("tasks", task_id)
                     if row is None or row["class"] != "remember":
                         return False
-                return bool(
-                    await runtime.foundation.tasks.run_once(
-                        "celery_" + secrets.token_hex(8), "remember"
-                    )
+                from aether_agent_memory.runtime.temporal.bridge import IntentBridge
+                from aether_agent_memory.runtime.temporal.gateway import (
+                    TemporalGateway,
+                    connect_client,
                 )
+
+                execution = getattr(runtime, "execution", None)
+                if execution is None:
+                    raise RuntimeError("P3 wakeup requires the configured Temporal service")
+                client = await connect_client(execution.config.temporal)
+                await IntentBridge(
+                    execution.ledger, TemporalGateway(client, execution.ledger)
+                ).flush()
+                return True
+
             finally:
                 if hasattr(runtime, "aclose"):
                     await runtime.aclose()

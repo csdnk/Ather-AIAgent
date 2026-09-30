@@ -20,6 +20,7 @@ from .foundation import (
     MemoryRecord,
     MemoryRelationSnapshot,
     ProjectionManifest,
+    ProjectionReadiness,
     ReferenceHandoff,
     ReferenceHandoffReceipt,
 )
@@ -65,9 +66,7 @@ class MemoryQualificationPort(Protocol):
 
 
 class MemoryContextGuardPort(Protocol):
-    def relations(
-        self, ctx: TrustedContext, refs: tuple[MemoryRef, ...]
-    ) -> MemoryRelationSnapshot:
+    def relations(self, ctx: TrustedContext, refs: tuple[MemoryRef, ...]) -> MemoryRelationSnapshot:
         # Return every requested guard and all current conflict memberships from
         # one authorized B snapshot. If any ref cannot be verified, fail explicitly.
         # 提供方：B。返回所有请求成员的当前凭据及完整冲突关系；任何成员无法核验都明确失败。
@@ -143,6 +142,13 @@ class RememberPort(Protocol):
 
 
 class MemoryReadPort(Protocol):
+    async def projection_readiness(
+        self,
+        ctx: TrustedContext,
+        selection: ScopeSelector,
+        memory_source: Literal["working", "long_term"],
+    ) -> ProjectionReadiness: ...
+
     def working(
         self,
         ctx: TrustedContext,

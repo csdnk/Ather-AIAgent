@@ -1,0 +1,2 @@
+# SDK shared by installed P3 and standalone collaboration checks.
+temporalio==1.33.0

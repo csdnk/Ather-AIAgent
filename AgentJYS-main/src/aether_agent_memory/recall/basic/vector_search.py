@@ -35,11 +35,18 @@ class SQLiteVectorSearch(SQLiteVectorStore):
             items = []
             for _, stored in tx.rows("recall_vectors"):
                 target = ProjectionTarget.model_validate(stored["target"])
-                if target.model_space != request.model_space or not self.identity.discoverable(
-                    tx,
-                    ctx,
-                    self.ref(target),
-                    request.selection,
+                if (
+                    (
+                        request.memory_source is not None
+                        and target.memory_source != request.memory_source
+                    )
+                    or target.model_space != request.model_space
+                    or not self.identity.discoverable(
+                        tx,
+                        ctx,
+                        self.ref(target),
+                        request.selection,
+                    )
                 ):
                     continue
                 if len(stored["vector"]) != self.dimensions or not all(
@@ -101,6 +108,14 @@ class MilvusVectorSearch(MilvusConnection):
             "(" + " or ".join(alternatives) + ")",
             "model_space == " + json.dumps(self.model_space),
         ]
+        # 标签保存在原有 JSON target；历史未标记记录只属于 long_term。
+        # 在 Milvus Top K 之前过滤，避免其他来源占满候选预算。
+        if request.memory_source == "working":
+            conditions.append('target["memory_source"] == "working"')
+        elif request.memory_source == "long_term":
+            conditions.append(
+                '(not exists target["memory_source"] or target["memory_source"] == "long_term")'
+            )
         hits = await self.call(
             ctx,
             "search",
@@ -117,11 +132,18 @@ class MilvusVectorSearch(MilvusConnection):
             self.identity.revalidate(tx, ctx)
             for hit in hits[0] if hits else []:
                 target = ProjectionTarget.model_validate(hit["entity"]["target"])
-                if target.model_space != self.model_space or not self.identity.discoverable(
-                    tx,
-                    ctx,
-                    SQLiteVectorStore.ref(target),
-                    request.selection,
+                if (
+                    (
+                        request.memory_source is not None
+                        and target.memory_source != request.memory_source
+                    )
+                    or target.model_space != self.model_space
+                    or not self.identity.discoverable(
+                        tx,
+                        ctx,
+                        SQLiteVectorStore.ref(target),
+                        request.selection,
+                    )
                 ):
                     continue
                 score = float(hit["distance"])

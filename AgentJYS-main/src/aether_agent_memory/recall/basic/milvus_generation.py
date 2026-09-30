@@ -30,6 +30,7 @@ class MilvusGenerationSearch:
             ctx,
             VectorSearchRequest(
                 selection=request.selection,
+                memory_source=request.memory_source,
                 vector=request.vector,
                 model_space=request.model_space.model_space,
                 limit=self.max_hits,

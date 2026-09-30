@@ -5,7 +5,6 @@
 import asyncio
 
 import pytest
-from fastapi.testclient import TestClient
 from test_flows import app as app
 from test_flows import context
 from test_generation_assembly import assembly_setup
@@ -14,7 +13,6 @@ from aether_agent_memory.recall.basic.generation import GenerationRecall
 from aether_agent_memory.recall.contracts.foundation import ContextCommitRequest
 from aether_agent_memory.recall.contracts.models import RecallRecord, RecallRequest
 from aether_agent_memory.runtime.contracts.models import ErrorCode, ScopeSelector
-from aether_agent_memory.runtime.flows.http import create_app
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
 
 
@@ -151,35 +149,6 @@ def test_retrieve_after_revocation_or_other_tenant_denied(app):
     with pytest.raises(FoundationError) as failure:
         recall.result(ctx, pack.recall_id)
     assert failure.value.code == "FORBIDDEN"
-
-
-def test_http_new_service_same_wire_format(app):
-    service(app)
-    with TestClient(create_app(app, run_worker=False)) as client:
-        response = client.post(
-            "/p3/recall",
-            json=request().model_dump(mode="json"),
-            headers={"Authorization": "Bearer alice", "X-Operation-ID": "http_new"},
-        )
-        assert response.status_code == 200, response.text
-        payload = response.json()
-        assert payload["groups"] and payload["tokens_used"] <= payload["token_budget"]
-        headers = {"Authorization": "Bearer alice"}
-        assert (
-            client.get(f"/p3/recalls/{payload['recall_id']}", headers=headers).json()["state"]
-            == "completed"
-        )
-        assert (
-            client.get(f"/p3/recalls/{payload['recall_id']}/result", headers=headers).json()
-            == payload
-        )
-        assert (
-            client.get(
-                f"/p3/recalls/{payload['recall_id']}/result",
-                headers={"Authorization": "Bearer carol"},
-            ).status_code
-            == 403
-        )
 
 
 def test_opt_in_refuses_incomplete_b_providers(app):

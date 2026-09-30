@@ -20,6 +20,7 @@ from aether_agent_memory.runtime.foundation.host import Foundation  # noqa: E402
 def main() -> int:
     parser = argparse.ArgumentParser(description="Create an isolated P3 foundation example")
     parser.add_argument("--directory", type=Path, required=True)
+    parser.add_argument("--temporal-endpoint", default="127.0.0.1:7233")
     args = parser.parse_args()
     directory = args.directory.resolve()
     directory.mkdir(parents=True, exist_ok=True)
@@ -31,7 +32,9 @@ def main() -> int:
     with credential_path.open("x", encoding="utf-8") as file:
         json.dump(credentials, file)
     credential_path.chmod(0o600)
-    app = Foundation(database, ROOT / "contracts/p3/profiles/foundation.yaml")
+    app = Foundation(
+        database, ROOT / "contracts/p3/profiles/foundation.yaml", engineering_profile=True
+    )
     try:
         principals = [
             Principal(
@@ -50,12 +53,50 @@ def main() -> int:
         app.identity.provision(
             [(sha256(credentials[p.principal_id].encode()).hexdigest(), p) for p in principals]
         )
-        context = app.identity.context(credentials["alice"])
-        task = app.sample.submit(
-            context, "first_sample", "这是公共底座工程验证，不是正式记忆写入。"
-        )
-        asyncio.run(app.tasks.run_once("demo_worker", "engineering"))
-        app.events.dispatch_once("demo_dispatcher")
+
+        async def execute():
+            from aether_agent_memory.runtime.temporal.bridge import IntentBridge
+            from aether_agent_memory.runtime.temporal.config import (
+                TemporalConfiguration,
+                deployment_configuration,
+            )
+            from aether_agent_memory.runtime.temporal.events import register_events
+            from aether_agent_memory.runtime.temporal.gateway import TemporalGateway, connect_client
+            from aether_agent_memory.runtime.temporal.ledger import ExecutionLedger
+            from aether_agent_memory.runtime.temporal.registry import StageRegistry
+            from aether_agent_memory.runtime.temporal.sample import register_sample
+            from aether_agent_memory.runtime.temporal.worker import WorkerHost
+
+            config = deployment_configuration(
+                TemporalConfiguration(
+                    deployment_id="demo-" + secrets.token_hex(12), endpoint=args.temporal_endpoint
+                )
+            )
+            ledger = ExecutionLedger(app.tasks, config)
+            registry = StageRegistry()
+            register_sample(registry, app.sample)
+            register_events(registry, ledger, app.events)
+            app.tasks.on_admitted = lambda tx, task: ledger.bind_admitted(tx, task)
+            context = app.identity.context(credentials["alice"], timeout_seconds=120)
+            task = app.sample.submit(context, "first_sample", "公共底座工程验证。")
+            client = await connect_client(config)
+            bridge = IntentBridge(ledger, TemporalGateway(client, ledger))
+            worker = WorkerHost(client, ledger, registry)
+            try:
+                await worker.start()
+                async with asyncio.timeout(120):
+                    while True:
+                        await bridge.flush()
+                        with app.uow.transaction() as tx:
+                            pending = tx.active_task_rows() or tx.pending_delivery_rows()
+                        if not pending:
+                            break
+                        await asyncio.sleep(0.05)
+            finally:
+                await worker.stop()
+            return context, task
+
+        context, task = asyncio.run(execute())
         evidence = app.diagnostics.task_evidence(context, task.task_id)
         evidence["trace"] = app.diagnostics.trace(context, context.trace_id, limit=500)
         (directory / "evidence.json").write_text(

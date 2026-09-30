@@ -3,6 +3,7 @@ from hashlib import sha256
 
 import pytest
 
+from aether_agent_memory.operate.basic.continuous import ContinuousOperate
 from aether_agent_memory.recall.contracts.models import RecallRequest
 from aether_agent_memory.remember.contracts.models import (
     MemoryRef,
@@ -26,8 +27,13 @@ def source(name="input"):
 
 
 @pytest.fixture
-def app(tmp_path):
-    host = create_runtime(tmp_path / "p3.db", tmp_path / "cache", embedding_profile="lexical")
+def app(tmp_path, temporal_server):
+    host = create_runtime(
+        tmp_path / "p3.db",
+        tmp_path / "cache",
+        embedding_profile="lexical",
+        operate_factory=ContinuousOperate,
+    )
     people = [
         Principal(
             principal_id=user,
@@ -42,6 +48,9 @@ def app(tmp_path):
     host.foundation.identity.provision(
         [(sha256(p.principal_id.encode()).hexdigest(), p) for p in people]
     )
+    from temporal_test_support import seed_driver
+
+    seed_driver(host, temporal_server)
     yield host
     host.close()
 
@@ -60,7 +69,9 @@ def save(app, text="我喜欢无糖咖啡", session="session_1", user="alice", o
 
 
 def drain(app):
-    asyncio.run(app.drain())
+    # A batch now crosses many real SDK deliveries; this is a convergence
+    # bound for component tests, not a 12-second production latency SLO.
+    asyncio.run(app.drain(timeout_seconds=60))
 
 
 def facts(app, receipt):

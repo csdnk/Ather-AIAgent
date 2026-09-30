@@ -39,7 +39,6 @@ class RecallQueryInputAdapter:
         if (
             original.tenant_id != request.tenant_id
             or original.recall_id != request.caller_request_ref
-            or original.retrieval_mode == "working_only"
             or original.request_ref != request.input_ref
             or original.request_ref != request.input_binding_ref
             or hash_text(original.query) != request.source_hash

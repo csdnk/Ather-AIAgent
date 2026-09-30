@@ -6,9 +6,7 @@ network effects belong in tasks. Acknowledgement is a separate fenced commit.
 
 from __future__ import annotations
 
-import secrets
 from collections.abc import Callable
-from contextlib import nullcontext
 
 from aether_agent_memory.runtime.contracts.models import (
     ErrorCode,
@@ -18,9 +16,9 @@ from aether_agent_memory.runtime.contracts.models import (
 )
 from aether_agent_memory.runtime.contracts.ports import Transaction
 
-from .common import FoundationError, fingerprint, later, now
+from .common import FoundationError, fingerprint, now
 from .identity import Identity
-from .storage import SQLiteUnitOfWork, native
+from .storage import SQLiteTransaction, SQLiteUnitOfWork, native
 from .telemetry import Telemetry, observed
 
 Consumer = Callable[[Transaction, EventEnvelope], None]
@@ -49,6 +47,9 @@ class Events:
         self.validators: dict[str, Callable[[EventEnvelope], None]] = {}
         self.permissions: dict[str, Permission] = {}
         self.consumers: dict[tuple[str, str], Consumer] = {}
+        self.on_delivery: (
+            Callable[[SQLiteTransaction, TrustedContext, EventEnvelope, str], None] | None
+        ) = None
 
     def register_type(
         self,
@@ -77,6 +78,9 @@ class Events:
 
     def append(self, tx: Transaction, ctx: TrustedContext, event: EventEnvelope) -> None:
         sql = native(tx)
+        backend = sql.read("meta", "execution_backend")
+        if backend and backend.get("backend") == "temporal" and self.on_delivery is None:
+            sql.abort(ErrorCode.CONTRACT_VIOLATION, "Temporal event admission binding is required")
         event = self.validate(event)
         self.identity.authorize(tx, ctx, self.permissions[event.event_type], event.subject)
         if (
@@ -119,6 +123,8 @@ class Events:
                         "error_code": None,
                     },
                 )
+                if self.on_delivery is not None:
+                    self.on_delivery(sql, ctx, event, consumer_id)
         sql.before_commit.append(lambda: self.identity.revalidate(tx, ctx))
 
     def consume(
@@ -154,152 +160,4 @@ class Events:
         return True
 
     def dispatch_once(self, worker_id: str, *, lose_ack: bool = False) -> bool:
-        """lose_ack is a deterministic fault-injection hook after consumer commit."""
-        selected = None
-        with self.uow.transaction() as tx:
-            for key, row in sorted(tx.pending_delivery_rows()):
-                if (row["lease"] and row["lease"]["until"] > self.clock()) or row[
-                    "next_run_at"
-                ] > self.clock():
-                    continue
-                event = EventEnvelope.model_validate(tx.read("outbox", row["event_id"])["event"])
-                if (
-                    row["state"] in {"acknowledged", "attention_required"}
-                    or (event.event_type, row["consumer_id"]) not in self.consumers
-                ):
-                    continue
-                # A committed inbox is authoritative even if every ACK was lost.
-                if tx.read("inbox", key):
-                    tx.write(
-                        "deliveries",
-                        key,
-                        {
-                            **row,
-                            "state": "acknowledged",
-                            "lease": None,
-                            "revision": row["revision"] + 1,
-                            "acknowledged_at": self.clock(),
-                        },
-                    )
-                    return True
-                if row["attempt"] >= self.max_attempts:
-                    tx.write(
-                        "deliveries",
-                        key,
-                        {
-                            **row,
-                            "state": "attention_required",
-                            "lease": None,
-                            "revision": row["revision"] + 1,
-                        },
-                    )
-                    continue
-                lease = {
-                    "owner_id": worker_id,
-                    "token": secrets.token_hex(16),
-                    "until": later(self.clock(), self.lease_seconds),
-                }
-                claimed = {
-                    **row,
-                    "state": "sent",
-                    "attempt": row["attempt"] + 1,
-                    "revision": row["revision"] + 1,
-                    "lease": lease,
-                }
-                tx.write("deliveries", key, claimed)
-                selected = key, claimed, event
-                break
-        if selected is None:
-            return False
-        key, claimed, event = selected
-        with self.uow.transaction() as tx:
-            stored_context = tx.read("outbox", event.event_id).get("context")
-        trace = (
-            self.uow.telemetry.span(
-                TrustedContext.model_validate(stored_context),
-                "runtime.events.deliver",
-                {
-                    "event_id": event.event_id,
-                    "consumer_id": claimed["consumer_id"],
-                    "attempt": claimed["attempt"],
-                },
-            )
-            if self.uow.telemetry and stored_context
-            else nullcontext()
-        )
-        with trace as node:
-            try:
-                with self.uow.transaction() as tx:
-                    current = tx.read("deliveries", key)
-                    if (
-                        current["lease"] != claimed["lease"]
-                        or current["lease"]["until"] <= self.clock()
-                    ):
-                        tx.abort(ErrorCode.VERSION_CONFLICT, "delivery lease expired")
-
-                    def fence() -> None:
-                        if self.clock() >= claimed["lease"]["until"]:
-                            tx.abort(
-                                ErrorCode.VERSION_CONFLICT,
-                                "delivery expired before consumer commit",
-                            )
-
-                    tx.before_commit.append(fence)
-                    self.consume(
-                        tx,
-                        claimed["consumer_id"],
-                        event,
-                        self.consumers[(event.event_type, claimed["consumer_id"])],
-                    )
-                if lose_ack:
-                    if node:
-                        node.output = {"state": "unknown", "reason_code": "ACK_LOST"}
-                    return True
-                with self.uow.transaction() as tx:
-                    current = tx.read("deliveries", key)
-                    if current["lease"] == claimed["lease"]:
-                        tx.write(
-                            "deliveries",
-                            key,
-                            {
-                                **current,
-                                "state": "acknowledged",
-                                "lease": None,
-                                "acknowledged_at": self.clock(),
-                                "revision": current["revision"] + 1,
-                            },
-                        )
-                if node:
-                    node.output = {"state": "acknowledged"}
-            except Exception as exc:
-                if node:
-                    node.output = {
-                        "state": "retry_wait",
-                        "error_code": exc.code
-                        if isinstance(exc, FoundationError)
-                        else "EXECUTION_INTERRUPTED",
-                    }
-                    node.store.emit(
-                        node,
-                        "failed",
-                        error_type=type(exc).__name__,
-                        error_code=node.output["error_code"],
-                    )
-                with self.uow.transaction() as tx:
-                    current = tx.read("deliveries", key)
-                    if current["lease"] == claimed["lease"]:
-                        tx.write(
-                            "deliveries",
-                            key,
-                            {
-                                **current,
-                                "state": "retry_wait",
-                                "lease": None,
-                                "revision": current["revision"] + 1,
-                                "error_code": exc.code
-                                if isinstance(exc, FoundationError)
-                                else ErrorCode.EXECUTION_INTERRUPTED,
-                                "next_run_at": later(self.clock(), self.retry_seconds),
-                            },
-                        )
-        return True
+        raise RuntimeError("RF scheduling is retired; use the configured Temporal service")

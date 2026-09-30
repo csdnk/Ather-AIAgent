@@ -359,6 +359,7 @@ class ProjectionTarget(ContractModel):
     input_hash: Digest
     generation: Identifier | None = None
     body_hash: Digest | None = None
+    memory_source: Literal["working", "long_term"] = "long_term"
 
 
 class ProjectionRequest(ContractModel):

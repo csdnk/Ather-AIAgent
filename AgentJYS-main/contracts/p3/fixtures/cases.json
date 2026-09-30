@@ -8154,26 +8154,7 @@
       "skipped_group_ids": [],
       "rendered_context": "完整记忆正文",
       "tokens_used": 6,
-      "rank_evidence": [
-        {
-          "memory": {
-            "scope": {
-              "tenant_id": "id_1",
-              "application_id": "id_1",
-              "user_id": "id_1",
-              "agent_id": "id_1",
-              "session_id": null,
-              "task_id": null
-            },
-            "memory_id": "id_1",
-            "version": 1
-          },
-          "source": "long_term",
-          "source_rank": 1,
-          "rrf_k": 60,
-          "rrf_contribution": 0.01639344262295082
-        }
-      ],
+      "rank_evidence": [],
       "degradation_reasons": []
     }
   },
@@ -8307,26 +8288,7 @@
       "skipped_group_ids": [],
       "rendered_context": "完整记忆正文",
       "tokens_used": 6,
-      "rank_evidence": [
-        {
-          "memory": {
-            "scope": {
-              "tenant_id": "id_1",
-              "application_id": "id_1",
-              "user_id": "id_1",
-              "agent_id": "id_1",
-              "session_id": null,
-              "task_id": null
-            },
-            "memory_id": "id_1",
-            "version": 1
-          },
-          "source": "long_term",
-          "source_rank": 1,
-          "rrf_k": 60,
-          "rrf_contribution": 0.01639344262295082
-        }
-      ],
+      "rank_evidence": [],
       "degradation_reasons": [],
       "unexpected_field": "reject"
     }
@@ -8464,26 +8426,7 @@
         "skipped_group_ids": [],
         "rendered_context": "完整记忆正文",
         "tokens_used": 6,
-        "rank_evidence": [
-          {
-            "memory": {
-              "scope": {
-                "tenant_id": "id_1",
-                "application_id": "id_1",
-                "user_id": "id_1",
-                "agent_id": "id_1",
-                "session_id": null,
-                "task_id": null
-              },
-              "memory_id": "id_1",
-              "version": 1
-            },
-            "source": "long_term",
-            "source_rank": 1,
-            "rrf_k": 60,
-            "rrf_contribution": 0.01639344262295082
-          }
-        ],
+        "rank_evidence": [],
         "degradation_reasons": []
       },
       "final_guards": [
@@ -8642,26 +8585,7 @@
         "skipped_group_ids": [],
         "rendered_context": "完整记忆正文",
         "tokens_used": 6,
-        "rank_evidence": [
-          {
-            "memory": {
-              "scope": {
-                "tenant_id": "id_1",
-                "application_id": "id_1",
-                "user_id": "id_1",
-                "agent_id": "id_1",
-                "session_id": null,
-                "task_id": null
-              },
-              "memory_id": "id_1",
-              "version": 1
-            },
-            "source": "long_term",
-            "source_rank": 1,
-            "rrf_k": 60,
-            "rrf_contribution": 0.01639344262295082
-          }
-        ],
+        "rank_evidence": [],
         "degradation_reasons": []
       },
       "final_guards": [
@@ -9647,6 +9571,352 @@
       "selection": {},
       "reason": "reflection test",
       "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.ProjectionReadiness",
+    "model": "remember.ProjectionReadiness",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "source": "working",
+      "ready_count": 1,
+      "pending_count": 0,
+      "failed_count": 0,
+      "complete": true
+    }
+  },
+  {
+    "id": "extra-field-remember.ProjectionReadiness",
+    "model": "remember.ProjectionReadiness",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "source": "working",
+      "ready_count": 1,
+      "pending_count": 0,
+      "failed_count": 0,
+      "complete": true,
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "pending-working-readiness",
+    "model": "remember.ProjectionReadiness",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "source": "working",
+      "ready_count": 1,
+      "pending_count": 1,
+      "failed_count": 0,
+      "complete": false
+    }
+  },
+  {
+    "id": "pending-working-cannot-claim-complete",
+    "model": "remember.ProjectionReadiness",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "source": "working",
+      "ready_count": 1,
+      "pending_count": 1,
+      "failed_count": 0,
+      "complete": true
+    }
+  },
+  {
+    "id": "positive-runtime.ExecutionRef",
+    "model": "runtime.ExecutionRef",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "namespace": "default",
+      "workflow_id": "p3/test/kind/id",
+      "run_id": "run",
+      "activity_id": "1",
+      "delivery_attempt": 1,
+      "epoch": 1
+    }
+  },
+  {
+    "id": "bad-attempt-runtime.ExecutionRef",
+    "model": "runtime.ExecutionRef",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "namespace": "default",
+      "workflow_id": "p3/test/kind/id",
+      "run_id": "run",
+      "activity_id": "1",
+      "delivery_attempt": 0,
+      "epoch": 1
+    }
+  },
+  {
+    "id": "temporal-runtime.TaskRecord",
+    "model": "runtime.TaskRecord",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "task_id": "id_1",
+      "owner_flow": "runtime",
+      "kind": "id_1",
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "input_ref": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "idempotency_key": "id_1",
+      "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "initiator_id": "id_1",
+      "initiator_auth_epoch": 1,
+      "deadline_at": "2026-09-19T08:00:00.000Z",
+      "state": "running",
+      "revision": 1,
+      "attempt": 1,
+      "effect_status": "not_started",
+      "lease": null,
+      "execution": {
+        "namespace": "default",
+        "workflow_id": "p3/test/kind/id",
+        "run_id": "run",
+        "activity_id": "1",
+        "delivery_attempt": 1,
+        "epoch": 1
+      }
+    }
+  },
+  {
+    "id": "positive-runtime.WorkflowBinding",
+    "model": "runtime.WorkflowBinding",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "namespace": "default",
+      "workflow_id": "p3/deployment/remember.save/job",
+      "first_run_id": "first",
+      "current_run_id": "current",
+      "input_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "plan_version": "1"
+    }
+  },
+  {
+    "id": "negative-runtime.WorkflowBinding",
+    "model": "runtime.WorkflowBinding",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "namespace": "default",
+      "workflow_id": "p3/deployment/remember.save/job",
+      "first_run_id": "first",
+      "current_run_id": "current",
+      "input_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "plan_version": "1",
+      "unexpected": "rejected"
+    }
+  },
+  {
+    "id": "positive-runtime.WorkflowDiagnostic",
+    "model": "runtime.WorkflowDiagnostic",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "reason_code": "IN_SYNC",
+      "technical_state": "running",
+      "run_id": "current"
+    }
+  },
+  {
+    "id": "negative-runtime.WorkflowDiagnostic",
+    "model": "runtime.WorkflowDiagnostic",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "reason_code": "IN_SYNC",
+      "technical_state": "running",
+      "run_id": "current",
+      "unexpected": "rejected"
+    }
+  },
+  {
+    "id": "positive-runtime.OperationExecution",
+    "model": "runtime.OperationExecution",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "workflow_id": "p3/deployment/remember.save/job",
+      "binding": {
+        "namespace": "default",
+        "workflow_id": "p3/deployment/remember.save/job",
+        "first_run_id": "first",
+        "current_run_id": "current",
+        "input_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "plan_version": "1"
+      },
+      "diagnostic": {
+        "reason_code": "IN_SYNC",
+        "technical_state": "running",
+        "run_id": "current"
+      }
+    }
+  },
+  {
+    "id": "negative-runtime.OperationExecution",
+    "model": "runtime.OperationExecution",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "workflow_id": "p3/deployment/remember.save/job",
+      "binding": {
+        "namespace": "default",
+        "workflow_id": "p3/deployment/remember.save/job",
+        "first_run_id": "first",
+        "current_run_id": "current",
+        "input_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "plan_version": "1"
+      },
+      "diagnostic": {
+        "reason_code": "IN_SYNC",
+        "technical_state": "running",
+        "run_id": "current"
+      },
+      "unexpected": "rejected"
+    }
+  },
+  {
+    "id": "positive-runtime.TaskOperationView",
+    "model": "runtime.TaskOperationView",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "task_id": "id_1",
+      "owner_flow": "runtime",
+      "kind": "id_1",
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "input_ref": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "idempotency_key": "id_1",
+      "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "initiator_id": "id_1",
+      "initiator_auth_epoch": 1,
+      "deadline_at": "2026-09-19T08:00:00.000Z",
+      "state": "pending",
+      "revision": 1,
+      "attempt": 1,
+      "effect_status": "not_started",
+      "temporal": {
+        "workflow_id": "p3/deployment/remember.save/job",
+        "binding": {
+          "namespace": "default",
+          "workflow_id": "p3/deployment/remember.save/job",
+          "first_run_id": "first",
+          "current_run_id": "current",
+          "input_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "plan_version": "1"
+        },
+        "diagnostic": {
+          "reason_code": "IN_SYNC",
+          "technical_state": "running",
+          "run_id": "current"
+        }
+      }
+    }
+  },
+  {
+    "id": "negative-runtime.TaskOperationView",
+    "model": "runtime.TaskOperationView",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "task_id": "id_1",
+      "owner_flow": "runtime",
+      "kind": "id_1",
+      "subject": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "input_ref": {
+        "owner": "runtime",
+        "object_type": "id_1",
+        "object_id": "id_1",
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        }
+      },
+      "idempotency_key": "id_1",
+      "input_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "initiator_id": "id_1",
+      "initiator_auth_epoch": 1,
+      "deadline_at": "2026-09-19T08:00:00.000Z",
+      "state": "pending",
+      "revision": 1,
+      "attempt": 1,
+      "effect_status": "not_started",
+      "temporal": {
+        "workflow_id": "p3/deployment/remember.save/job",
+        "binding": {
+          "namespace": "default",
+          "workflow_id": "p3/deployment/remember.save/job",
+          "first_run_id": "first",
+          "current_run_id": "current",
+          "input_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "plan_version": "1"
+        },
+        "diagnostic": {
+          "reason_code": "IN_SYNC",
+          "technical_state": "running",
+          "run_id": "current"
+        }
+      },
+      "unexpected": "rejected"
     }
   }
 ]

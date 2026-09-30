@@ -30,7 +30,7 @@ def example(name):
 
 
 class Encoder:
-    # 确定性二维编码替身；calls 用于证明 Working-only 没有触发编码。
+    # 确定性二维编码替身；用于核对所有来源都实际经过查询编码。
     calls = 0
 
     async def embed(self, ctx, request):
@@ -88,7 +88,7 @@ class Authority:
         return tuple(values)
 
 
-def setup(app, memories=(("m1", (0.95, 0.9)), ("m2", (0.8,)), ("m3", (0.7,)))):
+def setup(app, memories=(("m1", (0.95, 0.9)), ("m2", (0.8,)), ("m3", (0.7,))), memory_sources=None):
     # 固定数据装载器直接准备测试索引；这不是 B 的生产发布实现。
     # 向量首维设为期望分数，配合固定 Query 向量，让分页和 Top K 断言可复现。
     ctx = context(app)
@@ -108,6 +108,8 @@ def setup(app, memories=(("m1", (0.95, 0.9)), ("m2", (0.8,)), ("m3", (0.7,)))):
     for name, scores in memories:
         candidate = example("recall.MemoryCandidate")
         memory = {"scope": ctx.principal.home_scope.model_dump(), "memory_id": name, "version": 1}
+        if memory_sources:
+            memory["scope"]["session_id"] = "test_session"
         manifest = candidate["manifest"]
         manifest.update(
             memory=memory,
@@ -130,6 +132,7 @@ def setup(app, memories=(("m1", (0.95, 0.9)), ("m2", (0.8,)), ("m3", (0.7,)))):
             hit = copy.deepcopy(candidate["hits"][0])
             hit.update(
                 memory=memory,
+                memory_source=(memory_sources or {}).get(name, "long_term"),
                 model_space=space.model_space,
                 chunk_index=index,
                 vector_id=chunks[index]["vector_id"],
@@ -155,7 +158,7 @@ def setup(app, memories=(("m1", (0.95, 0.9)), ("m2", (0.8,)), ("m3", (0.7,)))):
         operation_id="search",
         purpose="recall",
         query="query",
-        selection=ScopeSelector(),
+        selection=ScopeSelector(session_id="test_session") if memory_sources else ScopeSelector(),
         model_space=space.model_space,
         memory_top_k=2,
         chunk_page_size=2,
@@ -176,6 +179,19 @@ def test_unique_memory_top_k_and_real_sqlite_paging(app):
     assert len(authority.calls) == 2
     with app.foundation.uow.transaction() as tx:
         assert not tx.rows("outbox")
+
+
+def test_source_filter_applies_before_chunk_budget_with_legacy_long_term_rows(app):
+    ctx, search, authority, request = setup(app)
+    with app.foundation.uow.transaction() as tx:
+        for key, row in tx.rows("generation_vectors"):
+            if row["hit"]["memory"]["memory_id"] == "m1":
+                row["hit"]["memory_source"] = "working"
+                tx.write("generation_vectors", key, row)
+    request = request.model_copy(update={"max_chunk_hits": 2, "max_rounds": 1})
+    result = asyncio.run(search.search(ctx, request))
+    assert [c.memory.memory_id for c in result.candidates] == ["m2", "m3"]
+    assert result.coverage == "complete" and result.examined_chunk_hits == 2
 
 
 @pytest.mark.parametrize("decision", ["excluded", "unverifiable"])

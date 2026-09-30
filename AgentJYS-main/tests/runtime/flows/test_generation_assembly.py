@@ -12,6 +12,7 @@ from aether_agent_memory.recall.contracts.foundation import RecallPlanRequest
 from aether_agent_memory.remember.contracts.foundation import (
     FullBodyReadResult,
     MemoryRelationSnapshot,
+    ProjectionReadiness,
 )
 from aether_agent_memory.remember.contracts.models import (
     ConflictGroup,
@@ -37,6 +38,7 @@ class BodyAuthority:
         self.guard_fault = None
         self.guarded = []
         self.deleted = set()
+        self.pending_count = self.failed_count = 0
         for manifest, guard in proofs.values():
             key = guard["memory"]["memory_id"]
             content = "完整正文 " + key + " 保留结尾与全部事实。"
@@ -87,6 +89,15 @@ class BodyAuthority:
     def working(self, ctx, selection, page):
         return self.load(ctx, tuple(self.snapshots[k].ref for k in self.working_ids))
 
+    async def projection_readiness(self, ctx, selection, memory_source):
+        return ProjectionReadiness(
+            source=memory_source,
+            ready_count=len(self.snapshots),
+            pending_count=self.pending_count,
+            failed_count=self.failed_count,
+            complete=self.pending_count == self.failed_count == 0,
+        )
+
     def relations(self, ctx, refs):
         return MemoryRelationSnapshot(
             guards=tuple(self.bodies[r.memory_id].guard for r in refs),
@@ -136,8 +147,10 @@ class BodyAuthority:
 
 
 def assembly_setup(app, sources=("long_term",), **updates):
-    # 把真实 A 组包器接入 B 替身；Working-only 不传长期搜索请求。
-    ctx, search, authority, search_request = setup(app)
+    # 把真实 A 组包器接入 B 替身；为每个选定来源构造独立搜索请求。
+    ctx, search, authority, search_request = setup(
+        app, memory_sources={"m1": "working"} if "working" in sources else None
+    )
     body = BodyAuthority(app, authority.proofs)
     app.recall.memories = body
     assembly = ContextAssembly(app.recall, search, body, body)
@@ -151,6 +164,9 @@ def assembly_setup(app, sources=("long_term",), **updates):
         policy_version=app.recall.policy_version,
         deadline_at=ctx.deadline_at,
         long_term_search=search_request if "long_term" in sources else None,
+        working_search=search_request.model_copy(update={"memory_source": "working"})
+        if "working" in sources
+        else None,
     )
     return ctx, assembly, body, request.model_copy(update=updates)
 
@@ -168,13 +184,14 @@ def test_whole_body_plan_persists_exact_generation_and_budget(app):
         assert len(events) == 2 and all(r["event"]["payload"]["stage"] == "read" for _, r in events)
 
 
-def test_working_only_no_embedding_vectors_or_rrf(app):
+def test_working_only_uses_vector_candidates_and_published_manifest_without_rrf(app):
     ctx, assembly, body, request = assembly_setup(app, sources=("working",))
     body.working_ids = ["m1"]
     plan = asyncio.run(assembly.plan(ctx, request))
-    assert assembly.candidates.embedding.calls == 0
+    assert assembly.candidates.embedding.calls == 1
     assert not plan.rank_evidence
-    assert not plan.units[0].primary_memories
+    assert plan.units[0].primary_memories
+    assert [b.memory.memory_id for u in plan.units for b in u.bodies] == ["m1"]
 
 
 def test_conflict_is_whole_and_related_memory_not_primary(app):
@@ -231,8 +248,9 @@ def test_mixed_sources_one_memory_one_rrf_contribution_per_source(app):
     ctx, assembly, body, request = assembly_setup(app, sources=("working", "long_term"))
     body.working_ids = ["m1"]
     plan = asyncio.run(assembly.plan(ctx, request))
-    assert len(plan.units) == 2
-    assert len([e for e in plan.rank_evidence if e.memory.memory_id == "m1"]) == 2
+    assert len(plan.units) == 3
+    assert len([e for e in plan.rank_evidence if e.memory.memory_id == "m1"]) == 1
+    assert {e.source for e in plan.rank_evidence} == {"working", "long_term"}
 
 
 def test_reranker_requires_current_b_guards(app):
@@ -255,9 +273,13 @@ def test_long_term_failure_retains_verified_working(app):
     ctx, assembly, body, request = assembly_setup(app, sources=("working", "long_term"))
     body.working_ids = ["m1"]
 
+    original = assembly.candidates
+
     class FailedCandidates:
         async def search(self, ctx, request):
-            raise FoundationError(ErrorCode.DEPENDENCY_UNAVAILABLE, "offline")
+            if request.memory_source == "long_term":
+                raise FoundationError(ErrorCode.DEPENDENCY_UNAVAILABLE, "offline")
+            return await original.search(ctx, request)
 
     assembly.candidates = FailedCandidates()
     plan = asyncio.run(assembly.plan(ctx, request))
@@ -267,12 +289,38 @@ def test_long_term_failure_retains_verified_working(app):
 def test_working_failure_retains_verified_long_term(app):
     ctx, assembly, body, request = assembly_setup(app, sources=("working", "long_term"))
 
-    def failed(*args):
-        raise FoundationError(ErrorCode.DEPENDENCY_UNAVAILABLE, "offline")
+    original = body.projection_readiness
 
-    body.working = failed
+    async def failed(ctx, selection, memory_source):
+        if memory_source == "working":
+            raise FoundationError(ErrorCode.DEPENDENCY_UNAVAILABLE, "offline")
+        return await original(ctx, selection, memory_source)
+
+    body.projection_readiness = failed
     plan = asyncio.run(assembly.plan(ctx, request))
     assert len(plan.units) == 2 and "working_dependency" in plan.degradation_reasons
+
+
+def test_pending_working_without_hits_reports_pending_not_empty(app):
+    ctx, assembly, body, request = assembly_setup(app, sources=("working",))
+    body.pending_count = 1
+    with app.foundation.uow.transaction() as tx:
+        for key, row in tx.rows("generation_vectors"):
+            if row["hit"]["memory_source"] == "working":
+                row["hit"]["memory_source"] = "long_term"
+                tx.write("generation_vectors", key, row)
+    with pytest.raises(FoundationError) as error:
+        asyncio.run(assembly.plan(ctx, request))
+    assert error.value.code == ErrorCode.REQUEST_IN_PROGRESS
+
+
+def test_pending_working_keeps_verified_partial_results_with_coverage(app):
+    ctx, assembly, body, request = assembly_setup(app, sources=("working",))
+    body.pending_count = 1
+    plan = asyncio.run(assembly.plan(ctx, request))
+    assert len(plan.units) == 1 and "working_index_pending" in plan.degradation_reasons
+    with app.foundation.uow.transaction() as tx:
+        assert tx.read("recall_assembly", request.recall_id)["coverage"]["working"] == "partial"
 
 
 def test_relation_membership_changed_between_reads_fails(app):

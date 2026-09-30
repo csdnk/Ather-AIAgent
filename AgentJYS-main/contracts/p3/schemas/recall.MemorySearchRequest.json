@@ -109,6 +109,15 @@
       "title": "Max Rounds",
       "type": "integer"
     },
+    "memory_source": {
+      "default": "long_term",
+      "enum": [
+        "working",
+        "long_term"
+      ],
+      "title": "Memory Source",
+      "type": "string"
+    },
     "memory_top_k": {
       "minimum": 1,
       "title": "Memory Top K",

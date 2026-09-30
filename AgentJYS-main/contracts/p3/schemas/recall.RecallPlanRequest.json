@@ -25,6 +25,15 @@
           "title": "Max Rounds",
           "type": "integer"
         },
+        "memory_source": {
+          "default": "long_term",
+          "enum": [
+            "working",
+            "long_term"
+          ],
+          "title": "Memory Source",
+          "type": "string"
+        },
         "memory_top_k": {
           "minimum": 1,
           "title": "Memory Top K",
@@ -226,6 +235,17 @@
       "minimum": 1,
       "title": "Token Budget",
       "type": "integer"
+    },
+    "working_search": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MemorySearchRequest"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [

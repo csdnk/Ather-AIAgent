@@ -96,6 +96,7 @@ class Bodies:
         self.root, self.policy, self.p2, self.cache = root, policy, p2, cache
         self.root.mkdir(parents=True, exist_ok=True)
         self.prepared: dict[str, ResourceLocation] = {}
+        self.require_prepared = False
 
     def location(self, scope: Scope, text: str, kind: str = "body") -> ResourceLocation:
         digest = text_hash(text)
@@ -117,6 +118,8 @@ class Bodies:
     def stage(self, scope: Scope, text: str) -> ResourceLocation:
         location = self.location(scope, text)
         key = location.object_key
+        if self.require_prepared and self.p2 and key not in self.prepared:
+            raise FoundationError(ErrorCode.COMMIT_UNCONFIRMED, "P2 body needs stage verification")
         if self.p2 and hasattr(self.p2, "put_object_sync") and key not in self.prepared:
             self.p2.put_object_sync(key, text.encode("utf-8"))
             self.prepared[key] = location

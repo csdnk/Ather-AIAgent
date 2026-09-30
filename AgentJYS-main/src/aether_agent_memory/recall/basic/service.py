@@ -5,15 +5,16 @@ from __future__ import annotations
 import asyncio
 import math
 from datetime import datetime
+from typing import Any
 
 from aether_agent_memory.recall.contracts.models import (
     AccessObserved,
     ContextPack,
-    Coverage,
     RecallRecord,
     RecallRequest,
 )
 from aether_agent_memory.recall.contracts.ports import EmbeddingPort, VectorSearchPort
+from aether_agent_memory.remember.contracts.foundation import ContextGuardRequest, GuardStamp
 from aether_agent_memory.remember.contracts.models import MemoryRef
 from aether_agent_memory.remember.contracts.ports import MemoryReadPort
 from aether_agent_memory.runtime.contracts.models import (
@@ -35,7 +36,7 @@ from aether_agent_memory.runtime.foundation.telemetry import observed
 from .components import RankedMemory, assemble, fuse
 from .config import RecallSettings
 from .reranking import Reranker
-from .retrievers import Sources
+from .retrievers import SourceResult, Sources
 from .tokenization import ModelTokenizer, TokenCounter
 
 
@@ -62,7 +63,7 @@ class Recall:
         )
         self.reranker = reranker
         self.sources = Sources(uow, memories, embedding, vectors, model_space, self.settings)
-        self.policy_version = "recall_" + fingerprint(
+        self.policy_version = "recall_working_vector_v1_" + fingerprint(
             {
                 "settings": self.settings.model_dump(),
                 "tokenizer": self.tokenizer.identifier,
@@ -146,6 +147,8 @@ class Recall:
         elapsed_ms: float = 0,
     ) -> None:
         access_key = fingerprint([recall_id, memory.model_dump(mode="json")])
+        if tx.read("outbox", fingerprint([access_key, stage])) is not None:
+            return
         value = AccessObserved(
             recall_id=recall_id,
             memory=memory,
@@ -180,50 +183,59 @@ class Recall:
             ),
         )
 
-    async def recall(self, ctx: TrustedContext, request: RecallRequest) -> ContextPack:
+    def accept_in(
+        self, tx: SQLiteTransaction, ctx: TrustedContext, request: RecallRequest
+    ) -> tuple[RecallRecord, bool]:
         scope = select_scope(ctx, request.selection)
         recall_id = request_key(ctx, "recall")
         signature = fingerprint(request.model_dump(mode="json"))
-        with self.uow.transaction() as tx:
-            record = RecallRecord(
-                recall_id=recall_id,
-                scope=scope,
-                state="accepted",
-                stage="validate",
-                revision=1,
-                deadline_at=ctx.deadline_at,
-                result_available=False,
-            )
-            self.identity.authorize(tx, ctx, Permission.READ, self.ref(record))
-            previous = tx.read("recall_requests", recall_id)
-            if previous:
-                if previous["signature"] != signature:
-                    tx.abort(
-                        ErrorCode.IDEMPOTENCY_CONFLICT,
-                        "same recall operation with different request",
-                    )
-                if previous["record"]["state"] != "completed":
-                    raise FoundationError(
-                        ErrorCode.REQUEST_IN_PROGRESS
-                        if previous["record"]["state"] in {"accepted", "running"}
-                        else ErrorCode.EXECUTION_INTERRUPTED,
-                        "recall has no reusable result",
-                    )
-            else:
-                tx.write(
-                    "recall_requests",
-                    recall_id,
-                    {
-                        "record": record.model_dump(mode="json"),
-                        "signature": signature,
-                        # 保存原始业务输入，供新流程提交时逐项核对。
-                        # 不能只信计划自身，还要确认它与最初请求一致。
-                        "request": request.model_dump(mode="json"),
-                        "context": ctx.model_dump(mode="json"),
-                        "pack": None,
-                    },
-                )
+        record = RecallRecord(
+            recall_id=recall_id,
+            scope=scope,
+            state="accepted",
+            stage="validate",
+            revision=1,
+            deadline_at=ctx.deadline_at,
+            result_available=False,
+        )
+        self.identity.authorize(tx, ctx, Permission.READ, self.ref(record))
+        previous = tx.read("recall_requests", recall_id)
         if previous:
+            if previous["signature"] != signature:
+                tx.abort(
+                    ErrorCode.IDEMPOTENCY_CONFLICT,
+                    "same recall operation with different request",
+                )
+        else:
+            tx.write(
+                "recall_requests",
+                recall_id,
+                {
+                    "record": record.model_dump(mode="json"),
+                    "signature": signature,
+                    # 保存原始业务输入，供新流程提交时逐项核对。
+                    # 不能只信计划自身，还要确认它与最初请求一致。
+                    "request": request.model_dump(mode="json"),
+                    "context": ctx.model_dump(mode="json"),
+                    "pack": None,
+                },
+            )
+        return RecallRecord.model_validate(
+            previous["record"]
+        ) if previous else record, previous is not None
+
+    async def recall(self, ctx: TrustedContext, request: RecallRequest) -> ContextPack:
+        with self.uow.transaction() as tx:
+            record, previous = self.accept_in(tx, ctx, request)
+        recall_id = record.recall_id
+        if previous:
+            if record.state != "completed":
+                raise FoundationError(
+                    ErrorCode.REQUEST_IN_PROGRESS
+                    if record.state in {"accepted", "running"}
+                    else ErrorCode.EXECUTION_INTERRUPTED,
+                    "recall has no reusable result",
+                )
             return self.result(ctx, recall_id)
         seconds = max(
             0.001,
@@ -270,6 +282,14 @@ class Recall:
     async def retrieve(
         self, ctx: TrustedContext, request: RecallRequest, recall_id: str
     ) -> ContextPack:
+        candidates = await self.discover_candidates(ctx, request, recall_id)
+        prepared = await self.assemble_candidates(ctx, request, recall_id, candidates)
+        with self.uow.transaction() as tx:
+            return self.commit_prepared(tx, ctx, request, recall_id, prepared)
+
+    async def discover_candidates(
+        self, ctx: TrustedContext, request: RecallRequest, recall_id: str
+    ) -> list[SourceResult]:
         self.stage(ctx, recall_id, "select")
         scope = select_scope(ctx, request.selection)
         selected = (
@@ -313,10 +333,40 @@ class Recall:
                 ]
             },
         )
+        return results
+
+    async def assemble_candidates(
+        self,
+        ctx: TrustedContext,
+        request: RecallRequest,
+        recall_id: str,
+        results: list[SourceResult],
+    ) -> dict[str, Any]:
+        scope = select_scope(ctx, request.selection)
+        selected = (
+            ("working", "long_term")
+            if request.sources == "both"
+            or (request.sources == "auto" and (scope.session_id or scope.task_id))
+            else ("long_term",)
+            if request.sources == "auto"
+            else (request.sources,)
+        )
+        coverage = {"working": "not_requested", "long_term": "not_requested"}
+        for result in results:
+            coverage[result.source] = result.coverage
         ranked = fuse([r.candidates for r in results])
+        ranked_refs = {c.memory.ref.model_dump_json() for c in ranked}
+        proofs = {
+            key: proof for r in results for key, proof in r.proofs.items() if key in ranked_refs
+        }
+        expected = ContextGuardRequest(
+            expected=tuple(p.guard for p in proofs.values() if p.guard is not None),
+            manifests=tuple(p.manifest for p in proofs.values() if p.manifest is not None),
+        )
         # Qualify before handing any plaintext to a reranking provider.
         with self.uow.transaction() as tx:
             self.identity.revalidate(tx, ctx)
+            self.guard_generations(tx, ctx, expected)
             eligibility = self.memories.final_guard(
                 tx, ctx, tuple(c.memory.ref for c in ranked), "recall"
             )
@@ -358,11 +408,23 @@ class Recall:
                 "tokenizer_id": self.tokenizer.identifier,
             },
         )
+        admitted = {item.memory.model_dump_json() for group in groups for item in group.items}
+        expected = ContextGuardRequest(
+            expected=tuple(g for g in expected.expected if g.memory.model_dump_json() in admitted),
+            manifests=tuple(
+                m for m in expected.manifests if m.memory.model_dump_json() in admitted
+            ),
+        )
         incomplete = any(coverage[source] != "complete" for source in selected)
         if not groups:
             if incomplete:
+                unavailable = [r for r in results if r.coverage != "complete"]
+                pending_only = all(r.reason == "index_pending" for r in unavailable)
                 raise FoundationError(
-                    ErrorCode.DEPENDENCY_UNAVAILABLE, "no usable source after dependency failure"
+                    ErrorCode.REQUEST_IN_PROGRESS
+                    if pending_only
+                    else ErrorCode.DEPENDENCY_UNAVAILABLE,
+                    "no usable source: " + ",".join(f"{r.source}:{r.reason}" for r in unavailable),
                 )
             if ranked:
                 raise FoundationError(
@@ -383,51 +445,102 @@ class Recall:
                 "coverage": coverage,
             },
         )
-        with self.uow.transaction() as tx:
-            eligible = self.memories.final_guard(
-                tx, ctx, tuple(i.memory for group in groups for i in group.items), "recall"
+        return {
+            "expected": expected.model_dump(mode="json"),
+            "pack": {
+                "recall_id": recall_id,
+                "scope": scope.model_dump(mode="json"),
+                "outcome": outcome,
+                "selected_sources": list(selected),
+                "coverage": coverage,
+                "groups": [g.model_dump(mode="json") for g in groups],
+                "rendered_context": rendered,
+                "token_budget": request.token_budget,
+                "tokens_used": self.tokenizer.count(rendered),
+                "tokenizer_id": self.tokenizer.identifier,
+                "policy_version": self.policy_version,
+                "degradation_reasons": list(reasons),
+            },
+        }
+
+    def commit_prepared(
+        self,
+        tx: SQLiteTransaction,
+        ctx: TrustedContext,
+        request: RecallRequest,
+        recall_id: str,
+        prepared: dict[str, Any],
+    ) -> ContextPack:
+        pack = ContextPack.model_validate(
+            {**prepared["pack"], "committed_at": self.identity.clock()}
+        )
+        expected = ContextGuardRequest.model_validate(prepared["expected"])
+        row = tx.read("recall_requests", recall_id)
+        if (
+            row["signature"] != fingerprint(request.model_dump(mode="json"))
+            or pack.policy_version != self.policy_version
+        ):
+            tx.abort(ErrorCode.VERSION_CONFLICT, "Recall input or policy changed")
+        self.identity.authorize(
+            tx, ctx, Permission.READ, self.ref(RecallRecord.model_validate(row["record"]))
+        )
+        self.guard_generations(tx, ctx, expected)
+        eligible = self.memories.final_guard(
+            tx, ctx, tuple(i.memory for group in pack.groups for i in group.items), "recall"
+        )
+        if any(item.decision != "allowed" for item in eligible.items):
+            tx.abort(ErrorCode.RESULT_INVALIDATED, "memory changed before context commit")
+        row = tx.read("recall_requests", recall_id)
+        record = RecallRecord.model_validate(row["record"])
+        if record.state != "running":
+            tx.abort(ErrorCode.VERSION_CONFLICT, "recall was interrupted")
+        tx.write(
+            "recall_requests",
+            recall_id,
+            {
+                **row,
+                "record": record.model_copy(
+                    update={
+                        "state": "completed",
+                        "result_available": True,
+                        "revision": record.revision + 1,
+                    }
+                ).model_dump(mode="json"),
+                "pack": pack.model_dump(mode="json"),
+                "generation_expectations": expected.model_dump(mode="json"),
+            },
+        )
+        for group in pack.groups:
+            for context_item in group.items:
+                self.access(tx, ctx, recall_id, context_item.memory, "packed")
+        tx.before_commit.append(lambda: self.identity.revalidate(tx, ctx))
+        tx.before_commit.append(lambda: self.guard_generations(tx, ctx, expected))
+        return pack
+
+    def guard_generations(
+        self, tx: SQLiteTransaction, ctx: TrustedContext, expected: ContextGuardRequest
+    ) -> None:
+        if not expected.expected:
+            return
+        guard = getattr(self.memories, "revalidate_context", None)
+        if guard is None:
+            raise FoundationError(ErrorCode.DEPENDENCY_UNAVAILABLE, "generation guard unavailable")
+        current = tuple(
+            GuardStamp.model_validate_json(g.model_dump_json()) for g in guard(tx, ctx, expected)
+        )
+        actual = {g.memory.model_dump_json(): g for g in current}
+        prior = {g.memory.model_dump_json(): g for g in expected.expected}
+        if len(actual) != len(current) or set(actual) != set(prior):
+            raise FoundationError(
+                ErrorCode.CONTRACT_VIOLATION, "generation guard coverage mismatch"
             )
-            if any(item.decision != "allowed" for item in eligible.items):
-                tx.abort(ErrorCode.RESULT_INVALIDATED, "memory changed before context commit")
-            pack = ContextPack(
-                recall_id=recall_id,
-                scope=scope,
-                outcome=outcome,
-                selected_sources=selected,
-                coverage=Coverage(**coverage),
-                groups=tuple(groups),
-                rendered_context=rendered,
-                token_budget=request.token_budget,
-                tokens_used=self.tokenizer.count(rendered),
-                tokenizer_id=self.tokenizer.identifier,
-                policy_version=self.policy_version,
-                degradation_reasons=reasons,
-                committed_at=self.identity.clock(),
-            )
-            row = tx.read("recall_requests", recall_id)
-            record = RecallRecord.model_validate(row["record"])
-            if record.state != "running":
-                tx.abort(ErrorCode.VERSION_CONFLICT, "recall was interrupted")
-            tx.write(
-                "recall_requests",
-                recall_id,
-                {
-                    **row,
-                    "record": record.model_copy(
-                        update={
-                            "state": "completed",
-                            "result_available": True,
-                            "revision": record.revision + 1,
-                        }
-                    ).model_dump(mode="json"),
-                    "pack": pack.model_dump(mode="json"),
-                },
-            )
-            for group in groups:
-                for context_item in group.items:
-                    self.access(tx, ctx, recall_id, context_item.memory, "packed")
-            tx.before_commit.append(lambda: self.identity.revalidate(tx, ctx))
-            return pack
+        if any(
+            g.model_dump(exclude={"checked_at"}) != prior[key].model_dump(exclude={"checked_at"})
+            or g.checked_at < prior[key].checked_at
+            or g.checked_at > self.identity.clock()
+            for key, g in actual.items()
+        ):
+            raise FoundationError(ErrorCode.RESULT_INVALIDATED, "generation facts changed")
 
     async def rerank(
         self, ctx: TrustedContext, query: str, recall_id: str, ranked: list[RankedMemory]
@@ -494,6 +607,10 @@ class Recall:
             record = RecallRecord.model_validate(row["record"])
             self.identity.authorize(tx, ctx, Permission.READ, self.ref(record))
             # 旧服务不能用较弱的守卫读取新流程结果；重启后必须恢复完整新 B 提供方。
+            if record.state == "failed":
+                raise FoundationError(
+                    ErrorCode.EXECUTION_INTERRUPTED, "Recall ended without a result"
+                )
             if row.get("assembly_signature") or tx.read("recall_assembly", recall_id) is not None:
                 raise FoundationError(
                     ErrorCode.DEPENDENCY_UNAVAILABLE,
@@ -504,6 +621,12 @@ class Recall:
                     ErrorCode.REQUEST_IN_PROGRESS, "recall has no committed result"
                 )
             pack = ContextPack.model_validate(row["pack"])
+            if "working" in pack.selected_sources and pack.policy_version != self.policy_version:
+                raise FoundationError(ErrorCode.RESULT_INVALIDATED, "Working recall policy changed")
+            if row.get("generation_expectations") is not None:
+                self.guard_generations(
+                    tx, ctx, ContextGuardRequest.model_validate(row["generation_expectations"])
+                )
             eligible = self.memories.final_guard(
                 tx, ctx, tuple(i.memory for group in pack.groups for i in group.items), "recall"
             )
@@ -514,27 +637,4 @@ class Recall:
             return pack
 
     def recover_expired(self) -> int:
-        count = 0
-        with self.uow.transaction() as tx:
-            for key, row in tx.rows("recall_requests"):
-                record = RecallRecord.model_validate(row["record"])
-                if (
-                    record.state in {"accepted", "running"}
-                    and record.deadline_at <= self.identity.clock()
-                ):
-                    tx.write(
-                        "recall_requests",
-                        key,
-                        {
-                            **row,
-                            "record": record.model_copy(
-                                update={
-                                    "state": "failed",
-                                    "reason": ErrorCode.EXECUTION_INTERRUPTED.value,
-                                    "revision": record.revision + 1,
-                                }
-                            ).model_dump(mode="json"),
-                        },
-                    )
-                    count += 1
-        return count
+        raise RuntimeError("RF scheduling is retired; use the configured Temporal service")

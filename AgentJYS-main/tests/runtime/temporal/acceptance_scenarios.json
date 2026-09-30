@@ -1,0 +1,20 @@
+{
+  "T01": ["test_execution_coverage.py::test_catalog_migration_and_frontend_coverage_match"],
+  "T02": ["../../integration/test_temporal_process_recovery.py::test_process_recovery[T02]"],
+  "T03": ["test_bridge.py::test_start_ack_loss_reuses_execution"],
+  "T04": ["../../integration/test_temporal_process_recovery.py::test_process_recovery[T04]"],
+  "T05": ["../../integration/test_temporal_process_recovery.py::test_process_recovery[T05]"],
+  "T06": ["test_recall_workflow.py::test_recall_survives_caller_disconnect", "test_temporal_http.py::test_http_wait_timeout_preserves_workflow"],
+  "T07": ["../../integration/test_temporal_process_recovery.py::test_process_recovery[T07]"],
+  "T08": ["test_operate_workflow.py::test_unknown_action_only_queries_original_id", "test_ingress.py::test_p2_lost_ack_queries_original_body_without_rewrite"],
+  "T09": ["../../integration/test_temporal_process_recovery.py::test_process_recovery[T09]"],
+  "T10": ["../../integration/test_temporal_process_recovery.py::test_process_recovery[T10]"],
+  "T11": ["test_recall_workflow.py::test_revoked_completed_pack_is_not_returned", "test_task_workflow.py::test_revoked_identity_rejects_late_commit"],
+  "T12": ["test_periodic_workflow.py::test_partial_periodic_batch_resumes_without_skipping", "test_periodic_workflow.py::test_continue_as_new_preserves_pending_controls"],
+  "T13": ["test_operate_workflow.py::test_repair_without_verification_does_not_resolve", "test_operate_workflow.py::test_cache_repair_ack_loss_is_read_back_before_resolution"],
+  "T14": ["test_temporal_migration.py::test_migration_dry_run_is_read_only", "test_temporal_migration.py::test_stale_report_is_rejected", "test_temporal_migration.py::test_repeat_apply_is_idempotent_and_keeps_original_id"],
+  "T15": ["test_history_replay.py::test_old_history_replays_after_compatible_change", "test_history_replay.py::test_incompatible_history_is_reported_without_reexecution"],
+  "T16": ["test_task_workflow.py::test_budget_is_not_multiplied_by_sdk_retry"],
+  "T17": ["../../integration/test_continuous_service.py::test_native_embedding_runs_through_unified_http[working]"],
+  "T18": ["test_worker_lock.py::test_second_process_cannot_own_business_directory", "test_execution_limits.py::test_limits_preserve_tenant_scope_and_release_cancelled_waiters"]
+}

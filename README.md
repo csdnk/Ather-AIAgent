@@ -2,11 +2,11 @@
 
 Aether P3 是面向 AI Agent 的持久记忆服务：接收对话、任务信息与文档，形成可追溯记忆，并在后续请求中返回经过权限、版本和有效性检查的上下文。
 
-对外提供两个业务能力：**存储记忆（Remember）**与**召回记忆（Recall）**。内部 Operate 持续消费存储及访问事件，管理热度、缓存准备和动作恢复；RF 运行底座负责事务、持久任务、事件投递与身份校验。
+对外提供两个业务能力：**存储记忆（Remember）**与**召回记忆（Recall）**。内部 Operate 管理热度、缓存准备和动作核对；Temporal 编排持久任务、事件、周期与维护，业务底座保留事务、幂等及权限校验。
 
 ## 当前状态
 
-**截至 2026-09-28，项目处于“本地统一服务已接通、外部集成与生产验收待完成”阶段。** 当前代码已把 Remember、Recall、RF 和内部 Operate 装配到同一服务，启动后自动处理后台任务，支持持久化及重启恢复。
+**截至 2026-09-30，统一服务已接入 Temporal；外部集成与生产验收待完成。** 当前代码将 Remember、Recall 与内部 Operate 装配到一个 P3 进程，连接独立 Temporal Server；本次验证证据见 [Temporal 工程验收](交付成果/测试与验收/P3_Temporal接入工程验收_20260930.md)。
 
 | 范围 | 状态 |
 |---|---|
@@ -27,9 +27,9 @@ Aether P3 是面向 AI Agent 的持久记忆服务：接收对话、任务信息
 cd AgentJYS-main
 ```
 
-然后按 [代码 README 的快速启动](AgentJYS-main/README.md#快速启动) 创建外部虚拟环境、安装依赖、初始化部署目录并启动服务。首跑推荐 `lexical` 模式，无需运行 LLM、P2、Milvus 或 Redis 服务，也无需下载 BGE 模型。该模式用于功能联通，语义效果需另行配置真实模型。
+然后按 [代码 README 的快速启动](AgentJYS-main/README.md#快速启动) 创建外部虚拟环境、安装依赖、启动独立 Temporal Server、初始化部署目录并启动 P3。首跑推荐 `lexical` 模式，无需运行 LLM、P2、Milvus 或 Redis 服务，也无需下载 BGE 模型。该模式用于功能联通，语义效果需另行配置真实模型。
 
-标准入口为 `python -m aether_agent_memory`（安装后也可用 `aether-p3`），使用 `init`、`check-config`、`serve` 三个命令。启动后访问 [接口文档](http://127.0.0.1:8080/docs)，再按代码 README 运行保存与长期召回冒烟。服务只在进程运行期间处理任务；关闭终端会停止前台服务。
+标准入口为 `python -m aether_agent_memory`（安装后也可用 `aether-p3`），使用 `init`、`check-config`、`serve` 三个命令，`init` 要求显式 Temporal endpoint。启动后等待 `/p3/readyz` 就绪，再访问 [接口文档](http://127.0.0.1:8080/docs)。一个 P3 进程承载 API 与 SDK Workers，独占业务目录；重启后按 Temporal 历史和业务完成证据恢复。已有业务目录须先执行离线迁移，见 [Temporal 运行与迁移指南](交付成果/部署运行/P3_Temporal本地运行与迁移指南_20260930.md)。
 
 容器使用业务目录内的 `compose.p3.yaml`。旧 `compose.yaml`、`aether_agent_memory.app` 和 `/api/v1/...` 属于兼容栈，其配置与 API 不适用于新统一入口。
 
@@ -40,7 +40,8 @@ cd AgentJYS-main
 | 位置 | 内容 |
 |---|---|
 | [业务代码与使用指南](AgentJYS-main/README.md) | 安装、鉴权、接口示例、模型接入、持续运行和开发验证 |
-| [完整部署运行指南](交付成果/部署运行/P3_统一服务运行指南_20260926.md) | 配置、授权变更、故障恢复及容器部署 |
+| [Temporal 部署运行指南](交付成果/部署运行/P3_Temporal本地运行与迁移指南_20260930.md) | 新启动方式、已有任务迁移、故障恢复与单实例约束 |
+| [Temporal 工程验收](交付成果/测试与验收/P3_Temporal接入工程验收_20260930.md) | 测试结果、18 项场景证据和部署限制 |
 | [交付成果](交付成果/README.md) | PRD、ADR、Epic、架构、Mock、验收报告和评审材料 |
 | [PRD V1.3](交付成果/PRD版本/AetherBrain_P3_PRD_租户补全版_V1.3.docx) / [总体架构与流程](交付成果/架构设计/总体架构与流程.md) | 需求基线与流程设计 |
 | [项目资料](项目资料/README.md) | 用户提供的原始要求、合同和历史参考 |

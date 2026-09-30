@@ -1,16 +1,22 @@
-import asyncio
 from hashlib import sha256
 
 from fastapi.testclient import TestClient
 
+from aether_agent_memory.operate.basic.continuous import ContinuousOperate
+from aether_agent_memory.remember.local import create_runtime
 from aether_agent_memory.runtime.contracts.models import Permission, Principal, Scope
-from aether_agent_memory.runtime.flows.host import ThreeFlows
 from aether_agent_memory.runtime.flows.http import create_app
 from aether_agent_memory.runtime.foundation.common import now
+from temporal_test_support import http_execution
 
 
-def test_http_uses_shared_services_auth_scoping_and_health(tmp_path):
-    runtime = ThreeFlows(tmp_path / "http.db", tmp_path / "cache", embedding_profile="lexical")
+def test_http_uses_shared_services_auth_scoping_and_health(tmp_path, temporal_server):
+    runtime = create_runtime(
+        tmp_path / "http.db",
+        tmp_path / "cache",
+        embedding_profile="lexical",
+        operate_factory=ContinuousOperate,
+    )
     people = [
         Principal(
             principal_id=name,
@@ -25,13 +31,14 @@ def test_http_uses_shared_services_auth_scoping_and_health(tmp_path):
     runtime.foundation.identity.provision(
         [(sha256(p.principal_id.encode()).hexdigest(), p) for p in people]
     )
+    http_execution(runtime, temporal_server.endpoint)
     try:
         with TestClient(create_app(runtime, run_worker=False)) as client:
             assert client.get("/p3/live").status_code == 200
             assert client.get("/p3/health").status_code == 401
             headers = {"Authorization": "Bearer alice", "X-Operation-ID": "save_http"}
             payload = {
-                "selection": {},
+                "selection": {"session_id": "http_session"},
                 "source": {
                     "kind": "text",
                     "external_id": "http_input",
@@ -50,7 +57,7 @@ def test_http_uses_shared_services_auth_scoping_and_health(tmp_path):
                 ).status_code
                 == 403
             )
-            asyncio.run(runtime.drain())
+            client.portal.call(runtime.drain)
             task = client.get(f"/p3/tasks/{task_id}", headers=headers)
             assert task.json()["state"] == "succeeded"
             progress = client.get(f"/p3/tasks/{task_id}/progress", headers=headers).json()
@@ -59,7 +66,7 @@ def test_http_uses_shared_services_auth_scoping_and_health(tmp_path):
                 "/p3/recall",
                 json={
                     "query": "预算",
-                    "selection": {},
+                    "selection": {"session_id": "http_session"},
                     "sources": "working",
                     "token_budget": 200,
                 },
@@ -81,10 +88,15 @@ def test_http_uses_shared_services_auth_scoping_and_health(tmp_path):
         runtime.close()
 
 
-def test_http_worker_runs_queued_tasks_and_stops_on_shutdown(tmp_path):
+def test_http_worker_runs_queued_tasks_and_stops_on_shutdown(tmp_path, temporal_server):
     import time
 
-    runtime = ThreeFlows(tmp_path / "worker.db", tmp_path / "cache", embedding_profile="lexical")
+    runtime = create_runtime(
+        tmp_path / "worker.db",
+        tmp_path / "cache",
+        embedding_profile="lexical",
+        operate_factory=ContinuousOperate,
+    )
     person = Principal(
         principal_id="alice",
         home_scope=Scope(tenant_id="t", application_id="app", user_id="alice", agent_id="agent"),
@@ -92,6 +104,7 @@ def test_http_worker_runs_queued_tasks_and_stops_on_shutdown(tmp_path):
         auth_epoch=1,
     )
     runtime.foundation.identity.provision([(sha256(b"alice").hexdigest(), person)])
+    http_execution(runtime, temporal_server.endpoint)
     try:
         with TestClient(create_app(runtime, maintenance_credential=lambda: "revoked")) as client:
             headers = {"Authorization": "Bearer alice"}
@@ -118,6 +131,6 @@ def test_http_worker_runs_queued_tasks_and_stops_on_shutdown(tmp_path):
                     break
                 time.sleep(0.02)
             assert task["state"] == "succeeded"
-            assert client.get("/p3/runtime", headers=headers).json()["http_worker"] == "degraded"
+            assert client.get("/p3/runtime", headers=headers).json()["http_worker"] == "running"
     finally:
         runtime.close()

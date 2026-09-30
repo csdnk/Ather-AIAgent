@@ -57,6 +57,7 @@ def test_retention_two_phase_delete_and_cleanup_keep_p2(app, monkeypatch):
         app.remember.get(context(app), ref.memory_id)
     assert error.value.code == "MEMORY_GONE"
     assert app.remember.retention.periodic() == 0
+    monkeypatch.undo()  # Resume Workers on real server time after domain clock simulation.
     drain(app)
     with app.foundation.uow.transaction() as tx:
         cleanups = [
@@ -133,6 +134,7 @@ def test_expiry_blocks_immediately_and_worker_materializes_state(app, monkeypatc
     assert app.remember.retention.periodic() == 1
     assert app.remember.get(context(app), ref.memory_id).status == "expired"
     assert app.remember.retention.periodic() == 0
+    monkeypatch.undo()  # Resume Workers on real server time after domain clock simulation.
     drain(app)
     from remember_helpers import source
 
@@ -282,7 +284,10 @@ def test_new_policy_http_contracts(app):
 
     body = {"selection": {"session_id": "session_1"}, "reason": "retrospective"}
     headers = {"Authorization": "Bearer alice", "X-Operation-ID": "reflection_http"}
-    with TestClient(create_app(app, run_worker=False)) as client:
+    from temporal_test_support import http_execution
+
+    http_execution(app, app.execution.endpoint)
+    with TestClient(create_app(app)) as client:
         url = "/p3/remember/reflection"
         assert client.post(url, json=body).status_code == 401
         first = client.post(url, headers=headers, json=body)

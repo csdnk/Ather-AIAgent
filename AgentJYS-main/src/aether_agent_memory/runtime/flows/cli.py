@@ -23,6 +23,9 @@ def initialize(
     endpoint: str,
     host: str = "127.0.0.1",
     port: int = 8080,
+    temporal_endpoint: str = "127.0.0.1:7233",
+    temporal_namespace: str = "default",
+    deployment_id: str | None = None,
 ) -> Path:
     directory = directory.resolve()
     paths = [
@@ -62,6 +65,11 @@ def initialize(
         "identity_file": "identities.yaml",
         "embedding_profile": embedding_profile,
         "maintenance_principals": ["local_admin"],
+        "temporal": {
+            "deployment_id": deployment_id or secrets.token_hex(16),
+            "endpoint": temporal_endpoint,
+            "namespace": temporal_namespace,
+        },
     }
     if embedding_profile == "native":
         config["embedding_config"] = "embedding.json"
@@ -86,6 +94,9 @@ def main() -> int:
     init.add_argument("--model-endpoint", default="http://127.0.0.1:11434/v1")
     init.add_argument("--host", default="127.0.0.1")
     init.add_argument("--port", type=int, default=8080)
+    init.add_argument("--temporal-endpoint", default="127.0.0.1:7233")
+    init.add_argument("--temporal-namespace", default="default")
+    init.add_argument("--deployment-id")
     serve = commands.add_parser("serve", help="run HTTP and persistent background workers")
     serve.add_argument("--config", type=Path, required=True)
     check = commands.add_parser(
@@ -101,6 +112,9 @@ def main() -> int:
             endpoint=args.model_endpoint,
             host=args.host,
             port=args.port,
+            temporal_endpoint=args.temporal_endpoint,
+            temporal_namespace=args.temporal_namespace,
+            deployment_id=args.deployment_id,
         )
         print(
             json.dumps(

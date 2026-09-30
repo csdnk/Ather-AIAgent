@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 
 from aether_agent_memory.remember.contracts.models import MemoryRef
 from aether_agent_memory.runtime.contracts.models import (
@@ -30,7 +30,7 @@ def attach(app: FastAPI, service: Any) -> None:
             "embedding": runtime.embedding_profile,
             "semantic_processing": "model" if service.config.language_model else "literal_baseline",
             "object_storage": "p2_grpc" if service.config.p2_endpoint else "local_sqlite",
-            "scheduling": "continuous_heat_v1",
+            "scheduling": "temporal_v1",
             "executor": runtime.executor.provider_id,
             "operations": [
                 "remember",
@@ -50,6 +50,7 @@ def attach(app: FastAPI, service: Any) -> None:
         document_id: Identifier,
         version: str,
         request: Request,
+        response: Response,
         ctx: TrustedContext = dependency,
     ) -> Any:
         chunks = bytearray()
@@ -57,12 +58,13 @@ def attach(app: FastAPI, service: Any) -> None:
             chunks.extend(chunk)
             if len(chunks) > runtime.remember.policy.max_input_bytes:
                 raise FoundationError(ErrorCode.INVALID_ARGUMENT, "document exceeds ingress limit")
-        return await service.documents.upload(
+        return await service.execution.upload(
             ctx,
             document_id,
             version,
             bytes(chunks),
             request.headers.get("content-type", "application/octet-stream"),
+            response.headers,
         )
 
     @app.get("/p3/memories")

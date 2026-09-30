@@ -127,8 +127,12 @@ def test_source_timeout_preserves_working_and_records_reason(app, monkeypatch):
     drain(app)
     app.recall.sources.settings = RecallSettings(source_timeout_seconds=0.01)
 
-    async def slow(*args):
-        await asyncio.sleep(1)
+    original = app.vectors.search
+
+    async def slow(ctx, request):
+        if request.memory_source == "long_term":
+            await asyncio.sleep(1)
+        return await original(ctx, request)
 
     monkeypatch.setattr(app.vectors, "search", slow)
     pack = recall(app, sources="both", selection=ScopeSelector(session_id="session_1"))
@@ -250,3 +254,28 @@ def test_revoke_during_rerank_fails_closed(app):
     assert failure.value.code == "FORBIDDEN"
     with app.foundation.uow.transaction() as tx:
         assert all(r["pack"] is None for _, r in tx.rows("recall_requests"))
+
+
+def test_vector_partial_reason_survives_discovery_budget_limit(app, monkeypatch):
+    receipt = save(app)
+    drain(app)
+    item = app.remember.get(context(app), facts(app, receipt)[0].memory_id)
+    stale = item.ref.model_copy(update={"version": item.ref.version + 1})
+    target = projection_target(stale, item.content_hash, app.model_space)
+    app.recall.sources.settings = RecallSettings(candidate_limit=20, max_discovery=20)
+
+    async def partial(ctx, request):
+        return VectorSearchResult(
+            candidates=tuple(
+                VectorCandidate(target=target, rank=i + 1, score=1.0) for i in range(20)
+            ),
+            coverage="partial",
+            reason="backend_partial",
+        )
+
+    monkeypatch.setattr(app.vectors, "search", partial)
+    with pytest.raises(FoundationError) as error:
+        recall(app)
+    assert error.value.code == "DEPENDENCY_UNAVAILABLE"
+    assert "backend_partial" in str(error.value)
+    assert "discovery_budget_exhausted" in str(error.value)

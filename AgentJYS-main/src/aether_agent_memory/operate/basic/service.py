@@ -309,7 +309,8 @@ class Operate:
                     tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "action ID cannot change intent")
                 if old.state in {ActionState.SUCCEEDED, ActionState.FAILED, ActionState.CANCELLED}:
                     return old
-            else:
+            submit = previous is None or old.state == ActionState.GENERATED
+            if submit:
                 eligible = self.memories.final_guard(tx, ctx, (intent.decision.memory,), "actuate")
                 if eligible.items[0].decision != "allowed":
                     raise FoundationError(
@@ -318,12 +319,12 @@ class Operate:
                 action = ActionRecord(
                     intent=intent,
                     state=ActionState.SUBMITTED,
-                    revision=1,
+                    revision=old.revision + 1 if previous else 1,
                     cleanup_state="pending",
                     reason="intent durable before submission",
                 )
                 self.save_action(tx, ctx, action)
-        if previous:
+        if not submit:
             return await self.reconcile(ctx, intent.action_id)
         try:
             feedback = await self.executor.submit(ctx, intent)
@@ -434,6 +435,71 @@ class Operate:
         )
 
     async def run(self, ctx: TrustedContext, task: TaskRecord) -> RunResult:
+        prepared = await self.prepare_evaluation(ctx, task)
+        if isinstance(prepared, RunResult):
+            return prepared
+        result = await self.submit_evaluation(ctx, task, prepared)
+        if isinstance(result, RunResult):
+            return result
+        await self.before_completion(ctx, task, result)
+        with self.uow.transaction() as tx:
+            return self.finish(tx, ctx, task, result)
+
+    async def before_completion(
+        self, ctx: TrustedContext, task: TaskRecord, value: dict[str, Any]
+    ) -> None:
+        """Optional local controller bookkeeping, before atomic task completion."""
+
+    async def submit_evaluation(
+        self, ctx: TrustedContext, task: TaskRecord, prepared: dict[str, Any]
+    ) -> dict[str, Any] | RunResult:
+        if "value" in prepared:
+            return dict(prepared["value"])
+        if prepared.get("cleanup"):
+            memory = MemoryRef.model_validate(prepared["memory"])
+            with self.uow.transaction() as tx:
+                self.tasks.guard(tx, task)
+                valid = (
+                    prepared["valid"]
+                    and self.memories.final_guard(tx, ctx, (memory,), "actuate").items[0].decision
+                    != "allowed"
+                )
+                if valid:
+                    self.executor.purge(memory, permanent=prepared["permanent"])
+                self.tasks.guard(tx, task)
+            return {"cache_cleanup": "completed" if valid else "ineligible"}
+        intent = ActionIntent.model_validate(prepared["intent"])
+        return self.evaluation_feedback(ctx, task, await self.execute(ctx, intent))
+
+    def evaluation_feedback(
+        self, ctx: TrustedContext, task: TaskRecord, action: ActionRecord
+    ) -> dict[str, Any] | RunResult:
+        if action.state == ActionState.UNKNOWN:
+            with self.uow.transaction() as tx:
+                self.tasks.progress.defer(
+                    tx,
+                    ctx,
+                    task,
+                    "cache_executor",
+                    "original_action_unknown",
+                    action.intent.action_id,
+                    EffectStatus.UNKNOWN,
+                )
+            return RunResult(
+                outcome="uncertain",
+                effect_status=EffectStatus.UNKNOWN,
+                operation_id=action.intent.action_id,
+                reason="query original action on recovery",
+            )
+        return {
+            "action_id": action.intent.action_id,
+            "action_state": action.state.value,
+            "provider_mode": "real",
+        }
+
+    async def prepare_evaluation(
+        self, ctx: TrustedContext, task: TaskRecord
+    ) -> dict[str, Any] | RunResult:
         with self.uow.transaction() as tx:
             self.tasks.guard(tx, task)
             inputs = tx.get(task.input_ref)
@@ -460,18 +526,22 @@ class Operate:
                     == "allowed"
                 )
             valid = valid and not active_now
-            if valid:
-                self.executor.purge(memory, permanent=bool(inputs["permanent"]))
-            with self.uow.transaction() as tx:
-                return self.finish(
-                    tx, ctx, task, {"cache_cleanup": "completed" if valid else "ineligible"}
-                )
+            return {
+                "cleanup": True,
+                "valid": valid,
+                "memory": memory.model_dump(mode="json"),
+                "permanent": inputs["permanent"],
+            }
         if not valid:
             return RunResult(
                 outcome="obsolete",
                 effect_status=EffectStatus.NO_EFFECT,
                 reason="memory not schedulable",
             )
+        with self.uow.transaction() as tx:
+            prior_intent = tx.read("operate_task_actions", task.task_id)
+            if prior_intent:
+                return {"intent": prior_intent}
         item = self.remember.get(ctx, memory.memory_id)
         if item.ref != memory:
             return RunResult(
@@ -489,8 +559,7 @@ class Operate:
             try:
                 self.executor.ensure(item)
             except CacheCapacityError:
-                with self.uow.transaction() as tx:
-                    return self.finish(tx, ctx, task, {"deferred": "cache_capacity"})
+                return {"value": {"deferred": "cache_capacity"}}
             observation = await self.executor.observe(ctx, memory, "original")
             resources = await self.executor.resources(ctx)
             with self.uow.transaction() as tx:
@@ -513,10 +582,7 @@ class Operate:
                 ),
             )
             if decision.outcome in {"keep", "defer"}:
-                with self.uow.transaction() as tx:
-                    return self.finish(
-                        tx, ctx, task, {"decision": decision.model_dump(mode="json")}
-                    )
+                return {"value": {"decision": decision.model_dump(mode="json")}}
             intent = ActionIntent(
                 action_id=fingerprint(
                     [
@@ -542,37 +608,23 @@ class Operate:
             prior = tx.read("operate_actions", pending) if pending else None
             if prior and prior["state"] in {"generated", "submitted", "unknown"}:
                 intent = ActionRecord.model_validate(prior).intent
-            tx.write("operate_task_actions", task.task_id, intent.model_dump(mode="json"))
-            tx.write("operate_pending", key, intent.action_id)
-        action = await self.execute(ctx, intent)
-        if action.state == ActionState.UNKNOWN:
-            with self.uow.transaction() as tx:
-                self.tasks.progress.defer(
+            elif tx.read("operate_actions", intent.action_id) is None:
+                # Reserve the intent in the same transaction as the task binding.
+                # Other prepare Activities must see it before any submit can run.
+                self.save_action(
                     tx,
                     ctx,
-                    task,
-                    "cache_executor",
-                    "original_action_unknown",
-                    intent.action_id,
-                    EffectStatus.UNKNOWN,
+                    ActionRecord(
+                        intent=intent,
+                        state=ActionState.GENERATED,
+                        revision=1,
+                        cleanup_state="not_required",
+                        reason="prepared; provider submission has not started",
+                    ),
                 )
-            return RunResult(
-                outcome="uncertain",
-                effect_status=EffectStatus.UNKNOWN,
-                operation_id=intent.action_id,
-                reason="query original action on recovery",
-            )
-        with self.uow.transaction() as tx:
-            return self.finish(
-                tx,
-                ctx,
-                task,
-                {
-                    "action_id": intent.action_id,
-                    "action_state": action.state.value,
-                    "provider_mode": "real",
-                },
-            )
+            tx.write("operate_task_actions", task.task_id, intent.model_dump(mode="json"))
+            tx.write("operate_pending", key, intent.action_id)
+        return {"intent": intent.model_dump(mode="json")}
 
     async def recover(self, ctx: TrustedContext, task: TaskRecord) -> RecoveryDecision:
         with self.uow.transaction() as tx:

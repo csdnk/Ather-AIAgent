@@ -52,10 +52,14 @@ def provision(path, *, revision=1, enabled=True, grants=(), epoch=1):
 
 
 @pytest.fixture
-def configuration(tmp_path):
+def configuration(tmp_path, temporal_server):
     auth = tmp_path / "identities.yaml"
     provision(auth)
     return ServiceConfiguration(
+        temporal={
+            "deployment_id": hashlib.sha256(str(tmp_path).encode()).hexdigest()[:32],
+            "endpoint": temporal_server.endpoint,
+        },
         data_dir=tmp_path / "state",
         identity_file=auth,
         embedding_profile="lexical",
@@ -93,7 +97,7 @@ def save(client, text="I prefer unsweetened coffee.", operation="save_1"):
     )
 
 
-def eventually(check, seconds=8):
+def eventually(check, seconds=60):
     until = time.monotonic() + seconds
     result = None
     while time.monotonic() < until:
@@ -167,7 +171,8 @@ def test_tenant_disable_and_stale_config_do_not_resurrect(configuration):
 @pytest.mark.skipif(
     not os.environ.get("P3_TEST_NATIVE_CONFIG"), reason="explicit native model config required"
 )
-def test_native_embedding_runs_through_unified_http(configuration):
+@pytest.mark.parametrize("sources", ["long_term", "working"])
+def test_native_embedding_runs_through_unified_http(configuration, sources):
     configuration = configuration.model_copy(
         update={
             "embedding_profile": "native",
@@ -178,14 +183,14 @@ def test_native_embedding_runs_through_unified_http(configuration):
     with TestClient(service.app()) as client:
         assert service.runtime.native_embedding.space.dimensions == 512
         assert save(client, "用户喜欢喝不加糖的咖啡。", "native_save").status_code == 200
-        eventually(lambda: ready_memory(client), seconds=30)
+        eventually(lambda: ready_memory(client), seconds=60)
         result = client.post(
             "/p3/recall",
             headers=headers(),
             json={
                 "query": "用户喝咖啡有什么偏好？",
-                "selection": {},
-                "sources": "long_term",
+                "selection": {"session_id": "s1"} if sources == "working" else {},
+                "sources": sources,
                 "token_budget": 1000,
             },
         )
@@ -279,7 +284,18 @@ def test_shared_recall_and_revocation_use_current_resource_permission(configurat
         )
 
 
-def test_operate_uses_prepared_files_and_cools_without_new_requests(configuration):
+def test_operate_uses_prepared_files_and_cools_without_new_requests(configuration, monkeypatch):
+    import aether_agent_memory.operate.basic.continuous as continuous
+
+    # Exercise the domain's decay window independently of Temporal/CI latency.
+    # Only the heat-policy time scale changes; identity, deadlines and Workers
+    # retain their real clocks. The silent cooling jump sends no new request.
+    parse_seconds, origin, advance = continuous.seconds, time.time(), [0.0]
+    monkeypatch.setattr(
+        continuous,
+        "seconds",
+        lambda timestamp: origin + (parse_seconds(timestamp) - origin) * 0.001 + advance[0],
+    )
     configuration = configuration.model_copy(
         update={"operate_decay_seconds": 4.0, "operate_retry_seconds": 0.1}
     )
@@ -325,13 +341,26 @@ def test_operate_uses_prepared_files_and_cools_without_new_requests(configuratio
         with service.runtime.executor.db() as db:
             assert db.execute("SELECT sum(count) FROM reads").fetchone()[0] > 0
 
+        # Recall commits its access Outbox before Operate consumes it. Let all
+        # 17 observations reach the heat policy before advancing its clock.
+        def all_accesses_consumed():
+            with service.runtime.foundation.uow.transaction() as tx:
+                return any(
+                    row["memory"]["key"]["memory_id"] == memory_id
+                    and row["access_count"] == 17
+                    for _, row in tx.rows("operate_heat")
+                )
+
+        eventually(all_accesses_consumed)
+        advance[0] = 40.0
+
         def cooled():
             return any(
                 a["state"] == "succeeded" and a["intent"]["decision"]["target_tier"] == "cold"
                 for a in client.get(path, headers=headers()).json()["actions"]
             )
 
-        eventually(cooled, seconds=30)
+        eventually(cooled, seconds=60)
 
 
 def test_correction_and_delete_invalidate_previous_context(configuration):
@@ -428,7 +457,10 @@ def test_cold_cache_is_reclaimed_and_next_access_wakes_it(configuration):
         memory = eventually(lambda: ready_memory(client))
         mid = memory["ref"]["memory_id"]
         path = f"/p3/operate/memories/{mid}"
-        eventually(lambda: client.get(path, headers=headers()).json()["input"].get("dormant"))
+        # This verifies eventual reclamation, not an 8-second latency SLO.
+        eventually(
+            lambda: client.get(path, headers=headers()).json()["input"].get("dormant"), seconds=60
+        )
         with service.runtime.executor.db() as db:
             assert not any(mid in r[0] for r in db.execute("SELECT memory FROM copies"))
         result = client.post(
@@ -446,7 +478,8 @@ def test_cold_cache_is_reclaimed_and_next_access_wakes_it(configuration):
             lambda: any(
                 a["state"] == "succeeded"
                 for a in client.get(path, headers=headers()).json()["actions"]
-            )
+            ),
+            seconds=60,
         )
 
 
@@ -553,7 +586,9 @@ def test_unknown_action_queries_original_id_after_restart(configuration):
                 for a in client.get(path, headers=headers()).json()["actions"]
             )
 
-        eventually(recovered)
+        # A killed/stopping worker's delivery can remain live until Temporal's
+        # 10-second heartbeat timeout; the old 8-second wait ended too early.
+        eventually(recovered, seconds=60)
         actions = client.get(path, headers=headers()).json()["actions"]
         assert len(actions) == 1
 
@@ -661,16 +696,16 @@ def test_reactivation_during_old_cleanup_keeps_scheduling_alive(configuration):
 
     service = Service(configuration)
     started, release, finished = threading.Event(), threading.Event(), threading.Event()
-    original = service.runtime.operate.run
+    original = service.runtime.operate.submit_evaluation
 
-    async def held(ctx, task):
+    async def held(ctx, task, prepared):
         with service.runtime.foundation.uow.transaction() as tx:
             cleanup = tx.get(task.input_ref)["cleanup"]
         if cleanup:
             started.set()
             while not release.is_set():
                 await asyncio.sleep(0.01)
-        result = await original(ctx, task)
+        result = await original(ctx, task, prepared)
         if cleanup:
             finished.set()
         return result
@@ -680,7 +715,7 @@ def test_reactivation_during_old_cleanup_keeps_scheduling_alive(configuration):
         memory = eventually(lambda: ready_memory(client))
         mid = memory["ref"]["memory_id"]
         path = f"/p3/operate/memories/{mid}"
-        service.runtime.operate.run = held
+        service.runtime.operate.submit_evaluation = held
         try:
             for target in ("archived", "active"):
                 response = client.post(

@@ -4,7 +4,7 @@
 
 2026-09-22：RF新监测接口及公共对象已有本地服务接入，见[RF运行服务](../../docs/p3/development/08_RF运行服务与HTTP接入.md)。B/A/C新接口仍待业务接线。下方2026-09-21说明及catalog中的contract_only为原契约批次范围。
 
-当前需求基线及V1.3租户增量见[prd-baseline.yaml](prd-baseline.yaml)。既有字段契约并不代表新增需求全部实现；原V1.2追踪和测试保留其历史范围。
+当前需求基线为V1.4 Working向量化版，见[prd-baseline.yaml](prd-baseline.yaml)。Working先保存、独立异步建索引；仅Working召回同样编码并查询向量。V1.3租户增量及其段落坐标保存在historical_baselines，原V1.2追踪和测试保留历史范围；本地验证不等同于真实P2/Milvus联合验收。
 
 既有`p3/1`模型已有本地服务消费者，公开HTTP目录仍是设计映射。本包不替换`contracts/p3-northbound-v1.json`。2026-09-21新增的46个foundation对象与13个接口方法已通过契约校验，尚未接入当前Host；详见[接入说明](../../docs/p3/development/07_对象契约接入.md)。
 

@@ -1,0 +1,52 @@
+name: p3-temporal
+on:
+  push:
+    paths: &paths
+      - 'AgentJYS-main/src/**'
+      - 'AgentJYS-main/tests/**'
+      - 'AgentJYS-main/scripts/p3/**'
+      - 'AgentJYS-main/configs/**'
+      - 'AgentJYS-main/contracts/**'
+      - 'AgentJYS-main/pyproject.toml'
+      - 'AgentJYS-main/Dockerfile.p3'
+      - 'AgentJYS-main/compose.p3.yaml'
+      - 'AgentJYS-main/.github/workflows/p3-temporal.yml'
+  pull_request:
+    paths: *paths
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    working-directory: AgentJYS-main
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r scripts/p3/requirements-collaboration.txt
+      - run: python scripts/p3/validate_temporal.py --level unit --directory "${{ runner.temp }}/temporal-unit" --report "${{ runner.temp }}/unit.json"
+  recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r scripts/p3/requirements-collaboration.txt
+      - run: python scripts/p3/ci_temporal_gate.py temporal --directory "${{ runner.temp }}/temporal"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: temporal-evidence
+          path: |
+            ${{ runner.temp }}/temporal/server.json
+            ${{ runner.temp }}/temporal/process.json
+            ${{ runner.temp }}/temporal/server/**/pytest.log
+            ${{ runner.temp }}/temporal/process/**/pytest.log
+          retention-days: 14

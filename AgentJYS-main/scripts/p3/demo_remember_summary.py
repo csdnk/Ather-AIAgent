@@ -7,11 +7,13 @@ Each execution creates a new run directory. No real model, parser or Redis servi
 import argparse
 import asyncio
 import json
+from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
 
-from aether_agent_memory.recall.contracts.models import RecallRequest
+from aether_agent_memory.operate.basic.continuous import ContinuousOperate
+from aether_agent_memory.recall.contracts.models import ContextPack, RecallRequest
 from aether_agent_memory.remember.basic.content import RedisBodyCache
 from aether_agent_memory.remember.basic.sources import PreparedDocument
 from aether_agent_memory.remember.contracts.models import (
@@ -20,6 +22,7 @@ from aether_agent_memory.remember.contracts.models import (
     DocumentInput,
     ExtractionResult,
     LifecycleRequest,
+    RememberReceipt,
     RememberRequest,
     SourceInput,
 )
@@ -63,14 +66,29 @@ class ModelDouble:
         )
 
 
-async def run(directory: Path) -> dict:
+async def run(directory: Path, temporal_endpoint: str = "127.0.0.1:7233") -> dict:
+    from aether_agent_memory.runtime.temporal.locking import DirectoryLock
+
+    async with AsyncExitStack() as stack:
+        ownership = DirectoryLock()
+        ownership.acquire(directory)
+        stack.callback(ownership.release)
+        return await scenario(directory, temporal_endpoint, stack)
+
+
+async def scenario(directory: Path, temporal_endpoint: str, stack: AsyncExitStack) -> dict:
     import fakeredis.aioredis
 
     directory.mkdir(parents=True, exist_ok=True)
     host = create_runtime(
-        directory / "metadata.db", directory / "cache", embedding_profile="lexical"
+        directory / "metadata.db",
+        directory / "cache",
+        embedding_profile="lexical",
+        operate_factory=ContinuousOperate,
     )
+    stack.callback(host.close)
     redis = fakeredis.aioredis.FakeRedis()
+    stack.push_async_callback(redis.aclose)
     host.remember.bodies.cache = RedisBodyCache(redis, host.remember.policy)
     host.remember.extraction = ModelDouble()
     principal = Principal(
@@ -83,13 +101,33 @@ async def run(directory: Path) -> dict:
     )
     host.foundation.identity.provision([(sha256(b"demo-token").hexdigest(), principal)])
 
+    from aether_agent_memory.operate.basic.maintenance import CacheMaintenance
+    from aether_agent_memory.runtime.flows.config import ServiceConfiguration
+    from aether_agent_memory.runtime.temporal.service import TemporalService
+
+    execution = TemporalService(
+        host,
+        ServiceConfiguration(
+            temporal={
+                "deployment_id": "summary-" + sha256(str(directory).encode()).hexdigest()[:24],
+                "endpoint": temporal_endpoint,
+            },
+            data_dir=directory,
+            identity_file=directory / "static-demo-identity.yaml",
+            embedding_profile="lexical",
+        ),
+        lambda: None,
+        CacheMaintenance(host),
+    )
+
+    stack.push_async_callback(execution.stop)
+
     def context():
         return host.foundation.identity.context("demo-token", timeout_seconds=300)
 
     text = "Request tracing and rollback design.\n" * 40 + EVENT + "\n" + RULE
     raw_file = ("# Uploaded engineering review\n" + text).encode("utf-8")
     original_key = "demo/upload/design-v1"
-    await host.remember.bodies.p2.put_object(original_key, raw_file)
     document = DocumentInput(
         kind="document",
         provider_id="demo-files",
@@ -113,132 +151,142 @@ async def run(directory: Path) -> dict:
             )
 
     host.remember.documents["demo-files"] = P2Files()
-    try:
-        receipt = await host.remember.save(
-            context(),
-            RememberRequest(
-                source=SourceInput(
-                    kind="document", external_id="design", external_version="1", occurred_at=now()
-                ),
-                selection=ScopeSelector(session_id="engineering"),
-                content=document,
-                task_context="Review the deployment failure and rollback requirements.",
-            ),
-        )
-        memory_id = receipt.memories[0].memory_id
-        working = host.remember.get(context(), memory_id)
-        immediate = await host.remember.read_source(
-            context(), receipt.source, len(text) - len(RULE)
-        )
-        stages = [
-            {
-                "stage": "saved_before_summary",
-                "working_version": working.ref.version,
-                "working_bytes": len(working.content.encode()),
-                "source_bytes": len(text.encode()),
-                "original_immediately_readable": immediate["content"] == RULE,
-            }
-        ]
-        await host.drain()
-        working = host.remember.get(context(), memory_id)
-        pack = await host.recall.recall(
-            context(), RecallRequest(query=EVENT, selection=ScopeSelector(), sources="long_term")
-        )
-        episode = pack.groups[0].items[0].memory
-        cached = await host.remember.bodies.cache.get(working.ref.scope, working.content_hash)
-        stages.append(
-            {
-                "stage": "summary_and_episodic_ready",
-                "working_version": working.ref.version,
-                "working_summary_cached": cached == working.content,
-                "summary_state": host.remember.processing(context(), memory_id)["working_summary"][
-                    "state"
-                ],
-                "episode_recalled": bool(pack.groups),
-            }
-        )
-        host.remember.distill(context(), (episode,))
-        await host.drain()
-        semantic_pack = await host.recall.recall(
-            context(), RecallRequest(query=RULE, selection=ScopeSelector(), sources="long_term")
-        )
-        stages.append(
-            {
-                "stage": "reflection",
-                "semantic_recalled": any(
-                    i.content == RULE for g in semantic_pack.groups for i in g.items
-                ),
-            }
-        )
-        await redis.flushdb()
-        loaded = await host.remember.load_async(context(), (working.ref,))
-        host.remember.lifecycle(
-            context(),
-            memory_id,
-            LifecycleRequest(
-                expected_version=working.ref.version,
-                target="archived",
-                reason="session task complete",
-            ),
-        )
-        original = await host.remember.read_source(context(), receipt.source)
-        stages.append(
-            {
-                "stage": "cache_eviction_and_archive",
-                "summary_reloaded": bool(loaded.items),
-                "source_retained": original["content"] == text,
-                "episode_retained": host.remember.get(context(), episode.memory_id).status
-                == "active",
-            }
-        )
-        host.remember.revoke_source(
-            context(),
-            receipt.source.source_id,
-            DeleteRequest(expected_revision=1, reason="withdraw source"),
-        )
-        guard_context = context()
-        with host.foundation.uow.transaction() as tx:
-            guarded = host.remember.final_guard(tx, guard_context, (episode,), "recall")
-        stages.append(
-            {
-                "stage": "source_revocation",
-                "episode_blocked": guarded.items[0].decision == "excluded",
-            }
-        )
-        passed = (
-            stages[0]["original_immediately_readable"]
-            and stages[1]["working_summary_cached"]
-            and stages[1]["episode_recalled"]
-            and stages[2]["semantic_recalled"]
-            and stages[3]["summary_reloaded"]
-            and stages[3]["source_retained"]
-            and stages[3]["episode_retained"]
-            and stages[4]["episode_blocked"]
-        )
-        result = {
-            "passed": passed,
-            "providers": {
-                "p2": "SQLite",
-                "redis": "fakeredis",
-                "models": "deterministic doubles",
-                "file_parsing": "prepared P2 result",
-            },
-            "stages": stages,
+    await execution.start()
+    execution.require_ready()
+    await host.remember.bodies.p2.put_object(original_key, raw_file)
+    request = RememberRequest(
+        source=SourceInput(
+            kind="document", external_id="design", external_version="1", occurred_at=now()
+        ),
+        selection=ScopeSelector(session_id="engineering"),
+        content=document,
+        task_context="Review the deployment failure and rollback requirements.",
+    )
+    receipt = RememberReceipt.model_validate(
+        await execution.execute(context(), "remember.save", request.model_dump(mode="json"))
+    )
+    memory_id = receipt.memories[0].memory_id
+    working = host.remember.get(context(), memory_id)
+    immediate = await host.remember.read_source(context(), receipt.source, len(text) - len(RULE))
+    stages = [
+        {
+            "stage": "saved_before_summary",
+            "working_version": working.ref.version,
+            "working_bytes": len(working.content.encode()),
+            "source_bytes": len(text.encode()),
+            "original_immediately_readable": immediate["content"] == RULE,
         }
-        (directory / "result.json").write_text(
-            json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
+    ]
+    await execution.drain(120)
+    working = host.remember.get(context(), memory_id)
+    pack = ContextPack.model_validate(
+        await execution.execute(
+            context(),
+            "recall.execute",
+            RecallRequest(query=EVENT, selection=ScopeSelector(), sources="long_term").model_dump(
+                mode="json"
+            ),
         )
-        return result
-    finally:
-        await redis.aclose()
-        host.close()
+    )
+    episode = pack.groups[0].items[0].memory
+    cached = await host.remember.bodies.cache.get(working.ref.scope, working.content_hash)
+    stages.append(
+        {
+            "stage": "summary_and_episodic_ready",
+            "working_version": working.ref.version,
+            "working_summary_cached": cached == working.content,
+            "summary_state": host.remember.processing(context(), memory_id)["working_summary"][
+                "state"
+            ],
+            "episode_recalled": bool(pack.groups),
+        }
+    )
+    host.remember.distill(context(), (episode,))
+    await execution.drain(120)
+    semantic_pack = ContextPack.model_validate(
+        await execution.execute(
+            context(),
+            "recall.execute",
+            RecallRequest(query=RULE, selection=ScopeSelector(), sources="long_term").model_dump(
+                mode="json"
+            ),
+        )
+    )
+    stages.append(
+        {
+            "stage": "reflection",
+            "semantic_recalled": any(
+                i.content == RULE for g in semantic_pack.groups for i in g.items
+            ),
+        }
+    )
+    await redis.flushdb()
+    loaded = await host.remember.load_async(context(), (working.ref,))
+    host.remember.lifecycle(
+        context(),
+        memory_id,
+        LifecycleRequest(
+            expected_version=working.ref.version,
+            target="archived",
+            reason="session task complete",
+        ),
+    )
+    original = await host.remember.read_source(context(), receipt.source)
+    stages.append(
+        {
+            "stage": "cache_eviction_and_archive",
+            "summary_reloaded": bool(loaded.items),
+            "source_retained": original["content"] == text,
+            "episode_retained": host.remember.get(context(), episode.memory_id).status == "active",
+        }
+    )
+    host.remember.revoke_source(
+        context(),
+        receipt.source.source_id,
+        DeleteRequest(expected_revision=1, reason="withdraw source"),
+    )
+    guard_context = context()
+    with host.foundation.uow.transaction() as tx:
+        guarded = host.remember.final_guard(tx, guard_context, (episode,), "recall")
+    stages.append(
+        {
+            "stage": "source_revocation",
+            "episode_blocked": guarded.items[0].decision == "excluded",
+        }
+    )
+    passed = (
+        stages[0]["original_immediately_readable"]
+        and stages[1]["working_summary_cached"]
+        and stages[1]["episode_recalled"]
+        and stages[2]["semantic_recalled"]
+        and stages[3]["summary_reloaded"]
+        and stages[3]["source_retained"]
+        and stages[3]["episode_retained"]
+        and stages[4]["episode_blocked"]
+    )
+    result = {
+        "passed": passed,
+        "backend": "temporal",
+        "providers": {
+            "p2": "SQLite",
+            "redis": "fakeredis",
+            "models": "deterministic doubles",
+            "file_parsing": "prepared P2 result",
+        },
+        "stages": stages,
+    }
+    (directory / "result.json").write_text(
+        json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    return result
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--directory", type=Path, required=True)
+    parser.add_argument("--temporal-endpoint", default="127.0.0.1:7233")
     args = parser.parse_args()
     target = args.directory / datetime.now(UTC).strftime("run-%Y%m%d-%H%M%S-%f")
-    result = asyncio.run(run(target))
+    result = asyncio.run(run(target, args.temporal_endpoint))
     print(json.dumps({**result, "directory": str(target)}, ensure_ascii=False, indent=2))
     raise SystemExit(0 if result["passed"] else 1)

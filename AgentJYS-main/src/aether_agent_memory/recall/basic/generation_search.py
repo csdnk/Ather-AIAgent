@@ -63,11 +63,15 @@ class SQLiteGenerationSearch:
                     object_id=hit.memory.memory_id,
                     scope=hit.memory.scope,
                 )
-                if hit.model_space != space.model_space or not self.identity.discoverable(
-                    tx,
-                    ctx,
-                    target,
-                    request.selection,
+                if (
+                    hit.memory_source != request.memory_source
+                    or hit.model_space != space.model_space
+                    or not self.identity.discoverable(
+                        tx,
+                        ctx,
+                        target,
+                        request.selection,
+                    )
                 ):
                     continue
                 vector = row["vector"]

@@ -24,7 +24,6 @@ from aether_agent_memory.recall.contracts.models import AccessObserved
 from aether_agent_memory.remember.contracts.models import MemoryRef, StorageChanged
 from aether_agent_memory.runtime.contracts.models import (
     EventEnvelope,
-    RunResult,
     TaskRecord,
     TrustedContext,
 )
@@ -163,9 +162,13 @@ class ContinuousOperate(Operate):
             access_watermark=inputs.access_watermark,
         )
 
-    def pending(self, tx: SQLiteTransaction, memory: MemoryRef) -> bool:
+    def pending(
+        self, tx: SQLiteTransaction, memory: MemoryRef, exclude_task_id: str | None = None
+    ) -> bool:
         for _, row in tx.rows("tasks"):
             task = row["record"]
+            if task["task_id"] == exclude_task_id:
+                continue
             if task["kind"] != "operate.evaluate" or task["state"] not in {
                 "pending",
                 "running",
@@ -180,21 +183,20 @@ class ContinuousOperate(Operate):
                 return True
         return False
 
-    async def run(self, ctx: TrustedContext, task: TaskRecord) -> RunResult:
-        result = await super().run(ctx, task)
-        if result.outcome != "committed":
-            return result
+    async def before_completion(
+        self, ctx: TrustedContext, task: TaskRecord, value: dict[str, Any]
+    ) -> None:
         with self.uow.transaction() as tx:
             inputs = tx.get(task.input_ref)
             if inputs is None:
-                return result
+                return
             memory = MemoryRef.model_validate(inputs["memory"])
             key = self.key(memory)
             view = tx.read("operate_views", key)
             if view is None or view["memory"] != memory.model_dump(mode="json"):
-                return result
+                return
             if inputs["cleanup"]:
-                output = tx.get(result.result_ref) if result.result_ref is not None else None
+                output = value
                 if (
                     output == {"cache_cleanup": "completed"}
                     and view.get("cleanup")
@@ -203,34 +205,34 @@ class ContinuousOperate(Operate):
                     view["cleanup_completed"] = True
                     tx.write("operate_views", key, view)
                     tx.raw.delete("p3_rf_operate_heat", "system", key)
-                return result
+                return
             heat = tx.read("operate_heat", key)
-            if not heat or heat["desired"] != "cold" or self.pending(tx, memory):
-                return result
+            if not heat or heat["desired"] != "cold" or self.pending(tx, memory, task.task_id):
+                return
             now = seconds(self.identity.clock())
             since = heat.get("cold_since")
             if since is None:
                 heat["cold_since"] = now
                 tx.write("operate_heat", key, heat)
-                return result
+                return
             if now - since < self.settings.stats_retention_seconds:
-                return result
+                return
             pending = tx.read("operate_pending", key)
             action = tx.read("operate_actions", pending) if pending else None
             if action and action["state"] not in {"succeeded", "failed", "cancelled"}:
-                return result
+                return
         observation = await self.executor.observe(ctx, memory, "original")
         if observation.tier != Tier.COLD or not observation.readable:
-            return result
+            return
         with self.uow.transaction() as tx:
             self.identity.revalidate(tx, ctx)
             if tx.read("operate_views", key) != view or tx.read("operate_heat", key) != heat:
-                return result
+                return
             if (
                 self.memories.final_guard(tx, ctx, (memory,), "actuate").items[0].decision
                 != "allowed"
             ):
-                return result
+                return
             # Only an optional verified local cache is reclaimed; Remember/P2 authority remains.
             self.executor.purge(memory, permanent=False)
             # Keep the durable storage/authority watermark for the next read event.
@@ -238,7 +240,7 @@ class ContinuousOperate(Operate):
             view["dormant"] = True
             tx.write("operate_views", key, view)
             tx.raw.delete("p3_rf_operate_heat", "system", key)
-        return result
+        return
 
     def enqueue(
         self,
@@ -255,42 +257,42 @@ class ContinuousOperate(Operate):
         return result
 
     def periodic(self, tick_id: str) -> int:
-        count = 0
-        now = self.identity.clock()
         with self.uow.transaction() as tx:
-            due = sorted(
-                (
-                    (v.get("next_evaluation_at", ""), k)
-                    for k, v in tx.rows("operate_views")
-                    if not v.get("cleanup_completed")
-                    and not v.get("dormant")
-                    and v.get("scheduler_event")
-                    and v.get("next_evaluation_at", "") <= now
-                ),
-            )[: self.settings.batch_size]
-        for _, key in due:
+            keys = [key for key, _ in tx.rows("operate_views")]
+        count = 0
+        for key in keys:
             try:
                 with self.uow.transaction() as tx:
-                    view = tx.read("operate_views", key)
-                    if not view or view.get("next_evaluation_at", "") > now:
-                        continue
-                    memory = MemoryRef.model_validate(view["memory"])
-                    ctx = event_context(
-                        tx, EventEnvelope.model_validate(view["scheduler_event"]), now
-                    )
-                    self.identity.revalidate(tx, ctx)
-                    if not self.pending(tx, memory):
-                        self.enqueue(
-                            tx,
-                            ctx,
-                            memory,
-                            fingerprint([tick_id, key]),
-                            cleanup=view.get("cleanup", False),
-                            permanent=view.get("permanent", False),
-                        )
-                        count += 1
-                    view["next_evaluation_at"] = later(now, self.settings.retry_seconds)
-                    tx.write("operate_views", key, view)
+                    count += self.periodic_item(tx, key, tick_id)
             except FoundationError:
                 continue
+        return count
+
+    def periodic_item(self, tx: SQLiteTransaction, key: str, tick_id: str) -> int:
+        count = 0
+        now = self.identity.clock()
+        view = tx.read("operate_views", key)
+        if (
+            not view
+            or view.get("cleanup_completed")
+            or view.get("dormant")
+            or not view.get("scheduler_event")
+            or view.get("next_evaluation_at", "") > now
+        ):
+            return count
+        memory = MemoryRef.model_validate(view["memory"])
+        ctx = event_context(tx, EventEnvelope.model_validate(view["scheduler_event"]), now)
+        self.identity.revalidate(tx, ctx)
+        if not self.pending(tx, memory):
+            self.enqueue(
+                tx,
+                ctx,
+                memory,
+                fingerprint([tick_id, key]),
+                cleanup=view.get("cleanup", False),
+                permanent=view.get("permanent", False),
+            )
+            count += 1
+        view["next_evaluation_at"] = later(now, self.settings.retry_seconds)
+        tx.write("operate_views", key, view)
         return count

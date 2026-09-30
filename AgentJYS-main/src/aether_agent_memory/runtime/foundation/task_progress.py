@@ -188,7 +188,12 @@ class TaskProgress:
         tx.write(
             "task_wait_leases",
             task.task_id,
-            {"token": current.lease.token if current.lease else None},
+            {
+                "token": current.lease.token if current.lease else None,
+                "execution": current.execution.model_dump(mode="json")
+                if current.execution
+                else None,
+            },
         )
         tx.before_commit.append(lambda: self.tasks.identity.revalidate(tx, ctx))
 
@@ -198,9 +203,14 @@ class TaskProgress:
             self.tasks.identity.authorize(tx, ctx, Permission.DIAGNOSE, task.subject)
             wait = tx.read("task_waits", task_id)
             lease = tx.read("task_wait_leases", task_id)
-            if task.state.value not in {"retry_wait", "recovery_wait"} and (
-                not task.lease or not lease or lease["token"] != task.lease.token
-            ):
+            owned = lease and (
+                (task.lease and lease["token"] == task.lease.token)
+                or (
+                    task.execution
+                    and lease.get("execution") == task.execution.model_dump(mode="json")
+                )
+            )
+            if task.state.value not in {"retry_wait", "recovery_wait"} and not owned:
                 wait = None
             return {
                 "wait": wait,

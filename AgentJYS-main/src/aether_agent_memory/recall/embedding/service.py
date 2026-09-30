@@ -209,9 +209,7 @@ class SemanticEmbeddingService:
         self._tasks: dict[tuple[str, str], asyncio.Task[None]] = {}
         self._owner = uuid4().hex
         usages: tuple[EmbeddingUsage, ...] = ("Query", "Passage")
-        self._slots = {
-            u: asyncio.Semaphore(self.policy.concurrency(u)) for u in usages
-        }
+        self._slots = {u: asyncio.Semaphore(self.policy.concurrency(u)) for u in usages}
 
     @staticmethod
     def _key(request: SemanticEmbeddingRequest) -> str:

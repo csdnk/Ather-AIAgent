@@ -14,6 +14,7 @@ from aether_agent_memory.runtime.contracts.models import (
     Identifier,
     Principal,
 )
+from aether_agent_memory.runtime.temporal.config import TemporalConfiguration
 
 
 class Tenant(ContractModel):
@@ -53,6 +54,8 @@ class LanguageModel(ContractModel):
 
 
 class ServiceConfiguration(ContractModel):
+    temporal: TemporalConfiguration
+    http_wait_seconds: float = Field(default=30, gt=0, le=300)
     profile: Literal["local", "production"] = "local"
     data_dir: Path
     identity_file: Path
@@ -101,4 +104,9 @@ class ServiceConfiguration(ContractModel):
             if raw.get(key):
                 value = Path(raw[key])
                 raw[key] = value if value.is_absolute() else resolved.parent / value
+        if isinstance(raw.get("temporal"), dict):
+            for key in ("tls_ca_file", "tls_cert_file", "tls_key_file"):
+                if raw["temporal"].get(key):
+                    value = Path(raw["temporal"][key])
+                    raw["temporal"][key] = value if value.is_absolute() else resolved.parent / value
         return cls.model_validate(raw)

@@ -77,9 +77,14 @@ def test_threshold_zero_output_and_timer(app):
     app.remember.extraction = Empty()
     app.remember.policy = app.remember.policy.model_copy(update={"consolidation_messages": 2})
     first = observe(app, "temporary detail one")
-    assert first.task_ids == ()
+    assert [app.foundation.diagnostics.task(context(app), t).kind for t in first.task_ids] == [
+        "remember.project"
+    ]
     second = observe(app, "temporary detail two")
-    assert len(second.task_ids) == 1
+    assert [app.foundation.diagnostics.task(context(app), t).kind for t in second.task_ids] == [
+        "remember.extract",
+        "remember.project",
+    ]
     drain(app)
     assert facts(app, second) == []
     with app.foundation.uow.transaction() as tx:

@@ -1,6 +1,6 @@
 # 真实 Embedding 接入与旧实现清理
 
-日期：2026-09-19。当前默认 Embedding 已由词法基线切换为仓库已有的 BGE 中文原生 CPU 推理。此交付接通真实向量计算；提取模型、Milvus、生产存储和 HTTP 服务仍按各自阶段实现。
+历史接入记录日期：2026-09-19；Working规则于2026-09-30更新为PRD V1.4。下方旧批次接入与验证范围保留其当时语境。当前默认 Embedding 已由词法基线切换为仓库已有的 BGE 中文原生 CPU 推理。此交付接通真实向量计算；提取模型、Milvus、生产存储和 HTTP 服务仍按各自阶段实现。
 
 ## 实际调用链
 
@@ -33,7 +33,7 @@ Recall 在线查询  → EmbeddingPort（usage=query）
 | `scripts/p3/demo_flows.py` | 默认完整三流程真实 Embedding 演示 |
 | `scripts/p3/validate_native_flows.py` | 真实模型＋真实身份/事务/向量投影/三流程/Trace/健康验证 |
 
-Working 的局部候选排序仍采用词法规则，它是明确的独立检索来源，在语义依赖故障时可支撑已有降级策略。长期检索默认使用真实 Embedding，不会因真实模型失败静默切回词法向量。
+2026-09-30起，Working与长期均使用Query编码和向量候选检索。Working先保存，独立异步建索引；working_only只限定来源，不绕过模型或向量库。未就绪、依赖故障与正常无匹配分别表达；不存在自动词法兜底。按ID读取已保存正文仍单独按授权处理。
 
 ## 模型空间与数据安全
 
@@ -97,7 +97,7 @@ python -m aether_agent_memory.runtime.flows --db <p3.db> --cache-root <cache目�
 | 新流程默认 LexicalEmbedding 路径 | 改为显式测试模式 | 默认运行真实模型，禁止失败自动回退 |
 | SQLiteVectors 的固定 256 维与固定词法模型限制 | 已移除 | 真实模型为 512 维，必须依配置绑定 |
 | B1 兼容模块、旧 SemanticEmbeddingService | 保留 | 仍被旧 Sidecar、旧查询链及测试引用；新三流程不启动其队列 |
-| LexicalEmbedding 和 ByteTokenizer | 保留 | 前者用于 Working 排序/显式无模型测试；后者仍是当前 ContextPack 预算规则 |
+| LexicalEmbedding 和 ByteTokenizer | 保留 | 前者仅用于显式无模型工程测试；ByteTokenizer保留基础装配兼容，Generation装配使用其配置的精确计数器 |
 | 已有数据库、模型缓存、历史验收报告 | 保留 | 属于数据或历史证据，不以“旧”为由删除 |
 
 已删除示例及替换前文档的备份保存在仓库外的 agent 工作目录，不成为正式运行依赖。没有批量删除旧服务；除本次明确替代的入口与文档外，保留其他未提交改动。

@@ -21,7 +21,7 @@ jobs:
       - name: Configure external tokenizer cache
         run: echo "TIKTOKEN_CACHE_DIR=$RUNNER_TEMP/p3-tokenizers" >> "$GITHUB_ENV"
       - run: python -m pip install -r scripts/p3/requirements-collaboration.txt
-      - run: python scripts/p3/validate_collaboration.py --report "${{ runner.temp }}/p3-gate.json"
+      - run: python scripts/p3/ci_temporal_gate.py collaboration --directory "${{ runner.temp }}/p3-collaboration" --report "${{ runner.temp }}/p3-gate.json"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

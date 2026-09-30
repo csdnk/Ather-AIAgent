@@ -1,0 +1,142 @@
+[
+  {
+    "retired": "tests/runtime/p3/test_foundation.py::test_normal_atomic_flow_and_trace",
+    "replacement": "tests/runtime/temporal/test_sample_workflow.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_foundation.py::test_expired_worker_fenced_and_recovered",
+    "replacement": "tests/runtime/temporal/test_task_workflow.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_foundation.py::test_lease_expiring_during_commit_rolls_back",
+    "replacement": "tests/runtime/temporal/test_task_workflow.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_foundation.py::test_renew_keeps_token_and_fences_old_revision",
+    "replacement": "tests/runtime/temporal/test_task_workflow.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_foundation.py::test_outbox_pause_and_lost_ack_do_not_duplicate_effect",
+    "replacement": "tests/runtime/temporal/test_event_workflow.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_foundation.py::test_consumer_effect_and_inbox_rollback_together",
+    "replacement": "tests/runtime/temporal/test_event_workflow.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_foundation.py::test_no_fake_success_or_unbounded_retry",
+    "replacement": "tests/runtime/temporal/test_task_workflow.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_foundation.py::test_unknown_queries_original_action_without_resubmitting",
+    "replacement": "tests/runtime/temporal/test_task_workflow.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_foundation.py::test_manual_recovery_authorization_revision_audit_and_result",
+    "replacement": "tests/runtime/temporal/test_task_workflow.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_foundation.py::test_pending_deadline_never_runs_and_class_scope_limits",
+    "replacement": "tests/runtime/temporal/test_execution_limits.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_foundation.py::test_tenant_backpressure_does_not_block_other_tenant",
+    "replacement": "tests/runtime/temporal/test_execution_limits.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_foundation.py::test_background_task_does_not_take_online_class_slot",
+    "replacement": "tests/runtime/temporal/test_execution_limits.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_foundation.py::test_query_cannot_switch_original_operation_id",
+    "replacement": "tests/runtime/temporal/test_task_workflow.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_foundation.py::test_external_simulated_effect_survives_lost_response_and_converges",
+    "replacement": "tests/runtime/temporal/test_task_workflow.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_foundation.py::test_long_async_handler_renews_lease",
+    "replacement": "tests/runtime/temporal/test_task_workflow.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_foundation.py::test_real_deadline_cancels_inflight_work_without_success",
+    "replacement": "tests/runtime/temporal/test_task_workflow.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_foundation.py::test_cli_configure_submit_worker_trace",
+    "replacement": "tests/runtime/temporal/test_temporal_migration.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_foundation.py::test_real_process_kill_and_restart",
+    "replacement": "tests/integration/test_temporal_process_recovery.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_foundation.py::test_two_processes_cannot_claim_same_task",
+    "replacement": "tests/runtime/temporal/test_worker_lock.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_runtime_services.py::test_checkpoints_rollback_fencing_and_wait_schedule",
+    "replacement": "tests/runtime/temporal/test_ledger.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_runtime_services.py::test_signal_to_real_task_to_independent_business_verification",
+    "replacement": "tests/runtime/temporal/test_operate_workflow.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_runtime_services.py::test_maintenance_success_does_not_close_failed_business_verification",
+    "replacement": "tests/runtime/temporal/test_operate_workflow.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_runtime_services.py::test_runtime_records_survive_host_restart",
+    "replacement": "tests/runtime/temporal/test_task_workflow.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_runtime_services.py::test_sampler_cycle_respects_period_and_enqueues_in_shared_engine",
+    "replacement": "tests/runtime/temporal/test_operate_workflow.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_runtime_services.py::test_revocation_during_business_verification_cannot_close_incident",
+    "replacement": "tests/runtime/temporal/test_operate_workflow.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/p3/test_runtime_services.py::test_query_only_operation_cannot_resume_even_if_handler_requests_it",
+    "replacement": "tests/runtime/temporal/test_task_workflow.py",
+    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+  },
+  {
+    "retired": "tests/runtime/flows/test_generation_commit.py::test_http_new_service_same_wire_format",
+    "replacement": "tests/runtime/temporal/test_temporal_http.py",
+    "reason": "Unified HTTP facade owns workflow-backed wire compatibility"
+  },
+  {
+    "retired": "tests/runtime/flows/test_observability.py::test_cli_failure_exposes_trace_id_and_health_is_live_probe",
+    "replacement": "tests/runtime/temporal/test_temporal_http.py",
+    "reason": "Old online CLI removed; authenticated HTTP errors and independent readiness probes are tested on the unified service"
+  }
+]

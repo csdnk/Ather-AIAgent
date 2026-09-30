@@ -86,6 +86,16 @@ class WorkingSummaries:
     async def process(
         self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot
     ) -> RunResult:
+        prepared = await self.generate(ctx, task, item)
+        if isinstance(prepared, RunResult):
+            return prepared
+        if prepared["failure"] is None:
+            await self.owner.bodies.persist(ctx, item.ref.scope, prepared["content"])
+        return await self.commit(ctx, task, item, prepared)
+
+    async def generate(
+        self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot
+    ) -> dict[str, Any] | RunResult:
         owner = self.owner
         with owner.uow.transaction() as tx:
             owner.tasks.guard(tx, task)
@@ -118,7 +128,15 @@ class WorkingSummaries:
                 from .policy import chunks
 
                 for offset, _, text in chunks(page["content"], owner.tokenizer.count, part_budget):
-                    checkpoint_key = fingerprint([task.task_id, start + offset, text_hash(text)])
+                    checkpoint_key = fingerprint(
+                        [
+                            task.task_id,
+                            owner.checkpoint_binding(),
+                            state["task_context"],
+                            start + offset,
+                            text_hash(text),
+                        ]
+                    )
                     with owner.uow.transaction() as tx:
                         checkpoint = tx.read("remember_summary_parts", checkpoint_key)
                         if checkpoint is not None:
@@ -222,7 +240,20 @@ class WorkingSummaries:
                 + "\n".join(q["quote"] for q in chosen)
                 + "\n此摘要不包含全部信息；数字、条款、代码及完整审查需核对原文。"
             )
-            await owner.bodies.persist(ctx, item.ref.scope, content)
+        return {
+            "state": state,
+            "source": source.model_dump(mode="json"),
+            "chosen": chosen,
+            "failure": failure,
+            "content": content,
+        }
+
+    async def commit(
+        self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot, prepared: dict[str, Any]
+    ) -> RunResult:
+        owner = self.owner
+        state, source = prepared["state"], SourceRef.model_validate(prepared["source"])
+        chosen, failure, content = prepared["chosen"], prepared["failure"], prepared["content"]
         with owner.uow.transaction() as tx:
             owner.tasks.guard(tx, task)
             if owner.final_guard(tx, ctx, (item.ref,), "recall").items[0].decision != "allowed":
@@ -242,9 +273,7 @@ class WorkingSummaries:
             current = owner.current(tx, item.ref.memory_id)
             updated = current
             if failure is None:
-                old = owner.change(
-                    tx, current, status="superseded", projection_state="not_required"
-                )
+                old = owner.change(tx, current, status="superseded", projection_state="stale")
                 owner.emit(tx, ctx, old, "projection_stale")
                 updated = MemorySnapshot.model_validate(
                     {
@@ -255,6 +284,8 @@ class WorkingSummaries:
                         "content": content,
                         "content_hash": text_hash(content),
                         "supersedes": current.ref,
+                        "projection_state": "pending",
+                        "model_space": None,
                     }
                 )
                 owner.put(tx, updated)
@@ -275,6 +306,8 @@ class WorkingSummaries:
                         },
                     )
                 owner.emit(tx, ctx, updated, "corrected")
+            else:
+                updated = owner.change(tx, current, projection_state="failed", model_space=None)
             summary_state = {
                 **state,
                 "memory": updated.ref.model_dump(mode="json"),
@@ -305,6 +338,8 @@ class WorkingSummaries:
                 },
             )
             tasks = []
+            if failure is None:
+                tasks.append(owner.enqueue(tx, follow_ctx, updated, "remember.project"))
             if (tx.read("remember_source_ranges", source.source_id) or {}).get("chars", 0):
                 tasks.append(owner.enqueue(tx, follow_ctx, updated, "remember.compress"))
             tasks.extend(owner.schedule(tx, follow_ctx, updated.ref.scope, force=True))

@@ -28,6 +28,15 @@
         "memory": {
           "$ref": "#/$defs/MemoryRef"
         },
+        "memory_source": {
+          "default": "long_term",
+          "enum": [
+            "working",
+            "long_term"
+          ],
+          "title": "Memory Source",
+          "type": "string"
+        },
         "model_space": {
           "maxLength": 128,
           "minLength": 1,
@@ -96,6 +105,15 @@
           "minimum": 1,
           "title": "Limit",
           "type": "integer"
+        },
+        "memory_source": {
+          "default": "long_term",
+          "enum": [
+            "working",
+            "long_term"
+          ],
+          "title": "Memory Source",
+          "type": "string"
         },
         "model_space": {
           "$ref": "#/$defs/EmbeddingSpace"

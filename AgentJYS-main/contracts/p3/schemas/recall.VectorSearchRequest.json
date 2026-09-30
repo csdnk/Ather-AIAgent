@@ -99,6 +99,22 @@
       "title": "Limit",
       "type": "integer"
     },
+    "memory_source": {
+      "anyOf": [
+        {
+          "enum": [
+            "working",
+            "long_term"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Memory Source"
+    },
     "model_space": {
       "maxLength": 128,
       "minLength": 1,

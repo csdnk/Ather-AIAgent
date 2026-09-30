@@ -849,3 +849,17 @@ interfaces:
   - positive-remember.MemoryRelationSnapshot
   evidence_level: contract_only
   implemented: false
+- id: remember.MemoryReadPort.projection_readiness
+  provider: B
+  consumers:
+  - A
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext,
+    selection: aether_agent_memory.runtime.contracts.models.ScopeSelector, memory_source:
+    Literal[''working'', ''long_term'']) -> aether_agent_memory.remember.contracts.foundation.ProjectionReadiness'
+  rules: 只统计获准当前有效版本的索引覆盖，不读取正文，不产生访问热度；未就绪或失败不得伪装完整覆盖。
+  examples:
+  - positive-remember.ProjectionReadiness
+  - pending-working-readiness
+  - pending-working-cannot-claim-complete
+  evidence_level: contract_only
+  implemented: false

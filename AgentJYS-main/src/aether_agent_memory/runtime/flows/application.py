@@ -22,11 +22,12 @@ from aether_agent_memory.remember.basic.extraction import LangMemBatchExtraction
 from aether_agent_memory.remember.documents import Documents
 from aether_agent_memory.remember.local import create_runtime
 from aether_agent_memory.runtime.contracts.models import TrustedContext
+from aether_agent_memory.runtime.temporal.locking import DirectoryLock
+from aether_agent_memory.runtime.temporal.service import TemporalService
 
 from .config import IdentityConfiguration, ServiceConfiguration
 from .health import sqlite_probe
 from .http import create_app
-from .supervisor import Supervisor
 
 if TYPE_CHECKING:
     from aether_agent_memory.remember.model_provider import ModelProvider
@@ -34,6 +35,20 @@ if TYPE_CHECKING:
 
 class Service:
     def __init__(self, config: ServiceConfiguration, **providers: Any) -> None:
+        self.directory_lock = DirectoryLock()
+        self.directory_lock.acquire(config.data_dir)
+        try:
+            from aether_agent_memory.runtime.temporal.migration import check_service_backend
+
+            check_service_backend(config.data_dir / "p3.db", config.temporal)
+            self.initialize(config, **providers)
+        except BaseException:
+            if hasattr(self, "runtime"):
+                self.runtime.close()
+            self.directory_lock.release()
+            raise
+
+    def initialize(self, config: ServiceConfiguration, **providers: Any) -> None:
         self.config = config
         self.closers: list[Any] = []
         self.identity_hash: bytes | None = None
@@ -115,24 +130,23 @@ class Service:
         except Exception:
             self.runtime.close()
             raise
-        self.supervisor = Supervisor(self.runtime, config, self.reload_identity)
-        self.install_probes()
-        if config.automatic_cache_repair:
-            from aether_agent_memory.operate.basic.maintenance import CacheMaintenance
+        from aether_agent_memory.operate.basic.maintenance import CacheMaintenance
 
-            self.cache_maintenance = CacheMaintenance(self.runtime)
+        self.cache_maintenance = CacheMaintenance(self.runtime)
+        self.execution = TemporalService(
+            self.runtime, config, self.reload_identity, self.cache_maintenance
+        )
+        self.supervisor = self.execution
+        self.install_probes()
 
     def install_probes(self) -> None:
         remember = cast(Any, self.runtime.remember)
 
         async def bodies(ctx: TrustedContext) -> dict[str, object]:
-            # A dedicated immutable sentinel exercises the configured provider's actual
-            # read/write path, without opening another user's business object.
+            # Read-only connectivity check. Probes never create an object in P2.
             key = "p3-health/provider-v1"
-            data = b"aether-p3-provider-v1"
-            await remember.bodies.p2_call("put_object", key, data)
-            found = await remember.bodies.p2_call("get_object", key)
-            return {"state": "available" if found == data else "unavailable"}
+            await remember.bodies.p2_call("get_object", key)
+            return {"state": "available"}
 
         async def generation(ctx: TrustedContext) -> dict[str, object]:
             return await asyncio.to_thread(sqlite_probe, self.runtime.foundation.uow.path)
@@ -200,11 +214,14 @@ class Service:
                     )
         finally:
             self.runtime.close()
+            self.directory_lock.release()
 
     def app(self) -> FastAPI:
         from .routes import attach
 
-        app = create_app(self.runtime, supervisor=self.supervisor, close=self.close)
+        app = create_app(
+            self.runtime, supervisor=self.execution, execution=self.execution, close=self.close
+        )
         app.state.service = self
         attach(app, self)
         return app
