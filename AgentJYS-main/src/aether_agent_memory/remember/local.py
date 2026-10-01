@@ -98,10 +98,6 @@ class RememberFactory:
         if space is None:
             raise ValueError("injected embedding needs an explicit EmbeddingSpace")
         remember.embedding_tokenizer_id = space.tokenizer_id
-        if host.owned_vectors is not None and self.generation_search is None:
-            from aether_agent_memory.recall.basic.milvus_generation import MilvusGenerationSearch
-
-            self.generation_search = MilvusGenerationSearch(host.owned_vectors)
         host.enable_generation_recall(
             memories=remember,
             qualification=boundary,

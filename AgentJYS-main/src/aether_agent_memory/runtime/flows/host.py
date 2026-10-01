@@ -122,6 +122,7 @@ class ThreeFlows:
                     uri=self.recall_settings.milvus_uri,
                     collection=self.recall_settings.milvus_collection,
                     token=os.environ.get(self.recall_settings.milvus_token_env, ""),
+                    serialize_writes=self.recall_settings.milvus_serialize_writes,
                 )
                 vectors = self.owned_vectors
             self.vectors = vectors or SQLiteVectors(
@@ -352,6 +353,10 @@ class ThreeFlows:
                 for _, row in tx.rows("recall_requests")
             ):
                 raise ValueError("cannot switch Recall while requests are running")
+        if search is None and isinstance(self.vectors, MilvusVectors):
+            from aether_agent_memory.recall.basic.milvus_generation import MilvusGenerationSearch
+
+            search = MilvusGenerationSearch(self.vectors)
         vectors = search or SQLiteGenerationSearch(self.foundation.uow, self.foundation.identity)
         candidates = MemoryCandidates(
             self.foundation.uow,

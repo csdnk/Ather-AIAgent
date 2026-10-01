@@ -3,8 +3,9 @@
 import asyncio
 import re
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from datetime import datetime
-from threading import BoundedSemaphore
+from threading import BoundedSemaphore, Lock
 from typing import Any
 
 from aether_agent_memory.remember.contracts.models import ProjectionTarget
@@ -58,6 +59,7 @@ class MilvusConnection:
         collection: str = "p3_memories",
         token: str = "",
         client: Any = None,
+        serialize_writes: bool = False,
     ) -> None:
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,127}", collection):
             raise ValueError("invalid Milvus collection")
@@ -70,6 +72,8 @@ class MilvusConnection:
         self.client: Any = client
         self.executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="p3-milvus")
         self.slots = BoundedSemaphore(4)
+        self.serialize_writes = serialize_writes
+        self.write_lock = Lock()
         self.prepare_lock = asyncio.Lock()
         self.closed = False
         self.prepared = False
@@ -89,9 +93,16 @@ class MilvusConnection:
             raise FoundationError(ErrorCode.DEPENDENCY_UNAVAILABLE, "Milvus adapter closed or busy")
 
         def invoke() -> Any:
-            return getattr(self.client, method)(
-                collection_name=self.collection, timeout=timeout, **kwargs
-            )
+            mutation = method in {"upsert", "delete", "create_collection", "load_collection"}
+            # The SDK may continue after wait_for times out. Keep the lock inside its
+            # worker thread until the real call ends, including while the caller cancels.
+            with self.write_lock if self.serialize_writes and mutation else nullcontext():
+                if self.closed:
+                    raise FoundationError(ErrorCode.DEPENDENCY_UNAVAILABLE, "Milvus adapter closed")
+                remaining = self.timeout(ctx)  # Revalidate after waiting for a previous write.
+                return getattr(self.client, method)(
+                    collection_name=self.collection, timeout=remaining, **kwargs
+                )
 
         try:
             future = self.executor.submit(invoke)
@@ -118,9 +129,9 @@ class MilvusConnection:
                 await self.prepare_collection(ctx)
 
     async def prepare_collection(self, ctx: TrustedContext) -> None:
-        if not await self.call(ctx, "has_collection"):
-            from pymilvus import DataType
+        from pymilvus import DataType
 
+        if not await self.call(ctx, "has_collection"):
             schema = self.client.create_schema(auto_id=False, enable_dynamic_field=False)
             schema.add_field("vector_id", DataType.VARCHAR, is_primary=True, max_length=64)
             schema.add_field("vector", DataType.FLOAT_VECTOR, dim=self.dimensions)
@@ -146,9 +157,7 @@ class MilvusConnection:
             )
         description = await self.call(ctx, "describe_collection")
         fields = {f["name"]: f for f in description["fields"]}
-        if int(fields.get("vector", {}).get("params", {}).get("dim", 0)) != self.dimensions or not {
-            "target",
-            "vector_id",
+        scalar_fields = {
             "model_space",
             "tenant_id",
             "application_id",
@@ -156,8 +165,34 @@ class MilvusConnection:
             "agent_id",
             "session_id",
             "task_id",
-        }.issubset(fields):
+        }
+        expected_types = {
+            "vector_id": DataType.VARCHAR,
+            "vector": DataType.FLOAT_VECTOR,
+            "target": DataType.JSON,
+            **dict.fromkeys(scalar_fields, DataType.VARCHAR),
+        }
+        try:
+            dimensions = int(fields.get("vector", {}).get("params", {}).get("dim", 0))
+        except (ValueError, TypeError):
+            dimensions = 0
+        if (
+            dimensions != self.dimensions
+            or any(
+                fields.get(name, {}).get("type") != dtype for name, dtype in expected_types.items()
+            )
+            or {name for name, field in fields.items() if field.get("is_primary")} != {"vector_id"}
+            or description.get("auto_id", False)
+            or fields.get("vector_id", {}).get("auto_id", False)
+        ):
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "Milvus collection schema mismatch")
+        vector_indexes = []
+        for name in await self.call(ctx, "list_indexes"):
+            index = await self.call(ctx, "describe_index", index_name=name)
+            if index and index.get("field_name") == "vector":
+                vector_indexes.append(index)
+        if not vector_indexes or any(index.get("metric_type") != "IP" for index in vector_indexes):
+            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "Milvus vector index requires IP")
         await self.call(ctx, "load_collection")
         self.prepared = True
 
