@@ -136,8 +136,21 @@ class MilvusProjection(MilvusConnection):
             "model_space": self.model_space,
             **{k: v or "" for k, v in request.target.memory.scope.model_dump().items()},
         }
+
+        def before_upsert() -> None:
+            self.guard(ctx, request.target, Permission.READ)
+            with self.uow.transaction() as tx:
+                current = tx.read("milvus_projections", key)
+                if (
+                    not current
+                    or current["deleted"]
+                    or ProjectionTarget.model_validate(current["data"]["target"]) != request.target
+                    or current["data"].get("vector") != data["vector"]
+                ):
+                    tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "projection changed or deleted")
+
         try:
-            await self.call(ctx, "upsert", data=[row])
+            await self.call(ctx, "upsert", before_call=before_upsert, data=[row])
         except FoundationError as exc:
             if exc.code != ErrorCode.DEPENDENCY_UNAVAILABLE:
                 raise
@@ -225,7 +238,12 @@ class MilvusProjection(MilvusConnection):
                 },
             )
         await self.prepare(ctx)
-        await self.call(ctx, "delete", ids=[target.vector_id])
+        await self.call(
+            ctx,
+            "delete",
+            before_call=lambda: self.guard(ctx, target, Permission.DELETE),
+            ids=[target.vector_id],
+        )
         return await self.inspect(ctx, target, operation_id)
 
 

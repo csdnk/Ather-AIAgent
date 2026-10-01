@@ -133,6 +133,150 @@ def test_server_policy_allows_concurrent_writes_by_default(foundation, slow_conn
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize(
+    "method, invalidated",
+    [
+        ("delete", "revoked"),
+        ("delete", "expired"),
+        ("project", "revoked"),
+        ("project", "expired"),
+        ("project", "tombstoned"),
+    ],
+)
+def test_queued_projection_rechecks_object_grant_and_intent(foundation, method, invalidated):
+    from test_milvus_adapter import Client
+
+    from aether_agent_memory.remember.basic.projection import MilvusProjection, projection_target
+    from aether_agent_memory.remember.contracts.models import MemoryRef, ProjectionRequest
+    from aether_agent_memory.runtime.contracts.models import AuthorizationGrant
+    from aether_agent_memory.runtime.foundation.common import later, now
+    from aether_agent_memory.runtime.vector_backend import SQLiteVectorStore
+
+    class BlockingClient(Client):
+        def __init__(self):
+            super().__init__()
+            self.entered, self.release = Event(), Event()
+            self.mutations = []
+
+        def upsert(self, *, data, **kwargs):
+            key = data[0]["target"]["memory"]["memory_id"]
+            if key == "blocker":
+                self.entered.set()
+                assert self.release.wait(5), "test did not release SDK call"
+            self.mutations.append(("upsert", data[0]["vector_id"]))
+            return super().upsert(data=data, **kwargs)
+
+        def delete(self, *, ids, **kwargs):
+            self.mutations.extend(("delete", key) for key in ids)
+            return super().delete(ids=ids, **kwargs)
+
+    clock = [now()]
+    foundation.identity.clock = lambda: clock[0]
+    alice = foundation.identity.context("alice").principal
+    principals = [(sha256(b"alice").hexdigest(), alice)]
+    target = projection_target(
+        MemoryRef(
+            scope=alice.home_scope.model_copy(update={"user_id": "bob"}),
+            memory_id="bob_memory",
+            version=1,
+        ),
+        sha256(b"body").hexdigest(),
+        "test",
+    )
+    grant = AuthorizationGrant(
+        grant_id="shared_memory",
+        grantee_id="alice",
+        grantee_tenant_id="t1",
+        resource=SQLiteVectorStore.ref(target),
+        permissions=(Permission.READ, Permission.DELETE),
+        revision=1,
+        expires_at=later(clock[0], 1),
+    )
+    foundation.identity.provision(principals, grants=(grant,))
+    client = BlockingClient()
+    provider = MilvusProjection(
+        foundation.uow,
+        foundation.identity,
+        "test",
+        2,
+        uri="test",
+        client=client,
+        serialize_writes=True,
+    )
+    provider.prepared = True  # Only the external mutation is controlled in this fault test.
+
+    async def scenario():
+        ctx = foundation.identity.context("alice")
+        request = ProjectionRequest(
+            operation_id="queued", target=target, vector=(1.0, 0.0), deadline_at=ctx.deadline_at
+        )
+        if method == "delete":
+            assert (await provider.project(ctx, request)).state == "verified"
+            client.mutations.clear()
+        blocker = projection_target(
+            MemoryRef(scope=alice.home_scope, memory_id="blocker", version=1),
+            sha256(b"blocker").hexdigest(),
+            "test",
+        )
+        first = asyncio.create_task(
+            provider.project(
+                ctx, request.model_copy(update={"target": blocker, "operation_id": "blocker"})
+            )
+        )
+        assert await asyncio.to_thread(client.entered.wait, 2)
+        second = asyncio.create_task(
+            provider.delete(ctx, target, "queued")
+            if method == "delete"
+            else provider.project(ctx, request)
+        )
+
+        async def wait_for_intent(deleted):
+            while True:
+                with foundation.uow.transaction() as tx:
+                    intent = tx.read("milvus_projections", target.vector_id)
+                if intent and intent["deleted"] == deleted:
+                    return
+                await asyncio.sleep(0)
+
+        cleanup = None
+        try:
+            await asyncio.wait_for(wait_for_intent(method == "delete"), 1)
+            if invalidated == "revoked":
+                foundation.identity.provision(principals, grants=())
+            elif invalidated == "expired":
+                clock[0] = later(clock[0], 2)
+            else:
+                cleanup = asyncio.create_task(provider.delete(ctx, target, "cleanup"))
+                await asyncio.wait_for(wait_for_intent(True), 1)
+            # The principal and request remain valid; only the object authorization changes.
+            with foundation.uow.transaction() as tx:
+                foundation.identity.revalidate(tx, ctx)
+        finally:
+            client.release.set()
+            outcomes = await asyncio.gather(
+                first, second, *([cleanup] if cleanup else []), return_exceptions=True
+            )
+        error = outcomes[1]
+        assert isinstance(error, FoundationError)
+        assert error.code == (
+            "IDEMPOTENCY_CONFLICT" if invalidated == "tombstoned" else "FORBIDDEN"
+        )
+        mutation = "delete" if method == "delete" else "upsert"
+        assert (mutation, target.vector_id) not in client.mutations, (
+            "invalid queued object mutation reached the SDK"
+        )
+        if method == "delete":
+            assert target.vector_id in client.rows
+        else:
+            assert target.vector_id not in client.rows
+
+    try:
+        asyncio.run(scenario())
+    finally:
+        client.release.set()
+        provider.close()
+
+
 class CollectionClient:
     def __init__(self, fields, indexes=None):
         self.fields = fields

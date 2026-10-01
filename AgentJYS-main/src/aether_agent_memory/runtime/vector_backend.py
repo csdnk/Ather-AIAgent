@@ -2,6 +2,7 @@
 
 import asyncio
 import re
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from datetime import datetime
@@ -87,7 +88,14 @@ class MilvusConnection:
         ).total_seconds()
         return max(0.001, min(seconds, 10))
 
-    async def call(self, ctx: TrustedContext, method: str, **kwargs: Any) -> Any:
+    async def call(
+        self,
+        ctx: TrustedContext,
+        method: str,
+        *,
+        before_call: Callable[[], None] | None = None,
+        **kwargs: Any,
+    ) -> Any:
         timeout = self.timeout(ctx)
         if self.closed or not self.slots.acquire(blocking=False):
             raise FoundationError(ErrorCode.DEPENDENCY_UNAVAILABLE, "Milvus adapter closed or busy")
@@ -99,6 +107,8 @@ class MilvusConnection:
             with self.write_lock if self.serialize_writes and mutation else nullcontext():
                 if self.closed:
                     raise FoundationError(ErrorCode.DEPENDENCY_UNAVAILABLE, "Milvus adapter closed")
+                if before_call is not None:
+                    before_call()  # Object authorization/intents must survive the queue wait too.
                 remaining = self.timeout(ctx)  # Revalidate after waiting for a previous write.
                 return getattr(self.client, method)(
                     collection_name=self.collection, timeout=remaining, **kwargs
