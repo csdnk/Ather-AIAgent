@@ -91,6 +91,71 @@ Linux/macOS 在第二个终端重新设置前述变量，再执行：
 
 若要在 Web 中观察三流程运行，将命令中的 `smoke_service.py` 换为 `monitor_demo.py`。它额外验证 Working 召回、连续读取触发 Operate 自动 hot 放置、放置后的召回和三流程诊断记录，输出可在监控页查询的任务 ID 与 Trace ID。详见 [边测试边监测](web/README.md#一边运行三流程用例一边查看真实轨迹)。
 
+## 预设对话 Web 演示
+
+默认 Web 入口提供 **五个固定故事**。选择场景后点击“开始演示”，由 P4 按预设步骤调用真实 P3；页面显示实际回复、进度、任务和可折叠证据。不是自由聊天模型，不需要在浏览器填写凭据。“监测控制台”入口保留。
+
+| 场景 ID | 步骤 | 验证内容 |
+|---|---:|---|
+| `library-full` | 9 | 文档上传、摘要发布、规则与个人记录召回、正文及原文片段、干扰后查询 |
+| `weather-weekend` | 8 | 虚构天气设定、周末安排、长期化、仅共享本轮 task 范围的新会话召回 |
+| `preference-update` | 8 | 版本更正、旧结果失效、归档/恢复、保留规则、重新处理 |
+| `learning-review` | 8 | 学习记录长期化、反思设置、提炼任务与实际生成结果 |
+| `forget-sources` | 7 | 本轮记忆删除、两个独立来源的删除/撤销、读屏障与清理状态 |
+
+旧 `library-basic` 仅保留 API 兼容，不再列在新场景选择器。当前 Native 环境使用 `lexical / literal_baseline`；未配置提炼模型时，S4 在真实任务和 `provider_unavailable` 证据确认后显示**条件不足**，不填入虚构总结。
+
+覆盖面板列出当前源码的 **48 个方法＋路径组合**，分别统计“已调用”和“检查通过”。每次只统计当前运行，不把一次故事或 HTTP 200 当作全接口验收。诊断只抽样本轮可关联元数据；运维写操作留给专用隔离环境，不随演示修改共享服务配置或执行恢复。
+
+先按上文启动**独立 Temporal + P3**，确认 `/p3/readyz` 返回 200。在第二个 PowerShell 终端进入 `AgentJYS-main`，设置同一部署的 `$P3Python` 和 `$P3Deploy` 后启动 P4：
+
+```powershell
+$env:AETHER_P4_DEMO_ENABLED = '1'
+$env:AETHER_P4_DEMO_P3_URL = 'http://127.0.0.1:8080'
+$env:AETHER_P4_DEMO_CREDENTIAL_FILE = (Resolve-Path (Join-Path $P3Deploy 'credential')).Path
+$env:AETHER_P4_BIND = '127.0.0.1'
+$env:AETHER_P4_PORT = '8090'
+& $P3Python -m aether_p4_simulator.server
+```
+
+第三个终端进入 `AgentJYS-main/web`，已安装依赖则无需重复 `npm ci`：
+
+```powershell
+$env:VITE_P4_PROXY_TARGET = 'http://127.0.0.1:8090'
+$env:VITE_AETHER_PROXY_TARGET = 'http://127.0.0.1:8080'
+npm run dev -- --strictPort
+```
+
+浏览器打开 `http://127.0.0.1:5173`，点击“开始演示”。演示凭据只从 **P4 服务端文件**读取，不填写到页面或 `VITE_` 变量。默认仅允许本机 5173 的 Origin；本阶段仅验证 Native Vite 代理，容器/Nginx 尚未配置演示代理。
+
+同一时间只运行一轮，完成后手动新开独立范围。HTTP 400 `REQUEST_IN_PROGRESS` 只观察原 job，不重发原 POST；观察超时/结果未知会停住依赖步骤，不能当作失败后立即重跑。“重新查询”只 GET。刷新或切页保留本标签页的开始标识；P4 最多保存 10 轮，重启会丢失内存记录，旧 ID 的 404 **不证明旧写入未执行**。未知结果必须先核对原 job 和专属实例，再决定是否重启和手动清除页面旧标识，不能自动重放。
+
+关闭顺序：Web、P4、P3 各自终端 `Ctrl+C`，最后用 `scripts/p3/temporal_dev.py stop --directory <原专属Temporal目录>` 停止本轮拥有的 Temporal；保留部署数据，不删除数据库、不停止共享实例。测试与当前环境限制应与代码一同评审，不以一次页面通过代替全项目验收。
+
+演示回归在业务目录执行：
+
+```powershell
+python -m pytest tests/unit/p4_validation tests/unit/p4_demo tests/integration/test_p4_demo_stories.py tests/integration/test_p4_demo_temporal.py tests/integration/test_p4_demo_handoff.py -q
+npm --prefix web test
+npm --prefix web run build
+npm --prefix web run lint
+```
+
+真实 Temporal 集成需要已安装的固定版本 CLI（按测试约定设置 `P3_TEMPORAL_CLI`），开发依赖按 `python -m pip install -e . -r scripts/p3/requirements-ci.txt` 安装。
+
+**48 项接口验收**另有可复现入口，复用五故事及已有隔离运维测试，不向正在演示的服务发送请求。以下沿用前文的 `$P3Home` 和 `$P3Python`，每次使用新的仓库外目录：
+
+```powershell
+$P3Evidence = Join-Path $P3Home ('checks/demo-' + [guid]::NewGuid().ToString('N'))
+& $P3Python scripts/p3/validate_demo_interfaces.py --directory $P3Evidence
+```
+
+默认执行全接口所需的测试；追加 `--full-suite` 可同时运行全仓 `pytest`。不支持 `pytest-xdist` 并行归因。报告 `report.json` 按方法＋实际注册的路径模板记录完整 HTTP 响应状态和对应通过的测试；仅枚举接口、Mock、跳过/失败的测试及单纯收集用例不会计入通过。测试还会对照实际路由注册集合，防止清单漏增或漏删。
+
+五场景与只读诊断最多涉及 40 项；另 8 项任务/周期控制、配置、备份、恢复演练及退役维护契约在独立临时数据和 test-owned Temporal 中验证。退役维护接口的 410 只代表正确拒绝，普通权限不足的 403 不代表正常功能通过。提炼成功路径使用确定性测试 provider 检查原任务产物引用；默认 S4 的 `provider_unavailable` 仍是条件不足。
+
+这些证据的边界是 **P3 真实 ASGI 路由与测试专属 Temporal，五故事还经过 P4 TCP**，不是所有接口均经过 Native TCP 的验收，也不证明 Docker、真实 P2、真实 Embedding/Milvus 或真实模型质量。全仓测试的失败和跳过仍需单独记录，不因 48 项有调用记录就忽略。
+
 ## 调用业务接口
 
 受保护接口使用 `Authorization: Bearer <credential 文件内容>`。初始化身份拥有全部权限，仅用于本地接入起点；正式部署应配置实际身份和权限。请求的 `selection` 用于缩小业务范围，不能覆盖认证身份或租户。

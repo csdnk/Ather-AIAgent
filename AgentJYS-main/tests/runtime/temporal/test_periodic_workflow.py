@@ -190,6 +190,7 @@ async def test_p3_periodic_routes_keep_due_items_and_exclude_external_repair(per
             state = await runner.run_periodic_batch(state)
     with runtime.foundation.uow.transaction() as tx:
         assert tx.rows("cache_sample_cursors") == []
+        assert tx.rows("signal_samples") == []
         assert tx.rows("incidents") == []
     runner.routes["temporal_maintenance_principals"] = commit, prepare
     while state.cursor is not None:
@@ -203,6 +204,122 @@ async def test_p3_periodic_routes_keep_due_items_and_exclude_external_repair(per
                 if row["record"]["kind"] == "operate_repair_cache"
             ]
             assert len(repairs) == 1
+
+
+@pytest.mark.asyncio
+async def test_cache_sampling_skips_early_ticks_without_delaying_due_checks(
+    periodic_runtime, monkeypatch
+):
+    from test_operate_workflow import memory
+
+    from aether_agent_memory.operate.basic.maintenance import CacheMaintenance
+    from aether_agent_memory.operate.contracts.models import Tier
+    from aether_agent_memory.runtime.foundation.common import later, now
+    from aether_agent_memory.runtime.temporal.config import TemporalConfiguration
+    from aether_agent_memory.runtime.temporal.gateway import connect_client
+    from aether_agent_memory.runtime.temporal.ledger import ExecutionLedger
+
+    runtime = periodic_runtime
+    item = await memory(runtime)
+    api = module()
+    ledger = ExecutionLedger(
+        runtime.foundation.tasks,
+        TemporalConfiguration(deployment_id="test", endpoint=runtime.execution.endpoint),
+    )
+    maintenance = CacheMaintenance(runtime)
+    client = await connect_client(ledger.config)
+    runner = api.PeriodicActivities(ledger, TemporalGateway(client, ledger))
+    api.register_p3_periodic(runner, runtime, maintenance, ("alice",))
+    runtime.foundation.tasks.on_admitted = ledger.bind_admitted
+    started = stamp = now()
+    monkeypatch.setattr(runtime.foundation.tasks, "clock", lambda: stamp)
+
+    async def tick(number):
+        state = api.PeriodicState(
+            deployment_id="test", last_tick=number, interval_seconds=1, cursor="", batch_size=1
+        )
+        while state.cursor is not None:
+            state = await runner.run_periodic_batch(state)
+
+    await tick(0)
+    with runtime.foundation.uow.transaction() as tx:
+        initial = dict(tx.rows("signal_samples"))
+        initial_cursors = dict(tx.rows("cache_sample_cursors"))
+        sample_id = next(
+            key
+            for key, row in initial.items()
+            if row["subject"]["object_id"] == runtime.executor.key(item.ref)
+        )
+        assert initial[sample_id]["observation"]["value"] == "healthy"
+        assert tx.rows("incidents") == []
+
+    with runtime.executor.db() as db:
+        tier = db.execute(
+            "SELECT tier FROM copies WHERE key=?", (runtime.executor.key(item.ref),)
+        ).fetchone()[0]
+    runtime.executor.path(item.ref, Tier(tier)).write_bytes(b"corrupt")
+
+    # A one-second periodic tick must not submit a five-second signal early.
+    for number, elapsed in ((1, 1), (2, 4.999)):
+        stamp = later(started, elapsed)
+        await tick(number)
+        await tick(number)  # A lost batch response must remain safe to retry.
+        with runtime.foundation.uow.transaction() as tx:
+            assert dict(tx.rows("signal_samples")) == initial
+            assert dict(tx.rows("cache_sample_cursors")) == initial_cursors
+            assert tx.rows("incidents") == []
+
+    # The exact boundary is due; skipping early ticks must not disable repair.
+    stamp = later(started, 5)
+    await tick(3)
+    with runtime.foundation.uow.transaction() as tx:
+        samples = dict(tx.rows("signal_samples"))
+        assert samples.keys() == initial.keys()
+        observation = samples[sample_id]["observation"]
+        assert observation["observed_at"] == stamp
+        assert observation["value"] == "corrupt"
+        incidents = tx.rows("incidents")
+        assert len(incidents) == 1
+        assert incidents[0][1]["record"]["subject"]["object_id"] == runtime.executor.key(item.ref)
+
+
+@pytest.mark.asyncio
+async def test_cache_sampler_reuses_persisted_observations_on_fresh_host(
+    periodic_runtime, tmp_path, monkeypatch
+):
+    from test_operate_workflow import memory
+
+    from aether_agent_memory.operate.basic.continuous import ContinuousOperate
+    from aether_agent_memory.operate.basic.maintenance import CacheMaintenance
+    from aether_agent_memory.remember.local import create_runtime
+    from aether_agent_memory.runtime.foundation.common import later, now
+
+    runtime = periodic_runtime
+    await memory(runtime)
+    stamp = now()
+    monkeypatch.setattr(runtime.foundation.tasks, "clock", lambda: stamp)
+    maintenance = CacheMaintenance(runtime)
+    ctx = runtime.foundation.identity.context("alice", timeout_seconds=60)
+    observations, _, _ = await maintenance.sample_batch(ctx)
+    assert observations
+    for subject, observation in observations:
+        runtime.foundation.dispositions.observe(ctx, subject, observation)
+
+    reopened = create_runtime(
+        tmp_path / "p3.db",
+        tmp_path / "cache",
+        embedding_profile="lexical",
+        operate_factory=ContinuousOperate,
+    )
+    try:
+        monkeypatch.setattr(reopened.foundation.tasks, "clock", lambda: later(stamp, 1))
+        sampler = CacheMaintenance(reopened)
+        context = reopened.foundation.identity.context("alice", timeout_seconds=60)
+        samples, _, cursor = await sampler.sample_batch(context)
+        assert samples == []
+        assert cursor  # Skipped rows still count toward the bounded scan.
+    finally:
+        reopened.close()
 
 
 @pytest.fixture

@@ -1,8 +1,10 @@
-# Aether P3 运行监测 Web
+# Aether P3 场景演示与运行监测 Web
 
-这是统一 P3 服务的真实监测前端，使用 React、TypeScript、Vite 和 Ant Design。默认页面已经切换到新的监测工作空间；不读取旧 `/api/v1/...` 数据，也不回退到 Mock。
+这是统一 P3 服务的 Web，使用 React、TypeScript、Vite 和 Ant Design。默认打开五场景预设演示；顶部“监测控制台”切回原监测工作空间。演示经 P4 的三个受限 `/api/v1/demo/...` 接口调用真实 P3；监测页直接访问同源 `/p3`，不回退到 Mock。演示启动和未知结果处理见 [业务 README](../README.md#预设对话-web-演示)。
 
-界面借鉴 Grafana、Datadog 等监测平台的常见布局：深色侧边导航、紧凑指标卡、可扫描的明细表、右侧详情抽屉和 Trace 瀑布图。所有业务数据来自当前登录身份有权查询的统一服务。
+演示页采用低饱和配色、圆角卡片、留白和对话布局：左侧选择五个故事，中间显示实际运行步骤，底部只有一个开始按钮；窄屏场景卡横向滚动，证据默认折叠。运行中或结果未知时不能切换场景重发写入。接口覆盖面板明确区分已调用、检查通过、失败、条件不足和未执行；S4 缺模型时诚实显示条件不足，不播放伪造总结。
+
+原监测页保留深色侧边导航、紧凑指标卡、明细表、右侧详情抽屉和 Trace 瀑布图。所有业务数据来自当前身份有权查询的统一服务。
 
 ## 能看什么
 
@@ -32,7 +34,7 @@ npm ci
 npm run dev
 ```
 
-打开 [http://127.0.0.1:5173](http://127.0.0.1:5173)，点击“配置连接”，输入部署目录 `credential` 文件内容。身份需要 `maintenance:diagnose` 权限；初始化生成的本地管理员已具备该权限。
+打开 [http://127.0.0.1:5173](http://127.0.0.1:5173)，先选择“监测控制台”，再点击“配置连接”，输入部署目录 `credential` 文件内容。身份需要 `maintenance:diagnose` 权限；初始化生成的本地管理员已具备该权限。**以下凭据输入仅适用于原监测页；场景演示不需要也不接收浏览器凭据。**
 
 如果后端使用其他地址，在启动 Vite 前设置：
 
@@ -43,11 +45,13 @@ npm run dev
 
 Linux/macOS 等价命令为 `VITE_AETHER_PROXY_TARGET=http://127.0.0.1:8081 npm run dev`。
 
-Web 始终通过**同源 `/p3`** 访问后端。开发阶段由 Vite 转发，部署阶段由 Nginx 转发，因此无需给后端增加宽泛 CORS。Bearer 凭据仅保留在页面内存，不写入 localStorage、sessionStorage、URL 或构建产物；刷新或断开连接后需重新输入。
+监测页始终通过**同源 `/p3`** 访问后端。开发阶段由 Vite 转发，部署阶段由 Nginx 转发，因此无需给后端增加宽泛 CORS。监测 Bearer 凭据仅保留在页面内存，不写入 localStorage、sessionStorage、URL 或构建产物；刷新或断开连接后需重新输入。演示则通过同源 `/p4-api` 转发，仅将运行 UUID 保存在 sessionStorage，不保存 token。
 
 依赖实际安装在当前项目外时，可将 `web/node_modules` 链接到外部依赖目录。此工作区的依赖、构建检查结果和缓存放在 `E:/projects/codex/.agent-work/aether/workspace-support/`。`AETHER_WEB_CACHE_DIR` 与 `AETHER_WEB_BUILD_DIR` 可分别指定 Vite 缓存和构建输出路径。
 
 ## 容器部署
+
+以下是原监测部署。新增预设演示目前只验证 Windows Native + Vite，现有 Nginx 尚无演示 `/p4-api` 转发；不能据此宣称容器中的演示已可运行。
 
 业务目录的 [compose.p3.yaml](../compose.p3.yaml) 现在包含 `web` 服务。先按 [统一服务运行指南](../../交付成果/部署运行/P3_统一服务运行指南_20260926.md) 初始化容器部署目录，再执行：
 

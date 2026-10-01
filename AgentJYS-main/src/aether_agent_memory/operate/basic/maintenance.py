@@ -22,7 +22,7 @@ from aether_agent_memory.runtime.contracts.models import (
     TaskRecord,
     TrustedContext,
 )
-from aether_agent_memory.runtime.foundation.common import fingerprint
+from aether_agent_memory.runtime.foundation.common import fingerprint, later
 from aether_agent_memory.runtime.foundation.requests import text_hash
 
 if TYPE_CHECKING:
@@ -138,6 +138,16 @@ class CacheMaintenance:
                 if not self.rf.identity.permits(
                     tx, ctx, Permission.RECOVER, subject
                 ) or not self.eligible(tx, ctx, memory):
+                    continue
+                subject_key = fingerprint(subject.model_dump(mode="json"))
+                label_key = fingerprint(
+                    [self.signal.signal_id, subject.scope.model_dump(mode="json"), {}]
+                )
+                prior = tx.read("signal_samples", fingerprint([subject_key, label_key]))
+                # Only committed observations throttle sampling, not attempted batches.
+                if prior and self.rf.tasks.clock() < later(
+                    prior["observation"]["observed_at"], self.signal.sample_interval_ms / 1000
+                ):
                     continue
             readable = self.inspect(memory, digest)
             evidence = RecordRef(

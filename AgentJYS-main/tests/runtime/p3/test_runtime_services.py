@@ -14,6 +14,7 @@ from aether_agent_memory.runtime.contracts.foundation import (
     SignalObservation,
 )
 from aether_agent_memory.runtime.contracts.models import (
+    ErrorCode,
     Permission,
     Principal,
     RecordRef,
@@ -244,6 +245,19 @@ def test_signal_staleness_cardinality_and_cross_tenant_evidence(app):
     with pytest.raises(FoundationError):
         app.dispositions.observe(ctx(app, "other"), target, sample(app, signal, target))
     assert app.dispositions.incidents(context) == ()
+
+
+def test_signal_sampling_interval_remains_enforced(app):
+    signal, _ = configure(app)
+    context, target = seed(app)
+    app.dispositions.observe(context, target, sample(app, signal, target))
+    app.test_clock.advance(0.999)
+    with pytest.raises(FoundationError) as error:
+        app.dispositions.observe(context, target, sample(app, signal, target))
+    assert error.value.code == ErrorCode.INVALID_ARGUMENT
+    assert app.dispositions.incidents(context) == ()
+    app.test_clock.advance(0.001)
+    assert len(app.dispositions.observe(context, target, sample(app, signal, target))) == 1
 
 
 def test_configuration_and_real_backup_restore_without_overwriting_live_data(app):
