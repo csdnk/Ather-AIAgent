@@ -28,6 +28,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+milvus-local = [
+  "milvus-lite==3.2.1",
+  "pymilvus==2.6.17",
+]
 recall-rerank = [
   "sentence-transformers>=5,<6",
 ]
@@ -102,6 +106,7 @@ b2-dataset = [
 ]
 
 [project.scripts]
+aether-milvus-local = "aether_agent_memory.runtime.local_milvus:main"
 aether-p3 = "aether_agent_memory.runtime.flows.cli:main"
 aether-embedding-inspect = "aether_agent_memory.recall.embedding.__main__:main"
 aether-b1-sidecar = "aether_agent_memory.b1.sidecar:main"
@@ -195,6 +200,7 @@ module = [
   "google.protobuf.*",
   "grpc.*",
   "jieba.*",
+  "milvus_lite.*",
   "onnxruntime.*",
   "openvino.*",
   "optimum.*",
