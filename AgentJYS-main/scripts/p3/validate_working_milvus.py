@@ -4,6 +4,10 @@ PyCharm: select the prepared venv interpreter, this script, and parameters:
   --directory <external-work-directory> --embedding-config <native.json>
   --temporal-cli <temporal executable>
 The runner creates a unique subdirectory and never reuses an existing basetemp.
+Native settings are validated into an external effective config. An omitted
+model cache uses that run's cache; an explicit cache inside the repo is rejected.
+The original config and model selection are preserved. Relative model/cache
+paths retain their existing resolution against the pytest working directory.
 """
 
 import argparse
@@ -66,12 +70,32 @@ def main(argv: list[str] | None = None) -> int:
     directory = args.directory.expanduser().resolve()
     if directory == repository or repository in directory.parents:
         parser.error("--directory must be outside the source repository")
+    from aether_agent_memory.recall.embedding.native import NativeEmbeddingSettings
+
+    source_config = Path(args.embedding_config).resolve()
+    try:
+        settings = NativeEmbeddingSettings.model_validate_json(source_config.read_text("utf-8"))
+    except (OSError, ValueError) as exc:
+        parser.error(f"invalid native embedding config: {exc}")
+    cache = None
+    if "cache_dir" in settings.model_fields_set:
+        cache = (root / settings.cache_dir).resolve()
+        if cache == repository or repository in cache.parents:
+            parser.error("native cache_dir must be outside the source repository")
     directory.mkdir(parents=True, exist_ok=True)
     run = Path(tempfile.mkdtemp(prefix="working-milvus-", dir=directory))
+    settings = settings.model_copy(
+        update={
+            "cache_dir": cache if cache is not None else run / "cache/embedding",
+            "model_path": (root / settings.model_path).resolve() if settings.model_path else None,
+        }
+    )
+    effective_config = run / "native-embedding.effective.json"
+    effective_config.write_text(settings.model_dump_json(indent=2), encoding="utf-8")
     env = os.environ.copy()
     env.update(
         P3_TEST_MILVUS_LITE="1",
-        P3_TEST_NATIVE_CONFIG=str(Path(args.embedding_config).resolve()),
+        P3_TEST_NATIVE_CONFIG=str(effective_config),
         P3_TEMPORAL_CLI=str(Path(args.temporal_cli).resolve()),
         PYTHONUTF8="1",
         PYTHONDONTWRITEBYTECODE="1",
@@ -137,6 +161,8 @@ def main(argv: list[str] | None = None) -> int:
         elapsed_seconds=time.monotonic() - started,
         pytest_exit_code=completed.returncode,
         directory=str(run),
+        embedding_source_config=str(source_config),
+        embedding_effective_config=str(effective_config),
     )
     (run / "summary.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), "utf-8")
     print(json.dumps(result, ensure_ascii=False, indent=2))

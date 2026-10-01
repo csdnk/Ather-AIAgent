@@ -1,6 +1,8 @@
 """The dedicated real-backend gate must never count skips or missing cases as PASS."""
 
 import importlib.util
+import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -72,3 +74,99 @@ def test_runner_rejects_process_files_inside_parent_repository(tmp_path, monkeyp
             ]
         )
     assert error.value.code == 2
+
+
+@pytest.mark.parametrize("cache", ["omitted", "external", "relative_external"])
+def test_runner_writes_external_effective_native_config(tmp_path, monkeypatch, cache):
+    module = runner()
+    root = Path(__file__).resolve().parents[2]
+    config = tmp_path / "original.json"
+    settings = {
+        "model_path": "models/selected-model",
+        "precision": "fp32",
+        "threads": 2,
+        "query_prefix": "custom query prefix",
+    }
+    if cache != "omitted":
+        settings["cache_dir"] = (
+            str(tmp_path / "approved-cache")
+            if cache == "external"
+            else "../../codex-aether/.agent-work/workspace-support/cache/test-relative"
+        )
+    config.write_text(json.dumps(settings, indent=3), encoding="utf-8")
+    original = config.read_bytes()
+    monkeypatch.delenv("TIKTOKEN_CACHE_DIR", raising=False)
+    observed = {}
+
+    def consume_config(command, **kwargs):
+        effective = Path(kwargs["env"]["P3_TEST_NATIVE_CONFIG"])
+        assert effective != config
+        assert effective.is_relative_to(tmp_path / "runs")
+        observed.update(json.loads(effective.read_text("utf-8")))
+        # The process boundary is replaced only to inspect effective configuration.
+        # It emits controlled complete JUnit, not real-backend acceptance evidence.
+        junit = Path(command[command.index("--junitxml") + 1])
+        junit.write_text(
+            "<testsuite>"
+            + "".join(f'<testcase name="{name}"/>' for name in module.REQUIRED_TESTS)
+            + "</testsuite>"
+        )
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(module.subprocess, "run", consume_config)
+    assert (
+        module.main(
+            [
+                "--directory",
+                str(tmp_path / "runs"),
+                "--embedding-config",
+                str(config),
+                "--temporal-cli",
+                str(config),
+            ]
+        )
+        == 0
+    )
+    assert config.read_bytes() == original
+    assert Path(observed["model_path"]) == (root / "models/selected-model").resolve()
+    assert observed["precision"] == "fp32"
+    assert observed["threads"] == 2
+    assert observed["query_prefix"] == "custom query prefix"
+    assert observed["model_name"] == "BAAI/bge-small-zh-v1.5"
+    if cache == "omitted":
+        assert Path(observed["cache_dir"]).is_relative_to(tmp_path / "runs")
+    else:
+        assert Path(observed["cache_dir"]) == (root / settings["cache_dir"]).resolve()
+
+
+@pytest.mark.parametrize("cache", ["explicit_default", "business", "parent_repository"])
+def test_runner_rejects_native_cache_in_source_before_subprocess(tmp_path, monkeypatch, cache):
+    module = runner()
+    root = Path(__file__).resolve().parents[2]
+    directory = {
+        "explicit_default": ".aether/recall/embedding/models",
+        "business": str(root / "blocked-model-cache"),
+        "parent_repository": str(root.parent / "blocked-model-cache"),
+    }[cache]
+    config = tmp_path / "original.json"
+    config.write_text(json.dumps({"model_path": "models/selected-model", "cache_dir": directory}))
+    original = config.read_bytes()
+    monkeypatch.delenv("TIKTOKEN_CACHE_DIR", raising=False)
+
+    def must_not_start(*args, **kwargs):
+        pytest.fail("unsafe model cache reached subprocess startup")
+
+    monkeypatch.setattr(module.subprocess, "run", must_not_start)
+    with pytest.raises(SystemExit) as error:
+        module.main(
+            [
+                "--directory",
+                str(tmp_path / "runs"),
+                "--embedding-config",
+                str(config),
+                "--temporal-cli",
+                str(config),
+            ]
+        )
+    assert error.value.code == 2
+    assert config.read_bytes() == original
