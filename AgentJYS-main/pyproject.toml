@@ -121,11 +121,13 @@ aether-p4-simulator = "aether_p4_simulator.server:main"
 [dependency-groups]
 dev = [
   "fakeredis[lua]>=2.38,<3",
+  "jsonschema==4.26.0",
   "mypy>=2.1.0",
   "pre-commit>=4.6.0",
   "pytest>=9.1.1",
   "pytest-asyncio>=1.4.0",
   "pytest-cov>=7.1.0",
+  "rfc3339-validator==0.1.4",
   "ruff>=0.15.20",
 ]
 demo = [

@@ -1,16 +1,21 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
 import os
 import re
+from contextlib import suppress
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
 
 from aether_p4_simulator.client import P3ClientError, P3MemoryClient
+from aether_p4_simulator.demo.http import handle_demo
+from aether_p4_simulator.demo.service import DemoService
 from aether_p4_simulator.models import (
     CreateAgentRequest,
     CreateSessionRequest,
@@ -18,6 +23,7 @@ from aether_p4_simulator.models import (
     SubmitDocumentRequest,
 )
 from aether_p4_simulator.service import P4SimulatorService
+from aether_p4_simulator.validation.client import P3ValidationClient
 
 SESSION_RE = re.compile(r"^/api/v1/sessions/([^/]+)$")
 MESSAGE_RE = re.compile(r"^/api/v1/sessions/([^/]+)/messages$")
@@ -34,11 +40,43 @@ def build_service() -> P4SimulatorService:
 SERVICE = build_service()
 
 
+def build_demo_service(bind: str) -> DemoService:
+    if os.getenv("AETHER_P4_DEMO_ENABLED") != "1":
+        return DemoService(None)
+    if bind != "localhost" and not ipaddress.ip_address(bind).is_loopback:
+        raise ValueError("demo requires loopback binding")
+    url = os.getenv("AETHER_P4_DEMO_P3_URL")
+    credential_file = os.getenv("AETHER_P4_DEMO_CREDENTIAL_FILE")
+    if not url or not credential_file:
+        return DemoService(None)
+    try:
+        path = Path(credential_file)
+        if not path.is_absolute():
+            return DemoService(None)
+        credential = path.read_text(encoding="utf-8").strip()
+        if not credential or any(c.isspace() for c in credential):
+            return DemoService(None)
+        # P3's default admission wait is 30s before it returns an accepted job.
+        # Leave transport margin; subsequent job reads have their own <=10s cap.
+        client = P3ValidationClient(url, credential, timeout_seconds=40)
+    except (OSError, ValueError, UnicodeError):
+        return DemoService(None)
+    return DemoService(client)
+
+
+class P4HTTPServer(ThreadingHTTPServer):
+    demo_service: DemoService | None = None
+
+
 class P4Handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self) -> None:  # noqa: N802
+        if handle_demo(self, getattr(self.server, "demo_service", None)):
+            return
         self._send(HTTPStatus.NO_CONTENT, {})
 
     def do_GET(self) -> None:  # noqa: N802
+        if handle_demo(self, getattr(self.server, "demo_service", None)):
+            return
         try:
             if self.path == "/health":
                 self._send(HTTPStatus.OK, asyncio.run(SERVICE.health()).model_dump(mode="json"))
@@ -63,6 +101,8 @@ class P4Handler(BaseHTTPRequestHandler):
             self._handle_error(exc)
 
     def do_POST(self) -> None:  # noqa: N802
+        if handle_demo(self, getattr(self.server, "demo_service", None)):
+            return
         try:
             body = self._body()
             if self.path == "/api/v1/agents":
@@ -146,7 +186,15 @@ class P4Handler(BaseHTTPRequestHandler):
 
 def main() -> None:
     port = int(os.getenv("AETHER_P4_PORT", "8090"))
-    ThreadingHTTPServer(("0.0.0.0", port), P4Handler).serve_forever()
+    bind = os.getenv("AETHER_P4_BIND", "0.0.0.0")
+    demo = build_demo_service(bind)
+    try:
+        with P4HTTPServer((bind, port), P4Handler) as server:
+            server.demo_service = demo
+            with suppress(KeyboardInterrupt):
+                server.serve_forever()
+    finally:
+        demo.close()
 
 
 if __name__ == "__main__":
