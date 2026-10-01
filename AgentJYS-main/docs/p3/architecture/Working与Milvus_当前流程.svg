@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1675" height="1135" viewBox="0 0 1675 1135">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#58718b"/></marker></defs>
+<rect width="1675" height="1135" fill="#ffffff"/>
+<text x="50" y="61" font-family="Microsoft YaHei, sans-serif" font-size="34" font-weight="700" fill="#142f50">Working 记忆 × 本地 Milvus</text>
+<text x="50" y="100" font-family="Microsoft YaHei, sans-serif" font-size="20" font-weight="400" fill="#62728b">当前实现流程 · 2026-10-01 · 原生 BGE / 官方 Milvus Lite / 统一 P3 服务</text>
+<text x="50" y="161" font-family="Microsoft YaHei, sans-serif" font-size="23" font-weight="700" fill="#315b97">写入与发布</text>
+<text x="50" y="374" font-family="Microsoft YaHei, sans-serif" font-size="19" font-weight="400" fill="#263d57">保存确认 ≠ 索引就绪。写入响应丢失时查询原操作；当前版本、授权与删除状态决定能否发布。</text>
+<text x="50" y="412" font-family="Microsoft YaHei, sans-serif" font-size="19" font-weight="400" fill="#263d57">索引记录保存引用与校验信息；权威正文仍由 Remember 及其正文后端负责。</text>
+<text x="50" y="480" font-family="Microsoft YaHei, sans-serif" font-size="23" font-weight="700" fill="#187c73">语义召回：Working 与长期共享向量机制，按来源隔离</text>
+<text x="50" y="706" font-family="Microsoft YaHei, sans-serif" font-size="19" font-weight="400" fill="#263d57">索引 pending / failed 进入来源覆盖；仅 pending 且无可交付内容时表达进行中，不能伪装为正常 empty。</text>
+<text x="50" y="744" font-family="Microsoft YaHei, sans-serif" font-size="19" font-weight="400" fill="#263d57">缺失依赖按实际原因处理；正常空结果需要所选来源正常完成。</text>
+<text x="50" y="796" font-family="Microsoft YaHei, sans-serif" font-size="23" font-weight="700" fill="#62728b">正文读取与安全边界</text>
+<polyline points="325,261.0 375,261.0" fill="none" stroke="#58718b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="650,261.0 700,261.0" fill="none" stroke="#58718b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="975,261.0 1025,261.0" fill="none" stroke="#58718b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="1300,261.0 1350,261.0" fill="none" stroke="#58718b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="325,587.0 375,587.0" fill="none" stroke="#58718b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="650,587.0 700,587.0" fill="none" stroke="#58718b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="975,587.0 1025,587.0" fill="none" stroke="#58718b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="1300,587.0 1350,587.0" fill="none" stroke="#58718b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="650,876.0 740,876.0" fill="none" stroke="#58718b" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="50" y="190" width="275" height="142" rx="12" fill="#edf3ff" stroke="#315b97" stroke-width="1.5"/>
+<text x="68" y="225" font-family="Microsoft YaHei, sans-serif" font-size="21" font-weight="700" fill="#315b97">01  保存确认</text>
+<text x="68" y="256" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">Remember 保存正文与引用</text>
+<text x="68" y="282" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">版本、scope、任务、Outbox</text>
+<text x="68" y="308" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">返回 saved；索引尚未 Ready</text>
+<rect x="375" y="190" width="275" height="142" rx="12" fill="#edf3ff" stroke="#315b97" stroke-width="1.5"/>
+<text x="393" y="225" font-family="Microsoft YaHei, sans-serif" font-size="21" font-weight="700" fill="#315b97">02  持久任务</text>
+<text x="393" y="256" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">Temporal 执行投影 Activity</text>
+<text x="393" y="282" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">固定原操作与 generation</text>
+<text x="393" y="308" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">事务外计算；重复执行幂等</text>
+<rect x="700" y="190" width="275" height="142" rx="12" fill="#edf3ff" stroke="#315b97" stroke-width="1.5"/>
+<text x="718" y="225" font-family="Microsoft YaHei, sans-serif" font-size="21" font-weight="700" fill="#315b97">03  Passage 编码</text>
+<text x="718" y="256" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">原生 BGE-small-zh-v1.5</text>
+<text x="718" y="282" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">512 维、归一化</text>
+<text x="718" y="308" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">绑定输入指纹与模型空间</text>
+<rect x="1025" y="190" width="275" height="142" rx="12" fill="#edf3ff" stroke="#315b97" stroke-width="1.5"/>
+<text x="1043" y="225" font-family="Microsoft YaHei, sans-serif" font-size="21" font-weight="700" fill="#315b97">04  向量持久化</text>
+<text x="1043" y="256" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">官方 Milvus Lite / gRPC</text>
+<text x="1043" y="282" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">working 标签 + 精确版本</text>
+<text x="1043" y="308" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">generation / body_hash</text>
+<rect x="1350" y="190" width="275" height="142" rx="12" fill="#edf3ff" stroke="#315b97" stroke-width="1.5"/>
+<text x="1368" y="225" font-family="Microsoft YaHei, sans-serif" font-size="21" font-weight="700" fill="#315b97">05  Ready 发布</text>
+<text x="1368" y="256" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">核对写入与全部预期投影</text>
+<text x="1368" y="282" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">复核版本、授权、删除屏障</text>
+<text x="1368" y="308" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">由 Remember 条件发布</text>
+<rect x="50" y="510" width="275" height="154" rx="12" fill="#e9f7f5" stroke="#187c73" stroke-width="1.5"/>
+<text x="68" y="545" font-family="Microsoft YaHei, sans-serif" font-size="21" font-weight="700" fill="#187c73">01  请求与来源</text>
+<text x="68" y="576" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">可信身份、Query、期限</text>
+<text x="68" y="602" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">working / long_term / both</text>
+<text x="68" y="628" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">Working 不自动改查长期</text>
+<rect x="375" y="510" width="275" height="154" rx="12" fill="#e9f7f5" stroke="#187c73" stroke-width="1.5"/>
+<text x="393" y="545" font-family="Microsoft YaHei, sans-serif" font-size="21" font-weight="700" fill="#187c73">02  Query 编码</text>
+<text x="393" y="576" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">各选定来源建立搜索计划</text>
+<text x="393" y="602" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">兼容 Passage 的模型空间</text>
+<text x="393" y="628" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">真实编码；无词法兜底</text>
+<rect x="700" y="510" width="275" height="154" rx="12" fill="#e9f7f5" stroke="#187c73" stroke-width="1.5"/>
+<text x="718" y="545" font-family="Microsoft YaHei, sans-serif" font-size="21" font-weight="700" fill="#187c73">03  向量 Top K</text>
+<text x="718" y="576" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">过滤 scope + 模型空间</text>
+<text x="718" y="602" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">过滤 memory_source 后截断</text>
+<text x="718" y="628" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">每个来源返回候选引用</text>
+<rect x="1025" y="510" width="275" height="154" rx="12" fill="#e9f7f5" stroke="#187c73" stroke-width="1.5"/>
+<text x="1043" y="545" font-family="Microsoft YaHei, sans-serif" font-size="21" font-weight="700" fill="#187c73">04  权威正文</text>
+<text x="1043" y="576" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">B 核验当前投影资格</text>
+<text x="1043" y="602" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">按精确引用读取完整正文</text>
+<text x="1043" y="628" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">版本 / generation / hash</text>
+<rect x="1350" y="510" width="275" height="154" rx="12" fill="#e9f7f5" stroke="#187c73" stroke-width="1.5"/>
+<text x="1368" y="545" font-family="Microsoft YaHei, sans-serif" font-size="21" font-weight="700" fill="#187c73">05  上下文交付</text>
+<text x="1368" y="576" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">排名融合与 token 预算</text>
+<text x="1368" y="602" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">最终复核 + 条件提交</text>
+<text x="1368" y="628" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">历史重取再次核验</text>
+<rect x="50" y="822" width="600" height="108" rx="12" fill="#f2f4f7" stroke="#62728b" stroke-width="1.5"/>
+<text x="68" y="857" font-family="Microsoft YaHei, sans-serif" font-size="21" font-weight="700" fill="#62728b">独立正文读取</text>
+<text x="68" y="888" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">已知 ID + 精确版本 → Remember 授权和正文读取</text>
+<text x="68" y="914" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">不做 Query 编码；不能替代语义候选发现</text>
+<rect x="740" y="822" width="885" height="108" rx="12" fill="#f2f4f7" stroke="#62728b" stroke-width="1.5"/>
+<text x="758" y="857" font-family="Microsoft YaHei, sans-serif" font-size="21" font-weight="700" fill="#62728b">贯穿保存、读取和历史结果的屏障</text>
+<text x="758" y="888" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">租户 / 用户 / 会话范围 · 共享撤权 · 当前版本 · 删除与显式到期</text>
+<text x="758" y="914" font-family="Microsoft YaHei, sans-serif" font-size="18" font-weight="400" fill="#263d57">向量命中不授予权限；迟到投影不能复活旧记忆</text>
+<rect x="50" y="967" width="1575" height="121" rx="12" fill="#fff6e6" stroke="#dcb86c"/>
+<text x="70" y="1002" font-family="Microsoft YaHei, sans-serif" font-size="21" font-weight="700" fill="#8b6121">本地开发配置与验收边界</text>
+<text x="70" y="1035" font-family="Microsoft YaHei, sans-serif" font-size="19" font-weight="400" fill="#72562d">127.0.0.1 · Lite max-workers=1 · P3 写入串行 · 单目录单写入服务 · 重启复用同一物理数据目录</text>
+<text x="70" y="1067" font-family="Microsoft YaHei, sans-serif" font-size="19" font-weight="400" fill="#72562d">Lite 本地开发，无服务端 TLS/RBAC；生产集群、吞吐 SLA、长稳与统计性语义质量未验收。</text>
+</svg>

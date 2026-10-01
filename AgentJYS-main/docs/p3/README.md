@@ -1,5 +1,7 @@
 # P3 总体设计与协作契约
 
+**2026-10-01 Working / Milvus：** [开发指南](development/Working与Milvus_本地开发指南.md) · [当前流程图](architecture/Working与Milvus_当前流程.svg) · [验收报告](development/Working与Milvus_验收报告.md)。统一服务的 Working 已接通原生 BGE、向量投影和来源过滤；官方本地 Lite 完成真实写入、召回及重启验证。下方早期批次中的“仅协议测试／待真实服务器”保留历史范围，不代表当前 Lite 状态；生产集群尚未验收。
+
 CI 运行与复验：[检查清单及依赖说明](development/11_CI检查与复验.md)，区分全仓检查、P3 门禁及真实依赖验证。
 
 **2026-09-23 A侧增量：** [Recall与Embedding接入](development/10_Recall与Embedding_A侧接入.md)。新A实现已完成契约环境验收，现有链路完成真实BGE与TCP HTTP验证；新多块B提供方仍待接。以下各旧批次说明保留其历史范围。
@@ -77,6 +79,6 @@ python scripts/p3/validate_contracts.py
 
 ## 交付与工作材料分开
 
-业务代码、契约、测试、运行配置与贡献入口留仓库；新用户文档和验收摘要放项目 `交付成果/`。助手草稿、原始日志、下载与环境放项目外 `E:/projects/codex/.agent-work/aether/workspace-support/`。仓库既有 [reports](acceptance/reports/README.md)保留历史证据，不回写为当前批次结果。
+业务代码、契约、测试、运行配置与可移植文档留仓库。本机新用户成品放外部 `D:/AStore项目/codex-aether/交付成果/`；助手草稿、原始日志、下载与环境放同级 `.agent-work/workspace-support/`。其他开发者选择自己的外部目录。仓库既有 [reports](acceptance/reports/README.md)保留历史证据，不回写为当前批次结果。
 
 已有外置开发基线和 ADR 是历史输入，本目录纠正与 V1.2 不一致的条款。不得再引用旧“仅文本、无归档、无共享、模拟调度即交付、必须运维页”的限制缩减产品。

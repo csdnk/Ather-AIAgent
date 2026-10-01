@@ -23,6 +23,7 @@ class RecallSettings(BaseModel):
     milvus_uri: str | None = None
     milvus_collection: str = "p3_memories"
     milvus_token_env: str = "P3_MILVUS_TOKEN"
+    milvus_serialize_writes: bool = False
 
     @model_validator(mode="after")
     def consistent(self) -> "RecallSettings":

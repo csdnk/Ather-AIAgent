@@ -1,0 +1,5 @@
+# Real local acceptance; install into a dedicated venv, not global Python.
+-r requirements-flows.txt
+-r requirements-native.txt
+milvus-lite==3.2.1
+pymilvus==2.6.17

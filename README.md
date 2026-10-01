@@ -6,6 +6,8 @@ Aether P3 是面向 AI Agent 的持久记忆服务：接收对话、任务信息
 
 ## 当前状态
 
+2026-10-01：Working 已使用真实 BGE 向量投影与官方本地 Milvus Lite；五项必选真实功能验证通过，涵盖来源/租户隔离、持久重启和生命周期。见[本地开发指南](AgentJYS-main/docs/p3/development/Working与Milvus_本地开发指南.md)、[当前流程图](AgentJYS-main/docs/p3/architecture/Working与Milvus_当前流程.svg)和[验收报告](AgentJYS-main/docs/p3/development/Working与Milvus_验收报告.md)。本地 Lite 通过不代表生产集群验收。
+
 **截至 2026-09-30，统一服务已接入 Temporal；外部集成与生产验收待完成。** 当前代码将 Remember、Recall 与内部 Operate 装配到一个 P3 进程，连接独立 Temporal Server；本次验证证据见 [Temporal 工程验收](交付成果/测试与验收/P3_Temporal接入工程验收_20260930.md)。
 
 | 范围 | 状态 |
@@ -13,7 +15,7 @@ Aether P3 是面向 AI Agent 的持久记忆服务：接收对话、任务信息
 | 保存 → 后台长期化 → 索引发布 → 授权召回 → 结果再次获取 | 已实现并通过本地 HTTP/SQLite 验证 |
 | 原生 BGE 编码、共享授权与撤权、本地文件缓存调度 | 已有实现和本地验证 |
 | 真实监测 Web | 已接统一接口，提供健康、任务、异常和 Trace 瀑布图；云端 APM 接入待完成 |
-| LLM、P2、Milvus 接口 | 已有适配；真实服务集成及业务质量待验收 |
+| LLM、P2、Milvus 接口 | 官方本地 Milvus Lite 已真实验证；生产 Milvus 集群、LLM/P2 服务集成及业务质量待验收 |
 | Docker、24/72 小时长稳、性能、多实例、完整灾备、云端部署 | 待实际环境验证；Docker 当前仅验证配置解析 |
 | PRD FR16（P1）预测预热 | 未实现 |
 
@@ -53,6 +55,6 @@ Mock 是独立演示成果，其展示效果不代表后端或外部集成已经
 
 项目关联 [csdnk/Ather-AIAgent](https://github.com/csdnk/Ather-AIAgent)。Git 根目录覆盖业务代码、交付成果、项目资料及研读项目；安装与测试命令在 `AgentJYS-main/` 执行。GitHub 实际工作流位于根目录 `.github/workflows/`，业务目录内的同名工作流是独立代码包参考，检查规则变更时应同步。
 
-面向使用、评审和分享的成品放 `交付成果/`；业务源码及必要运行资源保留在 `AgentJYS-main/`。虚拟环境、缓存、凭据、运行数据及助手处理记录放项目外，不提交 Git。此工作区的处理目录约定为 `E:/projects/codex/.agent-work/aether/workspace-support/`。
+仓库保留可移植文档、历史交付及 `AgentJYS-main/` 业务源码和必要运行资源。本机新成品按分类放外部 `D:/AStore项目/codex-aether/交付成果/`；原件放同级 `项目资料/`。环境、缓存、凭据、运行数据及助手处理记录放同级 `.agent-work/workspace-support/`，不提交 Git。其他开发者可选择自己的外部目录。
 
 历史代码提交仍在同一 Git 历史中；旧版本代码位于当时的仓库根目录，当前位于 `AgentJYS-main/`。

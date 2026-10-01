@@ -1,4 +1,6 @@
-# Recall 当前处理流程（draw.io）
+# Recall basic 历史参考流程（2026-09-21）
+
+本目录记录旧 basic 入口的结构与当时验证，不作为当前统一服务流程。Working 的词法排序、仅长期使用向量搜索及“Temporal 未接入”等描述均属于历史。当前请看[Working / Lite 流程图](../../../AgentJYS-main/docs/p3/architecture/Working与Milvus_当前流程.svg)、[可编辑图](../../../AgentJYS-main/docs/p3/architecture/Working与Milvus_当前流程.drawio)及[开发指南](../../../AgentJYS-main/docs/p3/development/Working与Milvus_本地开发指南.md)。
 
 依据：2026-09-21 工作区当前新三流程运行代码，主入口是 `recall/basic/service.py` 的 `Recall`。左侧保留当前实际处理链，右侧标出每一步的框架参考、真实调用及项目自研边界。
 
@@ -13,7 +15,7 @@
 
 实线表示处理和返回路径；虚线表示横切关联或异常入口。第 04 页右栏是记录之间的关联关系，不表示日志触发业务事件提交。PNG 是白底阅读预览，SVG 与 draw.io 使用同一份节点和连线数据。
 
-## 阅读时要注意的当前行为
+## 当时 basic 入口的行为（历史）
 
 - Working 当前使用字符/双字符哈希特征的本地相似度基线；长期来源调用 EmbeddingPort 和 VectorPort。Native/lexical、Milvus/SQLite 由服务装配配置决定，图中未声称当前已连通真实外部依赖。
 - 默认配置的候选上限为每路 20、最终最多 5 条、发现上限 100；请求默认预算 1024 token。部署配置可以覆盖默认值，不能把所有配置都理解为默认。`recall.milvus.json` 已配置 required 重排和 30 秒重排超时，通用默认则关闭重排。

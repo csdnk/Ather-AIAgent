@@ -1,5 +1,7 @@
 # 交付成果
 
+2026-10-01 Working / Milvus：[可移植开发指南](../AgentJYS-main/docs/p3/development/Working与Milvus_本地开发指南.md)、[当前可编辑流程图](../AgentJYS-main/docs/p3/architecture/Working与Milvus_当前流程.drawio)、[SVG 预览](../AgentJYS-main/docs/p3/architecture/Working与Milvus_当前流程.svg)、[真实功能验收](../AgentJYS-main/docs/p3/development/Working与Milvus_验收报告.md)。本机 PyCharm 指南与新图副本放外部交付目录；本页继续作为仓库内的可分享入口。
+
 Temporal 接入：[本地运行与迁移指南](部署运行/P3_Temporal本地运行与迁移指南_20260930.md)、[工程验收](测试与验收/P3_Temporal接入工程验收_20260930.md)。统一 P3 现在要求独立 Temporal Server；Azure 部署另行验收。
 
 2026-09-29 RF 增量交付：[业务补齐与启动优化验收](测试与验收/RF_业务补齐与启动优化验收_20260929.md)，包含缓存自动修复、统一阶段进度与恢复、历史数据下的启动/监测优化、13 个旧前端文件清理和真实运行验证。

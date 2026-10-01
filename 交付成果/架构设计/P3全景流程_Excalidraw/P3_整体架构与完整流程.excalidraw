@@ -5873,8 +5873,8 @@
       "id": "remember-complete-0001",
       "type": "text",
       "x": 2990,
-      "y": 25,
-      "width": 794.984375,
+      "y": 25.000000000000004,
+      "width": 1207.96875,
       "height": 36.4,
       "angle": 0,
       "strokeColor": "#222222",
@@ -5888,15 +5888,15 @@
       "frameId": "01_remember-tidy-1",
       "roundness": null,
       "seed": 997,
-      "version": 6,
-      "versionNonce": 1544584428,
+      "version": 7,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1789983405677,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
-      "text": "模块二 · Remember｜保存、缓存、LangMem 提取与生命周期",
-      "originalText": "模块二 · Remember｜保存、缓存、LangMem 提取与生命周期",
+      "text": "模块二 · Remember｜保存、缓存、LangMem 提取与生命周期 · Working 路由更新 2026-10-01",
+      "originalText": "模块二 · Remember｜保存、缓存、LangMem 提取与生命周期 · Working 路由更新 2026-10-01",
       "fontSize": 28,
       "fontFamily": 1,
       "textAlign": "left",
@@ -5907,7 +5907,10 @@
       "index": "b110G",
       "created": null,
       "labelPosition": null,
-      "baseFontSize": null
+      "baseFontSize": null,
+      "customData": {
+        "workingMilvusRevision": "2026-10-01"
+      }
     },
     {
       "id": "remember-complete-0002",
@@ -7381,9 +7384,9 @@
     {
       "id": "remember-complete-0038",
       "type": "text",
-      "x": 3000,
-      "y": 691,
-      "width": 540.984375,
+      "x": 3009.5,
+      "y": 691.0,
+      "width": 521.984375,
       "height": 28.6,
       "angle": 0,
       "strokeColor": "#222222",
@@ -7397,15 +7400,15 @@
       "frameId": "01_remember-tidy-1",
       "roundness": null,
       "seed": 37886,
-      "version": 8,
-      "versionNonce": 1071385300,
+      "version": 9,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1789983405677,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
-      "text": "B.3 · Working 内容写入与正文读取｜Remember 写入",
-      "originalText": "B.3 · Working 内容写入与正文读取｜Remember 写入",
+      "text": "B.3 · Working：保存确认 → 异步向量投影 → Ready",
+      "originalText": "B.3 · Working：保存确认 → 异步向量投影 → Ready",
       "fontSize": 22,
       "fontFamily": 1,
       "textAlign": "left",
@@ -7416,7 +7419,10 @@
       "index": "b11A",
       "created": null,
       "labelPosition": null,
-      "baseFontSize": null
+      "baseFontSize": null,
+      "customData": {
+        "workingMilvusRevision": "2026-10-01"
+      }
     },
     {
       "id": "remember-complete-0039",
@@ -7459,10 +7465,10 @@
     {
       "id": "remember-complete-0040",
       "type": "text",
-      "x": 3054.9921875,
-      "y": 752,
-      "width": 370.015625,
-      "height": 78,
+      "x": 3087.5,
+      "y": 752.0,
+      "width": 305.0,
+      "height": 78.0,
       "angle": 0,
       "strokeColor": "#222222",
       "backgroundColor": "transparent",
@@ -7477,15 +7483,15 @@
       "frameId": "01_remember-tidy-1",
       "roundness": null,
       "seed": 39880,
-      "version": 73,
-      "versionNonce": 1060868180,
+      "version": 74,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1789983405677,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
-      "text": "新建／更新 Active Working\n确认原文及 MemoryRecord 已可靠保存\n登记原文引用、版本与内容大小",
-      "originalText": "新建／更新 Active Working\n确认原文及 MemoryRecord 已可靠保存\n登记原文引用、版本与内容大小",
+      "text": "已保存 Working 正文与引用\n绑定 scope、精确版本及正文指纹\n同事务保存任务 / Outbox",
+      "originalText": "已保存 Working 正文与引用\n绑定 scope、精确版本及正文指纹\n同事务保存任务 / Outbox",
       "fontSize": 20,
       "fontFamily": 1,
       "textAlign": "left",
@@ -7496,7 +7502,10 @@
       "index": "b11AV",
       "created": null,
       "labelPosition": null,
-      "baseFontSize": null
+      "baseFontSize": null,
+      "customData": {
+        "workingMilvusRevision": "2026-10-01"
+      }
     },
     {
       "id": "remember-complete-0041",
@@ -7543,10 +7552,10 @@
     {
       "id": "remember-complete-0042",
       "type": "text",
-      "x": 3606,
-      "y": 752,
-      "width": 308,
-      "height": 78,
+      "x": 3621.0,
+      "y": 752.0,
+      "width": 278.0,
+      "height": 78.0,
       "angle": 0,
       "strokeColor": "#222222",
       "backgroundColor": "transparent",
@@ -7561,15 +7570,15 @@
       "frameId": "01_remember-tidy-1",
       "roundness": null,
       "seed": 41874,
-      "version": 125,
-      "versionNonce": 59663828,
+      "version": 126,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1789983405677,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
-      "text": "判断初始缓存方式\n短内容：准备完整原文\n长内容：仅登记原文引用及元数据",
-      "originalText": "判断初始缓存方式\n短内容：准备完整原文\n长内容：仅登记原文引用及元数据",
+      "text": "Temporal 执行原投影任务\n按版本与 generation 固定输入\n保存回执不等于索引 Ready",
+      "originalText": "Temporal 执行原投影任务\n按版本与 generation 固定输入\n保存回执不等于索引 Ready",
       "fontSize": 20,
       "fontFamily": 1,
       "textAlign": "left",
@@ -7580,7 +7589,10 @@
       "index": "b11B",
       "created": null,
       "labelPosition": null,
-      "baseFontSize": null
+      "baseFontSize": null,
+      "customData": {
+        "workingMilvusRevision": "2026-10-01"
+      }
     },
     {
       "id": "remember-complete-0043",
@@ -7627,10 +7639,10 @@
     {
       "id": "remember-complete-0044",
       "type": "text",
-      "x": 4126,
-      "y": 752,
-      "width": 308,
-      "height": 78,
+      "x": 4137.5,
+      "y": 752.0,
+      "width": 285.0,
+      "height": 78.0,
       "angle": 0,
       "strokeColor": "#222222",
       "backgroundColor": "transparent",
@@ -7645,15 +7657,15 @@
       "frameId": "01_remember-tidy-1",
       "roundness": null,
       "seed": 43868,
-      "version": 73,
-      "versionNonce": 837454676,
+      "version": 74,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1789983405677,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
-      "text": "校验资格、版本与可用配额\n短内容完整写入 Redis\n长内容登记引用，标记正文未缓存",
-      "originalText": "校验资格、版本与可用配额\n短内容完整写入 Redis\n长内容登记引用，标记正文未缓存",
+      "text": "共享 Passage Embedding\nBGE-small-zh-v1.5 原生编码\n512 维、归一化、绑定模型空间",
+      "originalText": "共享 Passage Embedding\nBGE-small-zh-v1.5 原生编码\n512 维、归一化、绑定模型空间",
       "fontSize": 20,
       "fontFamily": 1,
       "textAlign": "left",
@@ -7664,7 +7676,10 @@
       "index": "b11BV",
       "created": null,
       "labelPosition": null,
-      "baseFontSize": null
+      "baseFontSize": null,
+      "customData": {
+        "workingMilvusRevision": "2026-10-01"
+      }
     },
     {
       "id": "remember-complete-0045",
@@ -7711,10 +7726,10 @@
     {
       "id": "remember-complete-0046",
       "type": "text",
-      "x": 4641.4921875,
-      "y": 765,
-      "width": 317.015625,
-      "height": 52,
+      "x": 4666.5,
+      "y": 765.0,
+      "width": 267.0,
+      "height": 52.0,
       "angle": 0,
       "strokeColor": "#222222",
       "backgroundColor": "transparent",
@@ -7729,15 +7744,15 @@
       "frameId": "01_remember-tidy-1",
       "roundness": null,
       "seed": 45862,
-      "version": 89,
-      "versionNonce": 1554383060,
+      "version": 90,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1789983405677,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
-      "text": "确认写入结果\n通过 Outbox 发送 MemorySignal",
-      "originalText": "确认写入结果\n通过 Outbox 发送 MemorySignal",
+      "text": "Milvus 幂等写入与结果核对\n来源 working；按原操作恢复",
+      "originalText": "Milvus 幂等写入与结果核对\n来源 working；按原操作恢复",
       "fontSize": 20,
       "fontFamily": 1,
       "textAlign": "left",
@@ -7748,7 +7763,10 @@
       "index": "b11CG",
       "created": null,
       "labelPosition": null,
-      "baseFontSize": null
+      "baseFontSize": null,
+      "customData": {
+        "workingMilvusRevision": "2026-10-01"
+      }
     },
     {
       "id": "remember-complete-0047",
@@ -7791,10 +7809,10 @@
     {
       "id": "remember-complete-0048",
       "type": "text",
-      "x": 5228,
-      "y": 765,
-      "width": 185.31997680664062,
-      "height": 52,
+      "x": 5187.15998840332,
+      "y": 765.0,
+      "width": 267.0,
+      "height": 52.0,
       "angle": 0,
       "strokeColor": "#222222",
       "backgroundColor": "transparent",
@@ -7809,15 +7827,15 @@
       "frameId": "01_remember-tidy-1",
       "roundness": null,
       "seed": 47856,
-      "version": 91,
-      "versionNonce": 1173219294,
+      "version": 92,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1789983995094,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
-      "text": "返回实际状态\n异常与补偿进入 B.8",
-      "originalText": "返回实际状态\n异常与补偿进入 B.8",
+      "text": "B 核验当前资格并发布 Ready\npending / failed 如实报告",
+      "originalText": "B 核验当前资格并发布 Ready\npending / failed 如实报告",
       "fontSize": 20,
       "fontFamily": 1,
       "textAlign": "left",
@@ -7828,7 +7846,10 @@
       "index": "b11Cl",
       "created": null,
       "labelPosition": null,
-      "baseFontSize": null
+      "baseFontSize": null,
+      "customData": {
+        "workingMilvusRevision": "2026-10-01"
+      }
     },
     {
       "id": "remember-complete-0049",
@@ -14185,10 +14206,10 @@
     {
       "id": "remember-complete-0212",
       "type": "text",
-      "x": 3196.833282470703,
-      "y": 3504,
-      "width": 373,
-      "height": 52,
+      "x": 3220.841094970703,
+      "y": 3504.0,
+      "width": 324.984375,
+      "height": 52.0,
       "angle": 0,
       "strokeColor": "#222222",
       "backgroundColor": "transparent",
@@ -14203,15 +14224,15 @@
       "frameId": "01_remember-tidy-1",
       "roundness": null,
       "seed": 211364,
-      "version": 58,
-      "versionNonce": 956289748,
+      "version": 59,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1789983412049,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
-      "text": "Remember 的 E/S 正文索引任务（B.6）\n携带 Passage、精确版本与模型空间",
-      "originalText": "Remember 的 E/S 正文索引任务（B.6）\n携带 Passage、精确版本与模型空间",
+      "text": "Remember 为 W / E / S 请求投影\n携带 Passage、精确版本和模型空间",
+      "originalText": "Remember 为 W / E / S 请求投影\n携带 Passage、精确版本和模型空间",
       "fontSize": 20,
       "fontFamily": 1,
       "textAlign": "left",
@@ -14222,7 +14243,10 @@
       "index": "b11u",
       "created": null,
       "labelPosition": null,
-      "baseFontSize": null
+      "baseFontSize": null,
+      "customData": {
+        "workingMilvusRevision": "2026-10-01"
+      }
     },
     {
       "id": "remember-complete-0213",
@@ -25918,8 +25942,8 @@
       "id": "02_recall-tidy-2",
       "type": "text",
       "x": 40,
-      "y": 2875,
-      "width": 407.984375,
+      "y": 2875.0,
+      "width": 828.96875,
       "height": 38.5,
       "angle": 0,
       "strokeColor": "#222222",
@@ -25933,15 +25957,15 @@
       "frameId": "02_recall-tidy-1",
       "roundness": null,
       "seed": 1982,
-      "version": 2,
-      "versionNonce": 1541583956,
+      "version": 3,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1789974097206,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
-      "text": "模块三 · Recall｜有效上下文交付",
-      "originalText": "模块三 · Recall｜有效上下文交付",
+      "text": "模块三 · Recall｜有效上下文交付 · Working 路由更新 2026-10-01",
+      "originalText": "模块三 · Recall｜有效上下文交付 · Working 路由更新 2026-10-01",
       "fontSize": 28,
       "fontFamily": 1,
       "textAlign": "left",
@@ -25950,7 +25974,9 @@
       "lineHeight": 1.375,
       "autoResize": true,
       "baseline": 28,
-      "customData": {},
+      "customData": {
+        "workingMilvusRevision": "2026-10-01"
+      },
       "index": "b6A",
       "created": null,
       "labelPosition": null,
@@ -29664,8 +29690,8 @@
         "type": 3
       },
       "seed": 136200178,
-      "version": 1,
-      "versionNonce": 1234567,
+      "version": 2,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [
         {
@@ -29675,22 +29701,27 @@
         {
           "type": "arrow",
           "id": "rc26-edge-2"
+        },
+        {
+          "type": "arrow",
+          "id": "rc26-edge-5"
         }
       ],
-      "updated": 1789986751317,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
       "customData": {
         "role": "node",
-        "design": "memory-topk-context-20260921"
+        "design": "memory-topk-context-20260921",
+        "workingMilvusRevision": "2026-10-01"
       }
     },
     {
       "id": "rc26-long-route-text",
       "type": "text",
-      "x": 1206.0,
+      "x": 1184.5,
       "y": 3082.0,
-      "width": 248.0,
+      "width": 291.0,
       "height": 52.0,
       "angle": 0,
       "strokeColor": "#222222",
@@ -29706,22 +29737,25 @@
       "frameId": "02_recall-tidy-1",
       "roundness": null,
       "seed": 157809022,
-      "version": 1,
-      "versionNonce": 1234567,
+      "version": 2,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1789986751317,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
       "fontSize": 20,
       "fontFamily": 1,
-      "text": "含长期：A.1a 编码与块检索\nA.1c 核验并聚合记忆候选",
-      "originalText": "含长期：A.1a 编码与块检索\nA.1c 核验并聚合记忆候选",
+      "text": "A.1a 按选定来源编码与向量搜索\nA.1c 核验 generation 与候选",
+      "originalText": "A.1a 按选定来源编码与向量搜索\nA.1c 核验 generation 与候选",
       "lineHeight": 1.3,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
-      "autoResize": true
+      "autoResize": true,
+      "customData": {
+        "workingMilvusRevision": "2026-10-01"
+      }
     },
     {
       "id": "rc26-read-route",
@@ -29828,8 +29862,8 @@
         "type": 3
       },
       "seed": 183156633,
-      "version": 1,
-      "versionNonce": 1234567,
+      "version": 2,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [
         {
@@ -29838,19 +29872,16 @@
         },
         {
           "type": "arrow",
-          "id": "rc26-edge-5"
-        },
-        {
-          "type": "arrow",
           "id": "rc26-edge-6"
         }
       ],
-      "updated": 1789986751317,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
       "customData": {
         "role": "node",
-        "design": "memory-topk-context-20260921"
+        "design": "memory-topk-context-20260921",
+        "workingMilvusRevision": "2026-10-01"
       }
     },
     {
@@ -29938,9 +29969,9 @@
     {
       "id": "rc26-working-route-text",
       "type": "text",
-      "x": 663.5,
+      "x": 659.5,
       "y": 3342.0,
-      "width": 293.0,
+      "width": 301.0,
       "height": 52.0,
       "angle": 0,
       "strokeColor": "#222222",
@@ -29956,22 +29987,25 @@
       "frameId": "02_recall-tidy-1",
       "roundness": null,
       "seed": 211950989,
-      "version": 1,
-      "versionNonce": 1234567,
+      "version": 2,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1789986751317,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
       "fontSize": 20,
       "fontFamily": 1,
-      "text": "仅 Working：A.1b 读取\n不编码 / 不查 Milvus / 不做 RRF",
-      "originalText": "仅 Working：A.1b 读取\n不编码 / 不查 Milvus / 不做 RRF",
+      "text": "仅 Working：绑定 working 来源\n同样进入 Query 编码与向量搜索",
+      "originalText": "仅 Working：绑定 working 来源\n同样进入 Query 编码与向量搜索",
       "lineHeight": 1.3,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
-      "autoResize": true
+      "autoResize": true,
+      "customData": {
+        "workingMilvusRevision": "2026-10-01"
+      }
     },
     {
       "id": "rc26-commit-route",
@@ -30896,9 +30930,9 @@
     {
       "id": "rc26-filter-text",
       "type": "text",
-      "x": 1726.0,
+      "x": 1718.4921875,
       "y": 3912.0,
-      "width": 248.0,
+      "width": 263.015625,
       "height": 52.0,
       "angle": 0,
       "strokeColor": "#222222",
@@ -30914,22 +30948,25 @@
       "frameId": "02_recall-tidy-1",
       "roundness": null,
       "seed": 190211588,
-      "version": 1,
-      "versionNonce": 1234567,
+      "version": 2,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1789986751317,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
       "fontSize": 20,
       "fontFamily": 1,
-      "text": "服务端强制追加查询过滤\n租户 / 授权范围 + 模型空间",
-      "originalText": "服务端强制追加查询过滤\n租户 / 授权范围 + 模型空间",
+      "text": "Top K 前：租户 / 授权范围\n模型空间 + memory_source",
+      "originalText": "Top K 前：租户 / 授权范围\n模型空间 + memory_source",
       "lineHeight": 1.3,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
-      "autoResize": true
+      "autoResize": true,
+      "customData": {
+        "workingMilvusRevision": "2026-10-01"
+      }
     },
     {
       "id": "rc26-search-request",
@@ -31016,9 +31053,9 @@
     {
       "id": "rc26-encoding-fault",
       "type": "text",
-      "x": 60,
-      "y": 4045,
-      "width": 1049.0,
+      "x": 136.5,
+      "y": 4045.0,
+      "width": 896.0,
       "height": 26.0,
       "angle": 0,
       "strokeColor": "#222222",
@@ -31032,22 +31069,25 @@
       "frameId": "02_recall-tidy-1",
       "roundness": null,
       "seed": 230740887,
-      "version": 1,
-      "versionNonce": 1234567,
+      "version": 2,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1789986751317,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
       "fontSize": 20,
       "fontFamily": 1,
-      "text": "编码 / 向量库故障 → A.1d 按来源策略处理；部分索引可命中不代表已 Ready。K 按记忆数，L_chunk 是内部取块数。",
-      "originalText": "编码 / 向量库故障 → A.1d 按来源策略处理；部分索引可命中不代表已 Ready。K 按记忆数，L_chunk 是内部取块数。",
+      "text": "编码 / 检索故障及索引 pending/failed 均进入来源覆盖；没有词法兜底，不以空列表冒充正常完成。",
+      "originalText": "编码 / 检索故障及索引 pending/failed 均进入来源覆盖；没有词法兜底，不以空列表冒充正常完成。",
       "lineHeight": 1.3,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
-      "autoResize": true
+      "autoResize": true,
+      "customData": {
+        "workingMilvusRevision": "2026-10-01"
+      }
     },
     {
       "id": "rc26-candidates",
@@ -32372,9 +32412,9 @@
     {
       "id": "rc26-body-entry-text",
       "type": "text",
-      "x": 150.0,
+      "x": 148.5,
       "y": 5162.0,
-      "width": 280.0,
+      "width": 283.0,
       "height": 52.0,
       "angle": 0,
       "strokeColor": "#222222",
@@ -32390,22 +32430,25 @@
       "frameId": "02_recall-tidy-1",
       "roundness": null,
       "seed": 213710076,
-      "version": 1,
-      "versionNonce": 1234567,
+      "version": 2,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1789986751317,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
       "fontSize": 20,
       "fontFamily": 1,
-      "text": "长期候选 / Working 当前引用\n携带可信范围、精确版本与期限",
-      "originalText": "长期候选 / Working 当前引用\n携带可信范围、精确版本与期限",
+      "text": "已核验候选 / 已知 ID + 版本\n携带可信范围、精确版本与期限",
+      "originalText": "已核验候选 / 已知 ID + 版本\n携带可信范围、精确版本与期限",
       "lineHeight": 1.3,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
-      "autoResize": true
+      "autoResize": true,
+      "customData": {
+        "workingMilvusRevision": "2026-10-01"
+      }
     },
     {
       "id": "rc26-body-guard",
@@ -32462,9 +32505,9 @@
     {
       "id": "rc26-body-guard-text",
       "type": "text",
-      "x": 653.5,
+      "x": 679.0,
       "y": 5162.0,
-      "width": 313.0,
+      "width": 262.0,
       "height": 52.0,
       "angle": 0,
       "strokeColor": "#222222",
@@ -32480,22 +32523,25 @@
       "frameId": "02_recall-tidy-1",
       "roundness": null,
       "seed": 238990533,
-      "version": 1,
-      "versionNonce": 1234567,
+      "version": 2,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1789986751317,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
       "fontSize": 20,
       "fontFamily": 1,
-      "text": "B 核验读取权限、版本与来源\nWorking 无需等待长期索引 Ready",
-      "originalText": "B 核验读取权限、版本与来源\nWorking 无需等待长期索引 Ready",
+      "text": "B 核验读取权限、版本与来源\n直接正文读与索引就绪分开",
+      "originalText": "B 核验读取权限、版本与来源\n直接正文读与索引就绪分开",
       "lineHeight": 1.3,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
-      "autoResize": true
+      "autoResize": true,
+      "customData": {
+        "workingMilvusRevision": "2026-10-01"
+      }
     },
     {
       "id": "rc26-body-ref",
@@ -33292,9 +33338,9 @@
     {
       "id": "rc26-body-dispatch-text",
       "type": "text",
-      "x": 1733.5,
+      "x": 1722.0,
       "y": 5622.0,
-      "width": 233.0,
+      "width": 256.0,
       "height": 52.0,
       "angle": 0,
       "strokeColor": "#222222",
@@ -33310,22 +33356,25 @@
       "frameId": "02_recall-tidy-1",
       "roundness": null,
       "seed": 14649676,
-      "version": 1,
-      "versionNonce": 1234567,
+      "version": 2,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1789986751317,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
       "fontSize": 20,
       "fontFamily": 1,
-      "text": "长期结果回 A.1c 补齐候选\nWorking 正文进入 A.1d",
-      "originalText": "长期结果回 A.1c 补齐候选\nWorking 正文进入 A.1d",
+      "text": "两路候选均回 A.1c / A.1d\n已知 ID 正文读按调用方返回",
+      "originalText": "两路候选均回 A.1c / A.1d\n已知 ID 正文读按调用方返回",
       "lineHeight": 1.3,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
-      "autoResize": true
+      "autoResize": true,
+      "customData": {
+        "workingMilvusRevision": "2026-10-01"
+      }
     },
     {
       "id": "rc26-read-event",
@@ -33638,9 +33687,9 @@
     {
       "id": "rc26-source-rank-text",
       "type": "text",
-      "x": 666.0,
+      "x": 698.5,
       "y": 5942.0,
-      "width": 288.0,
+      "width": 223.0,
       "height": 52.0,
       "angle": 0,
       "strokeColor": "#222222",
@@ -33656,22 +33705,25 @@
       "frameId": "02_recall-tidy-1",
       "roundness": null,
       "seed": 219684012,
-      "version": 1,
-      "versionNonce": 1234567,
+      "version": 2,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1789986751317,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
       "fontSize": 20,
       "fontFamily": 1,
-      "text": "来源内排序与精确版本去重\nWorking 时间窗；长期记忆名次",
-      "originalText": "来源内排序与精确版本去重\nWorking 时间窗；长期记忆名次",
+      "text": "来源内按向量相关性排名\n合格精确版本去重后融合",
+      "originalText": "来源内按向量相关性排名\n合格精确版本去重后融合",
       "lineHeight": 1.3,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
-      "autoResize": true
+      "autoResize": true,
+      "customData": {
+        "workingMilvusRevision": "2026-10-01"
+      }
     },
     {
       "id": "rc26-rrf",
@@ -35260,9 +35312,9 @@
     {
       "id": "rc26-index-body-text",
       "type": "text",
-      "x": 3126.0,
+      "x": 3124.5,
       "y": 2000.95,
-      "width": 228.0,
+      "width": 231.0,
       "height": 74.10000000000001,
       "angle": 0,
       "strokeColor": "#222222",
@@ -35278,22 +35330,25 @@
       "frameId": "01_remember-tidy-1",
       "roundness": null,
       "seed": 150761243,
-      "version": 1,
-      "versionNonce": 1234567,
+      "version": 2,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1789986751317,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
       "fontSize": 19,
       "fontFamily": 1,
-      "text": "有效 E/S 正式正文\n核验权限、版本与正文指纹\n登记预期块及索引批次",
-      "originalText": "有效 E/S 正式正文\n核验权限、版本与正文指纹\n登记预期块及索引批次",
+      "text": "有效 Working / E / S 版本\n核验权限、版本、正文指纹\n登记预期块及索引批次",
+      "originalText": "有效 Working / E / S 版本\n核验权限、版本、正文指纹\n登记预期块及索引批次",
       "lineHeight": 1.3,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
-      "autoResize": true
+      "autoResize": true,
+      "customData": {
+        "workingMilvusRevision": "2026-10-01"
+      }
     },
     {
       "id": "rc26-index-embed",
@@ -36017,7 +36072,7 @@
       "type": "arrow",
       "x": 1030,
       "y": 3368.0,
-      "width": 1340,
+      "width": 300.0,
       "height": 202.0,
       "angle": 0,
       "strokeColor": "#222222",
@@ -36031,11 +36086,11 @@
       "frameId": "02_recall-tidy-1",
       "roundness": null,
       "seed": 107383008,
-      "version": 1,
-      "versionNonce": 1234567,
+      "version": 2,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1789986751317,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
       "points": [
@@ -36052,11 +36107,11 @@
           -133.0
         ],
         [
-          1340,
+          300.0,
           -133.0
         ],
         [
-          1340.0,
+          300.0,
           -202.0
         ]
       ],
@@ -36069,22 +36124,23 @@
         "gap": 1
       },
       "endBinding": {
-        "elementId": "rc26-context-route",
+        "elementId": "rc26-long-route",
         "focus": 0,
         "gap": 1
       },
       "customData": {
         "route": "orthogonal",
         "from": "rc26-working-route",
-        "to": "rc26-context-route"
+        "to": "rc26-long-route",
+        "workingMilvusRevision": "2026-10-01"
       }
     },
     {
       "id": "rc26-label-5",
       "type": "text",
-      "x": 1618.0,
-      "y": 3198.3,
-      "width": 144.0,
+      "x": 1085,
+      "y": 3198,
+      "width": 197.0,
       "height": 23.400000000000002,
       "angle": 0,
       "strokeColor": "#222222",
@@ -36098,22 +36154,25 @@
       "frameId": "02_recall-tidy-1",
       "roundness": null,
       "seed": 156065770,
-      "version": 1,
-      "versionNonce": 1234567,
+      "version": 2,
+      "versionNonce": 20261001,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1789986751317,
+      "updated": 1790833339097,
       "link": null,
       "locked": false,
       "fontSize": 18,
       "fontFamily": 1,
-      "text": "有效正文直达组包",
-      "originalText": "有效正文直达组包",
+      "text": "Working 同样进入 A.1a",
+      "originalText": "Working 同样进入 A.1a",
       "lineHeight": 1.3,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
-      "autoResize": true
+      "autoResize": true,
+      "customData": {
+        "workingMilvusRevision": "2026-10-01"
+      }
     },
     {
       "id": "rc26-edge-6",

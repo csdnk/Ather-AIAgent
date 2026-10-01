@@ -1,0 +1,104 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" modified="2026-10-01T00:00:00.000Z" agent="P3 current Working and Lite" version="24.7.17" type="device">
+  <diagram id="working-milvus-current" name="Working 与本地 Milvus · 当前实现">
+    <mxGraphModel dx="1675" dy="1135" grid="1" gridSize="10" page="1" pageScale="1" pageWidth="1675" pageHeight="1135">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="save" value="&lt;b&gt;01  保存确认&lt;/b&gt;&lt;br&gt;&lt;br&gt;Remember 保存正文与引用&lt;br&gt;版本、scope、任务、Outbox&lt;br&gt;返回 saved；索引尚未 Ready" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#edf3ff;strokeColor=#315b97;fontColor=#263d57;fontFamily=Microsoft YaHei;fontSize=18;align=left;spacing=18;" vertex="1" parent="1">
+          <mxGeometry x="50" y="190" width="275" height="142" as="geometry" />
+        </mxCell>
+        <mxCell id="task" value="&lt;b&gt;02  持久任务&lt;/b&gt;&lt;br&gt;&lt;br&gt;Temporal 执行投影 Activity&lt;br&gt;固定原操作与 generation&lt;br&gt;事务外计算；重复执行幂等" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#edf3ff;strokeColor=#315b97;fontColor=#263d57;fontFamily=Microsoft YaHei;fontSize=18;align=left;spacing=18;" vertex="1" parent="1">
+          <mxGeometry x="375" y="190" width="275" height="142" as="geometry" />
+        </mxCell>
+        <mxCell id="passage" value="&lt;b&gt;03  Passage 编码&lt;/b&gt;&lt;br&gt;&lt;br&gt;原生 BGE-small-zh-v1.5&lt;br&gt;512 维、归一化&lt;br&gt;绑定输入指纹与模型空间" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#edf3ff;strokeColor=#315b97;fontColor=#263d57;fontFamily=Microsoft YaHei;fontSize=18;align=left;spacing=18;" vertex="1" parent="1">
+          <mxGeometry x="700" y="190" width="275" height="142" as="geometry" />
+        </mxCell>
+        <mxCell id="milvus" value="&lt;b&gt;04  向量持久化&lt;/b&gt;&lt;br&gt;&lt;br&gt;官方 Milvus Lite / gRPC&lt;br&gt;working 标签 + 精确版本&lt;br&gt;generation / body_hash" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#edf3ff;strokeColor=#315b97;fontColor=#263d57;fontFamily=Microsoft YaHei;fontSize=18;align=left;spacing=18;" vertex="1" parent="1">
+          <mxGeometry x="1025" y="190" width="275" height="142" as="geometry" />
+        </mxCell>
+        <mxCell id="ready" value="&lt;b&gt;05  Ready 发布&lt;/b&gt;&lt;br&gt;&lt;br&gt;核对写入与全部预期投影&lt;br&gt;复核版本、授权、删除屏障&lt;br&gt;由 Remember 条件发布" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#edf3ff;strokeColor=#315b97;fontColor=#263d57;fontFamily=Microsoft YaHei;fontSize=18;align=left;spacing=18;" vertex="1" parent="1">
+          <mxGeometry x="1350" y="190" width="275" height="142" as="geometry" />
+        </mxCell>
+        <mxCell id="request" value="&lt;b&gt;01  请求与来源&lt;/b&gt;&lt;br&gt;&lt;br&gt;可信身份、Query、期限&lt;br&gt;working / long_term / both&lt;br&gt;Working 不自动改查长期" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e9f7f5;strokeColor=#187c73;fontColor=#263d57;fontFamily=Microsoft YaHei;fontSize=18;align=left;spacing=18;" vertex="1" parent="1">
+          <mxGeometry x="50" y="510" width="275" height="154" as="geometry" />
+        </mxCell>
+        <mxCell id="query" value="&lt;b&gt;02  Query 编码&lt;/b&gt;&lt;br&gt;&lt;br&gt;各选定来源建立搜索计划&lt;br&gt;兼容 Passage 的模型空间&lt;br&gt;真实编码；无词法兜底" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e9f7f5;strokeColor=#187c73;fontColor=#263d57;fontFamily=Microsoft YaHei;fontSize=18;align=left;spacing=18;" vertex="1" parent="1">
+          <mxGeometry x="375" y="510" width="275" height="154" as="geometry" />
+        </mxCell>
+        <mxCell id="search" value="&lt;b&gt;03  向量 Top K&lt;/b&gt;&lt;br&gt;&lt;br&gt;过滤 scope + 模型空间&lt;br&gt;过滤 memory_source 后截断&lt;br&gt;每个来源返回候选引用" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e9f7f5;strokeColor=#187c73;fontColor=#263d57;fontFamily=Microsoft YaHei;fontSize=18;align=left;spacing=18;" vertex="1" parent="1">
+          <mxGeometry x="700" y="510" width="275" height="154" as="geometry" />
+        </mxCell>
+        <mxCell id="body" value="&lt;b&gt;04  权威正文&lt;/b&gt;&lt;br&gt;&lt;br&gt;B 核验当前投影资格&lt;br&gt;按精确引用读取完整正文&lt;br&gt;版本 / generation / hash" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e9f7f5;strokeColor=#187c73;fontColor=#263d57;fontFamily=Microsoft YaHei;fontSize=18;align=left;spacing=18;" vertex="1" parent="1">
+          <mxGeometry x="1025" y="510" width="275" height="154" as="geometry" />
+        </mxCell>
+        <mxCell id="pack" value="&lt;b&gt;05  上下文交付&lt;/b&gt;&lt;br&gt;&lt;br&gt;排名融合与 token 预算&lt;br&gt;最终复核 + 条件提交&lt;br&gt;历史重取再次核验" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e9f7f5;strokeColor=#187c73;fontColor=#263d57;fontFamily=Microsoft YaHei;fontSize=18;align=left;spacing=18;" vertex="1" parent="1">
+          <mxGeometry x="1350" y="510" width="275" height="154" as="geometry" />
+        </mxCell>
+        <mxCell id="direct" value="&lt;b&gt;独立正文读取&lt;/b&gt;&lt;br&gt;&lt;br&gt;已知 ID + 精确版本 → Remember 授权和正文读取&lt;br&gt;不做 Query 编码；不能替代语义候选发现" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f2f4f7;strokeColor=#62728b;fontColor=#263d57;fontFamily=Microsoft YaHei;fontSize=18;align=left;spacing=18;" vertex="1" parent="1">
+          <mxGeometry x="50" y="822" width="600" height="108" as="geometry" />
+        </mxCell>
+        <mxCell id="guard" value="&lt;b&gt;贯穿保存、读取和历史结果的屏障&lt;/b&gt;&lt;br&gt;&lt;br&gt;租户 / 用户 / 会话范围 · 共享撤权 · 当前版本 · 删除与显式到期&lt;br&gt;向量命中不授予权限；迟到投影不能复活旧记忆" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f2f4f7;strokeColor=#62728b;fontColor=#263d57;fontFamily=Microsoft YaHei;fontSize=18;align=left;spacing=18;" vertex="1" parent="1">
+          <mxGeometry x="740" y="822" width="885" height="108" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#58718b;strokeWidth=2;" edge="1" parent="1" source="save" target="task">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#58718b;strokeWidth=2;" edge="1" parent="1" source="task" target="passage">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#58718b;strokeWidth=2;" edge="1" parent="1" source="passage" target="milvus">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#58718b;strokeWidth=2;" edge="1" parent="1" source="milvus" target="ready">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#58718b;strokeWidth=2;" edge="1" parent="1" source="request" target="query">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#58718b;strokeWidth=2;" edge="1" parent="1" source="query" target="search">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#58718b;strokeWidth=2;" edge="1" parent="1" source="search" target="body">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#58718b;strokeWidth=2;" edge="1" parent="1" source="body" target="pack">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#58718b;strokeWidth=2;" edge="1" parent="1" source="direct" target="guard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="title" value="Working 记忆 × 本地 Milvus" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=Microsoft YaHei;fontColor=#263d57;fontSize=34;" vertex="1" parent="1">
+          <mxGeometry x="50" y="23" width="1500" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="当前实现流程 · 2026-10-01 · 原生 BGE / 官方 Milvus Lite / 统一 P3 服务" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=Microsoft YaHei;fontColor=#263d57;fontSize=20;" vertex="1" parent="1">
+          <mxGeometry x="50" y="77" width="1500" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="write" value="写入与发布" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=Microsoft YaHei;fontColor=#263d57;fontSize=23;" vertex="1" parent="1">
+          <mxGeometry x="50" y="135" width="1500" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="w-note1" value="保存确认 ≠ 索引就绪。写入响应丢失时查询原操作；当前版本、授权与删除状态决定能否发布。" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=Microsoft YaHei;fontColor=#263d57;fontSize=19;" vertex="1" parent="1">
+          <mxGeometry x="50" y="348" width="1500" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="w-note2" value="索引记录保存引用与校验信息；权威正文仍由 Remember 及其正文后端负责。" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=Microsoft YaHei;fontColor=#263d57;fontSize=19;" vertex="1" parent="1">
+          <mxGeometry x="50" y="386" width="1500" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="recall" value="语义召回：Working 与长期共享向量机制，按来源隔离" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=Microsoft YaHei;fontColor=#263d57;fontSize=23;" vertex="1" parent="1">
+          <mxGeometry x="50" y="452" width="1500" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="r-note1" value="索引 pending / failed 进入来源覆盖；仅 pending 且无可交付内容时表达进行中，不能伪装为正常 empty。" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=Microsoft YaHei;fontColor=#263d57;fontSize=19;" vertex="1" parent="1">
+          <mxGeometry x="50" y="680" width="1500" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="r-note2" value="缺失依赖按实际原因处理；正常空结果需要所选来源正常完成。" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=Microsoft YaHei;fontColor=#263d57;fontSize=19;" vertex="1" parent="1">
+          <mxGeometry x="50" y="718" width="1500" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="body-title" value="正文读取与安全边界" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=Microsoft YaHei;fontColor=#263d57;fontSize=23;" vertex="1" parent="1">
+          <mxGeometry x="50" y="769" width="1500" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="limits" value="&lt;b&gt;本地开发配置与验收边界&lt;/b&gt;&lt;br&gt;&lt;br&gt;127.0.0.1 · Lite max-workers=1 · P3 写入串行 · 单目录单写入服务 · 重启复用同一物理数据目录&lt;br&gt;Lite 本地开发，无服务端 TLS/RBAC；生产集群、吞吐 SLA、长稳与统计性语义质量未验收。" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff6e6;strokeColor=#dcb86c;fontFamily=Microsoft YaHei;fontSize=19;align=left;spacing=18;" vertex="1" parent="1">
+          <mxGeometry x="50" y="967" width="1575" height="121" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
