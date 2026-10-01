@@ -1,5 +1,7 @@
 # Aether P3 — Agent 持久记忆服务
 
+2026-10-01 Working / Milvus 增量：[本地开发与 PyCharm 配置](docs/p3/development/Working与Milvus_本地开发指南.md)、[当前流程图](docs/p3/architecture/Working与Milvus_当前流程.svg)、[真实功能验收](docs/p3/development/Working与Milvus_验收报告.md)。Working 的语义召回现使用原生 Query 编码与来源过滤后的向量搜索；官方 Lite 已通过本地持久化验证，生产集群仍待验收。
+
 P3 将对话、任务信息和文档保存为可追溯记忆，并按请求身份、来源、版本、有效性及 token 预算返回上下文，供上层 Agent 使用。对外业务是 **Remember（存储记忆）**和 **Recall（召回记忆）**；Operate 是内部持续运行的热度、缓存与恢复机制。
 
 **状态更新：2026-09-30。统一服务已接入 Temporal，启动时必须连接独立 Temporal Server。** 本地验证结果与未验收项见 [Temporal 工程验收](../交付成果/测试与验收/P3_Temporal接入工程验收_20260930.md)，新建与已有目录操作见 [运行和迁移指南](../交付成果/部署运行/P3_Temporal本地运行与迁移指南_20260930.md)。
@@ -238,7 +240,7 @@ Linux/macOS 使用 `export AETHER_DEPLOYMENT_DIR="$HOME/.local/share/aether/p3-c
 | 监测 Web | 已接统一 `/p3` 接口，提供健康、任务、异常和 Trace 瀑布图；尚无跨实例聚合、持久历史指标和云端 APM 接入 |
 | 内部 Operate | 持久热度、定时衰减、缓存准备、读回确认、回收再唤醒已测；当前执行本地文件缓存，生产物理存储迁移待验收 |
 | 文档与模型加工 | 原件上传和解析入口、JSON 模型适配已接通；PDF/DOCX 需可选依赖，真实 LLM 质量及 5 倍压缩指标未验收 |
-| P2 / Milvus | 已有适配和协议测试；真实集群联调待验证 |
+| P2 / Milvus | 官方 Milvus Lite 已通过真实本地验证；P2 与生产 Milvus 集群联调待验证 |
 | 部署与运营 | Docker 实跑、24/72 小时长稳、性能、多实例、完整灾备、Azure/AKS/P4 真实部署待验证 |
 | FR16（P1）预测预热 | 未实现，基础热度调度不能替代预测预热 |
 

@@ -1,11 +1,11 @@
 <?xml version='1.0' encoding='utf-8'?>
-<mxfile host="app.diagrams.net" modified="2026-09-21T00:00:00.000Z" agent="Recall current source diagram" version="24.7.17" type="device">
-  <diagram id="main" name="01 · Recall 主流程">
+<mxfile host="app.diagrams.net" modified="2026-09-21T00:00:00.000Z" agent="Historical basic reference; current Working flow linked from README" version="24.7.17" type="device">
+  <diagram id="main" name="历史 · 01 · Recall 主流程">
     <mxGraphModel dx="2320" dy="1630" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2320" pageHeight="1630" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <object id="title" label="01 · Recall 主流程" source="">
+        <object id="title" label="历史 basic（2026-09-21） · 01 · Recall 主流程" source="">
           <mxCell vertex="1" parent="1" style="text;html=0;fontFamily=Microsoft YaHei;fontSize=28;fontStyle=1;align=left;fontColor=#2F3541;strokeColor=none;fillColor=none;">
             <mxGeometry as="geometry" x="40" y="25" width="2240" height="48" />
           </mxCell>
@@ -291,12 +291,12 @@
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="sources" name="02 · 来源选择与候选发现">
+  <diagram id="sources" name="历史 · 02 · 来源选择与候选发现">
     <mxGraphModel dx="2380" dy="1740" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2380" pageHeight="1740" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <object id="title" label="02 · 来源选择与候选发现" source="">
+        <object id="title" label="历史 basic（2026-09-21） · 02 · 来源选择与候选发现" source="">
           <mxCell vertex="1" parent="1" style="text;html=0;fontFamily=Microsoft YaHei;fontSize=28;fontStyle=1;align=left;fontColor=#2F3541;strokeColor=none;fillColor=none;">
             <mxGeometry as="geometry" x="40" y="25" width="2300" height="48" />
           </mxCell>
@@ -586,12 +586,12 @@
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="decision" name="03 · 重排、组包与结果判定">
+  <diagram id="decision" name="历史 · 03 · 重排、组包与结果判定">
     <mxGraphModel dx="2400" dy="1530" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2400" pageHeight="1530" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <object id="title" label="03 · 重排、组包与结果判定" source="">
+        <object id="title" label="历史 basic（2026-09-21） · 03 · 重排、组包与结果判定" source="">
           <mxCell vertex="1" parent="1" style="text;html=0;fontFamily=Microsoft YaHei;fontSize=28;fontStyle=1;align=left;fontColor=#2F3541;strokeColor=none;fillColor=none;">
             <mxGeometry as="geometry" x="40" y="25" width="2320" height="48" />
           </mxCell>
@@ -957,12 +957,12 @@
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="ops" name="04 · 历史结果、过期处理与追溯">
+  <diagram id="ops" name="历史 · 04 · 历史结果、过期处理与追溯">
     <mxGraphModel dx="2340" dy="1290" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2340" pageHeight="1290" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <object id="title" label="04 · 历史结果、过期处理与追溯" source="">
+        <object id="title" label="历史 basic（2026-09-21） · 04 · 历史结果、过期处理与追溯" source="">
           <mxCell vertex="1" parent="1" style="text;html=0;fontFamily=Microsoft YaHei;fontSize=28;fontStyle=1;align=left;fontColor=#2F3541;strokeColor=none;fillColor=none;">
             <mxGeometry as="geometry" x="40" y="25" width="2260" height="48" />
           </mxCell>
