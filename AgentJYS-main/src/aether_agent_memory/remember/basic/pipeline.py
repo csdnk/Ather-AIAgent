@@ -67,6 +67,10 @@ from .comparison import (
     ConservativeComparison,
     EquivalencePort,
     EquivalenceVerdict,
+    OccurrenceContext,
+    OccurrenceVerdict,
+    discovery_text,
+    occurrence_context,
 )
 from .compression import (
     CompressionPort,
@@ -77,7 +81,7 @@ from .compression import (
 from .content import Bodies
 from .dedup import canonical_text, source_identity, source_signature
 from .eligibility import qualify
-from .extraction import LiteralExtraction
+from .extraction import EvidenceValidationError, LiteralExtraction
 from .policy import RememberPolicy, chunks, importance
 from .projection import projection_target
 from .records import required_record
@@ -89,6 +93,59 @@ from .sources import PreparedDocument, SourceAccess
 from .summaries import SummaryPort, WorkingSummaries
 
 _task_policy: ContextVar[RememberPolicy | None] = ContextVar("remember_task_policy", default=None)
+_task_kind: ContextVar[str | None] = ContextVar("remember_task_kind", default=None)
+
+
+def safe_task_reason(value: Any) -> str | None:
+    if (
+        isinstance(value, str)
+        and 0 < len(value) <= 80
+        and all(char in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_" for char in value)
+    ):
+        return value
+    return None
+
+
+def direct_occurrence_evidence(text: str, evidence: list[dict[str, Any]]) -> set[str]:
+    """Only a directly quoted claim may authorize the exact-evidence shortcut.
+
+    Sharing a broad paragraph is not occurrence identity: it may describe several
+    runs. Such candidates must retain separate proposals and pass contextual review.
+    """
+    return {
+        fingerprint(item)
+        for item in evidence
+        if canonical_text(item.get("quote", "")) == canonical_text(text)
+    }
+
+
+def checkpoint_provider_identity(provider: Any, seen: frozenset[int] = frozenset()) -> Any:
+    """Bind cached model output to public provider identity, never credentials/state.
+
+    Configured model providers expose checkpoint_identity(). Wrappers such as
+    LangMemBatchExtraction and StructuredModel retain that identity through their
+    manager/model/owner links. Do not serialize a provider's __dict__ or config:
+    those may contain clients, headers or credentials.
+    """
+    if provider is None:
+        return None
+    kind = f"{type(provider).__module__}.{type(provider).__qualname__}"
+    if id(provider) in seen:
+        return {"provider": kind, "cycle": True}
+    seen = seen | {id(provider)}
+    declared = getattr(provider, "checkpoint_identity", None)
+    if callable(declared):
+        return {"provider": kind, "identity": declared()}
+    identity: dict[str, Any] = {"provider": kind}
+    for name in ("model_id", "prompt_version"):
+        value = getattr(provider, name, None)
+        if isinstance(value, str):
+            identity[name] = value
+    for name in ("provider", "manager", "model", "owner"):
+        value = getattr(provider, name, None)
+        if value is not None and not isinstance(value, (str, int, float, bool, bytes)):
+            identity[name] = checkpoint_provider_identity(value, seen)
+    return identity
 
 
 @observed("remember")
@@ -157,7 +214,7 @@ class RememberPipeline(Revalidation):
         task_id = super().enqueue(tx, ctx, memory, kind)
         if tx.read("remember_task_policy", task_id) is None:
             tx.write("remember_task_policy", task_id, self.policy.model_dump(mode="json"))
-            tx.write("remember_task_binding", task_id, self.checkpoint_binding())
+            tx.write("remember_task_binding", task_id, self.checkpoint_binding(kind))
         if not tx.read("remember_outbox", task_id):
             tx.write(
                 "remember_outbox",
@@ -398,11 +455,12 @@ class RememberPipeline(Revalidation):
             if candidate.kind == "semantic":
                 return item
             relation = tx.read("remember_relations", key) or {}
-            same_event = candidate.event_key and relation.get("event_key") == candidate.event_key
-            same_evidence = {fingerprint(e) for e in relation.get("evidence", [])} & {
-                fingerprint(e.model_dump(mode="json")) for e in candidate.evidence
-            }
-            if same_event or same_evidence:
+            same_evidence = direct_occurrence_evidence(
+                item.content, relation.get("evidence", [])
+            ) & direct_occurrence_evidence(
+                candidate.text, [e.model_dump(mode="json") for e in candidate.evidence]
+            )
+            if same_evidence:
                 return item
         return None
 
@@ -720,27 +778,42 @@ class RememberPipeline(Revalidation):
         tx.write("remember_batches", task_id, batch)
         return task_id
 
+    @staticmethod
+    def processing_task_closure(
+        tx: SQLiteTransaction, memory_id: str, all_rows: list[dict[str, Any]]
+    ) -> tuple[set[str], set[str]]:
+        # Read batch relations once inside the caller's snapshot. A point lookup
+        # per historical task (and per closure pass) stalls the shared database
+        # transaction during status polling, even when only one memory is relevant.
+        batches = dict(tx.rows("remember_batches"))
+        by_memory: dict[str, list[dict[str, Any]]] = {}
+        for row in all_rows:
+            parents = {row["subject"]["object_id"]}
+            parents.update(r["memory_id"] for r in batches.get(row["task_id"], {}).get("refs", []))
+            for parent in parents:
+                by_memory.setdefault(parent, []).append(row)
+        memory_ids, selected_tasks = {memory_id}, set()
+        pending = [memory_id]
+        while pending:
+            for row in by_memory.get(pending.pop(), []):
+                if row["task_id"] in selected_tasks:
+                    continue
+                selected_tasks.add(row["task_id"])
+                if row.get("result_ref"):
+                    result = required_record(tx, RecordRef.model_validate(row["result_ref"]))
+                    for ref in result.get("memories", []):
+                        if ref["memory_id"] not in memory_ids:
+                            memory_ids.add(ref["memory_id"])
+                            pending.append(ref["memory_id"])
+        return memory_ids, selected_tasks
+
     def processing(self, ctx: TrustedContext, memory_id: str) -> dict[str, Any]:
         with self.uow.transaction() as tx:
             item = self.current(tx, memory_id)
             self.identity.authorize(tx, ctx, Permission.READ, memory_ref(item.ref))
-            all_rows = [row["record"] for _, row in tx.rows("tasks")]
-            memory_ids = {memory_id}
-            selected_tasks: set[str] = set()
-            while True:
-                before = (len(memory_ids), len(selected_tasks))
-                for row in all_rows:
-                    batch = tx.read("remember_batches", row["task_id"]) or {"refs": []}
-                    if row["subject"]["object_id"] not in memory_ids and not any(
-                        r["memory_id"] in memory_ids for r in batch["refs"]
-                    ):
-                        continue
-                    selected_tasks.add(row["task_id"])
-                    if row.get("result_ref"):
-                        result = required_record(tx, RecordRef.model_validate(row["result_ref"]))
-                        memory_ids.update(r["memory_id"] for r in result.get("memories", []))
-                if before == (len(memory_ids), len(selected_tasks)):
-                    break
+            task_envelopes = dict(tx.rows("tasks"))
+            all_rows = [row["record"] for row in task_envelopes.values()]
+            memory_ids, selected_tasks = self.processing_task_closure(tx, memory_id, all_rows)
             rows = [row for row in all_rows if row["task_id"] in selected_tasks]
             current_rows = [
                 r
@@ -771,6 +844,74 @@ class RememberPipeline(Revalidation):
             summary = tx.read("remember_working_summaries", memory_id)
             if summary and summary["state"] == "failed" and state == "completed":
                 state = "completed_with_summary_failure"
+            recovery = None
+            if (
+                item.status == MemoryStatus.ACTIVE
+                and self.identity.permits(tx, ctx, Permission.WRITE, memory_ref(item.ref))
+                and self.final_guard(tx, ctx, (item.ref,), "recall").items[0].decision == "allowed"
+            ):
+                # Keep failures distinct from successful publication. These are existing
+                # authorized commands; no placeholder is indexed and no retry loop is hidden.
+                terminal = {"succeeded", "failed", "cancelled", "attention_required"}
+                latest = {
+                    r["kind"]: r for r in current_rows if r["subject"]["object_id"] == memory_id
+                }
+                summary_task = latest.get("remember.summarize")
+                projection_task = latest.get("remember.project")
+                extraction_task = latest.get("remember.extract")
+                summary_busy = summary_task and (
+                    summary_task["state"] not in terminal
+                    or summary_task["effect_status"] == "unknown"
+                )
+                projection_busy = projection_task and (
+                    projection_task["state"] not in terminal
+                    or projection_task["effect_status"] == "unknown"
+                )
+                action = reason = None
+                if (
+                    summary
+                    and summary["memory"] == item.ref.model_dump(mode="json")
+                    and summary["state"] != "ready"
+                    and not summary_busy
+                    and (
+                        summary["state"] == "failed"
+                        or summary_task
+                        and summary_task["state"] in {"failed", "attention_required"}
+                    )
+                ):
+                    action, reason = "reprocess", "working_summary_failed"
+                elif (
+                    self.projection_buildable(tx, item)
+                    and not projection_busy
+                    and (
+                        item.projection_state == ProjectionState.FAILED
+                        or projection_task
+                        and projection_task["state"] in {"failed", "attention_required"}
+                    )
+                ):
+                    action, reason = "reindex", "projection_failed"
+                elif (
+                    item.kind == MemoryKind.WORKING
+                    and extraction_task
+                    and extraction_task["state"] in {"failed", "attention_required"}
+                    and extraction_task["effect_status"] != "unknown"
+                    and not summary_busy
+                ):
+                    action, reason = "reprocess", "working_extraction_failed"
+                if action:
+                    recovery = {
+                        "action": action,
+                        "method": "POST",
+                        "path": f"/p3/remember/{memory_id}/{action}",
+                        "reason": reason,
+                        "requires_new_operation_id": True,
+                    }
+            current_task_ids = {r["task_id"] for r in current_rows}
+            rejections = [
+                row
+                for _, row in tx.rows("remember_support_verifications")
+                if row["task_id"] in current_task_ids and row["status"] == "rejected"
+            ]
             return {
                 "memory": item.ref.model_dump(mode="json"),
                 "state": state,
@@ -781,12 +922,23 @@ class RememberPipeline(Revalidation):
                 "memory_status": item.status.value,
                 "projection_state": item.projection_state.value,
                 "derived_memory_ids": sorted(memory_ids - {memory_id}),
+                "rejected_candidate_count": len(rejections),
+                "candidate_rejections": rejections,
                 "tasks": [
-                    {k: r.get(k) for k in ("task_id", "kind", "state", "error_code", "result_ref")}
+                    {
+                        **{
+                            k: r.get(k)
+                            for k in ("task_id", "kind", "state", "error_code", "result_ref")
+                        },
+                        "terminal_reason": safe_task_reason(
+                            task_envelopes[r["task_id"]].get("terminal_reason")
+                        ),
+                    }
                     for r in rows
                 ],
                 "artifact": tx.read("remember_artifacts", self.refkey(item.ref)),
                 "working_summary": summary,
+                "recovery": recovery,
                 "sources": [s.model_dump(mode="json") for s in item.sources],
                 "physical_erasure": False,
                 "source_retention": "retained",
@@ -862,7 +1014,7 @@ class RememberPipeline(Revalidation):
             with self.uow.transaction() as tx:
                 key, _ = self.replay(tx, ctx, "correct_" + memory_id, request)
                 prior = tx.read("remember_working_summaries", memory_id)
-            if prior or self.summaries.needed(request.content, request.source.kind == "document"):
+            if self.summaries.needed(request.content, request.source.kind == "document"):
                 source = SourceRef(
                     source_id=fingerprint([key, "correction_source"]),
                     source_version=1,
@@ -889,9 +1041,7 @@ class RememberPipeline(Revalidation):
         request: CorrectionRequest,
     ) -> str:
         prior = tx.read("remember_working_summaries", item.ref.memory_id)
-        summarize = bool(prior) or self.summaries.needed(
-            request.content, request.source.kind == "document"
-        )
+        summarize = self.summaries.needed(request.content, request.source.kind == "document")
         new_ref = item.ref.model_copy(update={"version": item.ref.version + 1})
         if summarize:
             task_context = (prior or {}).get("task_context", "")
@@ -901,6 +1051,12 @@ class RememberPipeline(Revalidation):
             )
         else:
             body = request.content
+            if prior:
+                # Keep the old version binding for audit; it cannot schedule a summary
+                # or overwrite this short correction under an earlier worker lease.
+                tx.write(
+                    "remember_working_summaries", item.ref.memory_id, {**prior, "state": "obsolete"}
+                )
         tx.write(
             "remember_pending",
             item.ref.memory_id,
@@ -1071,9 +1227,11 @@ class RememberPipeline(Revalidation):
         token = _task_policy.set(
             RememberPolicy.model_validate(saved_policy) if saved_policy else self._policy
         )
+        kind_token = _task_kind.set(task.kind)
         try:
             return await self.run_bound(ctx, task)
         finally:
+            _task_kind.reset(kind_token)
             _task_policy.reset(token)
 
     async def prepare_background(
@@ -1190,13 +1348,34 @@ class RememberPipeline(Revalidation):
             return await self.cleanup(ctx, task, items[0])
         return await self.project(ctx, task, items[0])
 
-    def checkpoint_binding(self) -> str:
+    def checkpoint_binding(self, kind: str | None = None) -> str:
+        kind = kind or _task_kind.get()
+        processing = ("extraction", "comparison", "equivalence_verifier", "support_verifier")
+        providers = {
+            "remember.extract": processing,
+            "remember.distill": processing,
+            "remember.summarize": ("summaries",),
+            "remember.compress": ("compressor", "quality"),
+            "remember.revalidate": ("support_verifier",),
+            "remember.project": (),
+            "remember.cleanup": (),
+        }.get(kind or "", (*processing, "compressor", "quality", "summaries"))
         return fingerprint(
             [
+                # Do not replay old key-only merge decisions under the new
+                # occurrence evidence policy. Storage-only tasks stay compatible.
+                "remember_occurrence_checkpoint_v6"
+                if kind in {None, "remember.extract", "remember.distill"}
+                else "remember_processing_checkpoint_v2",
+                kind,
                 self.policy.model_dump(mode="json"),
                 self.model_space,
                 self.tokenizer.identifier,
                 getattr(self, "embedding_tokenizer_id", self.tokenizer.identifier),
+                {
+                    name: checkpoint_provider_identity(getattr(self, name, None))
+                    for name in providers
+                },
             ]
         )
 
@@ -1219,12 +1398,15 @@ class RememberPipeline(Revalidation):
     async def generate_compression(
         self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot
     ) -> dict[str, Any]:
+        from .compression_attempts import compress_part
+
         output_text = ""
         result: dict[str, Any] = {
             "quality": "failed",
             "published": False,
             "reason": "compression_or_quality_provider_not_configured",
             "target_ratio": self.policy.compression_target_ratio,
+            "ratio_required": self.policy.compression_require_ratio,
             "original_bytes": len(item.content.encode("utf-8")),
         }
         if self.compressor is not None and self.quality is not None:
@@ -1238,6 +1420,7 @@ class RememberPipeline(Revalidation):
                         item.content_hash,
                         index,
                         text_hash(text),
+                        "quality_repair_v1",
                     ]
                 )
                 with self.uow.transaction() as tx:
@@ -1253,14 +1436,9 @@ class RememberPipeline(Revalidation):
                             config_version=self.policy.version,
                         )
                 if checkpoint is None:
-                    self.consume_call(task)
-                    output = await self.compressor.compress(ctx, text)
-                    self.consume_call(task)
-                    quality = await self.quality.verify(ctx, text, output.text)
+                    part = await compress_part(self, ctx, task, text, checkpoint_key)
                     checkpoint = {
-                        "text": output.text,
-                        "strategy": output.strategy,
-                        "quality": quality.model_dump(mode="json"),
+                        **part,
                         "start_char": start,
                         "end_char": end,
                     }
@@ -1287,14 +1465,17 @@ class RememberPipeline(Revalidation):
                 and not r["quality"].get("critical_unknowns")
                 for r in reports
             )
-            ratio_met = ratio >= self.policy.compression_target_ratio
+            # Keep the target visible even when ratio is advisory. Quality is never optional.
+            ratio_met = ratio >= max(5.0, self.policy.compression_target_ratio)
             result.update(
                 ratio=ratio,
                 ratio_met=ratio_met,
+                quality="passed" if quality_ok else "failed",
                 stored_bytes=size,
                 token_ratio=self.tokenizer.count(item.content)
                 / max(1, self.tokenizer.count(output_text)),
                 quality_evidence=[r["quality"] for r in reports],
+                quality_attempts=[r.get("attempts", 1) for r in reports],
                 covered_ranges=[[r["start_char"], r["end_char"]] for r in reports],
                 strategy="chunked_quality_v3",
                 reason="quality_rejected" if not quality_ok else "ratio_unmet",
@@ -1307,7 +1488,8 @@ class RememberPipeline(Revalidation):
                 result.update(
                     quality="passed",
                     published=True,
-                    reason="quality_and_ratio_passed" if ratio_met else "usable_ratio_unmet",
+                    reason="quality_and_ratio_passed"
+                    if ratio_met else "quality_passed_ratio_target_unmet",
                     location=location.model_copy(update={"kind": "artifact"}).model_dump(
                         mode="json"
                     ),
@@ -1341,6 +1523,68 @@ class RememberPipeline(Revalidation):
                 updated = self.change(tx, self.current(tx, item.ref.memory_id))
                 self.emit(tx, ctx, updated, "artifact_ready")
             return self.finish(tx, ctx, task, result)
+
+    async def occurrence_evidence_context(
+        self,
+        ctx: TrustedContext,
+        task: TaskRecord,
+        candidate: CandidateFact,
+        target: MemorySnapshot,
+        relation: dict[str, Any],
+        items: tuple[MemorySnapshot, ...],
+    ) -> OccurrenceContext | None:
+        existing = occurrence_context(candidate, target, relation, items)
+        if existing is not None:
+            return existing
+        # Only fetch complete bounded originals. Long sources require a separately
+        # designed contextual reader; an arbitrary excerpt cannot prove identity.
+        originals = list(items)
+        for source in target.sources:
+            if any(source in item.sources for item in originals):
+                continue
+            try:
+                with self.uow.transaction() as tx:
+                    self.tasks.guard(tx, task)
+                    self.source_access.checked(tx, ctx, source)
+                    manifest = tx.read("remember_source_ranges", source.source_id)
+                    if (
+                        not manifest
+                        or manifest["source"] != source.model_dump(mode="json")
+                        or not 0 < manifest["chars"] <= 8192
+                    ):
+                        continue
+                    size = manifest["chars"]
+                page = await self.source_access.read(ctx, source, 0, size)
+                text = page["content"]
+                if not page["is_complete"] or text_hash(text) != source.content_hash:
+                    continue
+                with self.uow.transaction() as tx:
+                    self.tasks.guard(tx, task)
+                    self.source_access.checked(tx, ctx, source)
+                originals.append(
+                    target.model_copy(
+                        update={
+                            "content": text,
+                            "content_hash": source.content_hash,
+                            "sources": (source,),
+                        }
+                    )
+                )
+            except FoundationError as exc:
+                if exc.code not in {
+                    ErrorCode.NOT_FOUND,
+                    ErrorCode.MEMORY_GONE,
+                    ErrorCode.FORBIDDEN,
+                    ErrorCode.DEPENDENCY_UNAVAILABLE,
+                }:
+                    raise
+                continue
+            except (OSError, TimeoutError):
+                continue
+            found = occurrence_context(candidate, target, relation, tuple(originals))
+            if found is not None:
+                return found
+        return None
 
     def validate_candidate(
         self, candidate: CandidateFact, items: tuple[MemorySnapshot, ...]
@@ -1410,6 +1654,8 @@ class RememberPipeline(Revalidation):
                 if type(self.extraction) is LiteralExtraction:
                     with self.uow.transaction() as tx:
                         summary = tx.read("remember_working_summaries", item.ref.memory_id)
+                        if summary and summary["memory"] != item.ref.model_dump(mode="json"):
+                            summary = None
                         if summary:
                             # A file is not automatically one giant event. The literal
                             # short-text demo adapter cannot judge a document's value.
@@ -1499,7 +1745,8 @@ class RememberPipeline(Revalidation):
                         )
                         found.append(candidate.model_copy(update={"evidence": evidence}))
         merged: dict[Any, CandidateFact] = {}
-        for candidate in found:
+        rejections: dict[str, dict[str, Any]] = {}
+        for candidate_index, candidate in enumerate(found):
             candidate = self.validate_candidate(candidate, items)
             quotes = "\n".join(e.quote for e in candidate.evidence)
             if candidate.text not in quotes:
@@ -1508,27 +1755,58 @@ class RememberPipeline(Revalidation):
                         ErrorCode.CONTRACT_VIOLATION,
                         "paraphrased candidate requires an independent support verifier",
                     )
-                self.consume_call(task)
-                if not await self.support_verifier.verify(ctx, candidate, quotes):
-                    raise FoundationError(
-                        ErrorCode.CONTRACT_VIOLATION, "evidence does not support claim"
-                    )
+                candidate_hash = fingerprint(candidate.model_dump(mode="json"))
+                binding = self.checkpoint_binding()
+                verification_key = fingerprint([task.task_id, binding, candidate_hash])
+                with self.uow.transaction() as tx:
+                    verification = tx.read("remember_support_verifications", verification_key)
+                if verification is None:
+                    self.consume_call(task)
+                    # Provider failures must propagate: unavailable evidence is not
+                    # a negative verdict and must remain retryable without a cache entry.
+                    supported = await self.support_verifier.verify(ctx, candidate, quotes)
+                    if not isinstance(supported, bool):
+                        raise FoundationError(
+                            ErrorCode.CONTRACT_VIOLATION, "invalid support verifier verdict"
+                        )
+                    verification = {
+                        "task_id": task.task_id,
+                        "binding": binding,
+                        "candidate_hash": candidate_hash,
+                        "sources": [s.model_dump(mode="json") for s in candidate.sources],
+                        "evidence": [e.model_dump(mode="json") for e in candidate.evidence],
+                        "status": "supported" if supported else "rejected",
+                        "reason": "evidence_supports_claim"
+                        if supported
+                        else "evidence_does_not_support_claim",
+                    }
+                    with self.uow.transaction() as tx:
+                        self.tasks.guard(tx, task)
+                        tx.write("remember_support_verifications", verification_key, verification)
+                if verification["status"] == "rejected":
+                    rejections[verification_key] = verification
+                    continue
             # Identical words in distinct events or source ranges are not one occurrence.
-            identity = (
-                candidate.event_key
-                or tuple((e.source.source_id, e.start_char, e.end_char) for e in candidate.evidence)
-                if candidate.kind == "episodic"
-                else candidate.fact_key
-            )
-            key = (
-                (candidate.kind, identity)
-                if candidate.event_key
-                else (
+            key: tuple[Any, ...]
+            if candidate.kind == "episodic":
+                # Generated keys are hints, including when they collide. Only identical
+                # claims grounded in the same exact evidence may coalesce before review.
+                key = (
                     candidate.kind,
                     canonical_text(candidate.text),
-                    identity if candidate.kind == "episodic" else None,
+                    tuple(
+                        sorted(fingerprint(e.model_dump(mode="json")) for e in candidate.evidence)
+                    ),
+                    None
+                    if direct_occurrence_evidence(
+                        candidate.text, [e.model_dump(mode="json") for e in candidate.evidence]
+                    )
+                    else candidate_index,
                 )
-            )
+            else:
+                # A generated fact/event key identifies a retrieval candidate, not
+                # evidence that different clauses should be concatenated into one fact.
+                key = (candidate.kind, canonical_text(candidate.text))
             if key in merged:
                 old = merged[key]
                 candidate = candidate.model_copy(
@@ -1565,6 +1843,7 @@ class RememberPipeline(Revalidation):
                 {
                     "binding": self.checkpoint_binding(),
                     "candidates": [c.model_dump(mode="json") for c in merged.values()],
+                    "rejections": list(rejections.values()),
                 },
             )
         return tuple(merged.values())
@@ -1626,7 +1905,7 @@ class RememberPipeline(Revalidation):
         found: list[CandidateFact] = []
         try:
             for group in groups:
-                kwargs = {}
+                kwargs: dict[str, Any] = {}
                 if getattr(self.extraction, "supports_representations", False):
                     kwargs["representations"] = [
                         {"source_id": s.source_id, "text": summary}
@@ -1667,9 +1946,24 @@ class RememberPipeline(Revalidation):
                                 )
                             )
                             break
-                        except ValueError:
+                        except ValueError as exc:
                             if repair == 2:
-                                raise
+                                raise FoundationError(
+                                    ErrorCode.CONTRACT_VIOLATION,
+                                    "model extraction evidence invalid after bounded repair",
+                                ) from exc
+                            if getattr(self.extraction, "supports_evidence_repair", False):
+                                kwargs["repair_feedback"] = {
+                                    **(
+                                        exc.feedback
+                                        if isinstance(exc, EvidenceValidationError)
+                                        else {"reason": "invalid_extraction_schema"}
+                                    ),
+                                    "attempt": repair + 1,
+                                    "instruction": "Regenerate the complete result. Copy exact "
+                                    "unique source quotes including whitespace, punctuation and "
+                                    "Markdown. Never invent missing evidence or source IDs.",
+                                }
                     with self.uow.transaction() as tx:
                         if task is not None:
                             self.tasks.guard(tx, task)
@@ -1788,6 +2082,11 @@ class RememberPipeline(Revalidation):
                     canonical_text(item.content) == canonical_text(candidate.text)
                     and item.kind.value == candidate.kind
                 )
+                near_exact = bool(
+                    item.kind.value == candidate.kind
+                    and discovery_text(candidate.text)
+                    and discovery_text(item.content) == discovery_text(candidate.text)
+                )
                 stable = bool(
                     candidate.fact_key
                     and relation.get("fact_key") == candidate.fact_key
@@ -1796,11 +2095,17 @@ class RememberPipeline(Revalidation):
                 )
                 if (
                     exact
+                    or near_exact
                     or stable
                     or key in discovered
                     or item.projection_state != ProjectionState.READY
                 ):
-                    eligible.append((0 if exact or stable else 1 if key in discovered else 2, item))
+                    eligible.append(
+                        (
+                            0 if exact or near_exact or stable else 1 if key in discovered else 2,
+                            item,
+                        )
+                    )
             rank = {key: index for index, key in reversed(list(enumerate(discovered)))}
             eligible.sort(
                 key=lambda x: (x[0], rank.get(x[1].ref.memory_id, len(rank)), x[1].ref.memory_id)
@@ -1813,7 +2118,9 @@ class RememberPipeline(Revalidation):
         for _ in range(self.policy.max_commit_retries + 1):
             prepared = await self.generate_extraction(ctx, task, items)
             for candidate, decision, _ in prepared["proposals"]:
-                if decision["outcome"] not in {"no_change", "equivalent", "reject"}:
+                # Commit may preserve an earlier equivalence as a conflict after
+                # a batch amendment. Its immutable body must already be confirmed.
+                if decision["outcome"] != "reject":
                     await self.bodies.persist(ctx, items[0].ref.scope, candidate["text"])
             result = self.commit_extraction(ctx, task, items, prepared)
             if result is not None:
@@ -1832,24 +2139,67 @@ class RememberPipeline(Revalidation):
             candidates = tuple(c for c in candidates if c.kind == "semantic")
         with self.uow.transaction() as tx:
             batch = tx.read("remember_batches", task.task_id)
+            candidate_checkpoint = tx.read("remember_candidates", task.task_id) or {}
+            rejections = candidate_checkpoint.get("rejections", [])
         refs = (
             tuple(MemoryRef.model_validate(r) for r in batch["refs"])
             if batch
             else tuple(x.ref for x in items)
         )
         with self.uow.transaction() as tx:
+            self.tasks.guard(tx, task)
             attempt = (tx.read("remember_comparison_retries", task.task_id) or {}).get(
                 "attempts", 0
             )
-        if attempt > self.policy.max_commit_retries:
-            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "comparison retry budget exhausted")
-        with self.uow.transaction() as tx:
+            if attempt > self.policy.max_commit_retries:
+                raise FoundationError(
+                    ErrorCode.CONTRACT_VIOLATION, "comparison retry budget exhausted"
+                )
             space_key = self.space_key(items[0].ref.scope)
             expected_space_seq = tx.read("remember_space_seq", space_key) or 0
+            source_binding = self.comparison_source_binding(tx, items)
+            processing_binding = self.checkpoint_binding()
+            checkpoint_key = fingerprint(
+                [
+                    "remember_comparison_candidates_v1",
+                    task.task_id,
+                    task.kind,
+                    task.input_ref.model_dump(mode="json"),
+                    processing_binding,
+                    attempt,
+                    space_key,
+                    expected_space_seq,
+                    source_binding,
+                    [r.model_dump(mode="json") for r in refs],
+                    [item.model_dump(mode="json") for item in items],
+                    [candidate.model_dump(mode="json") for candidate in candidates],
+                ]
+            )
+            checkpoint = tx.read("remember_comparison_parts", checkpoint_key)
         proposals: list[tuple[CandidateFact, ComparisonDecision, MemorySnapshot | None]] = []
         virtual: dict[str, MemorySnapshot] = {}
         virtual_relations: dict[str, Any] = {}
-        for candidate in candidates:
+        cursor = 0
+        if checkpoint is not None:
+            cursor = checkpoint["cursor"]
+            if type(cursor) is not int or not 0 <= cursor <= len(candidates):
+                raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "invalid comparison cursor")
+            proposals = [
+                (
+                    self.validate_candidate(CandidateFact.model_validate(c), items),
+                    ComparisonDecision.model_validate(d),
+                    MemorySnapshot.model_validate(t) if t else None,
+                )
+                for c, d, t in checkpoint["proposals"]
+            ]
+            # A list preserves candidate order through the canonical JSON encoder;
+            # a map would sort virtual IDs and change later model request order.
+            for raw_virtual in checkpoint["virtual"]:
+                item = MemorySnapshot.model_validate(raw_virtual)
+                virtual[item.ref.memory_id] = item
+            virtual_relations = checkpoint["virtual_relations"]
+        for candidate_index, candidate in enumerate(candidates[cursor:], start=cursor):
+            verified_amend_identity = False
             existing: tuple[MemorySnapshot, ...]
             with self.uow.transaction() as tx:
                 duplicate = self.duplicate_in(tx, ctx, candidate, items[0].ref.scope)
@@ -1888,25 +2238,32 @@ class RememberPipeline(Revalidation):
                     raw_decision = await self.comparison.compare(ctx, candidate, existing)
                 decision = ComparisonDecision.model_validate(raw_decision)
             target = next((x for x in existing if x.ref.memory_id == decision.target_id), None)
-            if decision.outcome == "create" and candidate.event_key:
-                with self.uow.transaction() as tx:
-                    same_events = [
-                        x
-                        for x in existing
-                        if (tx.read("remember_relations", x.ref.memory_id) or {}).get("event_key")
-                        == candidate.event_key
-                        and x.kind == MemoryKind.EPISODIC
-                    ]
-                if len(same_events) == 1:
-                    target = same_events[0]
+            if decision.outcome == "create":
+                # A model may overlook punctuation variants across chunks or batches.
+                # Discovery never authorizes merging: independent conditions and event
+                # identity checks below still decide whether this is the same memory.
+                repeated = next(
+                    (
+                        item
+                        for item in existing
+                        if item.kind.value == candidate.kind
+                        and discovery_text(candidate.text)
+                        and discovery_text(item.content) == discovery_text(candidate.text)
+                        and (
+                            candidate.kind == "semantic"
+                            or any(source in item.sources for source in candidate.sources)
+                        )
+                    ),
+                    None,
+                )
+                if repeated is not None:
+                    target = repeated
                     decision = ComparisonDecision(
                         outcome="no_change"
-                        if target.content == candidate.text
-                        else "amend"
-                        if target.content in candidate.text
-                        else "conflict",
+                        if canonical_text(target.content) == canonical_text(candidate.text)
+                        else "equivalent",
                         target_id=target.ref.memory_id,
-                        reason="stable_event_identity",
+                        reason="near_exact_requires_identity_and_conditions_verification",
                     )
             if (
                 decision.outcome in {"no_change", "equivalent", "amend", "correct", "conflict"}
@@ -1917,73 +2274,164 @@ class RememberPipeline(Revalidation):
                 )
             if decision.outcome in {"create", "reject"} and decision.target_id is not None:
                 raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "unexpected comparison target")
-            if (
-                decision.outcome == "no_change"
-                and target is not None
-                and (
-                    canonical_text(target.content) != canonical_text(candidate.text)
-                    or target.kind.value != candidate.kind
-                )
-            ):
-                raise FoundationError(
-                    ErrorCode.CONTRACT_VIOLATION,
-                    "semantic similarity is not proof of duplicate",
-                )
+            if decision.outcome == "no_change" and target is not None:
+                if target.kind.value != candidate.kind:
+                    raise FoundationError(
+                        ErrorCode.CONTRACT_VIOLATION, "duplicate target kind mismatch"
+                    )
+                if canonical_text(target.content) != canonical_text(candidate.text):
+                    # A model may use NONE for paraphrases. Require the same independent
+                    # identity/condition check as an explicit equivalence proposal.
+                    decision = decision.model_copy(
+                        update={
+                            "outcome": "equivalent",
+                            "reason": "model_no_change_requires_equivalence_verification: "
+                            + decision.reason,
+                        }
+                    )
             if decision.outcome == "no_change" and candidate.kind == "episodic":
                 assert target is not None
                 with self.uow.transaction() as tx:
-                    relation = tx.read("remember_relations", target.ref.memory_id) or {}
+                    relation = tx.read(
+                        "remember_relations", target.ref.memory_id
+                    ) or virtual_relations.get(target.ref.memory_id, {})
                 same_origin = bool(
-                    {fingerprint(e) for e in relation.get("evidence", [])}
-                    & {fingerprint(e.model_dump(mode="json")) for e in candidate.evidence}
-                )
-                same_event = bool(
-                    candidate.event_key and relation.get("event_key") == candidate.event_key
-                )
-                if not same_origin and not same_event:
-                    decision = ComparisonDecision(
-                        outcome="create", reason="same_text_does_not_prove_same_event"
+                    direct_occurrence_evidence(target.content, relation.get("evidence", []))
+                    & direct_occurrence_evidence(
+                        candidate.text, [e.model_dump(mode="json") for e in candidate.evidence]
                     )
-                    target = None
-            if decision.outcome == "equivalent":
+                )
+                if not same_origin:
+                    decision = ComparisonDecision(
+                        outcome="equivalent",
+                        target_id=target.ref.memory_id,
+                        reason="same_text_requires_occurrence_verification",
+                    )
+            if decision.outcome == "equivalent" or (
+                decision.outcome == "amend"
+                and candidate.kind == "episodic"
+                and target is not None
+                and target.kind == MemoryKind.EPISODIC
+            ):
+                checking_amend = decision.outcome == "amend"
                 if target is None or target.kind.value != candidate.kind:
                     raise FoundationError(
                         ErrorCode.CONTRACT_VIOLATION, "equivalence target kind mismatch"
                     )
-                if self.equivalence_verifier is None:
+                with self.uow.transaction() as tx:
+                    relation = tx.read(
+                        "remember_relations", target.ref.memory_id
+                    ) or virtual_relations.get(target.ref.memory_id, {})
+                same_evidence = bool(
+                    direct_occurrence_evidence(target.content, relation.get("evidence", []))
+                    & direct_occurrence_evidence(
+                        candidate.text, [e.model_dump(mode="json") for e in candidate.evidence]
+                    )
+                )
+                identity_known = candidate.kind == "semantic" or same_evidence
+                alias_context = None
+                verifier = self.equivalence_verifier
+                verify_occurrence = getattr(verifier, "verify_occurrence", None)
+                if not identity_known and callable(verify_occurrence):
+                    import json
+
+                    alias_context = await self.occurrence_evidence_context(
+                        ctx, task, candidate, target, relation, items
+                    )
+                    if alias_context is not None:
+                        context_tokens = self.tokenizer.count(
+                            json.dumps(
+                                {
+                                    "candidate": candidate.model_dump(mode="json"),
+                                    "existing": target.model_dump(mode="json"),
+                                    "occurrence_context": alias_context.model_dump(mode="json"),
+                                },
+                                ensure_ascii=False,
+                            )
+                        )
+                        if context_tokens > self.policy.comparison_context_tokens:
+                            alias_context = None
+                if candidate.kind == "semantic" and verifier is None:
                     raise FoundationError(
                         ErrorCode.DEPENDENCY_UNAVAILABLE,
                         "semantic equivalence verifier is not configured",
                     )
-                self.consume_call(task)
-                verdict = EquivalenceVerdict.model_validate(
-                    await self.equivalence_verifier.verify(ctx, candidate, target)
-                )
-                with self.uow.transaction() as tx:
-                    self.tasks.guard(tx, task)
-                    tx.write(
-                        "remember_equivalence_checks",
-                        fingerprint([task.task_id, attempt, len(proposals)]),
-                        verdict.model_dump(mode="json"),
+                # A directly quoted claim establishes occurrence identity, not that added
+                # statements preserve the old claim. Any changed text needs a verifier.
+                verified = checking_amend and same_evidence and candidate.text == target.content
+                if verified:
+                    with self.uow.transaction() as tx:
+                        self.tasks.guard(tx, task)
+                        tx.write(
+                            "remember_equivalence_checks",
+                            fingerprint([task.task_id, attempt, len(proposals)]),
+                            {
+                                "same_occurrence": True,
+                                "basis": "exact_shared_evidence",
+                                "evidence": [e.model_dump(mode="json") for e in candidate.evidence],
+                                "candidate_event_key": candidate.event_key,
+                                "existing_event_key": relation.get("event_key"),
+                                "compared_memory": target.ref.model_dump(mode="json"),
+                                "compared_object_revision": target.object_revision,
+                                "compared_content_hash": target.content_hash,
+                            },
+                        )
+                elif (identity_known and verifier is not None) or alias_context is not None:
+                    self.consume_call(task)
+                    verdict: EquivalenceVerdict
+                    if alias_context is not None:
+                        assert callable(verify_occurrence)
+                        occurrence_verdict = OccurrenceVerdict.model_validate(
+                            await verify_occurrence(ctx, candidate, target, alias_context)
+                        )
+                        occurrence_verified = (
+                            occurrence_verdict.same_occurrence
+                            and occurrence_verdict.candidate_context_quote
+                            == alias_context.candidate_context.quote
+                            and occurrence_verdict.existing_context_quote
+                            == alias_context.existing_context.quote
+                        )
+                        verdict = occurrence_verdict
+                    else:
+                        assert verifier is not None
+                        verdict = EquivalenceVerdict.model_validate(
+                            await verifier.verify(ctx, candidate, target)
+                        )
+                        occurrence_verified = identity_known
+                    audit = verdict.model_dump(mode="json")
+                    if alias_context is not None:
+                        # Audit is tied to this target version and immutable source;
+                        # no global alias map or future identity shortcut is created.
+                        audit.update(
+                            occurrence_context=alias_context.model_dump(mode="json"),
+                            candidate_event_key=candidate.event_key,
+                            existing_event_key=relation.get("event_key"),
+                            compared_memory=target.ref.model_dump(mode="json"),
+                            compared_object_revision=target.object_revision,
+                            compared_content_hash=target.content_hash,
+                        )
+                    with self.uow.transaction() as tx:
+                        self.tasks.guard(tx, task)
+                        tx.write(
+                            "remember_equivalence_checks",
+                            fingerprint([task.task_id, attempt, len(proposals)]),
+                            audit,
+                        )
+                    verified = (
+                        (checking_amend or verdict.equivalent)
+                        and verdict.same_identity
+                        and verdict.preserves_conditions
+                        and verdict.candidate_quote == candidate.text
+                        and verdict.existing_quote == target.content
+                        and occurrence_verified
                     )
-                    relation = tx.read(
-                        "remember_relations", target.ref.memory_id
-                    ) or virtual_relations.get(target.ref.memory_id, {})
-                same_event = candidate.kind == "semantic" or bool(
-                    candidate.event_key and candidate.event_key == relation.get("event_key")
-                )
-                if not (
-                    verdict.equivalent
-                    and verdict.same_identity
-                    and verdict.preserves_conditions
-                    and verdict.candidate_quote == candidate.text
-                    and verdict.existing_quote == target.content
-                    and same_event
-                ):
+                if not verified:
                     decision = ComparisonDecision(
                         outcome="create", reason="equivalence_not_verified_preserve_candidate"
                     )
                     target = None
+                elif checking_amend:
+                    verified_amend_identity = True
             if decision.outcome == "correct":
                 # Model proposals preserve both facts until an explicit correction.
                 decision = decision.model_copy(
@@ -1996,17 +2444,43 @@ class RememberPipeline(Revalidation):
             if decision.outcome == "amend":
                 assert target is not None
                 with self.uow.transaction() as tx:
-                    relation = tx.read("remember_relations", target.ref.memory_id) or {}
-                    self.identity.authorize(tx, ctx, Permission.CORRECT, memory_ref(target.ref))
-                if not (
+                    relation = tx.read(
+                        "remember_relations", target.ref.memory_id
+                    ) or virtual_relations.get(target.ref.memory_id, {})
+                same_event = bool(
                     candidate.kind == "episodic"
-                    and candidate.event_key
-                    and relation.get("event_key") == candidate.event_key
-                    and target.content in candidate.text
-                ):
-                    raise FoundationError(
-                        ErrorCode.CONTRACT_VIOLATION,
-                        "amend requires same event and supported additive content",
+                    and target.kind == MemoryKind.EPISODIC
+                    and verified_amend_identity
+                )
+                if same_event and target.content in candidate.text:
+                    if relation.get("event_key"):
+                        # Only this verified proposal is bound to the canonical key for
+                        # commit's existing CAS check. The audit retains the generated key.
+                        candidate = candidate.model_copy(
+                            update={"event_key": relation["event_key"]}
+                        )
+                        with self.uow.transaction() as tx:
+                            self.identity.authorize(
+                                tx, ctx, Permission.CORRECT, memory_ref(target.ref)
+                            )
+                    else:
+                        decision = decision.model_copy(
+                            update={
+                                "outcome": "conflict",
+                                "reason": "verified_occurrence_has_no_canonical_key_preserve_both",
+                            }
+                        )
+                elif candidate.kind == "episodic" and not same_event:
+                    decision = ComparisonDecision(
+                        outcome="create", reason="unverified_event_identity_preserve_occurrence"
+                    )
+                    target = None
+                else:
+                    decision = decision.model_copy(
+                        update={
+                            "outcome": "conflict",
+                            "reason": "unverified_amendment_preserve_both: " + decision.reason,
+                        }
                     )
             proposals.append((candidate, decision, target))
             if decision.outcome in {"create", "conflict"}:
@@ -2022,12 +2496,50 @@ class RememberPipeline(Revalidation):
                         "sources": candidate.sources,
                         "revision": 1,
                         "object_revision": 1,
+                        "supersedes": None,
+                        "projection_state": ProjectionState.PENDING,
+                        "model_space": None,
                     }
                 )
                 virtual_relations[virtual_id] = {
                     "event_key": candidate.event_key,
                     "fact_key": candidate.fact_key,
+                    "evidence": [entry.model_dump(mode="json") for entry in candidate.evidence],
                 }
+            # Only fully validated decisions and their resulting virtual state are
+            # durable. A failed model/verifier call cannot advance this cursor.
+            # Keep the input index independent from proposals (e.g. rejection or
+            # future skip branches); retrying must never shift candidate identity.
+            with self.uow.transaction() as tx:
+                self.tasks.guard(tx, task)
+                if (
+                    (tx.read("remember_space_seq", space_key) or 0) == expected_space_seq
+                    and (tx.read("remember_comparison_retries", task.task_id) or {}).get(
+                        "attempts", 0
+                    )
+                    == attempt
+                    and self.comparison_source_binding(tx, items) == source_binding
+                    and self.checkpoint_binding() == processing_binding
+                ):
+                    tx.write(
+                        "remember_comparison_parts",
+                        checkpoint_key,
+                        {
+                            "task_id": task.task_id,
+                            "binding": checkpoint_key,
+                            "cursor": candidate_index + 1,
+                            "proposals": [
+                                [
+                                    c.model_dump(mode="json"),
+                                    d.model_dump(mode="json"),
+                                    t.model_dump(mode="json") if t else None,
+                                ]
+                                for c, d, t in proposals
+                            ],
+                            "virtual": [v.model_dump(mode="json") for v in virtual.values()],
+                            "virtual_relations": virtual_relations,
+                        },
+                    )
         return {
             "attempt": attempt,
             "space_key": space_key,
@@ -2035,6 +2547,7 @@ class RememberPipeline(Revalidation):
             "refs": [r.model_dump(mode="json") for r in refs],
             "virtual": list(virtual),
             "candidate_count": len(candidates),
+            "candidate_rejections": rejections,
             "proposals": [
                 [
                     c.model_dump(mode="json"),
@@ -2044,6 +2557,22 @@ class RememberPipeline(Revalidation):
                 for c, d, t in proposals
             ],
         }
+
+    @staticmethod
+    def comparison_source_binding(tx: SQLiteTransaction, items: tuple[MemorySnapshot, ...]) -> str:
+        """Source validity/provenance changes invalidate saved semantic decisions."""
+        return fingerprint(
+            [
+                [
+                    source.model_dump(mode="json"),
+                    tx.read("remember_sources", source.source_id),
+                    tx.read("remember_source_input", source.source_id),
+                    tx.read("remember_source_policy", source.source_id),
+                ]
+                for item in items
+                for source in item.sources
+            ]
+        )
 
     def commit_extraction(
         self,
@@ -2090,6 +2619,41 @@ class RememberPipeline(Revalidation):
                 return None
             outputs, decisions = [], []
             for index, (candidate, decision, target) in enumerate(proposals):
+                compared_ref = target.ref if target else None
+                if target is not None:
+                    # Earlier proposals can change this object inside the same
+                    # transaction, after the external CAS checks above passed.
+                    latest = self.current(tx, target.ref.memory_id)
+                    changed_content = latest.content_hash != target.content_hash
+                    if decision.outcome == "amend":
+                        relation = tx.read("remember_relations", latest.ref.memory_id) or {}
+                        if (
+                            candidate.kind == "episodic"
+                            and latest.kind == MemoryKind.EPISODIC
+                            and candidate.event_key
+                            and relation.get("event_key") == candidate.event_key
+                            and latest.content in candidate.text
+                        ):
+                            self.identity.authorize(
+                                tx, ctx, Permission.CORRECT, memory_ref(latest.ref)
+                            )
+                        else:
+                            decision = decision.model_copy(
+                                update={
+                                    "outcome": "conflict",
+                                    "reason": "batch_amendment_would_lose_content_preserve_both",
+                                }
+                            )
+                    elif decision.outcome in {"no_change", "equivalent"} and changed_content:
+                        # Equivalence was checked against an older body, so it
+                        # cannot be recorded as proof for this newly amended one.
+                        decision = decision.model_copy(
+                            update={
+                                "outcome": "conflict",
+                                "reason": "batch_comparison_target_changed_preserve_both",
+                            }
+                        )
+                    target = latest
                 # Recheck within the write transaction: earlier candidates in
                 # this batch may already have created the canonical memory.
                 if decision.outcome == "create":
@@ -2106,6 +2670,9 @@ class RememberPipeline(Revalidation):
                         "candidate": candidate.model_dump(mode="json"),
                         "decision": decision.model_dump(mode="json"),
                         "expected_object_revision": target.object_revision if target else None,
+                        "compared_memory": compared_ref.model_dump(mode="json")
+                        if compared_ref
+                        else None,
                     }
                 )
                 if decision.outcome == "reject":
@@ -2302,7 +2869,18 @@ class RememberPipeline(Revalidation):
                 {
                     "memories": list({fingerprint(r): r for r in outputs}.values()),
                     "candidate_count": prepared["candidate_count"],
+                    "rejected_candidate_count": len(prepared.get("candidate_rejections", [])),
+                    "candidate_rejections": prepared.get("candidate_rejections", []),
                     "zero_output": not outputs,
+                    "zero_output_reason": (
+                        "all_candidates_rejected"
+                        if not prepared["candidate_count"] and prepared.get("candidate_rejections")
+                        else "no_candidates"
+                        if not prepared["candidate_count"]
+                        else "no_publication"
+                    )
+                    if not outputs
+                    else None,
                     "awaiting_extraction_provider": deferred,
                 },
             )
@@ -2659,6 +3237,8 @@ class RememberPipeline(Revalidation):
                 ProjectionTarget.model_validate(row["target"])
                 for _, row in tx.rows("remember_projection_targets")
                 if row["target"]["memory"]["memory_id"] == item.ref.memory_id
+                and row["target"]["memory"]["version"] <= item.ref.version
+                and row["target"]["memory"]["scope"] == item.ref.scope.model_dump(mode="json")
             ]
             legacy = []
             for version in range(1, item.ref.version + 1):
@@ -2684,6 +3264,20 @@ class RememberPipeline(Revalidation):
     ) -> RunResult | None:
         targets = [ProjectionTarget.model_validate(t) for t in prepared["targets"]]
         legacy = [MemorySnapshot.model_validate(i) for i in prepared["legacy"]]
+        with self.uow.transaction() as tx:
+            self.tasks.guard(tx, task)
+            frozen = MemoryRef.model_validate(required_record(tx, task.input_ref)["ref"])
+        # An expired v1 cleanup can arrive after correction has published v2.
+        # Its authority ends at the admitted version, including on replay.
+        if any(
+            ref.memory_id != frozen.memory_id
+            or ref.scope != frozen.scope
+            or ref.version > frozen.version
+            for ref in [*(target.memory for target in targets), *(item.ref for item in legacy)]
+        ):
+            raise FoundationError(
+                ErrorCode.CONTRACT_VIOLATION, "cleanup target exceeds admitted memory version"
+            )
         for target in targets:
             key = fingerprint([task.task_id, "delete", target.vector_id])
             with self.uow.transaction() as tx:

@@ -65,6 +65,7 @@ class ThreeFlows:
         backup_root: str | Path | None = None,
         remember_factory: Any = None,
         operate_factory: Any = None,
+        postgres_dsn: str | None = None,
     ) -> None:
         self.recall_settings = recall_settings or (
             RecallSettings.model_validate(
@@ -83,6 +84,7 @@ class ThreeFlows:
             log_max_records=log_max_records,
             maintenance_principals=maintenance_principals,
             backup_root=backup_root,
+            postgres_dsn=postgres_dsn,
         )
         self.owned_vectors = None
         self.owned_reranker = None
@@ -220,9 +222,13 @@ class ThreeFlows:
         self.health = Health(self)
 
         async def database_probe(ctx: TrustedContext) -> dict[str, object]:
+            if hasattr(self.foundation.uow, "probe"):
+                return await asyncio.to_thread(self.foundation.uow.probe, write=True)
             return await asyncio.to_thread(sqlite_probe, self.foundation.uow.path, write=True)
 
         async def log_probe(ctx: TrustedContext) -> dict[str, object]:
+            if hasattr(self.foundation.telemetry, "probe"):
+                return await asyncio.to_thread(self.foundation.telemetry.probe, write=True)
             return await asyncio.to_thread(sqlite_probe, self.foundation.telemetry.path, write=True)
 
         async def executor_probe(ctx: TrustedContext) -> dict[str, object]:
@@ -404,18 +410,31 @@ class ThreeFlows:
     def close(self) -> None:
         if self.closed:
             return
-        with self.foundation.uow.transaction() as tx:
-            for flow in ("remember", "operate", "maintenance", "io", "model"):
-                worker = self.worker_prefix + "_" + flow
-                row = tx.read("workers", worker)
-                if row:
-                    self.foundation.tasks.progress.heartbeat(tx, worker, flow, stopped=True)
-                    tx.write("workers", worker, {**row, "state": "stopped", "last_seen": now()})
+        failure: BaseException | None = None
+        try:
+            with self.foundation.uow.transaction() as tx:
+                for flow in ("remember", "operate", "maintenance", "io", "model"):
+                    worker = self.worker_prefix + "_" + flow
+                    row = tx.read("workers", worker)
+                    if row:
+                        self.foundation.tasks.progress.heartbeat(tx, worker, flow, stopped=True)
+                        tx.write("workers", worker, {**row, "state": "stopped", "last_seen": now()})
+        except BaseException as exc:
+            failure = exc
+        # Closing must work when PG is down, and one failed provider must not
+        # abandon the pool or other clients before Service releases ownership.
+        for resource in (
+            self.native_embedding,
+            self.owned_reranker,
+            self.owned_vectors,
+            self.foundation,
+        ):
+            if resource is not None:
+                try:
+                    resource.close()
+                except BaseException as exc:
+                    if failure is None:
+                        failure = exc
         self.closed = True
-        if self.native_embedding:
-            self.native_embedding.close()
-        if self.owned_reranker:
-            self.owned_reranker.close()
-        if self.owned_vectors:
-            self.owned_vectors.close()
-        self.foundation.close()
+        if failure is not None:
+            raise failure

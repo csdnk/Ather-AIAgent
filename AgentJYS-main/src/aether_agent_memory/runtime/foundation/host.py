@@ -32,19 +32,51 @@ class Foundation:
         maintenance_principals: tuple[str, ...] = (),
         backup_root: str | Path | None = None,
         engineering_profile: bool = False,
+        postgres_dsn: str | None = None,
     ) -> None:
         options: dict[str, Any] = {}
         if profile is not None:
             options = yaml.safe_load(Path(profile).read_text(encoding="utf-8"))["tasks"]
-        self.uow = SQLiteUnitOfWork(database)
+        if postgres_dsn is None:
+            self.uow = SQLiteUnitOfWork(database)
+        else:
+            from .postgres import PostgresUnitOfWork, verify_sqlite_migration_source
+
+            self.uow = PostgresUnitOfWork(postgres_dsn, database)
+            try:
+                if Path(database).is_file():
+                    with self.uow.transaction() as tx:
+                        marker = tx.read("meta", "postgres_migration")
+                        if marker is None:
+                            raise ValueError(
+                                "existing SQLite requires explicit offline PostgreSQL migration"
+                            )
+                    verify_sqlite_migration_source(Path(database), marker)
+            except BaseException:
+                self.uow.close()
+                raise
         if log_path and Path(log_path).resolve() == Path(database).resolve():
             self.uow.close()
             raise ValueError("business database and log database must be separate")
-        self.telemetry = Telemetry(
-            log_path or Path(database).with_suffix(".logs.db"),
-            retention_days=log_retention_days,
-            max_records=log_max_records,
-        )
+        try:
+            if postgres_dsn is None:
+                self.telemetry = Telemetry(
+                    log_path or Path(database).with_suffix(".logs.db"),
+                    retention_days=log_retention_days,
+                    max_records=log_max_records,
+                )
+            else:
+                from .postgres_telemetry import PostgresTelemetry
+
+                self.telemetry = PostgresTelemetry(
+                    postgres_dsn,
+                    log_path or Path(database).with_suffix(".logs.db"),
+                    retention_days=log_retention_days,
+                    max_records=log_max_records,
+                )
+        except BaseException:
+            self.uow.close()
+            raise
         self.uow.telemetry = self.telemetry
         self.identity = Identity(self.uow)
         self.tasks = Tasks(
@@ -84,8 +116,10 @@ class Foundation:
         return self._sample
 
     def close(self) -> None:
-        self.uow.close()
-        self.telemetry.close()
+        try:
+            self.uow.close()
+        finally:
+            self.telemetry.close()
 
     async def worker(
         self,

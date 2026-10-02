@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -35,24 +36,48 @@ if TYPE_CHECKING:
 
 class Service:
     def __init__(self, config: ServiceConfiguration, **providers: Any) -> None:
+        self._close_task: asyncio.Task[None] | None = None
         self.directory_lock = DirectoryLock()
         self.directory_lock.acquire(config.data_dir)
         try:
             from aether_agent_memory.runtime.temporal.migration import check_service_backend
 
-            check_service_backend(config.data_dir / "p3.db", config.temporal)
+            if config.metadata_backend == "sqlite":
+                check_service_backend(config.data_dir / "p3.db", config.temporal)
             self.initialize(config, **providers)
         except BaseException:
-            if hasattr(self, "runtime"):
-                self.runtime.close()
-            self.directory_lock.release()
+            self._cleanup_failed_initialization()
             raise
+
+    def _cleanup_failed_initialization(self) -> None:
+        """Constructor-owned clients have not begun async I/O before startup returns.
+
+        A synchronous factory can also be invoked inside an event loop. Close its
+        partially constructed, unused clients in a temporary loop on another thread
+        in that case, completing cleanup before releasing directory ownership.
+        """
+
+        def cleanup() -> None:
+            asyncio.run(self._release_resources())
+
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            cleanup()
+        else:
+            with ThreadPoolExecutor(max_workers=1, thread_name_prefix="p3-startup-cleanup") as pool:
+                pool.submit(cleanup).result()
 
     def initialize(self, config: ServiceConfiguration, **providers: Any) -> None:
         self.config = config
         self.closers: list[Any] = []
         self.identity_hash: bytes | None = None
         self.closed = False
+        postgres_dsn = None
+        if config.metadata_backend == "postgresql":
+            postgres_dsn = os.environ.get(config.postgres_dsn_env)
+            if not postgres_dsn:
+                raise ValueError("configured PostgreSQL DSN environment variable is missing")
         # Validate local deployment inputs before allocating provider resources.
         IdentityConfiguration.model_validate(
             yaml.safe_load(config.identity_file.read_text("utf-8"))
@@ -68,8 +93,8 @@ class Service:
             )
 
             model = ModelProvider(config.language_model)
-            verifier = ModelProvider(config.verifier_model) if config.verifier_model else model
             self.closers.append(model.close)
+            verifier = ModelProvider(config.verifier_model) if config.verifier_model else model
             if verifier is not model:
                 self.closers.append(verifier.close)
             defaults = {
@@ -82,12 +107,18 @@ class Service:
                 "summarizer": model,
             }
             providers = {**defaults, **providers}
+        if config.ceph and "p2" not in providers:
+            from aether_agent_memory.remember.basic.ceph_p2 import CephP2
+
+            ceph_p2 = CephP2(config.ceph)
+            providers["p2"] = ceph_p2
+            self.closers.append(ceph_p2.aclose)
         if config.p2_endpoint and "p2" not in providers:
             from aether_agent_memory.p2.client import P2GrpcClient
 
-            p2 = P2GrpcClient(config.p2_endpoint, bucket=config.p2_bucket)
-            providers["p2"] = p2
-            self.closers.append(p2.close)
+            grpc_p2 = P2GrpcClient(config.p2_endpoint, bucket=config.p2_bucket)
+            providers["p2"] = grpc_p2
+            self.closers.append(grpc_p2.close)
         if config.redis_url_env and "redis" not in providers:
             from redis.asyncio import Redis
 
@@ -109,6 +140,7 @@ class Service:
             log_retention_days=config.log_retention_days,
             log_max_records=config.log_max_records,
             backup_root=config.data_dir / "backups",
+            postgres_dsn=postgres_dsn,
             operate_factory=partial(
                 ContinuousOperate,
                 settings=Settings(
@@ -120,16 +152,14 @@ class Service:
             ),
             **providers,
         )
+        if config.metadata_backend == "postgresql":
+            self.check_postgres_execution_binding()
         self.runtime.executor.capacity = config.cache_capacity_bytes
         self.documents = Documents(self.runtime.remember)
         remember = cast(Any, self.runtime.remember)
         remember.documents[self.documents.provider_id] = self.documents
         remember.bodies.cache = TieredBodyCache(self.runtime.executor, remember.bodies.cache)
-        try:
-            self.reload_identity()
-        except Exception:
-            self.runtime.close()
-            raise
+        self.reload_identity()
         from aether_agent_memory.operate.basic.maintenance import CacheMaintenance
 
         self.cache_maintenance = CacheMaintenance(self.runtime)
@@ -149,6 +179,8 @@ class Service:
             return {"state": "available"}
 
         async def generation(ctx: TrustedContext) -> dict[str, object]:
+            if hasattr(self.runtime.foundation.uow, "probe"):
+                return await asyncio.to_thread(self.runtime.foundation.uow.probe)
             return await asyncio.to_thread(sqlite_probe, self.runtime.foundation.uow.path)
 
         async def workers(ctx: TrustedContext) -> dict[str, object]:
@@ -186,6 +218,36 @@ class Service:
         health.required_dependencies = tuple(required)
         self.runtime.foundation.monitoring.required += ("deployment_dependencies",)
 
+    def check_postgres_execution_binding(self) -> None:
+        """Apply the same pre-admission transport checks to migrated PG records."""
+        from aether_agent_memory.runtime.foundation.tasks import TERMINAL
+        from aether_agent_memory.runtime.temporal.config import deployment_configuration
+
+        config = self.config.temporal
+        expected = deployment_configuration(config)
+        with self.runtime.foundation.uow.transaction() as tx:
+            marker = tx.read("meta", "execution_backend")
+            if marker and marker != {
+                "backend": "temporal",
+                "deployment_id": config.deployment_id,
+                "namespace": config.namespace,
+                "task_queue_prefix": expected.task_queue_prefix,
+            }:
+                raise ValueError("Temporal backend binding changed; explicit migration required")
+            bindings = dict(tx.rows("temporal_bindings"))
+            for key, row in tx.rows("tasks"):
+                if row["record"]["state"] not in TERMINAL and key not in bindings:
+                    raise ValueError("historical tasks require explicit offline migration")
+            for key, row in tx.rows("deliveries"):
+                if (
+                    row["state"] not in {"acknowledged", "attention_required"}
+                    and key not in bindings
+                ):
+                    raise ValueError("historical deliveries require explicit offline migration")
+            for key, row in tx.rows("recall_requests"):
+                if row["record"]["state"] in {"accepted", "running"} and key not in bindings:
+                    raise ValueError("historical Recall requires explicit offline migration")
+
     def reload_identity(self) -> None:
         raw = self.config.identity_file.read_bytes()
         if raw == self.identity_hash:
@@ -202,19 +264,39 @@ class Service:
     async def close(self) -> None:
         if self.closed:
             return
-        self.closed = True
-        await self.supervisor.stop()
+        task = getattr(self, "_close_task", None)
+        if task is None:
+            task = asyncio.create_task(self._shutdown(), name="p3-service-shutdown")
+            self._close_task = task
+        # A caller disconnecting/cancelling must not abandon owned resource cleanup.
+        await asyncio.shield(task)
+
+    async def _shutdown(self) -> None:
         try:
-            for close in reversed(self.closers):
+            await self.supervisor.stop()
+        finally:
+            try:
+                await self._release_resources()
+            finally:
+                self.closed = True
+
+    async def _release_resources(self) -> None:
+        try:
+            for close in reversed(getattr(self, "closers", [])):
                 try:
                     await close()
-                except Exception as exc:
+                except (Exception, asyncio.CancelledError) as exc:
                     logging.getLogger(__name__).warning(
                         "provider_close_failed: %s", type(exc).__name__
                     )
         finally:
-            self.runtime.close()
-            self.directory_lock.release()
+            try:
+                if hasattr(self, "runtime"):
+                    self.runtime.close()
+            except Exception as exc:
+                logging.getLogger(__name__).warning("runtime_close_failed: %s", type(exc).__name__)
+            finally:
+                self.directory_lock.release()
 
     def app(self) -> FastAPI:
         from .routes import attach
