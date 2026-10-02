@@ -18,7 +18,7 @@ class RememberPolicy(ContractModel):
     source_read_max_chars: int = Field(default=65536, ge=256, le=262144)
     max_input_bytes: int = Field(default=64 * 1024 * 1024, ge=1)
     compression_min_bytes: int = Field(default=65536, ge=1)
-    compression_target_ratio: float = Field(default=5.0, gt=1)
+    compression_target_ratio: float = Field(default=5.0, ge=5, allow_inf_nan=False)
     cache_max_body_bytes: int = Field(default=1024 * 1024, ge=1)
     cache_scope_bytes: int = Field(default=16 * 1024 * 1024, ge=1)
     cache_ttl_seconds: int = Field(default=86400, ge=1)
@@ -33,6 +33,7 @@ class RememberPolicy(ContractModel):
     comparison_context_tokens: int = Field(default=32768, ge=256)
     max_commit_retries: int = Field(default=3, ge=1, le=10)
     max_model_calls: int = Field(default=256, ge=1)
+    # Observe the target by default; deployments may opt back into strict publication.
     compression_require_ratio: bool = False
 
 

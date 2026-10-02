@@ -209,9 +209,17 @@ class Tasks:
         content = sql.get(spec.input_ref)
         if content is None or fingerprint(content) != spec.input_hash:
             sql.abort(ErrorCode.CONTRACT_VIOLATION, "input must exist and match its fingerprint")
+        # PostgreSQL's existing state projection excludes terminal history before
+        # transferring/decoding rows. Reuse this one snapshot for both quotas;
+        # keep exact Python scope equality and the scope-before-tenant error order.
+        quota_rows = (
+            sql.active_task_rows()
+            if getattr(self.uow, "backend", "sqlite") == "postgresql"
+            else None
+        )
         active = [
             r
-            for _, r in sql.rows("tasks")
+            for _, r in (quota_rows if quota_rows is not None else sql.rows("tasks"))
             if r["record"]["subject"]["scope"] == spec.subject.scope.model_dump(mode="json")
             and r["record"]["state"] not in TERMINAL
         ]
@@ -220,7 +228,7 @@ class Tasks:
         tenant_active = sum(
             r["record"]["subject"]["scope"]["tenant_id"] == spec.subject.scope.tenant_id
             and r["record"]["state"] not in TERMINAL
-            for _, r in sql.rows("tasks")
+            for _, r in (quota_rows if quota_rows is not None else sql.rows("tasks"))
         )
         if tenant_active >= self.pending_limit_per_tenant:
             sql.abort(ErrorCode.CAPACITY_EXCEEDED, "tenant task queue is full")

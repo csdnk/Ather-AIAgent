@@ -28,6 +28,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+remember-postgres = [
+  "psycopg[binary]>=3.2,<4",
+  "psycopg-pool>=3.2,<4",
+]
+remember-ceph = [
+  "boto3>=1.36,<2",
+]
 milvus-local = [
   "milvus-lite==3.2.1",
   "pymilvus==2.6.17",

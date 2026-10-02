@@ -138,10 +138,13 @@ class Remember:
             projections,
             model_space,
         )
+        # Index availability and deletion must not wait for model generation.
+        # Keep the model class so persisted pre-upgrade tasks remain executable.
+        tasks.class_limits.setdefault("remember_index", tasks.class_limits.get("remember", 2))
         for kind in ("remember.extract", "remember.project", "remember.cleanup"):
             tasks.register(
                 kind,
-                "remember",
+                "remember" if kind == "remember.extract" else "remember_index",
                 self,
                 permission=Permission.READ,
             )

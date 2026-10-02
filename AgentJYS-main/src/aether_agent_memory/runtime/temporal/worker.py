@@ -32,7 +32,16 @@ class WorkerHost:
         self.executor = ThreadPoolExecutor(
             max_workers=sum(ledger.tasks.class_limits.values()), thread_name_prefix="p3-io"
         )
-        self.workflow_executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix="p3-workflow")
+        self.execution_classes = {ledger.tasks.handlers[kind][0] for kind in registry.routes}
+        if periodic is not None:
+            self.execution_classes.add("periodic")
+        # Temporal reserves workflow slots per Worker, while this executor is shared.
+        # Keep a thread for every reserved slot so another queue cannot starve replay.
+        self.workflow_slots_per_queue = 2
+        self.workflow_executor = ThreadPoolExecutor(
+            max_workers=max(1, len(self.execution_classes) * self.workflow_slots_per_queue),
+            thread_name_prefix="p3-workflow",
+        )
         self.activities = Activities(
             ledger,
             registry,
@@ -49,10 +58,7 @@ class WorkerHost:
     async def start(self) -> None:
         if self.workers:
             raise RuntimeError("Temporal Worker already running")
-        classes = {self.ledger.tasks.handlers[kind][0] for kind in self.registry.routes}
-        if self.periodic is not None:
-            classes.add("periodic")
-        for execution_class in sorted(classes):
+        for execution_class in sorted(self.execution_classes):
             periodic = self.periodic if execution_class == "periodic" else None
             worker = Worker(
                 self.client,
@@ -72,7 +78,7 @@ class WorkerHost:
                 max_concurrent_activities=1
                 if periodic
                 else self.ledger.tasks.class_limits[execution_class] * 4,
-                max_concurrent_workflow_tasks=8,
+                max_concurrent_workflow_tasks=self.workflow_slots_per_queue,
                 max_heartbeat_throttle_interval=timedelta(seconds=1),
                 default_heartbeat_throttle_interval=timedelta(seconds=1),
                 graceful_shutdown_timeout=timedelta(seconds=self.shutdown_seconds),

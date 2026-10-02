@@ -58,7 +58,10 @@ class WorkingSummaries:
         self.provider = provider or ExtractiveSummary()
 
     def needed(self, text: str, document: bool = False) -> bool:
-        return document or len(text.encode("utf-8")) >= self.owner.policy.working_summary_min_bytes
+        # A file's container size/type does not measure its parsed textual body.
+        # Keep the document hint for existing callers; only long UTF-8 content
+        # needs a bounded Working representation, including for attachments.
+        return len(text.encode("utf-8")) >= self.owner.policy.working_summary_min_bytes
 
     @staticmethod
     def descriptor(source: SourceRef, text: str, task_context: str = "") -> str:

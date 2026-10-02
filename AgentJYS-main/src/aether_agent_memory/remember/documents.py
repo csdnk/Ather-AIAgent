@@ -1,6 +1,7 @@
 """Authorized immutable document ingress and the existing Remember document port."""
 
 import asyncio
+import io
 from hashlib import sha256
 from typing import Any
 
@@ -26,6 +27,62 @@ class Documents:
 
     def __init__(self, remember: Any) -> None:
         self.remember = remember
+
+    @staticmethod
+    def parse_document(raw: bytes, media_type: str) -> tuple[str, str]:
+        """Document ingress owns parsing; business memory consumes verified text."""
+        # Malformed user files are input errors, not a broken P2 response contract.
+        # Import optional parser exception types only for the selected format.
+        invalid: tuple[type[Exception], ...] = (ValueError, UnicodeError)
+        if media_type == "application/pdf":
+            from pypdf.errors import PdfReadError
+
+            invalid += (PdfReadError,)
+        elif (
+            media_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ):
+            from zipfile import BadZipFile
+
+            from lxml.etree import XMLSyntaxError
+
+            invalid += (BadZipFile, XMLSyntaxError, KeyError)
+        try:
+            return Documents._parse_document(raw, media_type)
+        except invalid as exc:
+            raise FoundationError(
+                ErrorCode.INVALID_ARGUMENT, "document is malformed or cannot be decoded"
+            ) from exc
+
+    @staticmethod
+    def _parse_document(raw: bytes, media_type: str) -> tuple[str, str]:
+        if media_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            from docx import Document
+            from docx.table import Table
+            from docx.text.paragraph import Paragraph
+
+            document = Document(io.BytesIO(raw))
+            parts = []
+            for block in document.iter_inner_content():
+                if isinstance(block, Paragraph):
+                    parts.append(block.text)
+                elif isinstance(block, Table):
+                    for row in block.rows:
+                        parts.append("\t".join(cell.text for cell in row.cells))
+            text, parser = "\n".join(parts), "docx-paragraph-table-v2"
+        else:
+            plain = PlainTextResourceParser()
+            result = (
+                plain.parse(raw.decode("utf-8-sig"), media_type)
+                if plain.supports(media_type)
+                else OptionalDocumentResourceParser().parse_bytes(raw, media_type)
+            )
+            text, parser = result.text, result.parser
+        if not text.strip():
+            raise FoundationError(
+                ErrorCode.INVALID_ARGUMENT,
+                "document has no readable text; OCR is not configured",
+            )
+        return text, parser
 
     def ref(self, ctx: TrustedContext, document_id: str) -> RecordRef:
         return RecordRef(
@@ -120,15 +177,7 @@ class Documents:
         ):
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "document source hash mismatch")
 
-        def parse() -> tuple[str, str]:
-            parser = PlainTextResourceParser()
-            if parser.supports(row["media_type"]):
-                result = parser.parse(raw.decode("utf-8"), row["media_type"])
-            else:
-                result = OptionalDocumentResourceParser().parse_bytes(raw, row["media_type"])
-            return result.text, result.parser
-
-        text, parser_version = await asyncio.to_thread(parse)
+        text, parser_version = await asyncio.to_thread(self.parse_document, raw, row["media_type"])
         if len(text.encode("utf-8")) > self.remember.policy.max_input_bytes:
             raise FoundationError(ErrorCode.INVALID_ARGUMENT, "parsed document exceeds limit")
         with self.remember.uow.transaction() as tx:
