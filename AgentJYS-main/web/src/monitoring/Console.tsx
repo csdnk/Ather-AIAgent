@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import ConfigProvider from "antd/es/config-provider";
 import Drawer from "antd/es/drawer";
 import Modal from "antd/es/modal";
@@ -31,6 +31,9 @@ import {
 import { useMonitor, useOperation, type Sample } from "./useMonitor";
 import { buildSpans } from "./trace";
 import "./console.css";
+import type Keycloak from "keycloak-js";
+import { browserIdentity, readIdentity, loginReturnUrl, getAuthenticationState, subscribeAuthentication, type Identity } from "./identity";
+import { setActiveTenant } from "./api";
 
 type Page = "overview" | "services" | "tasks" | "traces" | "incidents";
 type Selection =
@@ -249,7 +252,7 @@ function Trend({ samples }: { samples: Sample[] }) {
                   x2="750"
                   y1={148 - y * 110}
                   y2={148 - y * 110}
-                  stroke="#28313f"
+                  stroke="var(--line)"
                   strokeDasharray="3 5"
                 />
                 <text x="12" y={152 - y * 110}>
@@ -265,7 +268,7 @@ function Trend({ samples }: { samples: Sample[] }) {
                     key={key + i}
                     points={p}
                     fill="none"
-                    stroke={key === "pending" ? "#46d2b1" : "#a78bfa"}
+                    stroke={key === "pending" ? "var(--accent)" : "#87639c"}
                     strokeWidth="2.5"
                   />
                 )),
@@ -430,7 +433,7 @@ function Observations({
   );
 }
 
-function TraceDetail({ id, token }: { id: string; token: string }) {
+export function TraceDetail({ id, token }: { id: string; token: string }) {
   const [page, setPage] = useState<Resource<LogPage>>({});
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
@@ -438,8 +441,8 @@ function TraceDetail({ id, token }: { id: string; token: string }) {
   useEffect(() => {
     const controller = new AbortController();
     setBusy(true);
-    setPage({});
-    setSelected(null);
+    // This component is keyed by trace within an identity-keyed Monitor.
+    // Refresh credentials without dismissing the node currently being inspected.
     get<LogPage>(
       `/p3/logs/${encodeURIComponent(id)}?limit=200`,
       token,
@@ -764,8 +767,14 @@ function Monitor({
   token,
   disconnect,
   connect,
+  identity,
+  authError,
+  organizationToolbar,
 }: {
   token: string;
+  identity: Identity | null;
+  authError: string;
+  organizationToolbar: ReactNode;
   disconnect: () => void;
   connect: () => void;
 }) {
@@ -791,6 +800,7 @@ function Monitor({
     taskState,
     traceBefore,
     traceFlow,
+    identity ? JSON.stringify([identity.principal_id, identity.scope, identity.permissions]) : "",
   );
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -824,25 +834,10 @@ function Monitor({
   return (
     <div className="monitor-shell">
       <aside className="sidebar">
-        <a
-          className="brand"
-          href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            navigate("overview");
-          }}
-        >
-          <span className="brand-mark">
-            <ThunderboltFilled />
-          </span>
-          <div>
-            AETHER<span>OBSERVABILITY</span>
-          </div>
-        </a>
         <div className="workspace">
           <span className="workspace-symbol">P3</span>
           <div>
-            Memory runtime
+            监测控制台
             <small>{s.capabilities.data?.profile ?? "尚未连接"}</small>
           </div>
           <span className="workspace-dot" />
@@ -867,7 +862,7 @@ function Monitor({
         <div className="sidebar-bottom">
           <div>
             <span className="dot teal" />
-            统一 P3 服务<small>当前身份可见范围</small>
+            {identity ? `租户：${identity.scope.tenant_id}` : "统一 P3 服务"}<small>{identity?.principal_id ?? "当前身份可见范围"}</small>
           </div>
           <button onClick={token ? disconnect : connect}>
             {token ? <DisconnectOutlined /> : <LinkOutlined />}
@@ -876,6 +871,7 @@ function Monitor({
         </div>
       </aside>
       <div className="main">
+        {organizationToolbar}
         <header className="topbar">
           <span>
             工作空间 <b>/</b> P3 <b>/</b> {current.title}
@@ -896,6 +892,11 @@ function Monitor({
           </div>
         </header>
         <main className="content">
+          {authError && <div className="identity-notice error" role="alert">{authError}</div>}
+          {identity && <div className="identity-notice" role="status">
+            当前租户：<strong>{identity.scope.tenant_id}</strong> · 身份：{identity.principal_id} · 用户：{identity.scope.user_id}
+            <small>以下任务、日志与链路仅展示当前身份有权查看的记录。</small>
+          </div>}
           <div className="page-heading">
             <div>
               <div className="eyebrow">AETHER / MONITORING</div>
@@ -1497,78 +1498,147 @@ function Monitor({
 }
 
 export default function Console() {
+  const authenticated = useSyncExternalStore(subscribeAuthentication, getAuthenticationState);
   const [token, setToken] = useState("");
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
+  const [identity, setIdentity] = useState<Identity | null>(null);
+  const [authError, setAuthError] = useState("");
+  const [loginReady, setLoginReady] = useState(false);
+  const client = useRef<Keycloak | null>(null);
+  const [tenant, setTenant] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    browserIdentity().then((adapter) => {
+      if (cancelled) return;
+      client.current = adapter;
+      setLoginReady(!!adapter);
+      if (adapter?.token) setToken(adapter.token);
+      if (adapter) timer = setInterval(async () => {
+        if (!adapter.authenticated) return;
+        try {
+          await adapter.updateToken(40);
+          if (!cancelled && adapter.token) setToken(adapter.token);
+        } catch {
+          if (!cancelled) {
+            adapter.clearToken();
+            setToken("");
+            setIdentity(null);
+            setAuthError("登录已过期，请重新登录。");
+          }
+        }
+      }, 20000);
+    }).catch(() => {
+      if (!cancelled) setAuthError("身份服务暂不可用，请检查 Keycloak 和 P3 服务。");
+    });
+    return () => { cancelled = true; clearInterval(timer); };
+  }, []);
+
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    const check = async () => {
+      try {
+        const current = await readIdentity(token, controller.signal, tenant);
+        if (!controller.signal.aborted) {
+          setActiveTenant(current.scope.tenant_id);
+          if (!tenant) setTenant(current.scope.tenant_id);
+          setIdentity(current); setAuthError("");
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setIdentity(null);
+          setToken("");
+          // P3 authorization failure must not discard a valid Keycloak login.
+          setAuthError(error instanceof Error ? error.message : "身份验证失败，请重新登录。");
+        }
+      }
+    };
+    void check();
+    const timer = setInterval(() => { void check(); }, 20000);
+    return () => { controller.abort(); clearInterval(timer); };
+  }, [token, tenant]);
+
+  const login = () => {
+    setActiveTenant(""); setTenant(""); setIdentity(null);
+    setAuthError("");
+    void client.current?.login({ redirectUri: loginReturnUrl(), prompt: "login" })
+      .catch(() => setAuthError("无法打开登录页，请检查身份服务。"));
+  };
+  const disconnect = () => {
+    setActiveTenant(""); setTenant("");
+    setToken("");
+    setIdentity(null);
+    setAuthError("");
+    if (client.current?.authenticated) {
+      void client.current.logout({ redirectUri: loginReturnUrl() })
+        .catch(() => { client.current?.clearToken(); setAuthError("本页已断开；身份服务退出失败，请重新登录。"); });
+    }
+  };
+
   return (
     <ConfigProvider
       theme={{
-        algorithm: theme.darkAlgorithm,
+        algorithm: theme.defaultAlgorithm,
         token: {
-          colorPrimary: "#46d2b1",
-          colorBgBase: "#10151e",
-          colorBgElevated: "#171e2a",
-          colorText: "#e5eaf2",
-          colorBorder: "#303b4c",
-          borderRadius: 8,
-          fontFamily:
-            'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif',
+          colorPrimary: "#2d654f", colorBgBase: "#fafbf8", colorBgContainer: "#ffffff", colorBgElevated: "#ffffff",
+          colorText: "#242c27", colorTextSecondary: "#637067", colorBorder: "#dfe6dc", borderRadius: 12,
+          fontFamily: '"Segoe UI", "Microsoft YaHei", sans-serif',
         },
       }}
     >
       <Monitor
-        key={token}
-        token={token}
-        disconnect={() => setToken("")}
-        connect={() => {
-          setDraft("");
-          setOpen(true);
-        }}
+        key={identity ? JSON.stringify([identity.principal_id, identity.scope, identity.permissions]) : "disconnected"}
+        token={identity ? token : ""}
+        identity={identity}
+        authError={authError}
+        organizationToolbar={identity?.organizations && <div className="organization-toolbar">
+        <label htmlFor="organization-choice">当前组织</label>
+        <select id="organization-choice" value={identity.scope.tenant_id} onChange={(event) => {
+          const selected = event.target.value;
+          setIdentity(null); setActiveTenant(selected); setTenant(selected);
+        }}>
+          {identity.organizations.map((org) => <option key={org.tenant_id} value={org.tenant_id}>
+            {org.organization_name} · {org.tenant_id}
+          </option>)}
+        </select>
+        <span>账号：{identity.username} · 角色：{identity.roles?.map(role => (
+          ({ "organization-admin": "组织管理员", member: "普通成员", viewer: "只读成员" } as Record<string, string>)[role] ?? role
+        )).join("、")}</span>
+        {identity.roles?.includes("organization-admin") && <span className="organization-help">成员维护：由平台管理员在 Keycloak 中操作</span>}
+      </div>}
+        disconnect={disconnect}
+        connect={() => { setDraft(""); setOpen(true); }}
       />
       <Modal
-        title="连接 P3 服务"
-        open={open}
-        footer={null}
-        onCancel={() => {
-          setOpen(false);
-          setDraft("");
-        }}
-        destroyOnHidden
-        closeIcon={<CloseOutlined />}
+        title="登录 P3 监测台" open={open} footer={null}
+        onCancel={() => { setOpen(false); setDraft(""); }}
+        destroyOnHidden closeIcon={<CloseOutlined />}
       >
-        <form
-          className="connection-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (draft.trim()) {
-              setToken(draft.trim());
-              setDraft("");
-              setOpen(false);
-            }
-          }}
-        >
-          <p>
-            服务地址由同源 /p3 代理配置。输入部署目录 credential
-            文件中的凭据，需要 maintenance:diagnose 权限。
-          </p>
+        {loginReady && <div className="identity-login">
+          <p>使用 P3 身份平台登录。登录后由 P3 确认所属租户和访问权限。</p>
+          <button className="btn primary" onClick={login}><LinkOutlined />{authenticated ? "切换账号" : "Keycloak 账号登录 / 切换账号"}</button>
+        </div>}
+        <form className="connection-form" onSubmit={(e) => {
+          e.preventDefault();
+          if (draft.trim()) {
+            client.current?.clearToken();
+            setActiveTenant(""); setTenant("");
+            setIdentity(null);
+            setAuthError("");
+            setToken(draft.trim());
+            setDraft("");
+            setOpen(false);
+          }
+        }}>
+          <p>也可使用部署目录 credential 文件中的管理员凭据，需要 maintenance:diagnose 权限。</p>
           <label htmlFor="bearer">Bearer 凭据</label>
-          <input
-            autoFocus
-            id="bearer"
-            type="password"
-            autoComplete="off"
-            placeholder="粘贴 credential 内容"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-          />
-          <small>
-            凭据仅留在当前页面内存；刷新或断开连接后清除，不写入 URL
-            或浏览器存储。
-          </small>
-          <button className="btn primary" disabled={!draft.trim()}>
-            <LinkOutlined />
-            连接并读取监测
-          </button>
+          <input id="bearer" type="password" autoComplete="off" placeholder="粘贴 credential 内容"
+            value={draft} onChange={(e) => setDraft(e.target.value)} />
+          <small>手动粘贴的凭据刷新后需重新输入。账号登录可在刷新后恢复有效会话，令牌仅保留在内存；断开连接会退出账号。</small>
+          <button className="btn primary" disabled={!draft.trim()}><LinkOutlined />连接并读取监测</button>
         </form>
       </Modal>
     </ConfigProvider>

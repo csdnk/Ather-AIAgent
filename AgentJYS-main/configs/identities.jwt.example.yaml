@@ -1,0 +1,32 @@
+# Example only: replace issuer/JWKS/subject and copy to your deployment directory.
+# P3 verifies tokens; this file does not start a login or token issuance service.
+revision: 1
+tenants:
+  - tenant_id: tenant_a
+    enabled: true
+identities:
+  - principal:
+      principal_id: p4_agent_a
+      auth_epoch: 1
+      home_scope:
+        tenant_id: tenant_a
+        application_id: memory_app
+        user_id: user_a
+        agent_id: external_agent_a
+      permissions:
+        - memory:read
+        - memory:write
+        - maintenance:diagnose
+    # JWT-only principal. Existing credential_sha256 entries remain supported.
+jwt_issuers:
+  - issuer: https://identity.example.invalid
+    jwks_url: https://identity.example.invalid/.well-known/jwks.json
+    audience: aether-p3
+    algorithms: [RS256]
+    jwks_cache_seconds: 300
+    jwks_timeout_seconds: 5
+    leeway_seconds: 30
+    subject_mappings:
+      - subject: external-agent-account-a
+        principal_id: p4_agent_a
+grants: []

@@ -35,7 +35,7 @@ from aether_agent_memory.runtime.foundation.host import Foundation
 from aether_agent_memory.runtime.foundation.requests import text_hash
 from aether_agent_memory.runtime.foundation.telemetry import attach_provider
 
-from .health import Health, Probe, sqlite_probe
+from .health import Health, Probe, sqlite_probe, storage_probe
 from .vector_adapters import MilvusVectors, SQLiteVectors, VectorBackend
 
 if TYPE_CHECKING:
@@ -222,14 +222,10 @@ class ThreeFlows:
         self.health = Health(self)
 
         async def database_probe(ctx: TrustedContext) -> dict[str, object]:
-            if hasattr(self.foundation.uow, "probe"):
-                return await asyncio.to_thread(self.foundation.uow.probe, write=True)
-            return await asyncio.to_thread(sqlite_probe, self.foundation.uow.path, write=True)
+            return await asyncio.to_thread(storage_probe, self.foundation.uow, write=True)
 
         async def log_probe(ctx: TrustedContext) -> dict[str, object]:
-            if hasattr(self.foundation.telemetry, "probe"):
-                return await asyncio.to_thread(self.foundation.telemetry.probe, write=True)
-            return await asyncio.to_thread(sqlite_probe, self.foundation.telemetry.path, write=True)
+            return await asyncio.to_thread(storage_probe, self.foundation.telemetry, write=True)
 
         async def executor_probe(ctx: TrustedContext) -> dict[str, object]:
             def check() -> dict[str, object]:
@@ -280,7 +276,7 @@ class ThreeFlows:
             if type(self.vectors) is SQLiteVectors:
                 if not self.vectors.available:
                     return {"state": "unavailable"}
-                return await asyncio.to_thread(sqlite_probe, self.vectors.uow.path)
+                return await asyncio.to_thread(storage_probe, self.vectors.uow)
             return {"state": "unknown"}
 
         async def reranker_probe(ctx: TrustedContext) -> dict[str, object]:

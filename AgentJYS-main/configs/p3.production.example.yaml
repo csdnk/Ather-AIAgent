@@ -5,8 +5,20 @@ host: 0.0.0.0
 port: 8080
 data_dir: state
 identity_file: identities.yaml
+# Existing execution backend; replace with your deployed Temporal endpoint.
+temporal:
+  deployment_id: p3-production
+  endpoint: temporal:7233
+  namespace: default
+  task_queue_prefix: p3
+  connect_timeout_seconds: 10
 embedding_profile: native
 embedding_config: embedding.json
+# Copy configs/recall.milvus.json here and set your deployed Milvus endpoint.
+recall_config: recall.json
+# Reuse the upstream metadata + node log store.
+metadata_backend: postgresql
+postgres_dsn_env: AETHER_POSTGRES_DSN
 p2_endpoint: engine:50052
 p2_bucket: p3-memory
 language_model:
@@ -28,3 +40,8 @@ remember:
   consolidation_messages: 32
   consolidation_tokens: 8000
   consolidation_seconds: 600
+
+# Optional: enable OTLP/HTTP trace export to your own collector.
+# The trace-specific endpoint must include /v1/traces; no collector is started here.
+# otlp_traces_endpoint: http://127.0.0.1:4318/v1/traces
+# JWT identity example: configs/identities.jwt.example.yaml (replace identity_file).

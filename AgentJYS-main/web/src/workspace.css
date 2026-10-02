@@ -1,0 +1,89 @@
+:root {
+  --surface: #fff;
+  --canvas: #fafbf8;
+  --sidebar: #f1f4ee;
+  --ink: #242c27;
+  --muted: #637067;
+  --line: #dfe6dc;
+  --accent: #2d654f;
+  --accent-soft: #eaf0e5;
+  --header-height: 76px;
+  color-scheme: light;
+  color: var(--ink);
+  background: var(--canvas);
+  font: 14px/1.65 "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-synthesis: none;
+}
+.workspace-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: var(--header-height);
+  padding: 0 32px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.workspace-brand { display: flex; align-items: center; gap: 12px; flex-shrink: 0; font-size: 22px; font-weight: 650; letter-spacing: -.6px; line-height: 1.3; }
+.workspace-brand small { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; font-weight: 400; letter-spacing: 1.5px; }
+.workspace-mark { display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid #dce6d9; border-radius: 12px; color: var(--accent); background: var(--accent-soft); font: italic 29px Georgia, serif; }
+.workspace-context { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.workspace-context i { display: inline-block; width: 6px; height: 6px; margin-right: 7px; border-radius: 50%; background: #83947e; }
+.workspace-nav { display: flex; flex-shrink: 0; gap: 4px; margin-left: auto; padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: #f1f4ed; color: #526749; font-size: 12px; }
+.workspace-nav button { min-height: 34px; padding: 6px 12px; border: 0; border-radius: 7px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.workspace-nav button:hover { background: #e5ecdf; }
+.workspace-nav button[aria-pressed="true"] { background: var(--surface); box-shadow: 0 1px 5px #24381c0b; color: #2f5327; }
+.workspace-nav button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 1050px) { .workspace-context { display: none; } }
+@media (max-width: 760px) {
+  :root { --header-height: 70px; }
+  .workspace-header { gap: 10px; padding: 0 14px; }
+  .workspace-brand { gap: 8px; font-size: 20px; }
+  .workspace-brand small { font-size: 10px; letter-spacing: .5px; }
+  .workspace-mark { width: 32px; height: 34px; font-size: 25px; border-radius: 10px; }
+  .workspace-nav { gap: 2px; padding: 3px; font-size: 11px; }
+  .workspace-nav button { padding-inline: 8px; }
+}
+@media (max-width: 390px) {
+  .workspace-header { padding-inline: 10px; gap: 6px; }
+  .workspace-mark { display: none; }
+  .workspace-brand { font-size: 18px; }
+}
+
+/* Shared, visible identity entry on both the demo and the monitoring pages. */
+.workspace-header { gap: 16px; }
+.workspace-context { display: none; }
+.identity-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.identity-actions button { min-height: 36px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 8px; font: 500 12px/1.5 "Segoe UI", "Microsoft YaHei", sans-serif; color: var(--accent); background: white; cursor: pointer; white-space: nowrap; }
+.identity-actions .identity-signin { background: var(--accent); border-color: var(--accent); color: white; }
+.identity-actions .identity-register { border-color: #8ba48f; }
+.identity-actions .identity-invite { background: var(--accent-soft); border-color: #cfddc9; }
+.identity-actions .identity-account { border-color: transparent; color: var(--muted); padding-inline: 6px; }
+.identity-actions button:hover { filter: brightness(.96); }
+.identity-actions button:disabled { opacity: .55; cursor: not-allowed; }
+.identity-actions button:focus-visible, .identity-admin-link:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.identity-entry-error { position: absolute; right: 24px; top: calc(100% + 6px); max-width: min(430px, calc(100vw - 32px)); padding: 8px 12px; background: #fff7e6; border: 1px solid #efd6a3; border-radius: 8px; color: #755320; font-size: 12px; }
+.identity-entry-modal { color: #242c27; }
+.identity-intro { color: #637067; margin: 8px 0 20px; }
+.identity-invite-note { padding: 14px 16px; background: #edf3e9; border: 1px solid #dce6d7; border-radius: 10px; }
+.identity-invite-note p { margin: 5px 0 0; color: #52654f; font-size: 12px; }
+.identity-invite-steps { padding-left: 24px; margin: 22px 0; }
+.identity-invite-steps li { margin-bottom: 18px; padding-left: 4px; }
+.identity-invite-steps span { display: block; color: #637067; margin-top: 5px; line-height: 1.8; }
+.identity-invite-footnote { color: #637067; font-size: 12px; }
+.identity-admin-link { display: block; margin-top: 20px; padding: 11px 16px; border-radius: 9px; background: #2d654f; color: white !important; text-align: center; text-decoration: none; font-weight: 600; }
+@media (max-width: 1120px) {
+  :root { --header-height: 124px; }
+  .workspace-header { flex-wrap: wrap; gap: 8px 16px; padding: 10px 24px; align-content: center; }
+  .identity-actions { width: 100%; justify-content: flex-end; }
+}
+@media (max-width: 760px) {
+  :root { --header-height: 124px; }
+  .workspace-header { padding: 8px 14px; gap: 8px; }
+  .identity-actions { justify-content: space-between; gap: 5px; }
+  .identity-actions button { padding: 7px 10px; font-size: 11px; }
+  .identity-actions .identity-account { padding-inline: 2px; }
+}
+@media (max-width: 390px) { .identity-actions button { padding-inline: 7px; } }

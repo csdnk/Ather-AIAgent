@@ -1,6 +1,7 @@
 """One composition root for the complete persistent Remember/Recall/Operate service."""
 
 import asyncio
+import inspect
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -27,8 +28,11 @@ from aether_agent_memory.runtime.temporal.locking import DirectoryLock
 from aether_agent_memory.runtime.temporal.service import TemporalService
 
 from .config import IdentityConfiguration, ServiceConfiguration
-from .health import sqlite_probe
+from .health import storage_probe
 from .http import create_app
+from .jwt_auth import JWTAuthenticator
+from .keycloak_directory import KeycloakDirectory
+from .observability import configure_tracing
 
 if TYPE_CHECKING:
     from aether_agent_memory.remember.model_provider import ModelProvider
@@ -43,7 +47,10 @@ class Service:
             from aether_agent_memory.runtime.temporal.migration import check_service_backend
 
             if config.metadata_backend == "sqlite":
-                check_service_backend(config.data_dir / "p3.db", config.temporal)
+                check_service_backend(
+                    config.data_dir / "p3.db",
+                    config.temporal,
+                )
             self.initialize(config, **providers)
         except BaseException:
             self._cleanup_failed_initialization()
@@ -77,7 +84,10 @@ class Service:
         if config.metadata_backend == "postgresql":
             postgres_dsn = os.environ.get(config.postgres_dsn_env)
             if not postgres_dsn:
-                raise ValueError("configured PostgreSQL DSN environment variable is missing")
+                raise ValueError(
+                    "configured PostgreSQL environment variable is missing: "
+                    + config.postgres_dsn_env
+                )
         # Validate local deployment inputs before allocating provider resources.
         IdentityConfiguration.model_validate(
             yaml.safe_load(config.identity_file.read_text("utf-8"))
@@ -116,9 +126,9 @@ class Service:
         if config.p2_endpoint and "p2" not in providers:
             from aether_agent_memory.p2.client import P2GrpcClient
 
-            grpc_p2 = P2GrpcClient(config.p2_endpoint, bucket=config.p2_bucket)
-            providers["p2"] = grpc_p2
-            self.closers.append(grpc_p2.close)
+            p2 = P2GrpcClient(config.p2_endpoint, bucket=config.p2_bucket)
+            providers["p2"] = p2
+            self.closers.append(p2.close)
         if config.redis_url_env and "redis" not in providers:
             from redis.asyncio import Redis
 
@@ -159,6 +169,15 @@ class Service:
         remember = cast(Any, self.runtime.remember)
         remember.documents[self.documents.provider_id] = self.documents
         remember.bodies.cache = TieredBodyCache(self.runtime.executor, remember.bodies.cache)
+        self.keycloak_directory = KeycloakDirectory(self.runtime.foundation.identity)
+        self.closers.append(self.keycloak_directory.close)
+        self.jwt_auth = JWTAuthenticator()
+        self.closers.append(self.jwt_auth.close)
+        self.tracing_provider = configure_tracing(
+            self.runtime.foundation.telemetry,
+            str(config.otlp_traces_endpoint) if config.otlp_traces_endpoint else None,
+        )
+        self.closers.append(self.tracing_provider.shutdown)
         self.reload_identity()
         from aether_agent_memory.operate.basic.maintenance import CacheMaintenance
 
@@ -179,9 +198,7 @@ class Service:
             return {"state": "available"}
 
         async def generation(ctx: TrustedContext) -> dict[str, object]:
-            if hasattr(self.runtime.foundation.uow, "probe"):
-                return await asyncio.to_thread(self.runtime.foundation.uow.probe)
-            return await asyncio.to_thread(sqlite_probe, self.runtime.foundation.uow.path)
+            return await asyncio.to_thread(storage_probe, self.runtime.foundation.uow)
 
         async def workers(ctx: TrustedContext) -> dict[str, object]:
             return {
@@ -253,12 +270,24 @@ class Service:
         if raw == self.identity_hash:
             return
         config = IdentityConfiguration.model_validate(yaml.safe_load(raw.decode("utf-8")))
+        if self.config.browser_identity and self.config.browser_identity.issuer not in {
+            issuer.issuer for issuer in config.jwt_issuers
+        }:
+            raise ValueError("browser identity issuer must have a configured JWT verifier")
         self.runtime.foundation.identity.provision(
             [(i.credential_sha256, i.principal) for i in config.identities],
             config.grants,
             tenants={t.tenant_id: t.enabled for t in config.tenants},
+            jwt_subjects=[
+                (issuer.issuer, mapping.subject, mapping.principal_id)
+                for issuer in config.jwt_issuers
+                for mapping in issuer.subject_mappings
+            ],
+            jwt_issuers=[issuer.model_dump(mode="json") for issuer in config.jwt_issuers],
             configuration_revision=config.revision,
         )
+        self.jwt_auth.configure(config.jwt_issuers)
+        self.keycloak_directory.configure(config.jwt_issuers)
         self.identity_hash = raw
 
     async def close(self) -> None:
@@ -284,7 +313,12 @@ class Service:
         try:
             for close in reversed(getattr(self, "closers", [])):
                 try:
-                    await close()
+                    if inspect.iscoroutinefunction(close):
+                        await close()
+                    else:
+                        result = await asyncio.to_thread(close)
+                        if inspect.isawaitable(result):
+                            await result
                 except (Exception, asyncio.CancelledError) as exc:
                     logging.getLogger(__name__).warning(
                         "provider_close_failed: %s", type(exc).__name__
@@ -292,7 +326,7 @@ class Service:
         finally:
             try:
                 if hasattr(self, "runtime"):
-                    self.runtime.close()
+                    await asyncio.to_thread(self.runtime.close)
             except Exception as exc:
                 logging.getLogger(__name__).warning("runtime_close_failed: %s", type(exc).__name__)
             finally:
@@ -302,7 +336,12 @@ class Service:
         from .routes import attach
 
         app = create_app(
-            self.runtime, supervisor=self.execution, execution=self.execution, close=self.close
+            self.runtime,
+            supervisor=self.execution,
+            execution=self.execution,
+            close=self.close,
+            jwt_auth=self.jwt_auth,
+            browser_identity=self.config.browser_identity,
         )
         app.state.service = self
         attach(app, self)

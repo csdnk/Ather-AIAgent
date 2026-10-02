@@ -8,6 +8,7 @@ from aether_agent_memory.remember.basic.extraction import LiteralExtraction
 from aether_agent_memory.remember.contracts.models import CandidateFact, ExtractionResult
 from aether_agent_memory.runtime.flows.application import Service
 from aether_p4_simulator.demo import stories
+from aether_p4_simulator.validation.calls import ROUTES
 from integration.test_p4_demo_temporal import PREFIX, configuration, real_chain, until
 
 pytestmark = pytest.mark.integration
@@ -127,7 +128,11 @@ def test_fixed_story_real_results(
             for method, path, _ in bridge.calls
             if method in {"PUT", "POST"}
         )
-        assert len(value["coverage"]) == 48
+        assert len(value["coverage"]) == len(ROUTES)
+        assert {(row["method"], row["path"]) for row in value["coverage"]} == set(ROUTES)
+        for row in value["coverage"]:
+            if row["path"].startswith("/p3/auth/"):
+                assert row["state"] == "unexecuted" and row["calls"] == 0
         if terminal == "passed":
             assert all(s["state"] == "passed" for s in value["steps"])
         else:

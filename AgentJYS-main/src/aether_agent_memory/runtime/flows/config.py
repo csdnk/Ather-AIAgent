@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Literal, Self
 
 import yaml
-from pydantic import Field, model_validator
+from pydantic import AnyHttpUrl, Field, model_validator
 
 from aether_agent_memory.remember.basic.ceph_p2 import CephP2Config
 from aether_agent_memory.remember.basic.policy import RememberPolicy
@@ -14,6 +14,7 @@ from aether_agent_memory.runtime.contracts.models import (
     ContractModel,
     Digest,
     Identifier,
+    Permission,
     Principal,
 )
 from aether_agent_memory.runtime.temporal.config import TemporalConfiguration
@@ -25,8 +26,93 @@ class Tenant(ContractModel):
 
 
 class IdentityEntry(ContractModel):
-    credential_sha256: Digest
+    credential_sha256: Digest | None = None
     principal: Principal
+
+
+class JWTSubjectMapping(ContractModel):
+    subject: str = Field(min_length=1, max_length=512)
+    principal_id: Identifier
+
+
+class OrganizationBinding(ContractModel):
+    organization_id: Identifier
+    tenant_id: Identifier
+    application_id: Identifier = "p3"
+    agent_id: Identifier = "p3-agent"
+
+
+class KeycloakDirectoryConfiguration(ContractModel):
+    """Read-only native organization directory; no locally maintained member list."""
+
+    client_id: Identifier
+    client_secret_file: Path
+    roles_client_id: Identifier
+    organizations: tuple[OrganizationBinding, ...]
+    role_permissions: dict[str, tuple[Permission, ...]]
+    refresh_seconds: float = Field(default=5, ge=1, le=300)
+    stale_after_seconds: float = Field(default=20, ge=5, le=600)
+    timeout_seconds: float = Field(default=3, gt=0, le=10)
+
+    @model_validator(mode="after")
+    def validate_directory(self) -> Self:
+        if not self.client_secret_file.is_absolute():
+            raise ValueError("directory client secret requires an absolute external path")
+        if not self.organizations or not self.role_permissions:
+            raise ValueError("directory requires explicit organization and role allowlists")
+        if self.stale_after_seconds <= self.refresh_seconds:
+            raise ValueError("directory freshness must exceed refresh interval")
+        for field in ("organization_id", "tenant_id"):
+            values = [getattr(item, field) for item in self.organizations]
+            if len(values) != len(set(values)):
+                raise ValueError("directory organization/tenant bindings must be unique")
+        return self
+
+
+class JWTIssuerConfiguration(ContractModel):
+    issuer: str = Field(min_length=1, max_length=2048)
+    jwks_url: AnyHttpUrl
+    audience: str = Field(min_length=1, max_length=512)
+    algorithms: tuple[Literal["RS256", "ES256"], ...] = ("RS256",)
+    subject_mappings: tuple[JWTSubjectMapping, ...] = ()
+    directory: KeycloakDirectoryConfiguration | None = None
+    jwks_cache_seconds: int = Field(default=300, ge=1, le=3600)
+    jwks_timeout_seconds: float = Field(default=5, gt=0, le=30)
+    leeway_seconds: int = Field(default=30, ge=0, le=120)
+
+    @model_validator(mode="after")
+    def validate_jwks_and_subjects(self) -> Self:
+        if not self.algorithms or len(self.algorithms) != len(set(self.algorithms)):
+            raise ValueError("JWT algorithms must be a nonempty, unique allowlist")
+        url = self.jwks_url
+        if url.scheme != "https" and url.host not in {"localhost", "127.0.0.1", "::1"}:
+            raise ValueError("JWKS must use HTTPS except for a loopback development endpoint")
+        subjects = [mapping.subject for mapping in self.subject_mappings]
+        if (not subjects and self.directory is None) or len(subjects) != len(set(subjects)):
+            raise ValueError("each JWT issuer requires unique subject mappings")
+        if self.directory:
+            from urllib.parse import urlsplit
+
+            parsed = urlsplit(self.issuer)
+            if (
+                parsed.scheme not in {"http", "https"}
+                or (
+                    parsed.scheme != "https"
+                    and parsed.hostname not in {"localhost", "127.0.0.1", "::1"}
+                )
+                or parsed.username
+                or parsed.password
+                or parsed.query
+                or parsed.fragment
+                or not parsed.path.startswith("/realms/")
+                or len(parsed.path.split("/")) != 3
+                or not parsed.path.split("/")[-1]
+                or subjects
+            ):
+                raise ValueError(
+                    "directory requires an exact Keycloak issuer and no static subjects"
+                )
+        return self
 
 
 class IdentityConfiguration(ContractModel):
@@ -34,14 +120,48 @@ class IdentityConfiguration(ContractModel):
     tenants: tuple[Tenant, ...]
     identities: tuple[IdentityEntry, ...]
     grants: tuple[AuthorizationGrant, ...] = ()
+    jwt_issuers: tuple[JWTIssuerConfiguration, ...] = ()
 
     @model_validator(mode="after")
     def bound_tenants(self) -> Self:
-        ids = [t.tenant_id for t in self.tenants]
-        if len(ids) != len(set(ids)):
+        tenant_ids = [tenant.tenant_id for tenant in self.tenants]
+        if len(tenant_ids) != len(set(tenant_ids)):
             raise ValueError("duplicate business tenant")
-        if any(i.principal.home_scope.tenant_id not in ids for i in self.identities):
+        principal_ids = [entry.principal.principal_id for entry in self.identities]
+        if len(principal_ids) != len(set(principal_ids)):
+            raise ValueError("duplicate principal")
+        if any(entry.principal.home_scope.tenant_id not in tenant_ids for entry in self.identities):
             raise ValueError("every principal requires an explicitly registered tenant")
+        if any(
+            binding.tenant_id not in tenant_ids
+            for issuer in self.jwt_issuers
+            if issuer.directory
+            for binding in issuer.directory.organizations
+        ):
+            raise ValueError("directory organization requires a registered P3 tenant")
+        issuers = [issuer.issuer for issuer in self.jwt_issuers]
+        if len(issuers) != len(set(issuers)):
+            raise ValueError("duplicate JWT issuer")
+        bindings = [
+            (issuer.issuer, mapping.subject)
+            for issuer in self.jwt_issuers
+            for mapping in issuer.subject_mappings
+        ]
+        if len(bindings) != len(set(bindings)):
+            raise ValueError("duplicate JWT subject mapping")
+        mapped_principals = {
+            mapping.principal_id
+            for issuer in self.jwt_issuers
+            for mapping in issuer.subject_mappings
+        }
+        if not mapped_principals.issubset(set(principal_ids)):
+            raise ValueError("JWT subject mapping references an unknown principal")
+        if any(
+            entry.credential_sha256 is None
+            and entry.principal.principal_id not in mapped_principals
+            for entry in self.identities
+        ):
+            raise ValueError("each principal requires a static credential or JWT subject mapping")
         return self
 
 
@@ -59,6 +179,26 @@ class LanguageModel(ContractModel):
     health_cache_seconds: float = Field(default=60, ge=1, le=300, allow_inf_nan=False)
     health_max_output_tokens: int = Field(default=1024, ge=256, le=4096)
     prompt_version: Identifier = "remember_structured_v2"
+
+
+class BrowserIdentityConfiguration(ContractModel):
+    """Public Keycloak browser client; never contains a client secret."""
+
+    url: AnyHttpUrl
+    realm: str = Field(pattern=r"^[A-Za-z0-9_.-]+$", max_length=128)
+    client_id: str = Field(min_length=1, max_length=128)
+
+    @model_validator(mode="after")
+    def secure_endpoint(self) -> Self:
+        if self.url.scheme != "https" and self.url.host not in {"localhost", "127.0.0.1", "::1"}:
+            raise ValueError("browser identity must use HTTPS except on loopback")
+        if self.url.username or self.url.password or self.url.query or self.url.fragment:
+            raise ValueError("browser identity URL cannot contain credentials, query or fragment")
+        return self
+
+    @property
+    def issuer(self) -> str:
+        return f"{str(self.url).rstrip('/')}/realms/{self.realm}"
 
 
 class ServiceConfiguration(ContractModel):
@@ -89,6 +229,8 @@ class ServiceConfiguration(ContractModel):
     periodic_seconds: float = Field(default=1, ge=0.01, le=60)
     shutdown_seconds: float = Field(default=15, ge=0.1, le=300)
     identity_reload_seconds: float = Field(default=2, ge=0.01, le=300)
+    browser_identity: BrowserIdentityConfiguration | None = None
+    otlp_traces_endpoint: AnyHttpUrl | None = None
     log_retention_days: int = Field(default=14, ge=1)
     log_max_records: int = Field(default=200000, ge=100)
     cache_capacity_bytes: int = Field(default=268435456, ge=1024)

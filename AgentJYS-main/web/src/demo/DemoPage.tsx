@@ -196,12 +196,6 @@ export default function DemoPage() {
   const progressed = run?.steps.filter(s => s.state === "passed").length ?? 0;
   return <div className="demo-shell">
     <a className="demo-skip-link" href="#demo-content">跳到演示内容</a>
-    <header className="demo-header">
-      <div className="demo-identity"><span className="demo-mark" aria-hidden="true">a</span>
-        <span>Aether<span className="demo-identity-sub">记忆演示空间</span></span>
-      </div>
-      <span className="demo-local"><i /> Native · 固定场景验证</span>
-    </header>
     <div className="demo-layout">
       <aside className="demo-sidebar" aria-label="预设场景">
         <div className="demo-sidebar-content">
@@ -238,6 +232,7 @@ export default function DemoPage() {
         <div className="demo-thread">
           <div className="demo-heading"><div><p className="demo-eyebrow">MEMORY IN CONTEXT</p><h1>让记忆有据可查。</h1></div><span className="demo-version">P3 / LIVE EVIDENCE</span></div>
           <p className="demo-intro">{selected?.description ?? "看见保存、等待与召回，沿着真实证据走完一段对话。"}</p>
+          <p className="demo-intro">演示使用 P4 服务端配置的身份；在监测控制台切换组织，不会改变本页演示所用的租户。</p>
           <section className="demo-mode" aria-label="实际运行模式">
             {run?.mode ? <>
               <span>环境 <b>{run.mode.profile}</b></span><span>Embedding <b>{run.mode.embedding}</b></span>
