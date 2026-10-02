@@ -17,3 +17,8 @@ poll_seconds: 0.25
 periodic_seconds: 1
 shutdown_seconds: 15
 http_wait_seconds: 30
+
+# Optional: enable OTLP/HTTP trace export to your own collector.
+# The trace-specific endpoint must include /v1/traces; no collector is started here.
+# otlp_traces_endpoint: http://127.0.0.1:4318/v1/traces
+# JWT identity example: configs/identities.jwt.example.yaml (replace identity_file).

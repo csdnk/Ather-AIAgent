@@ -1,0 +1,52 @@
+# Copy/merge into an external deployment identities.yaml; do not overwrite existing identities.
+# Replace the issuer, exact organization UUIDs and external client secret path.
+# Members and group assignments are maintained in Keycloak, not in this file.
+revision: 1
+tenants:
+  - tenant_id: tenant_a
+    enabled: true
+  - tenant_id: tenant_b
+    enabled: true
+identities: []
+grants: []
+jwt_issuers:
+  - issuer: http://127.0.0.1:18080/realms/p3-demo
+    jwks_url: http://127.0.0.1:18080/realms/p3-demo/protocol/openid-connect/certs
+    audience: aether-p3
+    algorithms: [RS256]
+    subject_mappings: []
+    directory:
+      client_id: p3-directory
+      client_secret_file: D:/external-p3-identity/directory-client-secret
+      roles_client_id: p3-monitor
+      organizations:
+        - organization_id: replace-with-organization-a-uuid
+          tenant_id: tenant_a
+          application_id: p3
+          agent_id: p3-agent
+        - organization_id: replace-with-organization-b-uuid
+          tenant_id: tenant_b
+          application_id: p3
+          agent_id: p3-agent
+      role_permissions:
+        organization-admin:
+          - memory:read
+          - memory:write
+          - memory:correct
+          - memory:delete
+          - memory:history
+          - maintenance:diagnose
+          - maintenance:recover
+          - maintenance:configure
+        member:
+          - memory:read
+          - memory:write
+          - memory:correct
+          - memory:history
+        viewer:
+          - memory:read
+          - memory:history
+          - maintenance:diagnose
+      refresh_seconds: 5
+      stale_after_seconds: 20
+      timeout_seconds: 3

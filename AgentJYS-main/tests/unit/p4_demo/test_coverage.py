@@ -40,6 +40,9 @@ def test_only_observed_and_checked_routes_are_counted():
         untouched = entries["POST", "/p3/remember/distill"]
         assert untouched.calls == 0 and untouched.state == "unexecuted"
         assert entries["POST", "/p3/backups"].state == "unexecuted"
+        for auth_path in ("/p3/auth/config", "/p3/auth/me"):
+            assert entries["GET", auth_path].calls == 0
+            assert entries["GET", auth_path].state == "unexecuted"
     finally:
         service.close()
 

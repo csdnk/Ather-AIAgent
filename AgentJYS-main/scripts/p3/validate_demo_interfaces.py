@@ -20,6 +20,12 @@ from aether_p4_simulator.validation.calls import ROUTES
 
 ROOT = Path(__file__).resolve().parents[2]
 TESTS = (
+    "tests/runtime/flows/test_tenant_observability.py"
+    "::test_browser_login_disabled_keeps_static_identity_available",
+    "tests/runtime/flows/test_tenant_observability.py"
+    "::test_browser_configuration_exposes_only_public_client_fields",
+    "tests/runtime/flows/test_tenant_observability.py"
+    "::test_current_identity_ignores_client_tenant_and_permission_claims",
     "tests/integration/test_p4_demo_handoff.py"
     "::test_inventory_matches_registered_p3_method_paths",
     "tests/integration/test_p4_demo_handoff.py"

@@ -5,6 +5,8 @@ import re
 from pydantic import BaseModel, ConfigDict
 
 ROUTES = (
+    ("GET", "/p3/auth/config"),
+    ("GET", "/p3/auth/me"),
     ("GET", "/p3/live"),
     ("GET", "/p3/readyz"),
     ("GET", "/p3/runtime"),

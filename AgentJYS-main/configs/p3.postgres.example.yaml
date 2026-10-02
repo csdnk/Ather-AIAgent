@@ -1,0 +1,21 @@
+# PostgreSQL metadata and node logs use the upstream storage implementation.
+# Merge these settings into your existing deployment; retain identity/P2/Temporal settings.
+# Set AETHER_POSTGRES_DSN outside Git. This does not migrate old Demo databases.
+profile: local
+data_dir: ./state
+identity_file: ./identities.yaml
+host: 127.0.0.1
+port: 8080
+embedding_profile: lexical
+metadata_backend: postgresql
+postgres_dsn_env: AETHER_POSTGRES_DSN
+temporal:
+  deployment_id: p3-local
+  endpoint: 127.0.0.1:7233
+  namespace: default
+  task_queue_prefix: p3
+  connect_timeout_seconds: 10
+log_retention_days: 14
+log_max_records: 200000
+# Page Trace uses node_logs in PostgreSQL; full OTel export is separate.
+# otlp_traces_endpoint: http://127.0.0.1:4318/v1/traces

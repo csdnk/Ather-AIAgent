@@ -68,14 +68,16 @@ export function useMonitor(
   taskState: string,
   traceBefore: number | null,
   traceFlow: string,
+  identityKey: string = token,
 ) {
   const [snapshot, setSnapshot] = useState<Snapshot>(empty);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [busy, setBusy] = useState(false);
   const [checked, setChecked] = useState<number | null>(null);
+  // Credentials rotate within one verified identity; only an identity change clears history.
+  useEffect(() => { setSamples([]); }, [identityKey]);
   useEffect(() => {
     setSnapshot(empty);
-    setSamples([]);
     setChecked(null);
     if (!token) { setBusy(false); return; }
     let stopped = false;
@@ -134,6 +136,6 @@ export function useMonitor(
       clearTimeout(timer);
       controller.abort();
     };
-  }, [token, seconds, revision, taskCursor, taskState, traceBefore, traceFlow]);
+  }, [token, seconds, revision, taskCursor, taskState, traceBefore, traceFlow, identityKey]);
   return { snapshot, samples, checked, busy };
 }

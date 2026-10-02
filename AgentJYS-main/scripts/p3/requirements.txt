@@ -9,3 +9,9 @@ ruff==0.15.7
 mypy==1.19.1
 types-PyYAML==6.0.12.20250915
 tiktoken>=0.9,<1
+
+# Foundation node telemetry uses the OpenTelemetry API; exporters are optional.
+opentelemetry-api>=1.43.0,<2
+
+# PostgreSQL driver for the upstream metadata and node log stores.
+psycopg[binary,pool]>=3.2,<4
