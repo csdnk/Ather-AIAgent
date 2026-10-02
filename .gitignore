@@ -23,3 +23,16 @@
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Private P3 demo credentials and database artifacts (examples remain tracked)
+**/credentials.json
+**/connections.json
+**/test-connections.json
+**/postgres.env
+**/credential
+**/organization-demo.json
+**/*.db
+**/*.db-wal
+**/*.db-shm
+
+**/directory-client-secret

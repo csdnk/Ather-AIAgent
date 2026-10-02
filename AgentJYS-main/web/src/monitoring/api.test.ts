@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { get } from "./api";
+import { get, setActiveTenant } from "./api";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); setActiveTenant(""); });
 describe("unified monitor HTTP", () => {
   it("uses a Bearer header and disables cache/redirects without putting credentials in URLs", async () => {
     const fetcher = vi.fn().mockResolvedValue(
@@ -19,6 +19,18 @@ describe("unified monitor HTTP", () => {
     });
     expect(localStorage.length).toBe(0);
     expect(sessionStorage.length).toBe(0);
+  });
+  it("captures the selected tenant for each request and clears it on logout", async () => {
+    const fetcher = vi.fn().mockImplementation(() => Promise.resolve(new Response('{}', {headers: {"content-type": "application/json"}})));
+    vi.stubGlobal("fetch", fetcher);
+    setActiveTenant("tenant_a");
+    const old = get("/p3/traces", "token");
+    setActiveTenant("tenant_b");
+    await get("/p3/traces", "token");
+    await old;
+    setActiveTenant("");
+    await get("/p3/traces", "token");
+    expect(fetcher.mock.calls.map(call => call[1].headers["X-P3-Tenant"])).toEqual(["tenant_a", "tenant_b", undefined]);
   });
   it.each([401, 403, 503])(
     "surfaces HTTP %i without falling back to simulated data",

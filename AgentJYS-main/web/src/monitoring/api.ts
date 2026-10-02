@@ -130,6 +130,10 @@ export type Capabilities = {
   executor: string;
 };
 
+// One console per page. Tenant selection lives in memory and is always checked by P3.
+let activeTenant = "";
+export function setActiveTenant(tenant: string) { activeTenant = tenant; }
+
 export async function get<T>(
   path: string,
   token: string,
@@ -138,7 +142,7 @@ export async function get<T>(
   // Same origin: a reverse proxy owns the service address, never a query-string URL.
   const timeout = AbortSignal.timeout(15000);
   const response = await fetch(path, {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json", ...(activeTenant ? { "X-P3-Tenant": activeTenant } : {}) },
     signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
     cache: "no-store",
     redirect: "error",

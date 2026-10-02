@@ -34,7 +34,10 @@ from aether_agent_memory.runtime.contracts.models import (
 from aether_agent_memory.runtime.foundation.common import FoundationError, now
 from aether_agent_memory.runtime.temporal.controls import ControlRequest
 
+from .config import BrowserIdentityConfiguration
 from .host import ThreeFlows
+from .jwt_auth import JWTAuthenticator
+from .observability import RequestObservability, configure_tracing
 
 
 class ConfigurationRequest(BaseModel):
@@ -60,6 +63,8 @@ def create_app(
     supervisor: Any = None,
     close: Any = None,
     execution: Any = None,
+    jwt_auth: JWTAuthenticator | None = None,
+    browser_identity: BrowserIdentityConfiguration | None = None,
 ) -> FastAPI:
     """Caller owns runtime lifetime. Credentials are supplied at use, never logged."""
     execution = execution or getattr(runtime, "execution", None)
@@ -68,15 +73,24 @@ def create_app(
     supervisor = execution
     state = execution.state
 
+    telemetry = runtime.foundation.telemetry
+    owned_tracing = configure_tracing(telemetry) if telemetry.tracer is None else None
+
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         try:
             await execution.start()
             yield
         finally:
-            await execution.stop()
-            if close is not None:
-                await close()
+            try:
+                try:
+                    await execution.stop()
+                finally:
+                    if close is not None:
+                        await close()
+            finally:
+                if owned_tracing is not None:
+                    owned_tracing.shutdown()
 
     app = FastAPI(title="P3 runtime", lifespan=lifespan)
     app.state.runtime = runtime
@@ -86,11 +100,25 @@ def create_app(
         request: Request,
         authorization: str | None = Header(default=None),
         x_operation_id: str | None = Header(default=None, pattern=r"^[A-Za-z0-9_-]{1,128}$"),
+        x_p3_tenant: str | None = Header(default=None, pattern=r"^[A-Za-z0-9_-]{1,128}$"),
     ) -> TrustedContext:
         if not authorization or not authorization.startswith("Bearer "):
             raise FoundationError(ErrorCode.UNAUTHENTICATED, "bearer credential required")
-        trusted = runtime.foundation.identity.context(
-            authorization[7:], operation_id=x_operation_id
+        identity = runtime.foundation.identity
+        try:
+            principal = identity.authenticate(authorization[7:])
+        except FoundationError as error:
+            if error.code != ErrorCode.UNAUTHENTICATED or jwt_auth is None:
+                raise
+            principal = jwt_auth.authenticate(identity, authorization[7:], x_p3_tenant)
+        if x_p3_tenant is not None and principal.home_scope.tenant_id != x_p3_tenant:
+            raise FoundationError(ErrorCode.FORBIDDEN, "tenant selector cannot expand membership")
+        trusted = identity.context_for_principal(
+            principal,
+            operation_id=x_operation_id,
+            request_id=request.state.request_id,
+            trace_id=request.state.trace_id,
+            span_id=request.state.span_id,
         )
         request.state.context = trusted
         return trusted
@@ -115,7 +143,9 @@ def create_app(
             code=error.code,
             message=error.code.value.lower(),
             retryable=status in {503, 504} or error.code == ErrorCode.REQUEST_IN_PROGRESS,
-            request_id=trusted.request_id if trusted else secrets.token_hex(16),
+            request_id=trusted.request_id
+            if trusted
+            else getattr(request.state, "request_id", secrets.token_hex(16)),
             operation_id=trusted.operation_id if trusted else None,
         )
         job_id = getattr(error, "job_id", None)
@@ -125,6 +155,42 @@ def create_app(
         return JSONResponse(
             status_code=status, content=result.model_dump(mode="json"), headers=headers
         )
+
+    @app.exception_handler(Exception)
+    async def unexpected_error(request: Request, _error: Exception) -> Response:
+        # ServerErrorMiddleware runs outside user middleware; preserve correlation
+        # headers even when it creates the final unhandled-error response.
+        headers = {
+            header: value
+            for header, value in (
+                ("X-Request-ID", getattr(request.state, "request_id", None)),
+                ("X-Trace-ID", getattr(request.state, "trace_id", None)),
+            )
+            if value is not None
+        }
+        return Response(
+            "Internal Server Error", status_code=500, media_type="text/plain", headers=headers
+        )
+
+    @app.get("/p3/auth/config")
+    def auth_configuration(response: Response) -> dict[str, Any]:
+        response.headers["Cache-Control"] = "no-store"
+        if browser_identity is None:
+            return {"enabled": False}
+        return {"enabled": True, **browser_identity.model_dump(mode="json")}
+
+    @app.get("/p3/auth/me")
+    def current_identity(
+        response: Response, ctx: TrustedContext = trusted_dependency
+    ) -> dict[str, Any]:
+        response.headers["Cache-Control"] = "no-store"
+        # Authentication maps the verified subject to the server-owned scope.
+        return {
+            "principal_id": ctx.principal.principal_id,
+            "scope": ctx.principal.home_scope.model_dump(mode="json"),
+            "permissions": sorted(permission.value for permission in ctx.principal.permissions),
+            **runtime.foundation.identity.directory_details(ctx.principal),
+        }
 
     @app.get("/p3/live")
     def live() -> dict[str, str]:
@@ -343,4 +409,5 @@ def create_app(
 
         attach_routes(app, runtime.remember, trusted_dependency, execution=execution)
     app.state.trusted_dependency = trusted_dependency
+    app.add_middleware(RequestObservability, telemetry=telemetry)
     return app

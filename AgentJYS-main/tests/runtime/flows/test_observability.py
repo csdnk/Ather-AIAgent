@@ -131,17 +131,19 @@ def test_process_kill_leaves_open_span_not_success(app, tmp_path):
     ctx = context(app)
     path = tmp_path / "crash.logs.db"
     script = """
-import sys,time
+import os,sys
 from aether_agent_memory.runtime.foundation.telemetry import Telemetry
 from aether_agent_memory.runtime.contracts.models import TrustedContext
 log=Telemetry(sys.argv[1])
 with log.span(TrustedContext.model_validate_json(sys.argv[2]), 'test.crash'):
     print('started',flush=True)
-    time.sleep(60)
+    sys.stdin.read(1)
+    os._exit(23)  # Abrupt process death: no span/database cleanup.
 """
     env = {**os.environ, "PYTHONPATH": "src"}
     child = subprocess.Popen(
         [sys.executable, "-c", script, str(path), ctx.model_dump_json()],
+        stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -149,9 +151,14 @@ with log.span(TrustedContext.model_validate_json(sys.argv[2]), 'test.crash'):
     )
     try:
         assert child.stdout.readline().strip() == "started"
+        # Windows virtualenv Popen may target a launcher, not the Python worker.
+        # Ask that worker to die without unwinding, then wait for its handles to close.
+        child.communicate(input="crash", timeout=10)
+        assert child.returncode == 23
     finally:
-        child.kill()
-        child.communicate(timeout=10)
+        if child.poll() is None:
+            child.kill()
+            child.communicate(timeout=10)
     log = Telemetry(path)
     try:
         page = log.page(ctx, ctx.trace_id)

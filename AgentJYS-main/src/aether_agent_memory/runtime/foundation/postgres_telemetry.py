@@ -64,6 +64,7 @@ class PostgresTelemetry(Telemetry):
         self.dropped = 0
         self.last_error: str | None = None
         self._writes = 0
+        self.tracer = None
         self._lock = RLock()
         try:
             conninfo_to_dict(dsn)

@@ -75,3 +75,25 @@ it("shows fast resources while a health probe is still pending", async () => {
   expect(hook.result.current.snapshot.health.data?.readiness).toBe("ready");
   hook.unmount();
 });
+
+
+it("preserves chart history during renewal but clears it for another identity", async () => {
+  vi.mocked(get).mockImplementation(async (path) => path === "/p3/runtime"
+    ? { pending_tasks: 3, unacknowledged_deliveries: 0 } : { items: [] });
+  const hook = renderHook(({ token, identity }) => useMonitor(token, 0, 0, null, "", null, "business", identity), {
+    initialProps: { token: "old-token", identity: "tenant-a" },
+  });
+  await act(async () => {});
+  expect(hook.result.current.samples).toHaveLength(1);
+  hook.rerender({ token: "renewed-token", identity: "tenant-a" });
+  await act(async () => {});
+  expect(hook.result.current.samples).toHaveLength(2);
+  expect(vi.mocked(get).mock.calls.at(-1)?.[1]).toBe("renewed-token");
+  hook.rerender({ token: "b-token", identity: "tenant-b" });
+  await act(async () => {});
+  expect(hook.result.current.samples).toHaveLength(1);
+  hook.rerender({ token: "", identity: "" });
+  expect(hook.result.current.samples).toEqual([]);
+  expect(hook.result.current.snapshot.runtime.data).toBeUndefined();
+  hook.unmount();
+});

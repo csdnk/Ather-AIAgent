@@ -175,7 +175,8 @@ class Health:
                 )
 
             tasks = [
-                r for _, r in tx.active_task_rows(include_attention=True)
+                r
+                for _, r in tx.active_task_rows(include_attention=True)
                 if permitted(r["record"]["subject"])
             ]
             pending = [
@@ -239,3 +240,11 @@ class Health:
                 "unknown_action_ids": actions,
                 "recovery_policy": "domain_handler_only",
             }
+
+
+def storage_probe(storage: Any, *, write: bool = False) -> dict[str, object]:
+    """Inspect the selected backend, never create a SQLite file in PG mode."""
+    probe = getattr(storage, "probe", None)
+    if callable(probe):
+        return dict(probe(write=write))
+    return sqlite_probe(storage.path, write=write)

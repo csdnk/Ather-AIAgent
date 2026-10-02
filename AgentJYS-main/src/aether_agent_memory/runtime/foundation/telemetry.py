@@ -1,7 +1,8 @@
 """Local structured node logs and spans, independent of business transactions.
 
 No sampling. No body/credential logging. SQLite is the canonical local log store;
-authorized queries can be exported as JSONL. This is not an OTLP exporter.
+authorized queries can be exported as JSONL. The composition root can attach an
+optional OpenTelemetry tracer.
 """
 
 from __future__ import annotations
@@ -25,6 +26,16 @@ from pathlib import Path
 from threading import RLock
 from typing import Any, TypeVar
 
+from opentelemetry import trace
+from opentelemetry.context import Context
+from opentelemetry.trace import (
+    NonRecordingSpan,
+    SpanContext,
+    Status,
+    StatusCode,
+    TraceFlags,
+    Tracer,
+)
 from pydantic import BaseModel
 
 from aether_agent_memory.runtime.contracts.foundation import NodeLogRecord
@@ -149,6 +160,7 @@ class Telemetry:
         self.dropped = 0
         self.last_error: str | None = None
         self._writes = 0
+        self.tracer: Tracer | None = None
         self._lock = RLock()
         self._db = sqlite3.connect(self.path, timeout=0.25, check_same_thread=False)
         self._db.execute("PRAGMA journal_mode=WAL")
@@ -326,9 +338,50 @@ class Telemetry:
             if self.dropped == 1:
                 print('{"level":"ERROR","code":"P3_LOG_WRITE_FAILED"}', file=sys.stderr)
 
+    def set_tracer(self, tracer: Tracer) -> None:
+        self.tracer = tracer
+
     @contextmanager
     def span(self, ctx: TrustedContext, name: str, inputs: Any = None) -> Iterator[Node]:
         node = Node(self, ctx, name)
+        if self.tracer is None:
+            with self._local_span(node, inputs):
+                yield node
+            return
+        active = trace.get_current_span().get_span_context()
+        if (active.trace_id, active.span_id) == (int(ctx.trace_id, 16), int(node.parent_id, 16)):
+            parent_context = None
+        else:
+            # Durable tasks resume from their trusted producer span, not a random worker span.
+            parent = SpanContext(
+                int(ctx.trace_id, 16),
+                int(node.parent_id, 16),
+                is_remote=True,
+                trace_flags=TraceFlags(TraceFlags.SAMPLED),
+            )
+            parent_context = trace.set_span_in_context(NonRecordingSpan(parent), Context())
+        with self.tracer.start_as_current_span(
+            name,
+            context=parent_context,
+            record_exception=False,
+            set_status_on_exception=False,
+            attributes={
+                "p3.request_id": ctx.request_id,
+                "p3.operation_id": ctx.operation_id,
+                "p3.tenant_id": ctx.principal.home_scope.tenant_id,
+            },
+        ) as span:
+            node.span_id = format(span.get_span_context().span_id, "016x")
+            try:
+                with self._local_span(node, inputs):
+                    yield node
+            except BaseException as exc:
+                span.set_status(Status(StatusCode.ERROR))
+                span.set_attribute("error.type", type(exc).__name__)
+                raise
+
+    @contextmanager
+    def _local_span(self, node: Node, inputs: Any) -> Iterator[Node]:
         token = current_node.set(node)
         start = time.monotonic()
         self.emit(node, "started", input=summary(inputs))
@@ -456,8 +509,13 @@ class Telemetry:
                 "MAX(phase='failed'), MAX(phase='cancelled') FROM node_logs "
                 "WHERE trace_id=? AND principal_id=? AND scope=? "
                 "AND sequence>? AND occurred_at>=? GROUP BY span_id",
-                (trace_id, ctx.principal.principal_id, ctx.principal.home_scope.model_dump_json(),
-                 floor, cutoff),
+                (
+                    trace_id,
+                    ctx.principal.principal_id,
+                    ctx.principal.home_scope.model_dump_json(),
+                    floor,
+                    cutoff,
+                ),
             ).fetchall()
         open_spans = [s[0] for s in states if s[1] and not any(s[2:])]
         return {
