@@ -1,5 +1,6 @@
 """Bounded periodic items, committed cursors and technical/business diagnostics."""
 
+import asyncio
 import json
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
@@ -12,6 +13,7 @@ from aether_agent_memory.runtime.contracts.models import (
     EffectStatus,
     ErrorCode,
     Principal,
+    TaskRecord,
     TaskState,
     TrustedContext,
 )
@@ -26,6 +28,8 @@ from .periodic_workflow import P3PeriodicWorkflow as P3PeriodicWorkflow
 
 Commit = Callable[[SQLiteTransaction, str, int, Any], Any]
 Prepare = Callable[[str], Awaitable[Any]]
+_TERMINAL_STATUS_RECHECK_SECONDS = 900
+_TERMINAL_STATUS_REFRESH_BUDGET = 16
 
 if TYPE_CHECKING:
     from aether_agent_memory.operate.basic.maintenance import CacheMaintenance
@@ -41,6 +45,82 @@ class PeriodicActivities:
         if table in self.routes:
             raise ValueError("periodic route already registered")
         self.routes[table] = commit, prepare
+
+    @staticmethod
+    def _terminal_status_proof(
+        binding: WorkflowBinding, task: TaskRecord, diagnostic: dict[str, Any]
+    ) -> str | None:
+        expected = {
+            TaskState.SUCCEEDED: "completed",
+            TaskState.FAILED: "failed",
+            TaskState.CANCELLED: "cancelled",
+        }.get(task.state)
+        if (
+            expected is None
+            or task.effect_status == EffectStatus.UNKNOWN
+            or diagnostic.get("reason_code") != "IN_SYNC"
+            or diagnostic.get("technical_state") != expected
+            or diagnostic.get("run_id") != binding.current_run_id
+        ):
+            return None
+        return fingerprint(
+            [binding.model_dump(mode="json"), task.model_dump(mode="json"), diagnostic]
+        )
+
+    async def prepare_status(self, key: str, *, tick: int | None = None) -> Any:
+        refresh = None
+        with self.ledger.tasks.uow.transaction() as tx:
+            row = tx.read("temporal_bindings", key)
+            binding = (
+                WorkflowBinding.model_validate(row["binding"]) if row and row["binding"] else None
+            )
+            if binding is None:
+                return None
+            _, task = self.ledger.tasks.load(tx, key)
+            diagnostic = tx.read("temporal_diagnostics", binding.workflow_id) or {}
+            proof = self._terminal_status_proof(binding, task, diagnostic)
+            checked = tx.read("temporal_status_checks", binding.workflow_id) or {}
+            stamp = self.ledger.tasks.clock()
+            if (
+                proof is not None
+                and checked.get("proof") == proof
+                and checked.get("checked_at", "") <= stamp < checked.get("recheck_at", "")
+            ):
+                return None
+            # Cold caches and simultaneous expiry must not turn one periodic
+            # sweep into thousands of remote calls. Known inconsistencies and
+            # unresolved/active work bypass this historical terminal budget.
+            historical = (
+                task.state in {TaskState.SUCCEEDED, TaskState.FAILED, TaskState.CANCELLED}
+                and task.effect_status != EffectStatus.UNKNOWN
+                and (not diagnostic or proof is not None)
+                and (not checked or checked.get("proof") == proof)
+            )
+            if tick is not None and historical:
+                deployment = self.ledger.config.deployment_id
+                budget = tx.read("temporal_status_refresh", deployment) or {
+                    "cursor": "",
+                    "tick": tick,
+                    "used": 0,
+                }
+                if budget["tick"] != tick:
+                    budget = {**budget, "tick": tick, "used": 0}
+                if key <= budget["cursor"] or budget["used"] >= _TERMINAL_STATUS_REFRESH_BUDGET:
+                    return None
+                refresh = {"cursor": key, "tick": tick, "used": budget["used"] + 1}
+        if self.gateway is None:
+            raise ConnectionError("Temporal status unavailable")
+        return binding, await self.gateway.describe(binding), refresh
+
+    def _finish_status_sweep(self, tx: SQLiteTransaction, tick: int) -> None:
+        deployment = self.ledger.config.deployment_id
+        budget = tx.read("temporal_status_refresh", deployment)
+        # Rewind only after the tail has been inspected without exhausting the
+        # quota. Otherwise retain the last checked key for the next whole sweep.
+        if budget is not None and (
+            budget["tick"] != tick or budget["used"] < _TERMINAL_STATUS_REFRESH_BUDGET
+        ):
+            tx.write("temporal_status_refresh", deployment, {"cursor": "", "tick": tick, "used": 0})
 
     @activity.defn(name="p3.periodic_batch")
     async def run_periodic_batch(self, state: PeriodicState) -> PeriodicState:
@@ -96,7 +176,13 @@ class PeriodicActivities:
             for key, _ in rows:
                 next_cursor = json.dumps([route_index, key])
                 try:
-                    prepared = await prepare(key) if prepare else None
+                    prepared = (
+                        await self.prepare_status(key, tick=state.last_tick)
+                        if prepare == self.prepare_status
+                        else await prepare(key)
+                        if prepare
+                        else None
+                    )
                     with uow.transaction() as tx:
                         save(tx, next_cursor)
                         # Cursor and local facts share a transaction; exceptions roll both back.
@@ -117,20 +203,31 @@ class PeriodicActivities:
                             {"reason_code": exc.code.value, "tick": state.last_tick},
                         )
                 cursor, remaining = key, remaining - 1
+                # Local routes and status-cache hits may never suspend. Yield
+                # only after item facts and cursor commit, so activity heartbeats
+                # and other work can run without an open transaction.
+                await asyncio.sleep(0)
                 if remaining == 0:
                     return state.model_copy(update={"cursor": next_cursor})
             route_index, cursor = route_index + 1, ""
             with uow.transaction() as tx:
                 save(tx, json.dumps([route_index, cursor]))
+                if prepare == self.prepare_status:
+                    self._finish_status_sweep(tx, state.last_tick)
         with uow.transaction() as tx:
             save(tx, None)
         return state.model_copy(update={"cursor": None})
 
     def diagnose(
-        self, tx: SQLiteTransaction, binding: WorkflowBinding, status: ExecutionStatus
+        self,
+        tx: SQLiteTransaction,
+        binding: WorkflowBinding,
+        status: ExecutionStatus,
+        refresh: dict[str, Any] | None = None,
     ) -> None:
         job_id = binding.workflow_id.rsplit("/", 1)[-1]
         stored = tx.read("temporal_bindings", job_id)
+        task = None
         reason = "IN_SYNC"
         if stored is None:
             reason = "BINDING_MISSING"
@@ -171,11 +268,38 @@ class PeriodicActivities:
                     state=state,
                     error_code=ErrorCode.EXECUTION_INTERRUPTED,
                 )
-        tx.write(
-            "temporal_diagnostics",
-            binding.workflow_id,
-            {"reason_code": reason, "technical_state": status.state, "run_id": status.run_id},
+        diagnostic = {
+            "reason_code": reason,
+            "technical_state": status.state,
+            "run_id": status.run_id,
+        }
+        tx.write("temporal_diagnostics", binding.workflow_id, diagnostic)
+        # Keep the public diagnostic contract unchanged. The private proof is
+        # committed with the verified facts, never on an unverified cache miss.
+        proof = (
+            self._terminal_status_proof(binding, task, diagnostic)
+            if task is not None
+            and stored is not None
+            and stored["binding"] == binding.model_dump(mode="json")
+            else None
         )
+        if proof is not None:
+            stamp = self.ledger.tasks.clock()
+            tx.write(
+                "temporal_status_checks",
+                binding.workflow_id,
+                {
+                    "proof": proof,
+                    "checked_at": stamp,
+                    "recheck_at": later(stamp, _TERMINAL_STATUS_RECHECK_SECONDS),
+                },
+            )
+        elif tx.read("temporal_status_checks", binding.workflow_id):
+            tx.write("temporal_status_checks", binding.workflow_id, {})
+        if refresh is not None:
+            # Commit the refresh cursor with the diagnostic and batch cursor.
+            # Failed RPCs or rolled-back diagnoses must remain eligible for retry.
+            tx.write("temporal_status_refresh", self.ledger.config.deployment_id, refresh)
 
     @activity.defn(name="p3.reconcile_execution_status")
     async def reconcile_execution_status(self, binding: WorkflowBinding) -> ExecutionStatus:
@@ -251,23 +375,11 @@ def register_p3_periodic(
             tx.write("temporal_maintenance_principals", principal_id, {"enabled": True})
     runner.register("temporal_maintenance_principals", observed, sample)
 
-    async def status(key: str) -> Any:
-        with host.foundation.uow.transaction() as tx:
-            row = tx.read("temporal_bindings", key)
-            binding = (
-                WorkflowBinding.model_validate(row["binding"]) if row and row["binding"] else None
-            )
-        if binding is None:
-            return None
-        if runner.gateway is None:
-            raise ConnectionError("Temporal status unavailable")
-        return binding, await runner.gateway.describe(binding)
-
     def diagnostic(tx: SQLiteTransaction, key: str, tick: int, prepared: Any) -> None:
         if prepared is not None:
             runner.diagnose(tx, *prepared)
 
-    runner.register("temporal_bindings", diagnostic, status)
+    runner.register("temporal_bindings", diagnostic, runner.prepare_status)
 
 
 class PeriodicController:

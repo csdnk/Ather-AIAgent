@@ -1,11 +1,13 @@
 """Explicit, versioned deployment configuration for the complete P3 runtime."""
 
+import json
 from pathlib import Path
 from typing import Literal, Self
 
 import yaml
 from pydantic import Field, model_validator
 
+from aether_agent_memory.remember.basic.ceph_p2 import CephP2Config
 from aether_agent_memory.remember.basic.policy import RememberPolicy
 from aether_agent_memory.runtime.contracts.models import (
     AuthorizationGrant,
@@ -51,6 +53,12 @@ class LanguageModel(ContractModel):
     max_output_tokens: int = Field(default=4096, ge=256, le=16384)
     max_response_bytes: int = Field(default=1048576, ge=1024, le=8388608)
     concurrency: int = Field(default=2, ge=1, le=32)
+    response_format: Literal["json_object", "json_schema"] = "json_object"
+    token_limit_parameter: Literal["max_tokens", "max_completion_tokens"] = "max_completion_tokens"
+    temperature: float | None = Field(default=None, ge=0, le=2, allow_inf_nan=False)
+    health_cache_seconds: float = Field(default=60, ge=1, le=300, allow_inf_nan=False)
+    health_max_output_tokens: int = Field(default=1024, ge=256, le=4096)
+    prompt_version: Identifier = "remember_structured_v2"
 
 
 class ServiceConfiguration(ContractModel):
@@ -59,6 +67,10 @@ class ServiceConfiguration(ContractModel):
     profile: Literal["local", "production"] = "local"
     data_dir: Path
     identity_file: Path
+    metadata_backend: Literal["sqlite", "postgresql"] = "sqlite"
+    postgres_dsn_env: str = Field(
+        default="AETHER_POSTGRES_DSN", pattern=r"^[A-Za-z_][A-Za-z0-9_]*$"
+    )
     host: str = "127.0.0.1"
     port: int = Field(default=8080, ge=1, le=65535)
     embedding_profile: Literal["native", "lexical"] = "native"
@@ -68,6 +80,7 @@ class ServiceConfiguration(ContractModel):
     verifier_model: LanguageModel | None = None
     p2_endpoint: str | None = None
     p2_bucket: str = "p3-memory"
+    ceph: CephP2Config | None = None
     redis_url_env: str | None = None
     maintenance_principals: tuple[str, ...] = ()
     automatic_cache_repair: bool = True
@@ -86,12 +99,22 @@ class ServiceConfiguration(ContractModel):
 
     @model_validator(mode="after")
     def production_dependencies(self) -> Self:
+        if self.p2_endpoint is not None and self.ceph is not None:
+            raise ValueError("configure exactly one object storage authority: Ceph or P2 gRPC")
         if self.profile == "production" and (
             self.embedding_profile != "native"
             or self.language_model is None
-            or self.p2_endpoint is None
+            or (self.p2_endpoint is None and self.ceph is None)
         ):
             raise ValueError("production requires native embedding, a language model and real P2")
+        if self.profile == "production":
+            if self.recall_config is None:
+                raise ValueError("production requires an explicit Milvus configuration")
+            vectors = json.loads(self.recall_config.read_text(encoding="utf-8"))
+            if not isinstance(vectors, dict) or not vectors.get("milvus_uri"):
+                raise ValueError("production requires Milvus; SQLite vectors are not allowed")
+            if self.metadata_backend != "postgresql":
+                raise ValueError("production Remember requires PostgreSQL transaction metadata")
         return self
 
     @classmethod

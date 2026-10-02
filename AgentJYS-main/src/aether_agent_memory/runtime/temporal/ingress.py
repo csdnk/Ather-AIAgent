@@ -193,12 +193,19 @@ def register_ingress(
     )
 
     remember.bodies.require_prepared = True
+    # Commands must execute independently of long-running model activities.
+    # Existing task rows retain their stored class and continue on the old queue.
+    ledger.tasks.class_limits.setdefault(
+        "remember_ingress", ledger.tasks.class_limits.get("remember", 2)
+    )
     for kind, save, permission in (
         ("remember.save", SaveStages(inputs, remember), Permission.WRITE),
         ("remember.document", DocumentStages(inputs, remember), Permission.WRITE),
         ("remember.correct", CorrectionStages(inputs, remember), Permission.CORRECT),
     ):
-        ledger.tasks.register(kind, "remember", WorkflowOnlyHandler(), permission=permission)
+        ledger.tasks.register(
+            kind, "remember_ingress", WorkflowOnlyHandler(), permission=permission
+        )
         registry.register(kind, "prepare", save.prepare, save.prepare, permission, "idempotent")
         registry.register(
             kind, "persist", save.persist, save.reconcile_persist, permission, "uncertain"

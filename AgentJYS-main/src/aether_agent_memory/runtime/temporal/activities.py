@@ -1,9 +1,9 @@
 """Fenced I/O boundary. Workflow history receives references and bounded reason codes."""
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import nullcontext
+from contextlib import asynccontextmanager, nullcontext
 from contextvars import ContextVar, copy_context
 from dataclasses import dataclass
 from datetime import datetime
@@ -174,6 +174,7 @@ class Activities:
             )
         async with (
             asyncio.timeout(min(remaining, stage.policy.timeout_seconds)),
+            self._heartbeating(step, min(1, stage.policy.timeout_seconds / 3)),
             self.limits.slot(
                 task.subject.scope.tenant_id,
                 fingerprint(task.subject.scope.model_dump(mode="json")),
@@ -240,9 +241,6 @@ class Activities:
             context = StageContext(self.ledger, task, ctx, execution, self.executor)
             token = _context.set(context)
             fence_token = business_write_guard.set(context.commit_fence)
-            beat = asyncio.create_task(
-                self.heartbeat(step, min(1, stage.policy.timeout_seconds / 3))
-            )
             try:
                 telemetry = self.tasks.uow.telemetry
                 trace = (
@@ -290,10 +288,20 @@ class Activities:
                         span.output = result
                     return self.record(step, context, result)
             finally:
-                beat.cancel()
-                await asyncio.gather(beat, return_exceptions=True)
                 _context.reset(token)
                 business_write_guard.reset(fence_token)
+
+    @asynccontextmanager
+    async def _heartbeating(self, step: StepRequest, interval: float) -> AsyncIterator[None]:
+        # Temporal has already started this Activity even while local capacity is
+        # occupied. Keep transport alive inside the original timeout, without
+        # acquiring a business fence or consuming a stage attempt before the slot.
+        beat = asyncio.create_task(self.heartbeat(step, interval))
+        try:
+            yield
+        finally:
+            beat.cancel()
+            await asyncio.gather(beat, return_exceptions=True)
 
     @staticmethod
     async def heartbeat(step: StepRequest, interval: float) -> None:

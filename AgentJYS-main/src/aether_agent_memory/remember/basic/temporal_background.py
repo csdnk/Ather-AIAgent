@@ -15,8 +15,9 @@ from aether_agent_memory.runtime.temporal.activities import StageContext
 from aether_agent_memory.runtime.temporal.models import StepRequest, StepResult
 from aether_agent_memory.runtime.temporal.registry import StageHandler
 
-from .pipeline import RememberPipeline, _task_policy
+from .pipeline import RememberPipeline, _task_kind, _task_policy
 from .policy import RememberPolicy
+from .temporal_stages import confirm_body_replay, replay_absent_body
 
 
 class BackgroundStages:
@@ -34,6 +35,7 @@ class BackgroundStages:
                     ErrorCode.CONTRACT_VIOLATION, "frozen Remember policy missing"
                 )
             token = _task_policy.set(RememberPolicy.model_validate(policy))
+            kind_token = _task_kind.set(context.task.kind)
             try:
                 if binding != self.owner.checkpoint_binding():
                     raise FoundationError(
@@ -41,6 +43,7 @@ class BackgroundStages:
                     )
                 return cast(StepResult, await getattr(self, phase)(step, reconcile=reconcile))
             finally:
+                _task_kind.reset(kind_token)
                 _task_policy.reset(token)
 
         return call
@@ -170,11 +173,12 @@ class BackgroundStages:
         if kind == "remember.summarize":
             return [data["content"]] if data["failure"] is None else []
         if kind in {"remember.extract", "remember.distill"}:
+            # A preceding amendment can turn an equivalent candidate into a
+            # conflict during commit. Confirm every accepted body beforehand;
+            # an unused immutable object may remain when no fact references it.
             return list(
                 dict.fromkeys(
-                    c["text"]
-                    for c, d, _ in data["proposals"]
-                    if d["outcome"] not in {"no_change", "equivalent", "reject"}
+                    c["text"] for c, d, _ in data["proposals"] if d["outcome"] != "reject"
                 )
             )
         return []
@@ -192,6 +196,17 @@ class BackgroundStages:
                 if bodies.p2:
                     raw = await bodies.p2_call("get_object", location.object_key)
                     if raw is None:
+                        if getattr(bodies.p2, "immutable_write_replay_safe", False) is True:
+                            checked = await replay_absent_body(
+                                self.owner.uow,
+                                "temporal_body_writes",
+                                key,
+                                partial(bodies.persist, c.context, scope, text),
+                                initial_intent={"object_key": location.object_key},
+                            )
+                            if checked is not None:
+                                return checked
+                            continue
                         return StepResult(
                             outcome="query" if started else "retry",
                             effect_status=EffectStatus.UNKNOWN
@@ -202,6 +217,7 @@ class BackgroundStages:
                         )
                     if raw != text.encode("utf-8"):
                         raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "Remember body differs")
+                    confirm_body_replay(self.owner.uow, "temporal_body_writes", key)
                     bodies.prepared[location.object_key] = location
                 await c.blocking(partial(bodies._spool, location, text))
             else:

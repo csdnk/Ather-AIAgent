@@ -232,6 +232,8 @@ class TaskProgress:
         # Existing routing names stay compatible; this field describes resources.
         category = {
             "remember": "model",
+            "remember_ingress": "io",
+            "remember_index": "io",
             "recall": "model",
             "operate": "io",
             "engineering": "maintenance",

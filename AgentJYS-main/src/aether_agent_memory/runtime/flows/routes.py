@@ -27,9 +27,13 @@ def attach(app: FastAPI, service: Any) -> None:
             runtime.foundation.identity.revalidate(tx, ctx)
         return {
             "profile": service.config.profile,
+            "metadata_storage": service.config.metadata_backend,
+            "telemetry_storage": service.config.metadata_backend,
             "embedding": runtime.embedding_profile,
             "semantic_processing": "model" if service.config.language_model else "literal_baseline",
-            "object_storage": "p2_grpc" if service.config.p2_endpoint else "local_sqlite",
+            "object_storage": "ceph_rgw"
+            if service.config.ceph
+            else ("p2_grpc" if service.config.p2_endpoint else "local_sqlite"),
             "scheduling": "temporal_v1",
             "executor": runtime.executor.provider_id,
             "operations": [

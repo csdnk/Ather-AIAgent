@@ -1,15 +1,74 @@
 """Remember command stages, reusing the same domain preparation and commit methods."""
 
 import json
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from aether_agent_memory.remember.contracts.models import CorrectionRequest, RememberRequest
 from aether_agent_memory.remember.documents import Documents
 from aether_agent_memory.runtime.contracts.models import EffectStatus, ErrorCode, RecordRef, Scope
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
+from aether_agent_memory.runtime.foundation.storage import SQLiteUnitOfWork
 from aether_agent_memory.runtime.temporal.activities import StageContext
 from aether_agent_memory.runtime.temporal.ingress import InputStore
 from aether_agent_memory.runtime.temporal.models import StepRequest, StepResult
+
+
+def confirm_body_replay(uow: SQLiteUnitOfWork, table: str, key: str) -> None:
+    """Resolve a reserved retry only after exact remote bytes have been observed."""
+    with uow.transaction() as tx:
+        StageContext.current().guard(tx)
+        prior = tx.read(table, key)
+        if prior and prior.get("replay_attempts") and prior.get("replay_state") != "confirmed":
+            tx.write(table, key, {**prior, "replay_state": "confirmed"})
+
+
+async def replay_absent_body(
+    uow: SQLiteUnitOfWork,
+    table: str,
+    key: str,
+    publish: Callable[[], Awaitable[Any]],
+    *,
+    initial_intent: dict[str, Any] | None = None,
+) -> StepResult | None:
+    """Reserve a bounded retry of a capability-checked immutable absent object.
+
+    The caller must have observed an absent object, not a failed read. Retain the
+    original intent: a previous request may still be in flight despite that read.
+    Recovery may enter before the initial publish activity; its frozen intent and
+    first attempt must then be registered together before any external write.
+    """
+    context = StageContext.current()
+    with uow.transaction() as tx:
+        context.guard(tx)
+        prior = tx.read(table, key)
+        if not prior:
+            if initial_intent is None:
+                tx.abort(ErrorCode.CONTRACT_VIOLATION, "immutable replay requires a write intent")
+            prior = {**initial_intent, "intent_created_by_reconciliation": True}
+        attempts = prior.get("replay_attempts", 0)
+        if attempts >= context.task.max_attempts:
+            tx.write(table, key, {**prior, "replay_state": "exhausted"})
+            return StepResult(
+                outcome="attention",
+                effect_status=EffectStatus.UNKNOWN,
+                original_operation_id=context.context.operation_id,
+                reason_code="IMMUTABLE_BODY_REPLAY_EXHAUSTED",
+            )
+        tx.write(
+            table,
+            key,
+            {
+                **prior,
+                "replay_attempts": attempts + 1,
+                "replay_limit": context.task.max_attempts,
+                "replay_state": "reserved",
+                "replay_reason": "confirmed_absent_immutable_write",
+            },
+        )
+    await publish()
+    confirm_body_replay(uow, table, key)
+    return None
 
 
 class SaveStages:
@@ -126,6 +185,14 @@ class SaveStages:
         if bodies.p2:
             raw = await bodies.p2_call("get_object", location.object_key)
             if raw is None:
+                if getattr(bodies.p2, "immutable_write_replay_safe", False) is True:
+                    return await replay_absent_body(
+                        self.inputs.uow,
+                        "temporal_body_writes",
+                        key,
+                        lambda: bodies.persist(context.context, scope, text),
+                        initial_intent={"object_key": location.object_key, "started": True},
+                    )
                 return StepResult(
                     outcome="query" if prior else "retry",
                     effect_status=EffectStatus.UNKNOWN if prior else EffectStatus.NO_EFFECT,
@@ -134,6 +201,7 @@ class SaveStages:
                 )
             if raw != text.encode("utf-8"):
                 raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "P2 exact body hash differs")
+            confirm_body_replay(self.inputs.uow, "temporal_body_writes", key)
             bodies.prepared[location.object_key] = location
             await context.blocking(lambda: bodies._spool(location, text))
         else:
@@ -273,6 +341,23 @@ class DocumentStages(SaveStages):
         if raw is None:
             with self.inputs.uow.transaction() as tx:
                 started = tx.read("temporal_document_writes", step.job.job_id)
+            if getattr(self.remember.bodies.p2, "immutable_write_replay_safe", False) is True:
+                checked = await replay_absent_body(
+                    self.inputs.uow,
+                    "temporal_document_writes",
+                    step.job.job_id,
+                    lambda: self.documents.persist_upload(prepared, self.body()),
+                    initial_intent={"key": key},
+                )
+                if checked is not None:
+                    return checked
+                return StepResult(
+                    outcome="done",
+                    next_stage="commit",
+                    result_ref=self.ref("prepared"),
+                    effect_status=EffectStatus.CONFIRMED,
+                    reason_code="DOCUMENT_REPLAY_CONFIRMED",
+                )
             return StepResult(
                 outcome="query" if started else "retry",
                 effect_status=EffectStatus.UNKNOWN if started else EffectStatus.NO_EFFECT,
@@ -281,6 +366,7 @@ class DocumentStages(SaveStages):
             )
         if raw != self.body():
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "document bytes differ")
+        confirm_body_replay(self.inputs.uow, "temporal_document_writes", step.job.job_id)
         return StepResult(
             outcome="done",
             next_stage="commit",

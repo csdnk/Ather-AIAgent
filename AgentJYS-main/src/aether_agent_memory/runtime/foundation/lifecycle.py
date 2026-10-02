@@ -123,6 +123,10 @@ class RuntimeLifecycle:
 
     def backup(self, ctx: TrustedContext, backup_id: str) -> BackupManifest:
         self.authorize(ctx)
+        if getattr(self.uow, "backend", "sqlite") == "postgresql":
+            raise ValueError(
+                "PostgreSQL backup requires pg_dump; the SQLite snapshot API is not applicable"
+            )
         configuration = self.configuration(ctx)
         if configuration is None:
             raise ValueError("activate a deployment configuration before backup")
@@ -180,6 +184,8 @@ class RuntimeLifecycle:
 
     def restore(self, ctx: TrustedContext, backup_id: str, restore_id: str) -> BackupManifest:
         self.authorize(ctx)
+        if getattr(self.uow, "backend", "sqlite") == "postgresql":
+            raise ValueError("PostgreSQL restore requires pg_restore into an offline target")
         source_path = self.path(backup_id)
         with self.uow.transaction() as tx:
             raw = tx.read("backup_manifests", backup_id)

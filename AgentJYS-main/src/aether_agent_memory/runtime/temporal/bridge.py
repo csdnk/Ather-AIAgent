@@ -2,6 +2,7 @@
 
 import asyncio
 import time
+from collections import deque
 from typing import Protocol
 
 from temporalio.service import RPCError
@@ -25,6 +26,7 @@ class IntentBridge:
         self.ledger, self.gateway = ledger, gateway
         self._lock = asyncio.Lock()
         self._backoff: dict[str, tuple[int, float]] = {}
+        self._next_kind = "control"
 
     async def flush(self, limit: int = 100) -> int:
         if not 1 <= limit <= 1000:
@@ -42,7 +44,34 @@ class IntentBridge:
                 ("control", key, row) for key, row in tx.pending_intent_rows("control", limit=limit)
             ]
         count = 0
-        for kind, key, row in (starts + controls)[:limit]:
+        # A long document can atomically create hundreds of projection/signal
+        # intents. Yield between RPCs so the coordinator refreshes readiness and
+        # worker heartbeats while this durable backlog drains. Never cancel an
+        # in-flight RPC merely to meet the quantum: its normal timeout and stable
+        # intent identity still govern acknowledgement-loss recovery.
+        stop_at = time.monotonic() + 2.0
+        queues = {
+            "start": deque(
+                item for item in starts if self._backoff.get(item[1], (0, 0))[1] <= time.monotonic()
+            ),
+            "control": deque(
+                item
+                for item in controls
+                if self._backoff.get(item[1], (0, 0))[1] <= time.monotonic()
+            ),
+        }
+        for _ in range(limit):
+            if time.monotonic() >= stop_at:
+                break
+            selected = self._next_kind
+            if not queues[selected]:
+                selected = "start" if selected == "control" else "control"
+            if not queues[selected]:
+                break
+            kind, key, row = queues[selected].popleft()
+            # Alternate attempts, including failed RPCs, across flush calls.
+            # Even limit=1 or one slow start cannot indefinitely delay controls.
+            self._next_kind = "start" if kind == "control" else "control"
             tries, next_try = self._backoff.get(key, (0, 0))
             if time.monotonic() < next_try:
                 continue
