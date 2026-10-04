@@ -4,10 +4,7 @@ import ast
 import json
 import subprocess
 import sys
-from importlib import import_module
 from pathlib import Path
-
-import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
 PACKAGE = ROOT / "src" / "aether_agent_memory"
@@ -50,7 +47,7 @@ from aether_agent_memory.recall.embedding import SemanticEmbeddingService
 from aether_agent_memory.recall.embedding.native import NativeEmbeddingBackend
 from aether_agent_memory.recall.embedding.backends import create_backend
 from aether_agent_memory.recall.embedding.fastembed_client import FastEmbedClient
-from aether_agent_memory.mocks.recall import InMemoryRecallRecords
+from recall_records import InMemoryRecallRecords
 from tests.unit.recall.helpers import Backend, Inputs, runtime
 
 runpy.run_path("examples/recall_admission.py", run_name="__main__")
@@ -91,27 +88,3 @@ asyncio.run(embed())
     assert all(row["state"] == "RUNNING_REQUEST_VALIDATION" for row in rows[:3])
     assert all(not row["context_produced"] for row in rows[:3])
     assert all("rejected" in row for row in rows[3:]) and len(rows) == 5
-
-
-@pytest.mark.parametrize(
-    "old,new",
-    [
-        ("memory.recall.admission", "recall.admission"),
-        ("memory.recall.embedding_input", "recall.embedding_input"),
-        ("memory.recall.execution", "recall.execution"),
-        ("memory.recall.models", "recall.models"),
-        ("memory.recall.ports", "recall.ports"),
-        ("memory.recall.query", "recall.query"),
-        ("memory.recall.routing", "recall.routing"),
-        ("memory.recall.store", "recall.store"),
-        ("b1.semantic.models", "recall.embedding.models"),
-        ("b1.semantic.service", "recall.embedding.service"),
-        ("memory.vector_projection.models", "recall.vector_projection.models"),
-        ("memory.vector_projection.ports", "recall.vector_projection.ports"),
-    ],
-)
-def test_legacy_paths_export_canonical_implementations(old, new):
-    legacy = import_module("aether_agent_memory." + old)
-    canonical = import_module("aether_agent_memory." + new)
-    for name in legacy.__all__:
-        assert getattr(legacy, name) is getattr(canonical, name)

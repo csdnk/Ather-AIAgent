@@ -10,7 +10,6 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from aether_agent_memory.mocks.recall import InMemoryRecallRecords
 from aether_agent_memory.recall.embedding import native
 from aether_agent_memory.recall.embedding.backends import (
     BackendConfig,
@@ -23,6 +22,7 @@ from aether_agent_memory.recall.embedding.service import (
     make_embedding_request,
 )
 from aether_agent_memory.runtime.contract_types import hash_json, hash_text, utcnow
+from recall_records import InMemoryRecallRecords
 
 
 class TokenizerDouble:
@@ -284,10 +284,3 @@ def test_loading_requires_actual_dimension_and_weight_digest(model, field, value
                 backend="openvino",
             )
         )
-
-
-def test_legacy_backend_module_is_the_canonical_implementation():
-    import aether_agent_memory.b1.backends as legacy
-    import aether_agent_memory.recall.embedding.backends as canonical
-
-    assert legacy is canonical

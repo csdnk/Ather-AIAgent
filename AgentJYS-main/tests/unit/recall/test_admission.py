@@ -11,8 +11,8 @@ from aether_agent_memory.recall.admission import (
     RecallFilters,
     RecallInput,
 )
-from aether_agent_memory.runtime.capability_store import SQLiteCapabilityStore
 from aether_agent_memory.runtime.contract_types import utcnow
+from azure_test_runtime import AzureRecords
 
 
 @pytest.mark.parametrize(
@@ -25,7 +25,7 @@ from aether_agent_memory.runtime.contract_types import utcnow
     ],
 )
 async def test_scope_union_and_initial_records(tmp_path, current, types, mode):
-    store = SQLiteCapabilityStore(tmp_path / "state.db")
+    store = AzureRecords(tmp_path / "state.db")
     raw = recall_input(
         scope=scope(session_id="session" if current else None),
         retrieval_constraints=RecallFilters(memory_types=types),
@@ -61,7 +61,7 @@ def test_clients_cannot_select_mode(field):
     ],
 )
 async def test_rejection_creates_no_execution(tmp_path, valid, working, long_term, code):
-    store = SQLiteCapabilityStore(tmp_path / "state.db")
+    store = AzureRecords(tmp_path / "state.db")
     auth = Authority()
     auth.valid, auth.working, auth.long_term = valid, working, long_term
     with pytest.raises(RecallError, match=code):
@@ -73,13 +73,13 @@ async def test_rejection_creates_no_execution(tmp_path, valid, working, long_ter
 
 async def test_replay_survives_restart_and_policy_changes_but_not_revocation(tmp_path):
     path = tmp_path / "state.db"
-    store = SQLiteCapabilityStore(path)
+    store = AzureRecords(path)
     auth = Authority()
     auth.working = False
     raw = recall_input()
     first = await RecallAdmissionService(store, auth, policy()).admit(raw)
     store.close()
-    store = SQLiteCapabilityStore(path)
+    store = AzureRecords(path)
     auth.working = True
     newer = policy(
         policy_version="new-policy", tokenizer_id="new-tokenizer", retrieval_space_ref="new-space"
@@ -97,7 +97,7 @@ async def test_replay_survives_restart_and_policy_changes_but_not_revocation(tmp
 
 
 async def test_concurrent_callers_reserve_once_and_busy_does_not_block_attachment(tmp_path):
-    store = SQLiteCapabilityStore(tmp_path / "state.db")
+    store = AzureRecords(tmp_path / "state.db")
     svc = RecallAdmissionService(
         store, Authority(), policy(max_inflight_requests=1, max_queued_requests=0)
     )
@@ -111,7 +111,7 @@ async def test_concurrent_callers_reserve_once_and_busy_does_not_block_attachmen
 
 
 async def test_types_and_missing_model_space_do_not_silently_reduce_sources(tmp_path):
-    store = SQLiteCapabilityStore(tmp_path / "state.db")
+    store = AzureRecords(tmp_path / "state.db")
     auth = Authority()
     auth.long_term = False
     with pytest.raises(RecallError, match="REQUEST_INVALID"):

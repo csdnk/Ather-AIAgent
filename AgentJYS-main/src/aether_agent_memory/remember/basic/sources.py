@@ -95,19 +95,28 @@ class SourceAccess:
     async def read(
         self, ctx: TrustedContext, source: SourceRef, start: int = 0, end: int | None = None
     ) -> dict[str, Any]:
-        with self.owner.uow.transaction() as tx:
-            row = self.checked(tx, ctx, source)
-            manifest = tx.read("remember_source_ranges", source.source_id)
+        def source_binding() -> tuple[Any, Any]:
+            with self.owner.uow.transaction() as tx:
+                row = self.checked(tx, ctx, source)
+                manifest = tx.read("remember_source_ranges", source.source_id)
+            return row, manifest
+
+        row, manifest = await asyncio.to_thread(source_binding)
         if manifest is None:
             # Legacy sources only. New saves always commit a range manifest.
             location = ResourceLocation.model_validate(row["original_location"])
             text, _ = await self.owner.bodies.read(Scope.model_validate(row["scope"]), location)
             if text_hash(text) != source.content_hash:
                 raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "source hash mismatch")
-            with self.owner.uow.transaction() as tx:
-                self.checked(tx, ctx, source)
-                self.register(tx, source, text)
-                manifest = tx.read("remember_source_ranges", source.source_id)
+
+            def register_ranges() -> Any:
+                with self.owner.uow.transaction() as tx:
+                    self.checked(tx, ctx, source)
+                    self.register(tx, source, text)
+                    manifest = tx.read("remember_source_ranges", source.source_id)
+                return manifest
+
+            manifest = await asyncio.to_thread(register_ranges)
         if manifest["source"] != source.model_dump(mode="json"):
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "source manifest mismatch")
         limit = self.owner.policy.source_read_max_chars
@@ -116,11 +125,12 @@ class SourceAccess:
         if not 0 <= start <= stop <= total or stop - start > limit:
             raise FoundationError(ErrorCode.INVALID_ARGUMENT, "source range exceeds read budget")
         location = ResourceLocation.model_validate(row["original_location"])
+        self.owner.bodies.check_binding(location)
         pieces = []
         for page in manifest["pages"]:
             if page["end_char"] <= start or page["start_char"] >= stop:
                 continue
-            if location.provider_id == "p2":
+            if location.provider_id != "local":
                 raw = await self.owner.bodies.p2_call(
                     "read_range", location.object_key, page["start_byte"], page["end_byte"]
                 )
@@ -147,11 +157,18 @@ class SourceAccess:
         content = "".join(pieces)
         if len(content) != stop - start:
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "source range coverage mismatch")
-        with self.owner.uow.transaction() as tx:
-            current = self.checked(tx, ctx, source)
-            if current["revision"] != row["revision"]:
-                raise FoundationError(ErrorCode.RESULT_INVALIDATED, "source changed during read")
-            document = tx.read("remember_source_documents", source.source_id)
+
+        def recheck_source() -> Any:
+            with self.owner.uow.transaction() as tx:
+                current = self.checked(tx, ctx, source)
+                if current["revision"] != row["revision"]:
+                    raise FoundationError(
+                        ErrorCode.RESULT_INVALIDATED, "source changed during read"
+                    )
+                document = tx.read("remember_source_documents", source.source_id)
+            return document
+
+        document = await asyncio.to_thread(recheck_source)
         return {
             "source": source.model_dump(mode="json"),
             "representation": "source_text_range",

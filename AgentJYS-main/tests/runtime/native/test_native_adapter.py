@@ -11,8 +11,8 @@ from aether_agent_memory.recall.contracts.models import EmbeddingRequest
 from aether_agent_memory.recall.embedding import p3
 from aether_agent_memory.recall.embedding.service import ComputedEmbedding, SemanticEmbeddingError
 from aether_agent_memory.runtime.contracts.models import Permission, Principal, Scope
-from aether_agent_memory.runtime.flows.host import ThreeFlows
 from aether_agent_memory.runtime.foundation.common import FoundationError, later, now
+from azure_test_runtime import ThreeFlows
 
 
 class Backend:
@@ -263,4 +263,4 @@ def test_changed_model_rejected_without_relabeling_existing_database(app, monkey
 
 def test_native_database_cannot_silently_switch_to_lexical(app):
     with pytest.raises(ValueError):
-        ThreeFlows(app.foundation.uow.path, app.executor.root, embedding_profile="lexical")
+        ThreeFlows(app.foundation.uow.path, app.executor.root, embedding_profile="injected")

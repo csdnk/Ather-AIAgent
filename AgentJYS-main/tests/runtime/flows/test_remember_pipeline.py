@@ -8,7 +8,6 @@ from remember_helpers import context, drain, facts, recall, save, source
 
 from aether_agent_memory.remember.basic.comparison import ComparisonDecision
 from aether_agent_memory.remember.basic.compression import CompressionOutput, QualityEvidence
-from aether_agent_memory.remember.basic.content import RedisBodyCache
 from aether_agent_memory.remember.basic.policy import RememberPolicy, chunks
 from aether_agent_memory.remember.basic.service import memory_ref
 from aether_agent_memory.remember.contracts.foundation import MemoryRecord, ProjectionManifest
@@ -24,6 +23,8 @@ from aether_agent_memory.remember.contracts.models import (
 )
 from aether_agent_memory.runtime.contracts.models import ScopeSelector
 from aether_agent_memory.runtime.foundation.common import FoundationError, later
+from aether_agent_memory.runtime.storage.redis_cache import RedisCache
+from azure_storage_support import azure_redis as azure_redis
 
 
 def observe(app, text, operation=None):
@@ -160,15 +161,17 @@ def test_archive_working_preserves_fact_and_correction_blocks_archived_derivativ
         fact.memory_id,
         LifecycleRequest(expected_version=1, target="archived", reason="hide temporarily"),
     )
-    app.remember.correct(
-        context(app),
-        working.memory_id,
-        CorrectionRequest(
-            expected_version=1,
-            content="deployment succeeded",
-            source=source(),
-            reason="verified correction",
-        ),
+    asyncio.run(
+        app.remember.correct_async(
+            context(app),
+            working.memory_id,
+            CorrectionRequest(
+                expected_version=1,
+                content="deployment succeeded",
+                source=source(),
+                reason="verified correction",
+            ),
+        )
     )
     assert app.remember.get(context(app), fact.memory_id).status == "superseded"
     with pytest.raises(FoundationError):
@@ -253,13 +256,11 @@ def test_p2_failure_never_returns_saved_and_verified_read_repairs_replica(app):
     drain(app)
 
 
-def test_redis_full_body_quota_hash_and_delete(app):
+def test_redis_full_body_quota_hash_and_delete(app, azure_redis):
     async def check():
-        import fakeredis.aioredis
-
-        client = fakeredis.aioredis.FakeRedis()
+        client, namespace = azure_redis
         policy = RememberPolicy(cache_max_body_bytes=16, cache_scope_bytes=20)
-        cache = RedisBodyCache(client, policy)
+        cache = RedisCache(client, policy, namespace=namespace)
         scope = context(app).principal.home_scope
         assert await cache.put(scope, "123456789012")
         assert not await cache.put(scope, "abcdefghijkl")
@@ -268,11 +269,13 @@ def test_redis_full_body_quota_hash_and_delete(app):
 
         digest = text_hash("123456789012")
         assert await cache.get(scope, digest) == "123456789012"
-        await client.set(cache.keys(scope, digest)[0], b"corrupt")
-        assert await cache.get(scope, digest) is None
+        key, body, _ = cache.keys(scope, digest)
+        await asyncio.to_thread(client.hset, key, body, b"corrupt")
+        with pytest.raises(FoundationError) as error:
+            await cache.get(scope, digest)
+        assert error.value.code == "CONTRACT_VIOLATION"
         await cache.delete(scope, digest)
         assert await cache.put(scope, "abcdefghijkl")
-        await client.aclose()
 
     asyncio.run(check())
 
@@ -351,34 +354,6 @@ def test_unicode_token_chunks_cover_every_character(app):
     assert all(text[a:b] == s and app.remember.tokenizer.count(s) <= 8 for a, b, s in pieces)
 
 
-def test_celery_outbox_failure_retains_work_and_sends_only_task_id(app):
-    from aether_agent_memory.remember.basic.dispatch import CeleryWakeups
-
-    class Broker:
-        calls = []
-        fail = True
-
-        def send_task(self, name, **kwargs):
-            self.calls.append((name, kwargs))
-            if self.fail:
-                raise OSError("broker down")
-
-    receipt = save(app)
-    broker = Broker()
-    dispatcher = CeleryWakeups(broker)
-    assert asyncio.run(dispatcher.dispatch(app.foundation)) == 0
-    with app.foundation.uow.transaction() as tx:
-        row = tx.read("remember_outbox", receipt.task_ids[0])
-        assert row["state"] == "broker_unavailable"
-        tx.write(
-            "remember_outbox",
-            receipt.task_ids[0],
-            {**row, "next_attempt_at": app.foundation.identity.clock()},
-        )
-    broker.fail = False
-    assert asyncio.run(dispatcher.dispatch(app.foundation)) == 1
-    assert broker.calls[-1][1]["args"] == [receipt.task_ids[0]]
-    drain(app)
 
 
 def test_explicit_review_creates_semantic_without_overwriting_episode(app):

@@ -11,9 +11,9 @@ import yaml
 from fastapi.testclient import TestClient
 
 from aether_agent_memory.remember.basic.policy import RememberPolicy
-from aether_agent_memory.runtime.contracts.models import Permission
-from aether_agent_memory.runtime.flows.application import Service
-from aether_agent_memory.runtime.flows.config import ServiceConfiguration
+from aether_agent_memory.runtime.contracts.models import Permission, RecordRef
+from azure_component_service import Service
+from component_configuration import ComponentConfiguration as ServiceConfiguration
 
 
 def provision(path, *, revision=1, enabled=True, grants=(), epoch=1):
@@ -62,7 +62,7 @@ def configuration(tmp_path, temporal_server):
         },
         data_dir=tmp_path / "state",
         identity_file=auth,
-        embedding_profile="lexical",
+        embedding_profile="injected",
         poll_seconds=0.01,
         periodic_seconds=0.02,
         identity_reload_seconds=0.02,
@@ -284,7 +284,7 @@ def test_shared_recall_and_revocation_use_current_resource_permission(configurat
         )
 
 
-def test_operate_uses_prepared_files_and_cools_without_new_requests(configuration, monkeypatch):
+def test_operate_retains_hot_cache_and_defers_unsupported_cooling(configuration, monkeypatch):
     import aether_agent_memory.operate.basic.continuous as continuous
 
     # Exercise the domain's decay window independently of Temporal/CI latency.
@@ -321,9 +321,9 @@ def test_operate_uses_prepared_files_and_cools_without_new_requests(configuratio
         def promoted():
             response = client.get(path, headers=headers())
             assert response.status_code == 200, response.text
-            return any(
-                a["state"] == "succeeded" and a["intent"]["decision"]["target_tier"] == "hot"
-                for a in response.json()["actions"]
+            return (
+                service.runtime.executor.copies()
+                and response.json()["input"]["successful_reads"] >= 1
             )
 
         eventually(promoted)
@@ -338,16 +338,18 @@ def test_operate_uses_prepared_files_and_cools_without_new_requests(configuratio
             },
         )
         assert response.status_code == 200, response.text
-        with service.runtime.executor.db() as db:
-            assert db.execute("SELECT sum(count) FROM reads").fetchone()[0] > 0
+        copy = next(
+            copy for copy in service.runtime.executor.copies() if copy.memory.memory_id == memory_id
+        )
+        assert service.runtime.executor.read_cached(copy.memory.scope, copy.content_hash)
+        assert service.runtime.executor.probe()["receipt_backend"] == "postgresql"
 
         # Recall commits its access Outbox before Operate consumes it. Let all
         # 17 observations reach the heat policy before advancing its clock.
         def all_accesses_consumed():
             with service.runtime.foundation.uow.transaction() as tx:
                 return any(
-                    row["memory"]["key"]["memory_id"] == memory_id
-                    and row["access_count"] == 17
+                    row["memory"]["key"]["memory_id"] == memory_id and row["access_count"] == 17
                     for _, row in tx.rows("operate_heat")
                 )
 
@@ -355,12 +357,21 @@ def test_operate_uses_prepared_files_and_cools_without_new_requests(configuratio
         advance[0] = 40.0
 
         def cooled():
-            return any(
-                a["state"] == "succeeded" and a["intent"]["decision"]["target_tier"] == "cold"
-                for a in client.get(path, headers=headers()).json()["actions"]
-            )
+            with service.runtime.foundation.uow.transaction() as tx:
+                for _, row in tx.rows("tasks"):
+                    task = row["record"]
+                    if task["kind"] == "operate.evaluate" and task["state"] == "succeeded":
+                        result = tx.get(RecordRef.model_validate(task["result_ref"]))
+                        if (
+                            result
+                            and result.get("decision", {}).get("reason")
+                            == "unsupported_tier_transition"
+                        ):
+                            return result
+            return None
 
         eventually(cooled, seconds=60)
+        assert all(copy.tier == "hot" for copy in service.runtime.executor.copies())
 
 
 def test_correction_and_delete_invalidate_previous_context(configuration):
@@ -432,23 +443,51 @@ def test_correction_and_delete_invalidate_previous_context(configuration):
         assert "green tea" not in result.json()["rendered_context"]
 
 
-def test_readiness_detects_object_store_outage(configuration):
+@pytest.mark.parametrize("embedding_profile", ["native", "injected"])
+def test_readiness_detects_object_store_outage(configuration, monkeypatch, embedding_profile):
+    configuration = configuration.model_copy(
+        update={
+            "health_probe_timeout_seconds": 10,
+            "embedding_profile": embedding_profile,
+            "embedding_config": Path(os.environ["P3_TEST_NATIVE_CONFIG"]),
+        }
+    )
     service = Service(configuration)
     with TestClient(service.app()) as client:
-        eventually(lambda: client.get("/p3/ready", headers=headers()).status_code == 200)
-        service.runtime.remember.bodies.p2.available = False
-        assert client.get("/p3/ready", headers=headers()).status_code == 503
-        assert client.get("/p3/live").status_code == 200
-        service.runtime.remember.bodies.p2.available = True
+        assert save(client).status_code == 200
+        eventually(lambda: ready_memory(client))
+        last = []
+
+        def healthy():
+            response = client.get("/p3/ready", headers=headers())
+            last[:] = [response.json()]
+            return response.status_code == 200
+
+        try:
+            eventually(healthy)
+        except AssertionError:
+            pytest.fail(str(last[-1]))
+        provider = service.runtime.remember.bodies.p2
+
+        async def unavailable(*args):
+            raise ConnectionError("controlled loss at real Ceph provider")
+
+        with monkeypatch.context() as fault:
+            fault.setattr(provider, "get_object", unavailable)
+            assert client.get("/p3/ready", headers=headers()).status_code == 503
+            assert client.get("/p3/live").status_code == 200
         assert client.get("/p3/ready", headers=headers()).status_code == 200
 
 
-def test_cold_cache_is_reclaimed_and_next_access_wakes_it(configuration):
+def test_expired_redis_cache_is_refilled_from_authority_on_next_access(configuration):
     configuration = configuration.model_copy(
         update={
             "operate_stats_retention_seconds": 0.2,
             "operate_retry_seconds": 0.05,
             "operate_decay_seconds": 30,
+            # Expire the original field explicitly below. The newly filled value
+            # must survive the real PG/Ceph reads used to verify it.
+            "remember": configuration.remember.model_copy(update={"cache_ttl_seconds": 60}),
         }
     )
     service = Service(configuration)
@@ -456,13 +495,13 @@ def test_cold_cache_is_reclaimed_and_next_access_wakes_it(configuration):
         assert save(client).status_code == 200
         memory = eventually(lambda: ready_memory(client))
         mid = memory["ref"]["memory_id"]
-        path = f"/p3/operate/memories/{mid}"
-        # This verifies eventual reclamation, not an 8-second latency SLO.
-        eventually(
-            lambda: client.get(path, headers=headers()).json()["input"].get("dormant"), seconds=60
+        copy = next(
+            copy for copy in service.runtime.executor.copies() if copy.memory.memory_id == mid
         )
-        with service.runtime.executor.db() as db:
-            assert not any(mid in r[0] for r in db.execute("SELECT memory FROM copies"))
+        cache = service.runtime.executor.cache
+        key, _, expiry = cache.keys(copy.memory.scope, copy.content_hash)
+        cache.client.hset(key, expiry, 0)
+        assert cache.get_sync(copy.memory.scope, copy.content_hash) is None
         result = client.post(
             "/p3/recall",
             headers=headers(),
@@ -474,13 +513,8 @@ def test_cold_cache_is_reclaimed_and_next_access_wakes_it(configuration):
             },
         )
         assert "coffee" in result.json()["rendered_context"]
-        eventually(
-            lambda: any(
-                a["state"] == "succeeded"
-                for a in client.get(path, headers=headers()).json()["actions"]
-            ),
-            seconds=60,
-        )
+        content = client.get(f"/p3/remember/{mid}", headers=headers()).json()["content"]
+        assert cache.get_sync(copy.memory.scope, copy.content_hash) == content
 
 
 def test_slow_extraction_does_not_block_http_or_operate(configuration):
@@ -525,11 +559,14 @@ def test_interrupted_extraction_is_recovered_after_restart(configuration):
     from aether_agent_memory.remember.basic.extraction import LiteralExtraction
 
     started = threading.Event()
+    release = threading.Event()
 
     class Interrupted(LiteralExtraction):
         async def extract(self, ctx, request):
             started.set()
-            await asyncio.Event().wait()
+            while not release.is_set():
+                await asyncio.sleep(0.01)
+            return await super().extract(ctx, request)
 
     configuration = configuration.model_copy(update={"shutdown_seconds": 0.1})
     service = Service(configuration, extraction=Interrupted())
@@ -537,11 +574,17 @@ def test_interrupted_extraction_is_recovered_after_restart(configuration):
     with TestClient(service.app()) as client:
         assert save(client).status_code == 200
         eventually(started.is_set)
-    with TestClient(Service(configuration).app()) as client:
-        eventually(lambda: ready_memory(client))
+    release.set()
+    # Recovery must keep the provider type frozen in the original checkpoint.
+    with TestClient(Service(configuration, extraction=Interrupted()).app()) as client:
+        eventually(lambda: client.get("/p3/readyz").status_code == 200)
+        restored = eventually(lambda: ready_memory(client))
+        assert restored["ref"]["version"] == 1
 
 
-def test_unknown_action_queries_original_id_after_restart(configuration):
+def test_unknown_action_queries_original_id_after_restart(configuration, monkeypatch):
+    from azure_operate_support import reserve_existing_intent
+
     configuration = configuration.model_copy(update={"operate_decay_seconds": 3600})
     service = Service(configuration)
 
@@ -552,19 +595,32 @@ def test_unknown_action_queries_original_id_after_restart(configuration):
         assert save(client).status_code == 200
         memory = eventually(lambda: ready_memory(client))
         mid = memory["ref"]["memory_id"]
-        service.runtime.executor.drop_next_response = True
-        service.runtime.executor.query = unavailable
-        response = client.post(
-            "/p3/recall",
-            headers=headers(),
-            json={
-                "query": "coffee",
-                "selection": {},
-                "sources": "long_term",
-                "token_budget": 1000,
-            },
+        ctx = service.runtime.foundation.identity.context("alice", timeout_seconds=300)
+        item = service.runtime.remember.get(ctx, mid)
+        prepare, submit = (
+            service.runtime.operate.prepare_evaluation,
+            service.runtime.executor.submit,
         )
-        assert response.status_code == 200, response.text
+        seeded, submissions = [], []
+
+        async def seed(context, task):
+            if not seeded:
+                seeded.append(task.task_id)
+                await reserve_existing_intent(service.runtime, [task], item)
+            return await prepare(context, task)
+
+        async def lost(context, intent):
+            submissions.append(intent.action_id)
+            await submit(context, intent)
+            raise OSError("lost response after the real PostgreSQL receipt")
+
+        monkeypatch.setattr(service.runtime.operate, "prepare_evaluation", seed)
+        monkeypatch.setattr(service.runtime.executor, "submit", lost)
+        monkeypatch.setattr(service.runtime.executor, "query", unavailable)
+        with service.runtime.foundation.uow.transaction() as tx:
+            service.runtime.operate.enqueue(
+                tx, ctx, item.ref, "recovery-probe", cleanup=False, permanent=False
+            )
         path = f"/p3/operate/memories/{mid}"
 
         def unknown():
@@ -582,7 +638,7 @@ def test_unknown_action_queries_original_id_after_restart(configuration):
 
         def recovered():
             return any(
-                a["state"] == "succeeded" and a["intent"]["action_id"] == action_id
+                a["state"] == "failed" and a["intent"]["action_id"] == action_id
                 for a in client.get(path, headers=headers()).json()["actions"]
             )
 
@@ -591,12 +647,18 @@ def test_unknown_action_queries_original_id_after_restart(configuration):
         eventually(recovered, seconds=60)
         actions = client.get(path, headers=headers()).json()["actions"]
         assert len(actions) == 1
+        assert submissions == [action_id]
+        assert actions[0]["feedback"]["reason"] == "unsupported_tier_transition"
 
 
 def test_capacity_defers_without_unknown_and_recovers(configuration):
-    configuration = configuration.model_copy(update={"operate_retry_seconds": 0.05})
+    configuration = configuration.model_copy(
+        update={
+            "operate_retry_seconds": 0.05,
+            "remember": configuration.remember.model_copy(update={"cache_scope_bytes": 1}),
+        }
+    )
     service = Service(configuration)
-    service.runtime.executor.capacity = 1
     with TestClient(service.app()) as client:
         assert save(client).status_code == 200
         memory = eventually(lambda: ready_memory(client))
@@ -610,11 +672,12 @@ def test_capacity_defers_without_unknown_and_recovers(configuration):
 
         eventually(deferred)
         assert not client.get(f"/p3/operate/memories/{mid}", headers=headers()).json()["actions"]
-        service.runtime.executor.capacity = 4096
+        service.runtime.executor.cache.policy = configuration.remember.model_copy(
+            update={"cache_scope_bytes": 4096}
+        )
 
         def prepared():
-            with service.runtime.executor.db() as db:
-                return any(mid in row[0] for row in db.execute("SELECT memory FROM copies"))
+            return any(copy.memory.memory_id == mid for copy in service.runtime.executor.copies())
 
         eventually(prepared)
 

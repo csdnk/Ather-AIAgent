@@ -17,8 +17,8 @@ from aether_agent_memory.runtime.contracts.models import (
     TrustedContext,
 )
 from aether_agent_memory.runtime.foundation.common import fingerprint, later, now
-from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction
 from aether_agent_memory.runtime.foundation.tasks import TERMINAL
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 from .ledger import ExecutionLedger
 from .models import ControlIntent, WorkflowBinding, WorkflowInput
@@ -37,7 +37,7 @@ class ControlAdmission:
         ledger.periodic_operators = operators
 
     def recovery(
-        self, tx: SQLiteTransaction, ctx: TrustedContext, request: RecoveryRequest
+        self, tx: MetadataTransaction, ctx: TrustedContext, request: RecoveryRequest
     ) -> OperationRecord:
         return self.task(
             tx,
@@ -56,7 +56,7 @@ class ControlAdmission:
             return operation
 
     def task(
-        self, tx: SQLiteTransaction, ctx: TrustedContext, job_id: str, request: ControlRequest
+        self, tx: MetadataTransaction, ctx: TrustedContext, job_id: str, request: ControlRequest
     ) -> OperationRecord:
         row, task = self.tasks.load(tx, job_id)
         self.tasks.identity.authorize(tx, ctx, Permission.RECOVER, task.subject)
@@ -90,7 +90,7 @@ class ControlAdmission:
         self.tasks.change(tx, row, task)
         return self.persist(tx, ctx, request, signature, task.subject, binding, job_id, "task")
 
-    def periodic_snapshot(self, tx: SQLiteTransaction, ctx: TrustedContext) -> dict[str, Any]:
+    def periodic_snapshot(self, tx: MetadataTransaction, ctx: TrustedContext) -> dict[str, Any]:
         self.tasks.identity.revalidate(tx, ctx)
         if (
             ctx.principal.principal_id not in self.ledger.periodic_operators
@@ -103,7 +103,7 @@ class ControlAdmission:
         return {**row, "revision": row.get("revision", 1)}
 
     def periodic(
-        self, tx: SQLiteTransaction, ctx: TrustedContext, request: ControlRequest
+        self, tx: MetadataTransaction, ctx: TrustedContext, request: ControlRequest
     ) -> OperationRecord:
         row = self.periodic_snapshot(tx, ctx)
         deployment = self.ledger.config.deployment_id
@@ -130,7 +130,7 @@ class ControlAdmission:
 
     @staticmethod
     def existing(
-        tx: SQLiteTransaction, operation_id: str, signature: str
+        tx: MetadataTransaction, operation_id: str, signature: str
     ) -> OperationRecord | None:
         row = tx.read("operations", operation_id)
         if row is None:
@@ -141,7 +141,7 @@ class ControlAdmission:
 
     def persist(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         ctx: TrustedContext,
         request: ControlRequest,
         signature: str,
@@ -197,7 +197,9 @@ class ControlAdmission:
         return operation
 
 
-def authorize_delivery(ledger: ExecutionLedger, tx: SQLiteTransaction, row: dict[str, Any]) -> None:
+def authorize_delivery(
+    ledger: ExecutionLedger, tx: MetadataTransaction, row: dict[str, Any]
+) -> None:
     ctx = TrustedContext.model_validate(row["context"]).model_copy(
         update={"deadline_at": later(ledger.tasks.clock(), 30)}
     )
@@ -210,7 +212,9 @@ def authorize_delivery(ledger: ExecutionLedger, tx: SQLiteTransaction, row: dict
         tx.abort(ErrorCode.FORBIDDEN, "deployment operator no longer authorized")
 
 
-def settle_control(tx: SQLiteTransaction, row: dict[str, Any], *, error: str | None = None) -> None:
+def settle_control(
+    tx: MetadataTransaction, row: dict[str, Any], *, error: str | None = None
+) -> None:
     """Transport completion is separate from the outcome of controlled task work."""
     if "operation_id" not in row:
         return

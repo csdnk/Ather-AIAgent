@@ -291,8 +291,8 @@ async def test_cache_sampler_reuses_persisted_observations_on_fresh_host(
 
     from aether_agent_memory.operate.basic.continuous import ContinuousOperate
     from aether_agent_memory.operate.basic.maintenance import CacheMaintenance
-    from aether_agent_memory.remember.local import create_runtime
     from aether_agent_memory.runtime.foundation.common import later, now
+    from azure_test_runtime import create_runtime
 
     runtime = periodic_runtime
     await memory(runtime)
@@ -308,7 +308,7 @@ async def test_cache_sampler_reuses_persisted_observations_on_fresh_host(
     reopened = create_runtime(
         tmp_path / "p3.db",
         tmp_path / "cache",
-        embedding_profile="lexical",
+        embedding_profile="injected",
         operate_factory=ContinuousOperate,
     )
     try:
@@ -327,13 +327,13 @@ def periodic_runtime(tmp_path, temporal_server):
     from hashlib import sha256
 
     from aether_agent_memory.operate.basic.continuous import ContinuousOperate
-    from aether_agent_memory.remember.local import create_runtime
     from aether_agent_memory.runtime.contracts.models import Permission, Principal, Scope
+    from azure_test_runtime import create_runtime
 
     app = create_runtime(
         tmp_path / "p3.db",
         tmp_path / "cache",
-        embedding_profile="lexical",
+        embedding_profile="injected",
         operate_factory=ContinuousOperate,
     )
     principal = Principal(
@@ -350,6 +350,89 @@ def periodic_runtime(tmp_path, temporal_server):
     seed_driver(app, temporal_server)
     yield app
     app.close()
+
+
+@pytest.mark.asyncio
+async def test_periodic_cache_sampling_keeps_signal_cadence_across_operators(
+    periodic_runtime, monkeypatch
+):
+    from hashlib import sha256
+
+    from test_operate_workflow import memory
+
+    from aether_agent_memory.operate.basic.maintenance import CacheMaintenance
+    from aether_agent_memory.runtime.contracts.models import ErrorCode
+    from aether_agent_memory.runtime.foundation.common import (
+        FoundationError,
+        fingerprint,
+        later,
+        now,
+    )
+    from aether_agent_memory.runtime.temporal.config import TemporalConfiguration
+    from aether_agent_memory.runtime.temporal.ledger import ExecutionLedger
+
+    runtime = periodic_runtime
+    await memory(runtime)
+    stamp = now()
+    monkeypatch.setattr(runtime.foundation.tasks, "clock", lambda: stamp)
+    alice = runtime.foundation.identity.context("alice").principal
+    bob = alice.model_copy(update={"principal_id": "bob"})
+    runtime.foundation.identity.provision(
+        [(sha256(b"alice").hexdigest(), alice), (sha256(b"bob").hexdigest(), bob)]
+    )
+    ledger = ExecutionLedger(
+        runtime.foundation.tasks,
+        TemporalConfiguration(deployment_id="test", endpoint=runtime.execution.endpoint),
+    )
+    runner = module().PeriodicActivities(ledger, None)
+    maintenance = CacheMaintenance(runtime)
+    module().register_p3_periodic(runner, runtime, maintenance, ("alice", "bob"))
+    commit, prepare = runner.routes["temporal_maintenance_principals"]
+
+    prepared = await prepare("alice")
+    with runtime.foundation.uow.transaction() as tx:
+        commit(tx, "alice", 1, prepared)
+        samples = tx.rows("signal_samples")
+    assert samples, "the seeded cache must actually be sampled"
+    baseline = {key: row["observation"]["observed_at"] for key, row in samples}
+    baseline_subjects = {fingerprint(row["subject"]) for _, row in samples}
+    ctx, (observations, cursor_key, cursor) = prepared
+    subject, observation = observations[0]
+    conflicting = observation.model_copy(update={"value": "corrupt"})
+    with pytest.raises(FoundationError) as error, runtime.foundation.uow.transaction() as tx:
+        commit(tx, "alice", 1, (ctx, ([(subject, conflicting)], cursor_key, cursor)))
+    assert error.value.code == ErrorCode.VERSION_CONFLICT
+    stamp = later(stamp, 1)
+    prepared = await prepare("bob")
+    assert prepared[1][0], "the second operator must actually inspect the shared cache"
+    assert baseline_subjects & {
+        fingerprint(subject.model_dump(mode="json")) for subject, _ in prepared[1][0]
+    }
+    with runtime.foundation.uow.transaction() as tx:
+        commit(tx, "bob", 2, prepared)
+        assert {
+            key: row["observation"]["observed_at"] for key, row in tx.rows("signal_samples")
+        } == baseline
+
+    runner.routes = {"temporal_maintenance_principals": (commit, prepare)}
+    completed = await runner.run_periodic_batch(
+        module().PeriodicState(deployment_id="test", last_tick=2, batch_size=16)
+    )
+    assert completed.cursor is None
+    with runtime.foundation.uow.transaction() as tx:
+        assert tx.read("temporal_ticks", fingerprint(["test", 2]))["cursor"] is None
+        assert {
+            key: row["observation"]["observed_at"] for key, row in tx.rows("signal_samples")
+        } == baseline
+
+    stamp = later(stamp, 4)
+    prepared = await prepare("alice")
+    with runtime.foundation.uow.transaction() as tx:
+        commit(tx, "alice", 3, prepared)
+        assert all(
+            row["observation"]["observed_at"] == stamp for _, row in tx.rows("signal_samples")
+        )
+        assert tx.rows("cache_sample_cursors")
 
 
 @pytest.mark.asyncio

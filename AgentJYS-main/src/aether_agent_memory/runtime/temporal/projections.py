@@ -3,11 +3,11 @@
 from aether_agent_memory.recall.contracts.models import RecallRecord
 from aether_agent_memory.runtime.contracts.foundation import IncidentRecord
 from aether_agent_memory.runtime.contracts.models import EffectStatus, TaskRecord, TaskState
-from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction
 from aether_agent_memory.runtime.foundation.tasks import Tasks
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 
-def project_terminal(tasks: Tasks, tx: SQLiteTransaction, task: TaskRecord) -> None:
+def project_terminal(tasks: Tasks, tx: MetadataTransaction, task: TaskRecord) -> None:
     task_row, _ = tasks.load(tx, task.task_id)
     reason = task_row.get("terminal_reason") or (
         task.error_code.value if task.error_code else task.state.value

@@ -36,8 +36,8 @@ from aether_agent_memory.runtime.contracts.models import ErrorCode, TrustedConte
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint, now
 from aether_agent_memory.runtime.foundation.identity import Identity
 from aether_agent_memory.runtime.foundation.requests import text_hash
-from aether_agent_memory.runtime.foundation.storage import SQLiteUnitOfWork
 from aether_agent_memory.runtime.foundation.telemetry import observed
+from aether_agent_memory.runtime.storage.ports import MetadataUnitOfWork
 
 
 @observed("embedding.native")
@@ -46,7 +46,7 @@ class NativeP3Embedding:
 
     def __init__(
         self,
-        uow: SQLiteUnitOfWork,
+        uow: MetadataUnitOfWork,
         identity: Identity,
         settings: NativeEmbeddingSettings | None = None,
     ) -> None:
@@ -127,7 +127,7 @@ class NativeP3Embedding:
     @classmethod
     def from_config(
         cls,
-        uow: SQLiteUnitOfWork,
+        uow: MetadataUnitOfWork,
         identity: Identity,
         path: str | Path | None,
     ) -> NativeP3Embedding:
@@ -172,25 +172,29 @@ class NativeP3Embedding:
         )
         # 一次业务操作可有多次实际尝试；独立 attempt_id 保留每次执行证据。
         attempt_id = secrets.token_hex(16)
-        with self.uow.transaction() as tx:
-            self.identity.revalidate(tx, ctx)
-            prior = tx.read("native_embedding_inputs", key)
-            if prior and prior["digest"] != digest:
-                tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "embedding operation content changed")
-            tx.write("native_embedding_inputs", key, {"digest": digest})
-            row = {
-                "operation_id": request.operation_id,
-                "scope": ctx.principal.home_scope.model_dump(mode="json"),
-                "trace_id": ctx.trace_id,
-                "usage": request.usage,
-                "model_space": self.model_space,
-                "dimensions": self.dimensions,
-                "input_hashes": [text_hash(t) for t in request.texts],
-                "state": "started",
-                "started_at": now(),
-                "evidence_refs": [],
-            }
-            tx.write("native_embedding_attempts", attempt_id, row)
+        row = {
+            "operation_id": request.operation_id,
+            "scope": ctx.principal.home_scope.model_dump(mode="json"),
+            "trace_id": ctx.trace_id,
+            "usage": request.usage,
+            "model_space": self.model_space,
+            "dimensions": self.dimensions,
+            "input_hashes": [text_hash(t) for t in request.texts],
+            "state": "started",
+            "started_at": now(),
+            "evidence_refs": [],
+        }
+
+        def begin_attempt() -> None:
+            with self.uow.transaction() as tx:
+                self.identity.revalidate(tx, ctx)
+                prior = tx.read("native_embedding_inputs", key)
+                if prior and prior["digest"] != digest:
+                    tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "embedding operation content changed")
+                tx.write("native_embedding_inputs", key, {"digest": digest})
+                tx.write("native_embedding_attempts", attempt_id, row)
+
+        await asyncio.to_thread(begin_attempt)
         evidence: list[str] = []
         try:
             seconds = (
@@ -248,39 +252,48 @@ class NativeP3Embedding:
                     items=tuple(items),
                 )
                 validate_embedding(request, result, self.space)
+
                 # 推理期间可能撤权或超时；结果写为成功并交付之前必须再次检查。
+                def complete_attempt() -> None:
+                    with self.uow.transaction() as tx:
+                        self.identity.revalidate(tx, ctx)
+                        if now() >= request.deadline_at:
+                            tx.abort(
+                                ErrorCode.DEADLINE_EXCEEDED, "embedding result arrived too late"
+                            )
+                        tx.write(
+                            "native_embedding_attempts",
+                            attempt_id,
+                            {
+                                **row,
+                                "state": "succeeded",
+                                "finished_at": now(),
+                                "evidence_refs": evidence,
+                            },
+                        )
+
+                await asyncio.to_thread(complete_attempt)
+                return result
+        # 失败或取消也落尝试记录；取消信号继续上抛，不伪装成成功或内部重试。
+        except BaseException as exc:
+            code = self.error_code(exc)
+            cancelled = isinstance(exc, asyncio.CancelledError)
+
+            def fail_attempt() -> None:
                 with self.uow.transaction() as tx:
-                    self.identity.revalidate(tx, ctx)
-                    if now() >= request.deadline_at:
-                        tx.abort(ErrorCode.DEADLINE_EXCEEDED, "embedding result arrived too late")
                     tx.write(
                         "native_embedding_attempts",
                         attempt_id,
                         {
                             **row,
-                            "state": "succeeded",
+                            "state": "cancelled" if cancelled else "failed",
                             "finished_at": now(),
                             "evidence_refs": evidence,
+                            "error_code": code.value,
                         },
                     )
-                return result
-        # 失败或取消也落尝试记录；取消信号继续上抛，不伪装成成功或内部重试。
-        except BaseException as exc:
-            code = self.error_code(exc)
-            with self.uow.transaction() as tx:
-                tx.write(
-                    "native_embedding_attempts",
-                    attempt_id,
-                    {
-                        **row,
-                        "state": "cancelled"
-                        if isinstance(exc, asyncio.CancelledError)
-                        else "failed",
-                        "finished_at": now(),
-                        "evidence_refs": evidence,
-                        "error_code": code.value,
-                    },
-                )
+
+            await asyncio.to_thread(fail_attempt)
             if isinstance(exc, (asyncio.CancelledError, KeyboardInterrupt, SystemExit)):
                 raise
             if isinstance(exc, FoundationError):

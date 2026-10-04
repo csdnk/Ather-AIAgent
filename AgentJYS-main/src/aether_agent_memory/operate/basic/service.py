@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from pydantic import JsonValue
@@ -38,28 +39,25 @@ from aether_agent_memory.runtime.foundation.common import FoundationError, finge
 from aether_agent_memory.runtime.foundation.events import Events
 from aether_agent_memory.runtime.foundation.identity import Identity
 from aether_agent_memory.runtime.foundation.requests import event_context
-from aether_agent_memory.runtime.foundation.storage import (
-    SQLiteTransaction,
-    SQLiteUnitOfWork,
-    native,
-)
 from aether_agent_memory.runtime.foundation.tasks import Tasks
 from aether_agent_memory.runtime.foundation.telemetry import observed
+from aether_agent_memory.runtime.foundation.transactions import native
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction, MetadataUnitOfWork
 
-from .executor import CacheCapacityError, LocalCacheExecutor
+from .cache_port import CacheCapacityError, CacheExecutor
 
 
 @observed("operate")
 class Operate:
     def __init__(
         self,
-        uow: SQLiteUnitOfWork,
+        uow: MetadataUnitOfWork,
         identity: Identity,
         tasks: Tasks,
         events: Events,
         remember: RememberPort,
         memories: MemoryReadPort,
-        executor: LocalCacheExecutor,
+        executor: CacheExecutor,
     ) -> None:
         self.uow, self.identity, self.tasks, self.events = uow, identity, tasks, events
         self.remember, self.memories, self.executor = remember, memories, executor
@@ -187,7 +185,7 @@ class Operate:
 
     def enqueue(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         ctx: TrustedContext,
         memory: MemoryRef,
         trigger: str,
@@ -253,7 +251,9 @@ class Operate:
             access_watermark=inputs.access_watermark,
         )
 
-    def save_action(self, tx: SQLiteTransaction, ctx: TrustedContext, action: ActionRecord) -> None:
+    def save_action(
+        self, tx: MetadataTransaction, ctx: TrustedContext, action: ActionRecord
+    ) -> None:
         tx.write("operate_actions", action.intent.action_id, action.model_dump(mode="json"))
         payload = ActionChanged(
             action_id=action.intent.action_id,
@@ -313,9 +313,17 @@ class Operate:
             if submit:
                 eligible = self.memories.final_guard(tx, ctx, (intent.decision.memory,), "actuate")
                 if eligible.items[0].decision != "allowed":
-                    raise FoundationError(
-                        ErrorCode.RESULT_INVALIDATED, "action memory is no longer eligible"
+                    # Only an unsubmitted intent can be cancelled from eligibility
+                    # alone. Submitted/unknown actions still query their original ID.
+                    cancelled = ActionRecord(
+                        intent=intent,
+                        state=ActionState.CANCELLED,
+                        revision=old.revision + 1 if previous else 1,
+                        cleanup_state="not_required",
+                        reason="memory invalidated before provider submission",
                     )
+                    self.save_action(tx, ctx, cancelled)
+                    return cancelled
                 action = ActionRecord(
                     intent=intent,
                     state=ActionState.SUBMITTED,
@@ -417,7 +425,7 @@ class Operate:
         return await self.accept_feedback(ctx, action.intent, feedback)
 
     def finish(
-        self, tx: SQLiteTransaction, ctx: TrustedContext, task: TaskRecord, value: dict[str, Any]
+        self, tx: MetadataTransaction, ctx: TrustedContext, task: TaskRecord, value: dict[str, Any]
     ) -> RunResult:
         result = RecordRef(
             owner=Flow.OPERATE,
@@ -464,8 +472,11 @@ class Operate:
                     and self.memories.final_guard(tx, ctx, (memory,), "actuate").items[0].decision
                     != "allowed"
                 )
-                if valid:
-                    self.executor.purge(memory, permanent=prepared["permanent"])
+            if valid:
+                await asyncio.to_thread(
+                    self.executor.purge, memory, permanent=prepared["permanent"], ctx=ctx
+                )
+            with self.uow.transaction() as tx:
                 self.tasks.guard(tx, task)
             return {"cache_cleanup": "completed" if valid else "ineligible"}
         intent = ActionIntent.model_validate(prepared["intent"])
@@ -498,6 +509,65 @@ class Operate:
         }
 
     async def prepare_evaluation(
+        self, ctx: TrustedContext, task: TaskRecord
+    ) -> dict[str, Any] | RunResult:
+        prepared = await asyncio.to_thread(self.prepare_evaluation_inputs, ctx, task)
+        if isinstance(prepared, RunResult) or "item" not in prepared:
+            return prepared
+        item, memory, key, existing = (
+            prepared["item"],
+            prepared["memory"],
+            prepared["key"],
+            prepared["existing"],
+        )
+        if existing and existing["state"] in {"generated", "submitted", "unknown"}:
+            intent = ActionRecord.model_validate(existing).intent
+        else:
+            try:
+                await asyncio.to_thread(self.executor.ensure, item, ctx)
+            except CacheCapacityError:
+                return {"value": {"deferred": "cache_capacity"}}
+            observation = await self.executor.observe(ctx, memory, "original")
+            resources = await self.executor.resources(ctx)
+            decision = await asyncio.to_thread(
+                self.evaluation_decision, ctx, item, memory, key, observation, resources
+            )
+            if decision.outcome in {"keep", "defer"}:
+                return {"value": {"decision": decision.model_dump(mode="json")}}
+            if decision.outcome not in resources.supported_moves:
+                deferred = decision.model_copy(
+                    update={
+                        "decision_id": fingerprint(
+                            [decision.decision_id, resources.model_dump(mode="json"), "unsupported"]
+                        ),
+                        "outcome": "defer",
+                        "target_tier": decision.current_tier,
+                        "reason": "unsupported_tier_transition",
+                    }
+                )
+                return {"value": {"decision": deferred.model_dump(mode="json")}}
+            intent = ActionIntent(
+                action_id=fingerprint(
+                    [
+                        memory.model_dump(mode="json"),
+                        decision.current_tier,
+                        decision.target_tier,
+                        resources.epoch,
+                        task.task_id,
+                    ]
+                ),
+                decision=decision,
+                representation_id="original",
+                content_hash=item.content_hash,
+                provider_id=self.executor.provider_id,
+                provider_instance_id=self.executor.instance_id,
+                expected_epoch=resources.epoch,
+                provider_mode="real",
+                created_at=self.identity.clock(),
+            )
+        return await asyncio.to_thread(self.reserve_evaluation, ctx, task, key, intent)
+
+    def prepare_evaluation_inputs(
         self, ctx: TrustedContext, task: TaskRecord
     ) -> dict[str, Any] | RunResult:
         with self.uow.transaction() as tx:
@@ -553,55 +623,40 @@ class Operate:
         with self.uow.transaction() as tx:
             pending = tx.read("operate_pending", key)
             existing = None if not pending else tx.read("operate_actions", pending)
-        if existing and existing["state"] in {"generated", "submitted", "unknown"}:
-            intent = ActionRecord.model_validate(existing).intent
-        else:
-            try:
-                self.executor.ensure(item)
-            except CacheCapacityError:
-                return {"value": {"deferred": "cache_capacity"}}
-            observation = await self.executor.observe(ctx, memory, "original")
-            resources = await self.executor.resources(ctx)
-            with self.uow.transaction() as tx:
-                view = tx.read("operate_views", key)
-            decision = self.decide(
-                ctx,
-                SchedulingInput(
-                    memory=memory,
-                    object_revision=item.object_revision,
-                    storage_watermark=view["storage_watermark"],
-                    access_watermark=view["access_watermark"],
-                    successful_reads=view["successful_reads"],
-                    current_tier=observation.tier,
-                    importance=item.importance,
-                    available_bytes=resources.available_bytes,
-                    content_bytes=len(item.content.encode()),
-                    coverage="complete" if observation.readable else "unknown",
-                    observed_at=self.identity.clock(),
-                    policy_version="basic_cache_v1",
-                ),
-            )
-            if decision.outcome in {"keep", "defer"}:
-                return {"value": {"decision": decision.model_dump(mode="json")}}
-            intent = ActionIntent(
-                action_id=fingerprint(
-                    [
-                        memory.model_dump(mode="json"),
-                        decision.current_tier,
-                        decision.target_tier,
-                        resources.epoch,
-                        task.task_id,
-                    ]
-                ),
-                decision=decision,
-                representation_id="original",
-                content_hash=item.content_hash,
-                provider_id=self.executor.provider_id,
-                provider_instance_id=self.executor.instance_id,
-                expected_epoch=resources.epoch,
-                provider_mode="real",
-                created_at=self.identity.clock(),
-            )
+        return {"item": item, "memory": memory, "key": key, "existing": existing}
+
+    def evaluation_decision(
+        self,
+        ctx: TrustedContext,
+        item: Any,
+        memory: MemoryRef,
+        key: str,
+        observation: Any,
+        resources: Any,
+    ) -> PlacementDecision:
+        with self.uow.transaction() as tx:
+            view = tx.read("operate_views", key)
+        return self.decide(
+            ctx,
+            SchedulingInput(
+                memory=memory,
+                object_revision=item.object_revision,
+                storage_watermark=view["storage_watermark"],
+                access_watermark=view["access_watermark"],
+                successful_reads=view["successful_reads"],
+                current_tier=observation.tier,
+                importance=item.importance,
+                available_bytes=resources.available_bytes,
+                content_bytes=len(item.content.encode()),
+                coverage="complete" if observation.readable else "unknown",
+                observed_at=self.identity.clock(),
+                policy_version="basic_cache_v1",
+            ),
+        )
+
+    def reserve_evaluation(
+        self, ctx: TrustedContext, task: TaskRecord, key: str, intent: ActionIntent
+    ) -> dict[str, Any]:
         with self.uow.transaction() as tx:
             self.tasks.guard(tx, task)
             pending = tx.read("operate_pending", key)

@@ -19,17 +19,17 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from pydantic import ValidationError
 
 from aether_agent_memory.runtime.contracts.models import ErrorCode, Permission, Principal, Scope
-from aether_agent_memory.runtime.flows.application import Service
 from aether_agent_memory.runtime.flows.config import (
     BrowserIdentityConfiguration,
     IdentityConfiguration,
     JWTIssuerConfiguration,
-    ServiceConfiguration,
 )
 from aether_agent_memory.runtime.flows.jwt_auth import JWTAuthenticator
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
-from aether_agent_memory.runtime.foundation.host import Foundation
 from aether_agent_memory.runtime.foundation.identity import jwt_issuer_policy_hash
+from azure_component_service import Service
+from azure_test_runtime import Foundation
+from component_configuration import ComponentConfiguration
 
 ISSUER = "https://identity.example"
 SECRET = "private-body-and-token-marker"
@@ -319,11 +319,11 @@ def web_service(tmp_path, authority):
     path = tmp_path / "identity.yaml"
     path.write_text(yaml.safe_dump(identity_document()), encoding="utf-8")
     service = Service(
-        ServiceConfiguration(
+        ComponentConfiguration(
             temporal={"deployment_id": "tenant-tests", "endpoint": "127.0.0.1:7233"},
             identity_file=path,
             data_dir=tmp_path / "state",
-            embedding_profile="lexical",
+            embedding_profile="injected",
         )
     )
     service.jwt_auth.close()
@@ -485,7 +485,7 @@ def test_durable_context_continues_trace_after_restart(foundation, tmp_path):
         persisted = foundation.telemetry.producer_context(ctx).model_dump_json()
         producer_span = node.span_id
     from aether_agent_memory.runtime.contracts.models import TrustedContext
-    from aether_agent_memory.runtime.foundation.telemetry import Telemetry
+    from azure_test_runtime import Telemetry
 
     log = Telemetry(tmp_path / "restarted.logs.db")
     log.set_tracer(provider.get_tracer("restarted"))
@@ -639,19 +639,19 @@ def test_shutdown_failure_still_closes_resources_and_releases_lock(web_service, 
 def test_startup_failure_closes_new_auth_trace_resources(tmp_path, monkeypatch):
     path = tmp_path / "identity.yaml"
     path.write_text(yaml.safe_dump(identity_document()), encoding="utf-8")
-    config = ServiceConfiguration(
+    config = ComponentConfiguration(
         temporal={"deployment_id": "startup-test", "endpoint": "127.0.0.1:7233"},
         identity_file=path,
         data_dir=tmp_path / "state",
-        embedding_profile="lexical",
+        embedding_profile="injected",
     )
     original_reload = Service.reload_identity
     closed = []
 
     from opentelemetry.sdk.trace import TracerProvider
 
-    from aether_agent_memory.runtime.flows.host import ThreeFlows
     from aether_agent_memory.runtime.flows.jwt_auth import JWTAuthenticator
+    from azure_test_runtime import ThreeFlows
 
     # Instrument before construction: Service owns the bound closers it registers.
     for label, owner, method in (
@@ -781,11 +781,11 @@ def test_browser_login_requires_matching_backend_jwt_issuer(tmp_path):
     identity_file = tmp_path / "identity.yaml"
     document = identity_document()
     identity_file.write_text(yaml.safe_dump(document), encoding="utf-8")
-    config = ServiceConfiguration(
+    config = ComponentConfiguration(
         temporal={"deployment_id": "browser-test", "endpoint": "127.0.0.1:7233"},
         identity_file=identity_file,
         data_dir=tmp_path / "state",
-        embedding_profile="lexical",
+        embedding_profile="injected",
         browser_identity={
             "url": "https://identity.example",
             "realm": "p3-demo",

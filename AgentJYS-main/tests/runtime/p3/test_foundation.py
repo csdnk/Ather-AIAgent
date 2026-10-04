@@ -19,7 +19,7 @@ from aether_agent_memory.runtime.contracts.models import (
     ScopeSelector,
 )
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint, later
-from aether_agent_memory.runtime.foundation.host import Foundation
+from azure_test_runtime import Foundation
 
 
 class Clock:

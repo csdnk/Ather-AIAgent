@@ -10,7 +10,7 @@ from tests.integration.test_continuous_service import (
 )
 from tests.integration.test_continuous_service import eventually, headers, save
 
-from aether_agent_memory.runtime.flows.application import Service
+from azure_component_service import Service
 
 
 @pytest.mark.skipif(

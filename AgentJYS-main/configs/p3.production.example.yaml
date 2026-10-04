@@ -1,47 +1,49 @@
-# Copy to an external deployment directory and replace the model/endpoint values.
-# Identity file is produced by `python -m aether_agent_memory init`.
+# P3 storage interfaces backed by existing Azure PG, Redis, Milvus and Ceph.
+# Replace Ceph/LLM/Temporal placeholders and supply credentials outside this file.
+# This is a configuration example, not evidence of a deployed or accepted environment.
 profile: production
+storage_mode: azure
+metadata_backend: postgresql
 host: 0.0.0.0
 port: 8080
-data_dir: state
+data_dir: transient/production
 identity_file: identities.yaml
-# Existing execution backend; replace with your deployed Temporal endpoint.
+azure_storage:
+  namespace: p3-production
+  postgres:
+    dsn_env: AETHER_POSTGRES_DSN
+    schema_name: p3_production
+  redis:
+    host: redisp3.redis.cache.windows.net
+    port: 6380
+    password_env: AETHER_REDIS_PASSWORD
+    ca_file: certificates/azure-ca.pem
+  milvus:
+    uri: https://milvus.internal:19530
+    database: p3_production
+    collection: memories
+    token_env: AETHER_MILVUS_TOKEN
+    ca_file: certificates/milvus-ca.pem
+    server_name: milvus.internal
+  ceph:
+    endpoint: https://replace-with-verified-ceph-rgw.example
+    bucket: p3-production
+    access_key_env: AETHER_CEPH_ACCESS_KEY
+    secret_key_env: AETHER_CEPH_SECRET_KEY
+    region: us-east-1
+    # Add ca_file only for a private CA; public CA validation remains enabled.
+embedding_profile: native
+embedding_config: embedding.azure.example.json
+recall_config: recall.azure.json
+language_model:
+  endpoint: https://replace-with-approved-llm.example/v1
+  model: REPLACE_WITH_APPROVED_MODEL
+  api_key_env: AETHER_LLM_API_KEY
 temporal:
   deployment_id: p3-production
-  endpoint: temporal:7233
-  namespace: default
+  endpoint: temporal.internal:7233
+  namespace: p3-production
   task_queue_prefix: p3
-  connect_timeout_seconds: 10
-embedding_profile: native
-embedding_config: embedding.json
-# Copy configs/recall.milvus.json here and set your deployed Milvus endpoint.
-recall_config: recall.json
-# Reuse the upstream metadata + node log store.
-metadata_backend: postgresql
-postgres_dsn_env: AETHER_POSTGRES_DSN
-p2_endpoint: engine:50052
-p2_bucket: p3-memory
-language_model:
-  endpoint: http://host.docker.internal:11434/v1
-  model: REPLACE_WITH_INSTALLED_CHAT_MODEL
-  api_key_env: AETHER_LLM_API_KEY
-  timeout_seconds: 60
-  concurrency: 2
-maintenance_principals: [local_admin]
-poll_seconds: 0.25
-periodic_seconds: 1
-identity_reload_seconds: 2
-shutdown_seconds: 15
-cache_capacity_bytes: 268435456
-operate_decay_seconds: 3600
-operate_audit_seconds: 300
-operate_stats_retention_seconds: 3600
-remember:
-  consolidation_messages: 32
-  consolidation_tokens: 8000
-  consolidation_seconds: 600
-
-# Optional: enable OTLP/HTTP trace export to your own collector.
-# The trace-specific endpoint must include /v1/traces; no collector is started here.
-# otlp_traces_endpoint: http://127.0.0.1:4318/v1/traces
-# JWT identity example: configs/identities.jwt.example.yaml (replace identity_file).
+maintenance_principals: [bootstrap_admin]
+shutdown_seconds: 30
+http_wait_seconds: 30

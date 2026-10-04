@@ -3,12 +3,12 @@
 import asyncio
 import json
 import os
-import sqlite3
 import subprocess
 import sys
 from contextlib import contextmanager
 from hashlib import sha256
 
+import psycopg
 import pytest
 from test_flows import app as app
 from test_flows import context, drain, save, source
@@ -16,9 +16,29 @@ from test_flows import context, drain, save, source
 from aether_agent_memory.recall.contracts.models import RecallRequest
 from aether_agent_memory.remember.contracts.models import RememberRequest, TextInput
 from aether_agent_memory.runtime.contracts.models import Permission, ScopeSelector
-from aether_agent_memory.runtime.flows.host import ThreeFlows
 from aether_agent_memory.runtime.foundation.common import FoundationError
-from aether_agent_memory.runtime.foundation.telemetry import Telemetry
+from azure_test_runtime import Telemetry, ThreeFlows
+
+
+async def test_health_metadata_waits_keep_transport_responsive(app, monkeypatch):
+    from threading import Event
+
+    ctx = context(app)
+    loop = asyncio.get_running_loop()
+    original, responsive = app.foundation.uow.transaction, []
+
+    @contextmanager
+    def slow_transaction():
+        released = Event()
+        loop.call_soon_threadsafe(released.set)
+        responsive.append(released.wait(0.15))
+        with original() as tx:
+            yield tx
+
+    monkeypatch.setattr(app.foundation.uow, "transaction", slow_transaction)
+    report = await app.health.report(ctx)
+    assert report["dependencies"]["database"]["state"] == "available"
+    assert responsive and all(responsive), "health metadata blocked transport callbacks"
 
 
 def records(host, ctx, trace_id):
@@ -43,7 +63,7 @@ def test_trace_survives_restart_and_reaches_automatic_operate(app, temporal_serv
             ),
         )
     )
-    restarted = ThreeFlows(app.foundation.uow.path, app.executor.root, embedding_profile="lexical")
+    restarted = ThreeFlows(app.foundation.uow.path, app.executor.root, embedding_profile="injected")
     from temporal_test_support import seed_driver
 
     seed_driver(restarted, temporal_server)
@@ -264,7 +284,7 @@ def test_recall_trace_keeps_dependency_failure_without_lexical_fallback(app):
 def test_log_failure_does_not_rollback_business_and_is_unhealthy(app, monkeypatch):
     @contextmanager
     def unavailable():
-        raise sqlite3.OperationalError("disk full secret must never leak")
+        raise psycopg.OperationalError("connection failed secret must never leak")
         yield
 
     with monkeypatch.context() as patch:

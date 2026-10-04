@@ -22,17 +22,18 @@ from aether_agent_memory.runtime.contracts.models import (
     TrustedContext,
 )
 from aether_agent_memory.runtime.contracts.ports import Transaction
+from aether_agent_memory.runtime.foundation.transactions import native
+from aether_agent_memory.runtime.storage.ports import MetadataUnitOfWork
 
 from .common import FoundationError, now
 from .identity import Identity
 from .monitoring import Monitoring
-from .storage import SQLiteUnitOfWork, native
 from .tasks import Tasks
 
 
 class Diagnostics:
     def __init__(
-        self, uow: SQLiteUnitOfWork, identity: Identity, clock: Callable[[], str] = now
+        self, uow: MetadataUnitOfWork, identity: Identity, clock: Callable[[], str] = now
     ) -> None:
         self.uow, self.identity, self.clock = uow, identity, clock
         self.monitoring: Monitoring | None = None

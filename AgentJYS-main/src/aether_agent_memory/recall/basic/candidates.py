@@ -34,8 +34,8 @@ from aether_agent_memory.runtime.contracts.models import (
 from aether_agent_memory.runtime.foundation.common import FoundationError
 from aether_agent_memory.runtime.foundation.identity import Identity
 from aether_agent_memory.runtime.foundation.requests import select_scope
-from aether_agent_memory.runtime.foundation.storage import SQLiteUnitOfWork
 from aether_agent_memory.runtime.foundation.telemetry import observed
+from aether_agent_memory.runtime.storage.ports import MetadataUnitOfWork
 
 
 def seconds_left(deadline: str, clock: str) -> float:
@@ -61,7 +61,7 @@ def logical_key(hit: ChunkHit) -> tuple[str, str]:
 class MemoryCandidates:
     def __init__(
         self,
-        uow: SQLiteUnitOfWork,
+        uow: MetadataUnitOfWork,
         identity: Identity,
         embedding: EmbeddingPort,
         vectors: GenerationSearchPort,

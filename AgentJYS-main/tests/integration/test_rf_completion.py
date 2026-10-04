@@ -13,12 +13,15 @@ from tests.integration.test_continuous_service import eventually, headers, ready
 from aether_agent_memory.operate.contracts.models import Tier
 from aether_agent_memory.remember.basic.extraction import LiteralExtraction
 from aether_agent_memory.remember.contracts.models import MemoryRef
-from aether_agent_memory.runtime.flows.application import Service
+from aether_agent_memory.runtime.foundation.postgres import (
+    PostgresTransaction as PostgresTransaction,
+)
 from aether_agent_memory.runtime.foundation.requests import text_hash
-from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction
+from azure_component_service import Service
 
 
-def test_cache_probe_preserves_crlf_and_rejects_invalid_utf8(configuration):
+@pytest.mark.parametrize("method", ["inspect", "read_cached"])
+def test_cache_probe_preserves_crlf_and_rejects_invalid_utf8(configuration, method):
     service = Service(configuration)
     executor = service.runtime.executor
     memory = MemoryRef(
@@ -36,9 +39,15 @@ def test_cache_probe_preserves_crlf_and_rejects_invalid_utf8(configuration):
             )
         path = executor.path(memory, Tier.COLD)
         path.write_bytes(data)
-        assert service.cache_maintenance.inspect(memory, digest)
+        if method == "inspect":
+            assert service.cache_maintenance.inspect(memory, digest)
+        else:
+            assert executor.read_cached(memory.scope, digest) == data.decode("utf-8")
         path.write_bytes(b"\xff")
-        assert not service.cache_maintenance.inspect(memory, digest)
+        if method == "inspect":
+            assert not service.cache_maintenance.inspect(memory, digest)
+        else:
+            assert executor.read_cached(memory.scope, digest) is None
     finally:
         asyncio.run(service.close())
 
@@ -79,13 +88,13 @@ def test_runtime_counts_attention_without_scanning_completed_history(configurati
                 tx.pending_delivery_rows(include_attention=True)
             finally:
                 connection.set_progress_handler(None, 0)
-        original = SQLiteTransaction.rows
+        original = PostgresTransaction.rows
 
         def no_history_scan(tx, table):
             assert table not in {"tasks", "outbox", "deliveries"}
             return original(tx, table)
 
-        monkeypatch.setattr(SQLiteTransaction, "rows", no_history_scan)
+        monkeypatch.setattr(PostgresTransaction, "rows", no_history_scan)
         result = service.runtime.health.runtime(alice)
         assert result["pending_tasks"] == 1
         assert result["attention_task_ids"] == ["needs_attention"]
@@ -143,9 +152,9 @@ def test_repair_recovery_after_response_loss_does_not_resubmit(configuration):
     original_repair = service.runtime.executor.repair
     calls = []
 
-    def lose_response(item, operation_id):
+    def lose_response(item, operation_id, ctx=None):
         calls.append(operation_id)
-        original_repair(item, operation_id)
+        original_repair(item, operation_id, ctx)
         raise ConnectionError("response lost after durable repair")
 
     service.runtime.executor.repair = lose_response

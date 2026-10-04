@@ -1,8 +1,8 @@
 """Explicit component-test seeding through a real Temporal server.
 
 Domain fixtures may create task rows before assembling their Worker. Only this
-test helper binds those seeded rows; production uses atomic admission or the
-offline migration tool. No legacy scheduler is used.
+test helper binds those seeded rows; production uses atomic admission.
+No legacy scheduler is used.
 """
 
 import asyncio
@@ -170,9 +170,9 @@ def seed_driver(runtime, server):
 
 def http_execution(runtime, endpoint):
     """Full phase adapters for HTTP component tests with provisioned identities."""
-    from aether_agent_memory.runtime.flows.config import ServiceConfiguration
     from aether_agent_memory.runtime.foundation.common import fingerprint
     from aether_agent_memory.runtime.temporal.service import TemporalService
+    from component_configuration import ComponentConfiguration as ServiceConfiguration
 
     config = ServiceConfiguration(
         temporal=TemporalConfiguration(
@@ -180,8 +180,16 @@ def http_execution(runtime, endpoint):
         ),
         data_dir=runtime.foundation.uow.path.parent,
         identity_file=runtime.foundation.uow.path.parent / "test-identities.yaml",
-        embedding_profile="lexical",
+        embedding_profile="injected",
         poll_seconds=0.01,
         periodic_seconds=0.1,
     )
     return TemporalService(runtime, config, lambda: None, CacheMaintenance(runtime))
+
+
+BUSINESS_KINDS = {
+    "remember.save", "remember.document", "remember.correct", "remember.extract",
+    "remember.project", "remember.cleanup", "remember.compress", "remember.distill",
+    "remember.revalidate", "remember.summarize", "recall.execute", "operate.evaluate",
+    "operate_repair_cache", "runtime.event_delivery",
+}

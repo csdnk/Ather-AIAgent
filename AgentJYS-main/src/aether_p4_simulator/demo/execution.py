@@ -3,7 +3,6 @@
 import time
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
-from datetime import UTC, datetime
 from functools import partial
 from typing import Literal, NoReturn
 
@@ -29,6 +28,7 @@ from aether_p4_simulator.validation.models import (
 )
 from aether_p4_simulator.validation.operations import resolve_operation
 
+from .definition import RunDefinition
 from .models import (
     Check,
     Evidence,
@@ -38,7 +38,7 @@ from .models import (
     StepSnapshot,
     TaskEvidence,
 )
-from .scenarios import STORY_TEXTS
+from .state import ExecutionData, RecallHandle
 
 
 class StoryRun:
@@ -50,20 +50,39 @@ class StoryRun:
         mode: Mode | None,
         publish: Callable[[StepSnapshot], None],
         *,
+        definition: RunDefinition,
         wait_seconds: float = 60,
+        execution: ExecutionData | None = None,
+        save_state: Callable[[], None] | None = None,
     ) -> None:
         self.client, self.scope_id, self.scenario_id = client, scope_id, scenario_id
+        if definition.scenario_id != scenario_id:
+            raise ValidationError(409, "definition_scenario_changed", "运行场景与原定义不同")
+        self.definition = definition
         self.mode, self.publish, self.wait_seconds = mode, publish, wait_seconds
         self.selection = ScopeSelector(task_id=scope_id, session_id=scope_id + "_session")
-        self.refs: dict[str, MemoryRef] = {}
-        self.sources: dict[str, SourceRef] = {}
-        self.receipts: dict[str, RememberReceipt] = {}
-        self.episodes: dict[str, tuple[MemoryRef, ...]] = {}
-        self.recalls: dict[str, ContextPack] = {}
-        self.task_ids: set[str] = set()
-        self.scope: Scope | None = None
+        self.execution = execution if execution is not None else ExecutionData()
+        self.save_state = save_state or (lambda: None)
+        self.refs = self.execution.refs
+        self.sources = self.execution.sources
+        self.receipts = self.execution.receipts
+        self.episodes = self.execution.episodes
+        self.recalls = self.execution.recalls
+        self.task_ids = self.execution.task_ids
         self._current_step: StepSnapshot | None = None
         self.started = 0.0
+
+    @property
+    def scope(self) -> Scope | None:
+        return self.execution.scope
+
+    @scope.setter
+    def scope(self, value: Scope | None) -> None:
+        self.execution.scope = value
+
+    def consume(self, operation_id: str) -> None:
+        self.execution.consume(operation_id)
+        self.save_state()
 
     @property
     def current_step(self) -> StepSnapshot:
@@ -75,9 +94,10 @@ class StoryRun:
         self, number: int, path: str, *, method: Literal["GET", "POST", "PUT"] = "POST"
     ) -> Iterator[StepSnapshot]:
         self.started = time.monotonic()
+        self.execution.step, self.execution.phase = number, "step_started"
         self._current_step = StepSnapshot(
             id=number,
-            user_text=STORY_TEXTS[self.scenario_id][number - 1],
+            user_text=self.definition.texts[number - 1],
             state="running",
             evidence=Evidence(method=method, path=path, operation_id=f"{self.scope_id}_{number}"),
         )
@@ -85,6 +105,8 @@ class StoryRun:
         try:
             yield self.current_step
             self.current_step.state = "passed"
+            self.execution.completed_steps.append(number)
+            self.execution.phase = "step_complete"
         finally:
             self.emit()
 
@@ -97,6 +119,7 @@ class StoryRun:
     def emit(self) -> None:
         self.evidence.elapsed_ms = round((time.monotonic() - self.started) * 1000, 1)
         self.publish(self.current_step)
+        self.save_state()
 
     def check(self, name: str, condition: bool, detail: str) -> None:
         self.current_step.checks.append(Check(name=name, passed=bool(condition), detail=detail))
@@ -114,7 +137,7 @@ class StoryRun:
             self.evidence.job_id = job_id
             self.emit()
 
-        return resolve_operation(
+        result = resolve_operation(
             self.client,
             call,
             model,
@@ -123,6 +146,9 @@ class StoryRun:
             wait_seconds=self.wait_seconds,
             on_pending=pending,
         )
+        self.execution.parsed(operation_id, result)
+        self.save_state()
+        return result
 
     def scope_matches(self, scope: Scope, *, task_only: bool = False) -> bool:
         if scope.task_id != self.scope_id:
@@ -163,8 +189,8 @@ class StoryRun:
         return SourceInput(
             kind=kind,
             external_id=self.op(name),
-            external_version="1",
-            occurred_at=datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+            external_version=self.definition.text("source_version"),
+            occurred_at=self.definition.event_times[self.current_step.id - 1],
         )
 
     def accept_receipt(
@@ -195,6 +221,7 @@ class StoryRun:
             self.refs[ref.memory_id] = ref
         self.receipts[key] = receipt
         self.task_ids.update(receipt.task_ids)
+        self.consume(operation_id)
         self.evidence.memories = list(receipt.memories)
         self.evidence.source_ids = [receipt.source.source_id]
         self.evidence.task_ids = list(receipt.task_ids)
@@ -217,6 +244,11 @@ class StoryRun:
             and task.subject.object_type == "memory"
             and task.subject.object_id == original.memory_id
         ]
+        if not summaries:
+            state = self.processing(original)
+            if state.working_summary is not None:
+                self.reject_scope()
+            return original
         if len(summaries) != 1:
             self.reject_scope()
         task = self.wait_task(summaries[0].task_id)
@@ -418,7 +450,7 @@ class StoryRun:
             query=query,
             selection=ScopeSelector(task_id=self.scope_id) if long_term else self.selection,
             sources="long_term" if long_term else "working",
-            token_budget=3000,
+            token_budget=self.definition.number("story_token_budget"),
         )
         pack = self.resolve(
             partial(self.client.recall, body, operation_id),
@@ -461,9 +493,11 @@ class StoryRun:
             not any(item.memory.memory_id in absent for item in items),
             "被删除/撤销的目标不得出现在返回中",
         )
+        self.recalls["last"] = RecallHandle(recall_id=pack.recall_id, scope=pack.scope)
+        self.consume(operation_id)
         return pack
 
-    def old_result_invalid(self, pack: ContextPack) -> None:
+    def old_result_invalid(self, pack: RecallHandle | ContextPack) -> None:
         # pack was returned and scope-checked earlier in this run.
         self.evidence.recall_id = pack.recall_id
         try:

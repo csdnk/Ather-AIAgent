@@ -9,8 +9,8 @@ import yaml
 from fastapi.testclient import TestClient
 
 from aether_agent_memory.runtime.contracts.models import Permission
-from aether_agent_memory.runtime.flows.application import Service
-from aether_agent_memory.runtime.flows.config import ServiceConfiguration
+from azure_component_service import Service
+from component_configuration import ComponentConfiguration as ServiceConfiguration
 
 
 def configuration(tmp_path, endpoint):
@@ -47,7 +47,7 @@ def configuration(tmp_path, endpoint):
     return ServiceConfiguration(
         data_dir=tmp_path / "state",
         identity_file=identity,
-        embedding_profile="lexical",
+        embedding_profile="injected",
         periodic_seconds=0.2,
         poll_seconds=0.02,
         identity_reload_seconds=0.1,
@@ -63,6 +63,22 @@ def configuration(tmp_path, endpoint):
 
 def headers(user="alice"):
     return {"Authorization": "Bearer " + user, "X-Operation-ID": "same-command"}
+
+
+def test_capability_catalog_reports_current_p2_without_direct_store_fields(
+    tmp_path, temporal_server
+):
+    config = configuration(tmp_path, temporal_server.endpoint)
+    # No legacy Ceph field exists on the consumer's deployment configuration.
+    assert not hasattr(config, "ceph")
+    service = Service(config)
+    with TestClient(service.app(), raise_server_exceptions=False) as client:
+        response = client.get("/p3/capabilities", headers=headers())
+        assert response.status_code == 200, response.text
+        capabilities = response.json()
+        assert capabilities["storage_mode"] == "current_p2"
+        assert capabilities["production_ready"] is False
+        assert capabilities["object_storage"] == "local_reference"
 
 
 def request():

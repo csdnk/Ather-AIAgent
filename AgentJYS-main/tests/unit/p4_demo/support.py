@@ -1,10 +1,28 @@
 import json
 import time
 from copy import deepcopy
+from hashlib import sha256
+from uuid import uuid4
 
 import httpx
 
+from aether_agent_memory.runtime.contracts.client_definitions import (
+    ClientDefinitionBinding,
+    ClientDefinitionReceipt,
+)
+from aether_agent_memory.runtime.contracts.client_inputs import ClientInputReceipt
+from aether_agent_memory.runtime.contracts.client_runs import ClientOperation
+from aether_p4_simulator.demo.models import RunSnapshot
+
+from .registry_support import UnitRegistry
+
 NOW = "2026-09-30T00:00:00.000Z"
+
+
+def fixed_definition(scenario="library-basic"):
+    from aether_p4_simulator.demo.definition import RunDefinition
+
+    return RunDefinition.capture(uuid4(), scenario)
 
 
 class Upstream:
@@ -17,8 +35,82 @@ class Upstream:
         self.sources = {}
         self.processing_reads = 0
         self.recall_count = 0
+        self.registry = UnitRegistry()
 
     def __call__(self, request):
+        if request.url.path.startswith("/p3/client-runs/"):
+            parts = request.url.path.split("/")
+            if len(parts) == 6 and parts[4] == "states":
+                record = self.registry.get(parts[3])
+                if request.method == "GET":
+                    payload = self.registry.states[parts[3], int(parts[5])]
+                    return httpx.Response(
+                        200,
+                        content=payload,
+                        headers={"X-P3-State-Hash": sha256(payload).hexdigest()},
+                    )
+                assert request.headers["X-P3-Run-Owner"] == record.owner_id
+                assert request.headers["X-P3-Run-Revision"] == str(record.revision)
+                updated = self.registry.save_state(record, request.content)
+                return httpx.Response(200, json=updated.model_dump(mode="json"))
+            if len(parts) == 5 and parts[4] == "definition":
+                record = self.registry.get(parts[3])
+                if request.method == "GET":
+                    payload = self.registry.read_definition(record)
+                    return httpx.Response(
+                        200,
+                        content=payload,
+                        headers={"X-P3-Definition-Hash": sha256(payload).hexdigest()},
+                    )
+                self.registry.save_definition(record, request.content)
+                receipt = ClientDefinitionReceipt(
+                    run_id=record.run_id, **record.definition.model_dump()
+                )
+                return httpx.Response(200, json=receipt.model_dump(mode="json"))
+            if len(parts) == 6 and parts[4] == "inputs":
+                record = self.registry.get(parts[3])
+                intent = next(
+                    ClientOperation.model_validate(value)
+                    for value in record.snapshot["operations"]
+                    if value["operation_id"] == parts[5]
+                )
+                if request.method == "GET":
+                    payload = self.registry.inputs[(parts[3], parts[5])]
+                    return httpx.Response(
+                        200,
+                        content=payload,
+                        headers={"X-P3-Request-Hash": sha256(payload).hexdigest()},
+                    )
+                assert request.headers["X-P3-Run-Owner"] == record.owner_id
+                assert request.headers["X-P3-Run-Revision"] == str(record.revision)
+                self.registry.save_input(record, intent, request.content)
+                receipt = ClientInputReceipt(
+                    run_id=record.run_id,
+                    operation_id=intent.operation_id,
+                    request_hash=intent.request_hash,
+                    binding_digest=intent.binding.digest,
+                    size_bytes=len(request.content),
+                )
+                return httpx.Response(200, json=receipt.model_dump(mode="json"))
+            run_id = request.url.path.rsplit("/", 1)[1]
+            if request.method == "GET":
+                return httpx.Response(200, json=self.registry.get(run_id).model_dump(mode="json"))
+            body = json.loads(request.content)
+            snapshot = RunSnapshot.model_validate(body["snapshot"])
+            if request.method == "POST":
+                result = self.registry.register(
+                    snapshot,
+                    body["owner_id"],
+                    ClientDefinitionBinding.model_validate(body["definition"])
+                    if body.get("definition")
+                    else None,
+                )
+                return httpx.Response(
+                    201 if result.created else 200, json=result.model_dump(mode="json")
+                )
+            record = self.registry.get(run_id)
+            result = self.registry.checkpoint(record, snapshot)
+            return httpx.Response(200, json=result.model_dump(mode="json"))
         self.requests.append(request)
         path = request.url.path
         if path == "/p3/live":

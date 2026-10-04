@@ -11,22 +11,26 @@ pool:
   vmImage: ubuntu-latest
 jobs:
   - job: P3Gate
-    displayName: P3 collaboration gate
+    displayName: P3 source and contract checks
     timeoutInMinutes: 30
     steps:
       - checkout: self
       - task: UsePythonVersion@0
         inputs:
           versionSpec: '3.13'
-      - script: python -m pip install -r scripts/p3/requirements-collaboration.txt
+      - script: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . --group dev
+        workingDirectory: AgentJYS-main
         displayName: Install validation dependencies
-      - script: python scripts/p3/ci_temporal_gate.py collaboration --directory "$(Agent.TempDirectory)/p3-temporal" --report "$(Agent.TempDirectory)/p3-gate.json"
-        displayName: Validate P3 contracts and implementation
+      - script: |
+          python -m ruff check src tests scripts
+          python scripts/generate_proto.py
+          python -m mypy --cache-dir "$(Agent.TempDirectory)/p3-mypy" src
+          python scripts/p3/generate_schemas.py --check
+        workingDirectory: AgentJYS-main
+        displayName: Validate source and generated contracts
         env:
           PYTHONUTF8: '1'
           TIKTOKEN_CACHE_DIR: $(Agent.TempDirectory)/p3-tokenizers
-      - task: PublishPipelineArtifact@1
-        condition: succeededOrFailed()
-        inputs:
-          targetPath: $(Agent.TempDirectory)/p3-gate.json
-          artifact: p3-gate-summary
+      # Backend tests use scripts/p3/run_aks_tests.py and separately approved Azure credentials.

@@ -22,7 +22,7 @@
 
 ## 本地启动
 
-当前 Windows 演示环境从启动 P3、启动 Web、复制凭据到运行中文对话测试的整套命令，见 [完整启动命令](../../交付成果/部署运行/P3_监测与中文对话演示_完整启动命令_20260928.md)。
+当前 Azure 后端和独立开发环境的创建步骤见 [开发者与 AI 配置指南](../../交付成果/部署运行/P3_Azure开发环境与AI配置指南_20261004.md)。2026-09-28 的启动文档保留历史范围；旧初始化和兼容存储入口已退役。
 
 需要 Node.js 22 和 npm，以及按 [业务 README](../README.md#快速启动) 启动的统一 P3 服务（默认 `http://127.0.0.1:8080`）。
 
@@ -34,7 +34,7 @@ npm ci
 npm run dev
 ```
 
-打开 [http://127.0.0.1:5173](http://127.0.0.1:5173)，先选择“监测控制台”，再点击“配置连接”，输入部署目录 `credential` 文件内容。身份需要 `maintenance:diagnose` 权限；初始化生成的本地管理员已具备该权限。**以下凭据输入仅适用于原监测页；场景演示不需要也不接收浏览器凭据。**
+打开 [http://127.0.0.1:5173](http://127.0.0.1:5173)，先选择“监测控制台”，再点击“配置连接”，输入个人部署目录 `credential` 文件内容。身份需要 `maintenance:diagnose` 权限；按照开发者指南显式创建身份和凭据，`init` 不生成默认管理员。**以下凭据输入仅适用于监测页；场景演示不需要也不接收浏览器凭据。**
 
 如果后端使用其他地址，在启动 Vite 前设置：
 
@@ -51,12 +51,13 @@ Linux/macOS 等价命令为 `VITE_AETHER_PROXY_TARGET=http://127.0.0.1:8081 npm 
 
 ## 容器部署
 
-以下是原监测部署。新增预设演示目前只验证 Windows Native + Vite，现有 Nginx 尚无演示 `/p4-api` 转发；不能据此宣称容器中的演示已可运行。
+默认 Web 镜像提供 `/p3` 监测代理，`/p4-api` 明确返回演示未启用。可选本地演示覆盖文件提供受限 P4 代理；配置已通过解析，本机真实 socket 已验证接线，最终 Docker 镜像及 AKS 实跑仍需单独验收。
 
-业务目录的 [compose.p3.yaml](../compose.p3.yaml) 现在包含 `web` 服务。先按 [统一服务运行指南](../../交付成果/部署运行/P3_统一服务运行指南_20260926.md) 初始化容器部署目录，再执行：
+业务目录的 [compose.p3.yaml](../compose.p3.yaml) 包含 `web` 服务。先按当前开发者指南准备容器可达的 Azure/Temporal 配置、身份和模型，再执行：
 
 ```powershell
-# AETHER_DEPLOYMENT_DIR 必须指向已经初始化的外部部署目录。
+# 外部配置、可写运行数据、预置模型分别设置 AETHER_DEPLOYMENT_DIR、
+# AETHER_RUNTIME_DIR、AETHER_MODELS_DIR；容器配置路径对应 /deployment、/runtime、/models。
 docker compose -f compose.p3.yaml up -d --build
 ```
 
@@ -65,6 +66,26 @@ docker compose -f compose.p3.yaml up -d --build
 - Nginx 将 `/p3/` 转发给 `p3:8080`，页面刷新由 SPA 回退处理。
 - 单独部署时先执行 `npm run build`，用同源 Web 服务器托管 `dist/` 并配置 `/p3` 代理；不能仅双击 index.html。
 - 镜像构建使用 [Dockerfile](Dockerfile) 和 [nginx.conf](nginx.conf)。容器配置与本地浏览器验证是不同证据，当前容器实跑情况见验收记录。
+
+启用本地预设演示时，先按照业务 README 初始化专用 development/test P3，再执行：
+
+```powershell
+docker compose -f compose.p3.yaml -f compose.p4-demo.yaml up -d --build
+```
+
+[compose.p4-demo.yaml](../compose.p4-demo.yaml) 让 P4 共享 Web 网络命名空间，并监听 `127.0.0.1:8090`；Web 仅发布到宿主 loopback。P4 通过 `http://p3:8080` 调用 P3，凭据来自只读单文件挂载。`AETHER_HOST_WEB_PORT` 同时配置精确 Origin；其他本机启动方式通过 `AETHER_P4_DEMO_ORIGINS` JSON 数组配置，拒绝公网域名或通配符。
+
+[本地代理配置](nginx.p4-local.conf) 保留浏览器 Origin、清除 Authorization/Cookie，并仅转交 `/api/v1/demo/`；旧 P4 agents/session 接口不经该代理暴露。公网或生产部署继续使用[默认关闭配置](nginx.p4-disabled.conf)，不能直接挂载本地覆盖文件开放演示。
+
+P4 通过受认证的 P3 运行登记接口保存 UUID、固定范围、步骤意图和原任务回执。当前 Azure 路线使用 PG 元数据与 Ceph 原始对象，原恢复契约保留。中断或结果未知的运行保持占用，不自动接管/重放；新所有者看到超过 120 秒未更新的运行时显示 `unconfirmed`。每个调用方的 10 轮上限持久保留，重启不会重置。旧数据迁移取消，但原操作未知不能以 404 当作未执行。历史 P4 重启通过证据只覆盖当时版本；完整 Azure P4 恢复、正式 P2 与身份验收仍需单独核验。
+
+网关与 P3 的请求边界：
+
+- `/p3/` 代理读取超时为 360 秒，覆盖 P3 最长 300 秒的结果等待设置。任务尚未完成时，保留 P3 的 `REQUEST_IN_PROGRESS`、`Location` 和 `X-P3-Job-ID`；随后查询原 job，不能通过换操作 ID 重复提交。
+- 文档上传网关上限为 64 MiB，与 P3 默认 `remember.max_input_bytes` 一致，并流式转发。P3 配置更小的上限仍会执行；若业务需要更大的上限，必须同时调整网关及 P3 策略并重新验收。
+- API 所有状态响应使用 `Cache-Control: no-store`，静态页面使用 `no-cache`；安全响应头放在同一配置层，避免被路径级配置覆盖。
+
+真实代理回归位于 `tests/integration/test_web_gateway.py`，需要可执行 Nginx、Temporal CLI、Azure 测试后端和外部 Rust P2 协议服务。默认 AKS Python 回归明确排除此项；管理员提供独立资源后另行执行并报告。Windows 本机 Nginx 的历史结果不能替代当前 Alpine 镜像或 Azure 网关验收。
 
 ## 接口与权限
 
@@ -85,7 +106,7 @@ docker compose -f compose.p3.yaml up -d --build
 
 ### 一边运行三流程用例，一边查看真实轨迹
 
-要用自然中文对话验证偏好记忆、出差安排、跨会话召回和明确纠错，请运行 `scripts/p3/dialogue_demo.py`。参数与下面的三流程脚本相同，输出逐轮用户话语、P3 原始召回和中文步骤对应的 Trace。当前工作区可直接复制的命令与凭据获取方式见 [中文多轮对话验证说明](../../交付成果/测试与验收/P3_中文多轮对话验证说明_20260928.md)。这是记忆服务测试，不生成模拟聊天回复。
+要验证保存、后台投影、召回和明确纠错，请运行下面的 `scripts/p3/monitor_demo.py`，用当前个人部署凭据观察同一服务的真实 Trace。历史中文多轮对话文档保留当时的证据范围；其中的旧脚本入口已退役，当前启动与验证步骤以开发者指南为准。
 
 保持统一服务和 Web 运行，用与 Web 相同的部署凭据，在业务目录执行：
 

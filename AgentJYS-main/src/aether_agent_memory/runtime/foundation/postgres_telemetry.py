@@ -67,7 +67,10 @@ class PostgresTelemetry(Telemetry):
         self.tracer = None
         self._lock = RLock()
         try:
-            conninfo_to_dict(dsn)
+            values = conninfo_to_dict(dsn)
+            # A desktop relay can need several TLS round trips. Honor the
+            # explicit deployment budget while keeping startup bounded.
+            connect_timeout = max(3, min(60, int(values.get("connect_timeout") or 3)))
         except Exception:
             raise ValueError("invalid PostgreSQL log connection configuration") from None
         # Apply at the originating logger, before any application/root handlers.
@@ -76,17 +79,21 @@ class PostgresTelemetry(Telemetry):
         logging.getLogger("psycopg.pool").addFilter(_pool_log_redaction)
         self._pool = ConnectionPool(
             dsn,
-            min_size=1,
-            max_size=8,
+            # Health concurrently emits one span per registered probe, alongside
+            # Activity and HTTP spans. Cold TLS connections cannot grow within
+            # the short checkout budget, so reserve the bounded burst capacity.
+            min_size=16,
+            max_size=16,
+            num_workers=8,
             timeout=0.25,
             max_waiting=16,
-            kwargs={"connect_timeout": 3},
+            kwargs={"connect_timeout": connect_timeout},
             configure=self._configure,
             name="p3-logs",
             open=False,
         )
         try:
-            self._pool.open(wait=True, timeout=5)
+            self._pool.open(wait=True, timeout=max(5, connect_timeout + 5))
             with self.connect() as db:
                 # Serialize first-time DDL across independent API/worker starts.
                 db.execute("SELECT pg_advisory_xact_lock(68431290713021)")

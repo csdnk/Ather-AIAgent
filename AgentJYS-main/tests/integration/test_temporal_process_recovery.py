@@ -27,6 +27,18 @@ def wait_file(path, process, seconds=60):
 def test_process_recovery(tmp_path, temporal_server, scenario):
     assert HELPER.is_file(), "missing real P3 process recovery harness"
     processes = []
+    from azure_test_runtime import owned, provider_options
+
+    resources = owned()
+    if scenario == "T07":
+        resources.dsn(tmp_path / "state/business.db")
+    else:
+        anchor = tmp_path / "state/state-anchor"
+        options = provider_options(anchor)
+        # Parent owns these exact child resource identities after a forced kill.
+        options["vectors_factory"](None, None, "test-owned-cleanup", 256)
+    manifest = tmp_path / "azure-resources.json"
+    manifest.write_text(json.dumps(resources.manifest()), "utf-8")
 
     def start(phase):
         with (tmp_path / f"{phase}.log").open("wb") as log:
@@ -42,11 +54,19 @@ def test_process_recovery(tmp_path, temporal_server, scenario):
                     scenario,
                     "--phase",
                     phase,
+                    "--azure-resources",
+                    str(manifest),
                 ],
                 cwd=ROOT,
                 stdout=log,
                 stderr=subprocess.STDOUT,
-                env={**os.environ, "PYTHONPATH": str(ROOT / "src"), "PYTHONUTF8": "1"},
+                env={
+                    **os.environ,
+                    "PYTHONPATH": os.pathsep.join(
+                        (str(ROOT / "src"), str(ROOT / "tests"), os.environ.get("PYTHONPATH", ""))
+                    ),
+                    "PYTHONUTF8": "1",
+                },
                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
             )
         processes.append(child)

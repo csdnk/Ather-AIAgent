@@ -16,6 +16,7 @@ from aether_agent_memory.runtime.foundation.common import FoundationError, finge
 from aether_agent_memory.runtime.foundation.requests import text_hash
 
 from .decay import initial
+from .hydration import hydrate_metadata_reads
 from .retention import hours
 
 
@@ -52,6 +53,7 @@ class ExtractiveSummary:
         return tuple(q for _, q in sorted(selected))
 
 
+@hydrate_metadata_reads
 class WorkingSummaries:
     def __init__(self, owner: Any, provider: SummaryPort | None = None) -> None:
         self.owner = owner
@@ -61,7 +63,7 @@ class WorkingSummaries:
         # A file's container size/type does not measure its parsed textual body.
         # Keep the document hint for existing callers; only long UTF-8 content
         # needs a bounded Working representation, including for attachments.
-        return len(text.encode("utf-8")) >= self.owner.policy.working_summary_min_bytes
+        return bool(len(text.encode("utf-8")) >= self.owner.policy.working_summary_min_bytes)
 
     @staticmethod
     def descriptor(source: SourceRef, text: str, task_context: str = "") -> str:
@@ -254,6 +256,43 @@ class WorkingSummaries:
     async def commit(
         self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot, prepared: dict[str, Any]
     ) -> RunResult:
+        committed = self.commit_metadata(ctx, task, item, prepared)
+        if isinstance(committed, RunResult):
+            return committed
+        updated, result = committed
+        owner, failure = self.owner, prepared["failure"]
+        # Cache is a best-effort replica, after the authoritative version commits.
+        # Its TTL is supplied by the cache provider; publication does not depend on C.
+        if failure is None:
+            try:
+                with owner.uow.transaction() as tx:
+                    eligible = owner.final_guard(tx, ctx, (updated.ref,), "recall").items[0]
+                if eligible.decision == "allowed":
+                    await owner.bodies.admit(updated.ref.scope, updated.content)
+                with owner.uow.transaction() as tx:
+                    eligible = owner.final_guard(tx, ctx, (updated.ref,), "recall").items[0]
+                valid = eligible.decision == "allowed"
+            except FoundationError:
+                valid = False
+            if not valid and owner.bodies.cache:
+                try:
+                    await owner.bodies.cache.delete(updated.ref.scope, updated.content_hash)
+                except Exception:
+                    # Qualification already prevents stale reads; record cleanup uncertainty.
+                    with owner.uow.transaction() as tx:
+                        tx.write(
+                            "remember_cache_admission",
+                            updated.ref.memory_id,
+                            {
+                                "state": "cleanup_pending",
+                                "bytes": len(updated.content.encode()),
+                            },
+                        )
+        return result
+
+    def commit_metadata(
+        self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot, prepared: dict[str, Any]
+    ) -> tuple[MemorySnapshot, RunResult] | RunResult:
         owner = self.owner
         state, source = prepared["state"], SourceRef.model_validate(prepared["source"])
         chosen, failure, content = prepared["chosen"], prepared["failure"], prepared["content"]
@@ -362,31 +401,4 @@ class WorkingSummaries:
                     },
                 ),
             )
-        # Cache is a best-effort replica, after the authoritative version commits.
-        # Its TTL is supplied by the cache provider; publication does not depend on C.
-        if failure is None:
-            try:
-                with owner.uow.transaction() as tx:
-                    eligible = owner.final_guard(tx, ctx, (updated.ref,), "recall").items[0]
-                if eligible.decision == "allowed":
-                    await owner.bodies.admit(updated.ref.scope, updated.content)
-                with owner.uow.transaction() as tx:
-                    eligible = owner.final_guard(tx, ctx, (updated.ref,), "recall").items[0]
-                valid = eligible.decision == "allowed"
-            except FoundationError:
-                valid = False
-            if not valid and owner.bodies.cache:
-                try:
-                    await owner.bodies.cache.delete(updated.ref.scope, updated.content_hash)
-                except Exception:
-                    # Qualification already prevents stale reads; record cleanup uncertainty.
-                    with owner.uow.transaction() as tx:
-                        tx.write(
-                            "remember_cache_admission",
-                            updated.ref.memory_id,
-                            {
-                                "state": "cleanup_pending",
-                                "bytes": len(updated.content.encode()),
-                            },
-                        )
-        return result
+        return updated, result

@@ -32,14 +32,16 @@ it("rejects path injection before sending any request", async () => {
   expect(fetch).not.toHaveBeenCalled();
 });
 
-it("bounds fetch to five seconds and does not retry", async () => {
+it("waits up to sixty seconds for the network and does not retry", async () => {
   vi.useFakeTimers();
   const fetch = vi.fn((_url, init: RequestInit) => new Promise((_resolve, reject) => {
     init.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
   }));
   vi.stubGlobal("fetch", fetch);
   const result = startRun(id).catch(error => error);
-  await vi.advanceTimersByTimeAsync(5000);
+  await vi.advanceTimersByTimeAsync(59_000);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  await vi.advanceTimersByTimeAsync(1000);
   expect(await result).toMatchObject({ code: "connection", rejected: false });
   expect(fetch).toHaveBeenCalledTimes(1);
 });

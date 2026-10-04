@@ -21,7 +21,7 @@ Owner：B / A / C / RF
 
 ## 验证与交付
 
-- [ ] `python scripts/p3/validate_collaboration.py` 通过，附结果摘要。
+- [ ] `run_aks_tests.py` 在隔离 AKS Pod 执行，附 JUnit/源码摘要及未验证范围。
 - [ ] 契约变更已更新生成 Schema、正反样例与消费者验证。
 - [ ] 已更新当前状态/运行说明；旧验收证据保持原样。
 

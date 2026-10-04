@@ -30,9 +30,9 @@ from aether_agent_memory.runtime.contracts.models import (
     TrustedContext,
 )
 from aether_agent_memory.runtime.contracts.ports import TaskHandler
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 from .common import fingerprint, later
-from .storage import SQLiteTransaction
 from .tasks import Tasks
 from .telemetry import observed
 
@@ -165,7 +165,7 @@ class Dispositions:
 
     def observe_in(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         ctx: TrustedContext,
         subject: RecordRef,
         observation: SignalObservation,
@@ -469,7 +469,7 @@ class Dispositions:
 
     def resolve_verified(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         ctx: TrustedContext,
         incident_id: str,
         task_id: str,

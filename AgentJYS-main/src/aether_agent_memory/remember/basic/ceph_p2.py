@@ -13,8 +13,13 @@ import os
 import re
 from dataclasses import dataclass
 from importlib import import_module
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
+
+
+class ImmutableObjectConflictError(ValueError):
+    """A conditional write found different immutable bytes at the same key."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +35,7 @@ class CephP2Config:
     max_range_bytes: int = 8 * 1024 * 1024
     max_pool_connections: int = 10
     max_attempts: int = 3
+    ca_file: str | None = None
 
     def __post_init__(self) -> None:
         url = urlsplit(self.endpoint)
@@ -47,6 +53,8 @@ class CephP2Config:
             raise ValueError("Ceph bucket must be a nonempty bucket name")
         if not self.region.strip():
             raise ValueError("Ceph region must be nonempty")
+        if self.ca_file is not None and not Path(self.ca_file).is_file():
+            raise ValueError("Ceph CA file must exist")
         for name in (self.access_key_env, self.secret_key_env):
             if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
                 raise ValueError("Ceph credential settings must name environment variables")
@@ -92,6 +100,7 @@ class CephP2:
             "s3",
             endpoint_url=self.endpoint,
             region_name=config.region,
+            verify=config.ca_file if config.ca_file is not None else True,
             **credentials,
             config=sdk_config(
                 signature_version="s3v4",
@@ -213,7 +222,9 @@ class CephP2:
             if status != 412 or code not in {"PreconditionFailed", "412"}:
                 raise
             if self.get_object_sync(key) != body:
-                raise ValueError("immutable P2 key already contains different bytes") from exc
+                raise ImmutableObjectConflictError(
+                    "immutable P2 key already contains different bytes"
+                ) from exc
 
     def delete_object_sync(self, key: str) -> None:
         self._ensure_open()

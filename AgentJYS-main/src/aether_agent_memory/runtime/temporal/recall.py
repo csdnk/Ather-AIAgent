@@ -4,6 +4,8 @@ import asyncio
 
 from aether_agent_memory.recall.basic.service import Recall
 from aether_agent_memory.recall.contracts.models import ContextPack, RecallRequest
+from aether_agent_memory.runtime.contracts.client_admission import ClientOperationTargets
+from aether_agent_memory.runtime.contracts.http_evidence import HttpRequestEvidence
 from aether_agent_memory.runtime.contracts.models import (
     ErrorCode,
     Flow,
@@ -42,7 +44,13 @@ class RecallAdmission:
                 "recall.execute", "recall", WorkflowOnlyHandler(), permission=Permission.READ
             )
 
-    def accept(self, ctx: TrustedContext, request: RecallRequest) -> WorkflowInput:
+    def accept(
+        self,
+        ctx: TrustedContext,
+        request: RecallRequest,
+        *,
+        http_request: HttpRequestEvidence | None = None,
+    ) -> WorkflowInput:
         with self.recall.uow.transaction() as tx:
             record, previous = self.recall.accept_in(tx, ctx, request)
             subject = self.recall.ref(record)
@@ -72,6 +80,8 @@ class RecallAdmission:
                     deadline_at=record.deadline_at,
                     max_attempts=self.ledger.tasks.max_attempts,
                 ),
+                http_request=http_request,
+                client_targets=ClientOperationTargets(scopes=(record.scope,)),
             )
 
     def read_result(self, ctx: TrustedContext, job_id: str) -> ContextPack:

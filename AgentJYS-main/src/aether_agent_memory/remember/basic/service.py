@@ -38,6 +38,7 @@ from aether_agent_memory.remember.contracts.models import (
 )
 from aether_agent_memory.remember.contracts.ports import ExtractionPort, ProjectionPort
 from aether_agent_memory.runtime.contracts.foundation import ResourceLocation
+from aether_agent_memory.runtime.contracts.http_evidence import HttpRequestEvidence
 from aether_agent_memory.runtime.contracts.models import (
     EffectStatus,
     ErrorCode,
@@ -59,19 +60,17 @@ from aether_agent_memory.runtime.contracts.ports import Transaction
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint, later
 from aether_agent_memory.runtime.foundation.events import Events
 from aether_agent_memory.runtime.foundation.identity import Identity
+from aether_agent_memory.runtime.foundation.mutation_receipts import MutationReceipts
 from aether_agent_memory.runtime.foundation.requests import (
     matches,
     request_key,
     select_scope,
     text_hash,
 )
-from aether_agent_memory.runtime.foundation.storage import (
-    SQLiteTransaction,
-    SQLiteUnitOfWork,
-    native,
-)
 from aether_agent_memory.runtime.foundation.tasks import Tasks
 from aether_agent_memory.runtime.foundation.telemetry import observed
+from aether_agent_memory.runtime.foundation.transactions import native
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction, MetadataUnitOfWork
 
 
 def memory_ref(ref: MemoryRef, *, versioned: bool = False) -> RecordRef:
@@ -122,7 +121,7 @@ class Remember:
 
     def __init__(
         self,
-        uow: SQLiteUnitOfWork,
+        uow: MetadataUnitOfWork,
         identity: Identity,
         tasks: Tasks,
         events: Events,
@@ -132,6 +131,7 @@ class Remember:
         model_space: str,
     ) -> None:
         self.uow, self.identity, self.tasks, self.events = uow, identity, tasks, events
+        self.mutations = MutationReceipts(uow, identity, clock=lambda: identity.clock())
         self.extraction, self.embedding, self.projections, self.model_space = (
             extraction,
             embedding,
@@ -161,7 +161,7 @@ class Remember:
             raise ValueError("memory event subject/producer mismatch")
 
     def emit(
-        self, tx: SQLiteTransaction, ctx: TrustedContext, memory: MemorySnapshot, change: str
+        self, tx: MetadataTransaction, ctx: TrustedContext, memory: MemorySnapshot, change: str
     ) -> None:
         if change == "corrected" and hasattr(self, "retention"):
             self.retention.version_started_in(tx, memory)
@@ -248,23 +248,38 @@ class Remember:
             ),
         )
 
-    def current(self, tx: SQLiteTransaction, memory_id: str) -> MemorySnapshot:
+    def current(self, tx: MetadataTransaction, memory_id: str) -> MemorySnapshot:
         pointer = tx.read("remember_current", memory_id)
         raw = None if pointer is None else tx.get(RecordRef.model_validate(pointer))
         if raw is None:
             raise FoundationError(ErrorCode.NOT_FOUND, "memory not found")
         return self.decode(tx, raw)
 
-    def decode(self, tx: SQLiteTransaction, raw: Any) -> MemorySnapshot:
+    def current_ref(
+        self, tx: MetadataTransaction, ctx: TrustedContext, memory_id: str
+    ) -> MemoryRef:
+        """Resolve and authorize current metadata without fetching a remote body."""
+        pointer = tx.read("remember_current", memory_id)
+        physical = None if pointer is None else RecordRef.model_validate(pointer)
+        raw = None if physical is None else tx.get(physical)
+        if raw is None:
+            raise FoundationError(ErrorCode.NOT_FOUND, "memory not found")
+        logical = MemoryRef.model_validate(raw["ref"])
+        if logical.memory_id != memory_id or memory_ref(logical, versioned=True) != physical:
+            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "current memory reference changed")
+        self.identity.authorize(tx, ctx, Permission.CORRECT, memory_ref(logical))
+        return logical
+
+    def decode(self, tx: MetadataTransaction, raw: Any) -> MemorySnapshot:
         return MemorySnapshot.model_validate(raw)
 
-    def put(self, tx: SQLiteTransaction, snapshot: MemorySnapshot) -> None:
+    def put(self, tx: MetadataTransaction, snapshot: MemorySnapshot) -> None:
         ref = memory_ref(snapshot.ref, versioned=True)
         tx.put_if_revision(ref, snapshot.model_dump(mode="json"), tx.revision(ref))
         tx.write("remember_current", snapshot.ref.memory_id, ref.model_dump(mode="json"))
 
     def change(
-        self, tx: SQLiteTransaction, snapshot: MemorySnapshot, **values: Any
+        self, tx: MetadataTransaction, snapshot: MemorySnapshot, **values: Any
     ) -> MemorySnapshot:
         changed = MemorySnapshot.model_validate(
             {
@@ -279,7 +294,7 @@ class Remember:
 
     def new_source(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         source_id: str,
         scope: Scope,
         text: str,
@@ -307,7 +322,7 @@ class Remember:
 
     def new_memory(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         memory_id: str,
         scope: Scope,
         text: str,
@@ -330,7 +345,7 @@ class Remember:
         return item
 
     def enqueue(
-        self, tx: SQLiteTransaction, ctx: TrustedContext, memory: MemorySnapshot, kind: str
+        self, tx: MetadataTransaction, ctx: TrustedContext, memory: MemorySnapshot, kind: str
     ) -> str:
         deadline_key = request_key(ctx, "remember.processing")
         deadline = tx.read("remember_deadlines", deadline_key)
@@ -374,7 +389,7 @@ class Remember:
         return task.task_id
 
     def replay(
-        self, tx: SQLiteTransaction, ctx: TrustedContext, endpoint: str, request: Any
+        self, tx: MetadataTransaction, ctx: TrustedContext, endpoint: str, request: Any
     ) -> tuple[str, dict[str, Any] | None]:
         key = request_key(ctx, endpoint)
         previous = tx.read("remember_operations", key)
@@ -391,7 +406,7 @@ class Remember:
         return fingerprint(payload)
 
     @staticmethod
-    def remember_result(tx: SQLiteTransaction, key: str, request: Any, result: Any) -> None:
+    def remember_result(tx: MetadataTransaction, key: str, request: Any, result: Any) -> None:
         tx.write(
             "remember_operations",
             key,
@@ -453,7 +468,7 @@ class Remember:
 
     def invalidate_working(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         ctx: TrustedContext,
         item: MemorySnapshot,
         *,
@@ -594,7 +609,7 @@ class Remember:
 
     def working_correction_body(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         ctx: TrustedContext,
         item: MemorySnapshot,
         source: SourceRef,
@@ -602,17 +617,33 @@ class Remember:
     ) -> str:
         return request.content
 
-    def working_task_kind(self, tx: SQLiteTransaction, item: MemorySnapshot) -> str:
+    def working_task_kind(self, tx: MetadataTransaction, item: MemorySnapshot) -> str:
         return "remember.extract"
 
-    def projection_buildable(self, tx: SQLiteTransaction, item: MemorySnapshot) -> bool:
+    def projection_buildable(self, tx: MetadataTransaction, item: MemorySnapshot) -> bool:
         return True
 
-    def reindex(self, ctx: TrustedContext, memory_id: str) -> str:
+    def reindex(
+        self,
+        ctx: TrustedContext,
+        memory_id: str,
+        *,
+        http_request: HttpRequestEvidence | None = None,
+    ) -> str:
         """Queue the current body only; reuse unresolved work and never re-extract facts."""
         with self.uow.transaction() as tx:
             item = self.current(tx, memory_id)
             self.identity.authorize(tx, ctx, Permission.WRITE, memory_ref(item.ref))
+            mutation = self.mutations.begin(
+                tx,
+                ctx,
+                "remember.reindex",
+                (memory_ref(item.ref),),
+                None,
+                http_request=http_request,
+            )
+            if mutation.previous is not None:
+                return str(mutation.previous["task_id"])
             request = {"memory": item.ref.model_dump(mode="json"), "model_space": self.model_space}
             key = request_key(ctx, "reindex_" + memory_id)
             previous = tx.read("remember_operations", key)
@@ -653,14 +684,41 @@ class Remember:
                 key,
                 {"signature": fingerprint(request), "result": {"task_id": task_id}},
             )
+            mutation.finish(
+                {"task_id": str(task_id), "phase": "processing"}, task_ids=(str(task_id),)
+            )
             return str(task_id)
 
     def lifecycle(
-        self, ctx: TrustedContext, memory_id: str, request: LifecycleRequest
+        self,
+        ctx: TrustedContext,
+        memory_id: str,
+        request: LifecycleRequest,
+        *,
+        http_request: HttpRequestEvidence | None = None,
     ) -> MemorySnapshot:
         with self.uow.transaction() as tx:
             item = self.current(tx, memory_id)
             self.identity.authorize(tx, ctx, Permission.WRITE, memory_ref(item.ref))
+            mutation = self.mutations.begin(
+                tx,
+                ctx,
+                "remember.lifecycle",
+                (memory_ref(item.ref),),
+                request.model_dump(mode="json"),
+                http_request=http_request,
+            )
+            if mutation.previous is not None:
+                original_ref = MemoryRef.model_validate(mutation.previous["ref"])
+                raw = tx.get(memory_ref(original_ref, versioned=True))
+                if raw is None:
+                    tx.abort(ErrorCode.MEMORY_GONE, "original lifecycle body reference missing")
+                original = self.decode(tx, raw)
+                if original.content_hash != mutation.previous["content_hash"]:
+                    tx.abort(ErrorCode.VERSION_CONFLICT, "original lifecycle body changed")
+                return MemorySnapshot.model_validate(
+                    {**mutation.previous, "content": original.content}
+                )
             key, previous = self.replay(tx, ctx, "lifecycle_" + memory_id, request)
             if previous:
                 return MemorySnapshot.model_validate(previous["result"])
@@ -675,7 +733,7 @@ class Remember:
             ):
                 tx.abort(ErrorCode.VERSION_CONFLICT, "object revision changed")
             if item.status.value == request.target:
-                self.remember_result(tx, key, request, item)
+                mutation.finish(item.model_dump(mode="json"))
                 return item
             if request.target == "active" and (
                 item.expires_at is not None
@@ -700,13 +758,15 @@ class Remember:
                 self.invalidate_working(tx, ctx, item)
             if request.target == "active" and hasattr(self, "retention"):
                 self.retention.activated_in(tx, updated)
+            admitted = []
             if request.target == "active":
                 if item.kind == MemoryKind.WORKING:
-                    self.enqueue(tx, ctx, updated, self.working_task_kind(tx, updated))
+                    admitted.append(
+                        self.enqueue(tx, ctx, updated, self.working_task_kind(tx, updated))
+                    )
                 if self.projection_buildable(tx, updated):
-                    self.enqueue(tx, ctx, updated, "remember.project")
+                    admitted.append(self.enqueue(tx, ctx, updated, "remember.project"))
             self.emit(tx, ctx, updated, "activated" if request.target == "active" else "archived")
-            self.remember_result(tx, key, request, updated)
             tx.write(
                 "remember_audit",
                 key,
@@ -716,14 +776,38 @@ class Remember:
                     "memory": updated.ref.model_dump(mode="json"),
                 },
             )
+            mutation.finish(updated.model_dump(mode="json"), task_ids=tuple(admitted))
             return updated
 
-    def delete(self, ctx: TrustedContext, memory_id: str, request: DeleteRequest) -> DeleteReceipt:
+    def delete(
+        self,
+        ctx: TrustedContext,
+        memory_id: str,
+        request: DeleteRequest,
+        *,
+        http_request: HttpRequestEvidence | None = None,
+    ) -> DeleteReceipt:
         with self.uow.transaction() as tx:
-            return self.delete_in(tx, ctx, memory_id, request)
+            item = self.current(tx, memory_id)
+            mutation = self.mutations.begin(
+                tx,
+                ctx,
+                "remember.delete",
+                (memory_ref(item.ref),),
+                request.model_dump(mode="json"),
+                http_request=http_request,
+            )
+            if mutation.previous is not None:
+                return DeleteReceipt.model_validate(mutation.previous)
+            # Legacy rows lack original epoch/target provenance; do not fabricate a new receipt.
+            legacy = tx.read("remember_operations", request_key(ctx, "delete_" + memory_id))
+            result = self.delete_in(tx, ctx, memory_id, request)
+            if legacy is None:
+                mutation.finish(result.model_dump(mode="json"), task_ids=result.task_ids)
+            return result
 
     def delete_in(
-        self, tx: SQLiteTransaction, ctx: TrustedContext, memory_id: str, request: DeleteRequest
+        self, tx: MetadataTransaction, ctx: TrustedContext, memory_id: str, request: DeleteRequest
     ) -> DeleteReceipt:
         """Shared authorized tombstone commit for explicit and enrolled deletion."""
         item = self.current(tx, memory_id)
@@ -750,13 +834,32 @@ class Remember:
         return result
 
     def delete_source(
-        self, ctx: TrustedContext, source_id: str, request: DeleteRequest
+        self,
+        ctx: TrustedContext,
+        source_id: str,
+        request: DeleteRequest,
+        *,
+        http_request: HttpRequestEvidence | None = None,
     ) -> DeleteReceipt:
         with self.uow.transaction() as tx:
             row = tx.read("remember_sources", source_id)
             if row is None:
                 raise FoundationError(ErrorCode.NOT_FOUND, "source not found")
             scope = Scope.model_validate(row["scope"])
+            mutation = self.mutations.begin(
+                tx,
+                ctx,
+                "source.delete",
+                (
+                    RecordRef(
+                        owner=Flow.REMEMBER, object_type="source", object_id=source_id, scope=scope
+                    ),
+                ),
+                request.model_dump(mode="json"),
+                http_request=http_request,
+            )
+            if mutation.previous is not None:
+                return DeleteReceipt.model_validate(mutation.previous)
             self.identity.authorize(
                 tx,
                 ctx,
@@ -798,6 +901,7 @@ class Remember:
                 remaining_targets=("derived_copies", "retained_source_policy"),
             )
             self.remember_result(tx, key, request, result)
+            mutation.finish(result.model_dump(mode="json"), task_ids=result.task_ids)
             return result
 
     def final_guard(
@@ -1127,7 +1231,7 @@ class Remember:
 
     def publish_basic_working_manifest(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         item: MemorySnapshot,
         target: ProjectionTarget,
         task: TaskRecord,
@@ -1174,7 +1278,7 @@ class Remember:
         tx.write("remember_manifests", self.refkey(item.ref), manifest.model_dump(mode="json"))
 
     def finish(
-        self, tx: SQLiteTransaction, ctx: TrustedContext, task: TaskRecord, value: dict[str, Any]
+        self, tx: MetadataTransaction, ctx: TrustedContext, task: TaskRecord, value: dict[str, Any]
     ) -> RunResult:
         result = RecordRef(
             owner=Flow.REMEMBER,

@@ -15,10 +15,11 @@ from aether_agent_memory.runtime.contracts.models import (
     TrustedContext,
 )
 from aether_agent_memory.runtime.contracts.ports import Transaction
+from aether_agent_memory.runtime.foundation.transactions import native
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction, MetadataUnitOfWork
 
 from .common import FoundationError, fingerprint, now
 from .identity import Identity
-from .storage import SQLiteTransaction, SQLiteUnitOfWork, native
 from .telemetry import Telemetry, observed
 
 Consumer = Callable[[Transaction, EventEnvelope], None]
@@ -28,7 +29,7 @@ Consumer = Callable[[Transaction, EventEnvelope], None]
 class Events:
     def __init__(
         self,
-        uow: SQLiteUnitOfWork,
+        uow: MetadataUnitOfWork,
         identity: Identity,
         *,
         clock: Callable[[], str] = now,
@@ -48,7 +49,7 @@ class Events:
         self.permissions: dict[str, Permission] = {}
         self.consumers: dict[tuple[str, str], Consumer] = {}
         self.on_delivery: (
-            Callable[[SQLiteTransaction, TrustedContext, EventEnvelope, str], None] | None
+            Callable[[MetadataTransaction, TrustedContext, EventEnvelope, str], None] | None
         ) = None
 
     def register_type(

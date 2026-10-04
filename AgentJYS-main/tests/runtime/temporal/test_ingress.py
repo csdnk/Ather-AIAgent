@@ -6,7 +6,6 @@ from uuid import uuid4
 import pytest
 
 from aether_agent_memory.remember.contracts.models import RememberRequest, SourceInput, TextInput
-from aether_agent_memory.remember.local import create_runtime
 from aether_agent_memory.runtime.contracts.models import (
     ErrorCode,
     Permission,
@@ -26,11 +25,12 @@ from aether_agent_memory.runtime.temporal.ingress import (
 from aether_agent_memory.runtime.temporal.ledger import ExecutionLedger
 from aether_agent_memory.runtime.temporal.registry import StageRegistry
 from aether_agent_memory.runtime.temporal.worker import WorkerHost
+from azure_test_runtime import create_runtime
 
 
 @pytest.fixture
 def runtime(tmp_path, temporal_server):
-    app = create_runtime(tmp_path / "p3.db", tmp_path / "cache", embedding_profile="lexical")
+    app = create_runtime(tmp_path / "p3.db", tmp_path / "cache", embedding_profile="injected")
     person = Principal(
         principal_id="alice",
         auth_epoch=1,
@@ -217,9 +217,12 @@ async def test_p2_lost_ack_queries_original_body_without_rewrite(
     writes, queries, objects = [], [], {}
 
     class P2:
-        async def get_object(self, key):
+        def get_object_sync(self, key):
             queries.append(key)
             return objects.get(key)
+
+        async def get_object(self, key):
+            return self.get_object_sync(key)
 
         async def put_object(self, key, value):
             writes.append(key)

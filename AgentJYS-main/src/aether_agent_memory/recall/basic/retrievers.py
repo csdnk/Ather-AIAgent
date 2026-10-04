@@ -22,8 +22,8 @@ from aether_agent_memory.remember.contracts.ports import MemoryReadPort
 from aether_agent_memory.runtime.contracts.models import ErrorCode, TrustedContext
 from aether_agent_memory.runtime.foundation.common import FoundationError
 from aether_agent_memory.runtime.foundation.requests import matches, select_scope, text_hash
-from aether_agent_memory.runtime.foundation.storage import SQLiteUnitOfWork
 from aether_agent_memory.runtime.foundation.telemetry import observed
+from aether_agent_memory.runtime.storage.ports import MetadataUnitOfWork
 
 from .config import RecallSettings
 
@@ -56,7 +56,7 @@ class SourceResult:
 class Sources:
     def __init__(
         self,
-        uow: SQLiteUnitOfWork,
+        uow: MetadataUnitOfWork,
         memories: MemoryReadPort,
         embedding: EmbeddingPort,
         vectors: VectorSearchPort,

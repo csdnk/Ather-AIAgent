@@ -43,9 +43,7 @@ def collect(run: "StoryRun", coverage: Coverage) -> Diagnostics:
             result.notes.append(path + "：未能完成有界诊断；未影响或重放业务操作")
             return None
 
-    def items(
-        value: Metadata, key: str = "items", identity: str | None = None
-    ) -> list[Metadata]:
+    def items(value: Metadata, key: str = "items", identity: str | None = None) -> list[Metadata]:
         rows = value.get(key)
         if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
             raise ValueError("invalid metadata list")

@@ -9,7 +9,6 @@ from test_remember_lcm_complete import advance, enroll
 from test_working_summaries import configure, save_long
 
 from aether_agent_memory.remember.basic.boundary import RememberBoundary
-from aether_agent_memory.remember.basic.content import RedisBodyCache
 from aether_agent_memory.remember.basic.service import memory_ref
 from aether_agent_memory.remember.contracts.foundation import (
     CandidateQualificationTarget,
@@ -157,15 +156,7 @@ def test_generation_projection_verification_and_cleanup_cover_both_local_indexes
 def test_summary_cache_fill_racing_deletion_does_not_leave_a_readable_replica(app):
     configure(app)
 
-    async def scenario():
-        import fakeredis.aioredis
-
-        redis = fakeredis.aioredis.FakeRedis()
-        cache = RedisBodyCache(redis, app.remember.policy)
-        app.remember.bodies.cache = cache
-        return redis, cache
-
-    redis, cache = asyncio.run(scenario())
+    cache = app.remember.bodies.cache
     receipt, _, _ = save_long(app)
     put = cache.put
     touched = []
@@ -184,4 +175,3 @@ def test_summary_cache_fill_racing_deletion_does_not_leave_a_readable_replica(ap
     cache.put = concurrent_delete
     drain(app)
     assert touched and asyncio.run(cache.get(receipt.memories[0].scope, touched[0])) is None
-    asyncio.run(redis.aclose())

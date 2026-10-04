@@ -1,0 +1,11 @@
+{
+	admin off
+}
+
+{$AETHER_HOSTNAME} {
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000"
+	@private path /p3/maintenance* /p3/configuration* /p3/backups* /p3/restore-drills* /p3/metrics* /p4-api* /docs* /redoc* /openapi.json
+	respond @private 404
+	reverse_proxy web:80
+}

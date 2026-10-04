@@ -10,6 +10,7 @@ from aether_agent_memory.remember.contracts.models import (
     MemorySnapshot,
     RetentionRequest,
 )
+from aether_agent_memory.runtime.contracts.http_evidence import HttpRequestEvidence
 from aether_agent_memory.runtime.contracts.models import (
     ErrorCode,
     EventEnvelope,
@@ -20,9 +21,11 @@ from aether_agent_memory.runtime.contracts.models import (
 from aether_agent_memory.runtime.contracts.ports import Transaction
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint, later
 from aether_agent_memory.runtime.foundation.requests import event_context, request_key
-from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction, native
+from aether_agent_memory.runtime.foundation.transactions import native
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 from .decay import evaluate, initial, reinforce
+from .hydration import hydrate_metadata_reads
 from .service import memory_ref
 
 
@@ -30,11 +33,12 @@ def hours(timestamp: str) -> float:
     return datetime.fromisoformat(timestamp.replace("Z", "+00:00")).timestamp() / 3600
 
 
+@hydrate_metadata_reads
 class Retention:
     def __init__(self, remember: Any) -> None:
         self.remember = remember
 
-    def snapshot_in(self, tx: SQLiteTransaction, item: MemorySnapshot) -> dict[str, Any]:
+    def snapshot_in(self, tx: MetadataTransaction, item: MemorySnapshot) -> dict[str, Any]:
         state = tx.read("remember_retention", self.remember.refkey(item.ref)) or initial(
             item.kind.value, hours(item.created_at)
         )
@@ -54,11 +58,29 @@ class Retention:
             }
 
     def configure(
-        self, ctx: TrustedContext, memory_id: str, request: RetentionRequest
+        self,
+        ctx: TrustedContext,
+        memory_id: str,
+        request: RetentionRequest,
+        *,
+        http_request: HttpRequestEvidence | None = None,
     ) -> dict[str, Any]:
         with self.remember.uow.transaction() as tx:
             item = self.remember.current(tx, memory_id)
             self.remember.identity.authorize(tx, ctx, Permission.WRITE, memory_ref(item.ref))
+            mutation = self.remember.mutations.begin(
+                tx,
+                ctx,
+                "remember.retention",
+                (memory_ref(item.ref),),
+                {
+                    **request.model_dump(mode="json"),
+                    "expires_at_supplied": "expires_at" in request.model_fields_set,
+                },
+                http_request=http_request,
+            )
+            if mutation.previous is not None:
+                return dict(mutation.previous)
             key = request_key(ctx, "retention_" + memory_id)
             signature = fingerprint(
                 {
@@ -155,9 +177,10 @@ class Retention:
                 key,
                 {"signature": signature, "result": result},
             )
+            mutation.finish(result)
             return result
 
-    def version_started_in(self, tx: SQLiteTransaction, item: MemorySnapshot) -> None:
+    def version_started_in(self, tx: MetadataTransaction, item: MemorySnapshot) -> None:
         key = self.remember.refkey(item.ref)
         if tx.read("remember_retention", key) is None:
             tx.write(
@@ -166,7 +189,7 @@ class Retention:
                 initial(item.kind.value, hours(self.remember.identity.clock())),
             )
 
-    def activated_in(self, tx: SQLiteTransaction, item: MemorySnapshot) -> None:
+    def activated_in(self, tx: MetadataTransaction, item: MemorySnapshot) -> None:
         state = initial(item.kind.value, hours(self.remember.identity.clock()))
         tx.write("remember_retention", self.remember.refkey(item.ref), state)
         prior = tx.read("remember_retention_enrollment", item.ref.memory_id)
@@ -177,7 +200,7 @@ class Retention:
                 {**prior, "enabled": False, "inactive_since": None},
             )
 
-    def inactive_in(self, tx: SQLiteTransaction, item: MemorySnapshot) -> None:
+    def inactive_in(self, tx: MetadataTransaction, item: MemorySnapshot) -> None:
         row = tx.read("remember_retention_enrollment", item.ref.memory_id)
         if row and row["version"] == item.ref.version and not row.get("inactive_since"):
             tx.write(
@@ -186,7 +209,7 @@ class Retention:
                 {**row, "inactive_since": self.remember.identity.clock()},
             )
 
-    def has_dependents(self, tx: SQLiteTransaction, item: MemorySnapshot) -> bool:
+    def has_dependents(self, tx: MetadataTransaction, item: MemorySnapshot) -> bool:
         """Automatic disposal must not withdraw evidence from a retained memory."""
         for memory_id, pointer in tx.rows("remember_current"):
             if memory_id == item.ref.memory_id:
@@ -225,7 +248,7 @@ class Retention:
                 continue
         return count
 
-    def periodic_item(self, tx: SQLiteTransaction, memory_id: str) -> int:
+    def periodic_item(self, tx: MetadataTransaction, memory_id: str) -> int:
         count = 0
         row = tx.read("remember_retention_enrollment", memory_id)
         ctx = TrustedContext.model_validate(row["context"]).model_copy(
@@ -348,10 +371,10 @@ class Retention:
         count += 1
         return count
 
-    def sync_packed_in(self, tx: SQLiteTransaction, ref: MemoryRef) -> None:
+    def sync_packed_in(self, tx: MetadataTransaction, ref: MemoryRef) -> None:
         """Reconcile committed feedback before a decay decision, even if delivery lags.
 
-        SQLite simulation scans the durable outbox; a distributed provider should
+        The shared transaction scans the durable outbox; a future provider should
         expose an indexed per-memory feedback watermark with the same atomicity.
         No feedback is inferred from internal reads or from a proposed context.
         """
@@ -386,7 +409,7 @@ class Retention:
 
     def record_packed(
         self,
-        sql: SQLiteTransaction,
+        sql: MetadataTransaction,
         ctx: TrustedContext,
         memory: MemoryRef,
         access_key: str,

@@ -10,6 +10,7 @@ from aether_p4_simulator.demo.service import DemoService
 from aether_p4_simulator.validation.client import P3ValidationClient
 from aether_p4_simulator.validation.errors import ValidationError
 
+from .registry_support import UnitRegistry
 from .support import Upstream, finish
 
 pytestmark = pytest.mark.unit
@@ -21,7 +22,8 @@ def request():
 
 def service_for(upstream):
     return DemoService(
-        P3ValidationClient("http://p3.test", "secret", transport=httpx.MockTransport(upstream))
+        P3ValidationClient("http://p3.test", "secret", transport=httpx.MockTransport(upstream)),
+        registry=UnitRegistry(),
     )
 
 
@@ -181,3 +183,56 @@ def test_close_waits_for_worker_before_closing_transport():
         closer.join(3)
     assert not closer.is_alive()
     assert service.get(run.run_id).state == "passed"
+
+
+def test_checkpoint_outage_stops_before_business_and_reports_unconfirmed():
+    class UnavailableRegistry(UnitRegistry):
+        def checkpoint(self, record, run):
+            raise ConnectionError("checkpoint dependency unavailable")
+
+    upstream = Upstream()
+    registry = UnavailableRegistry()
+    service = DemoService(
+        P3ValidationClient("http://p3.test", "secret", transport=httpx.MockTransport(upstream)),
+        registry=registry,
+    )
+    initial = service.start(request())
+    service.close()
+    snapshot = service.get(initial.run_id)
+    assert snapshot.state == "unconfirmed"
+    assert snapshot.error.code == "checkpoint_unconfirmed"
+    assert upstream.requests == []
+    assert registry.get(initial.run_id).snapshot["state"] == "queued"
+
+
+def test_each_business_intent_is_persisted_before_the_network_call():
+    registry = UnitRegistry()
+    upstream = Upstream()
+    seen = []
+
+    def transport(request):
+        if request.method == "POST":
+            row = next(iter(registry.records.values()))
+            intent = next(
+                item
+                for item in row.snapshot.get("operations", [])
+                if item["operation_id"] == request.headers["X-Operation-ID"]
+            )
+            assert intent["phase"] == "prepared"
+            assert intent["request_hash"] and intent["job_id"] is None
+            seen.append(intent["operation_id"])
+        return upstream(request)
+
+    service = DemoService(
+        P3ValidationClient("http://p3.test", "secret", transport=httpx.MockTransport(transport)),
+        registry=registry,
+    )
+    try:
+        final = finish(service, service.start(request()).run_id)
+        assert final.state == "passed", final.error
+        assert len(seen) == 6 and len(set(seen)) == 6
+        operations = registry.get(final.run_id).snapshot["operations"]
+        assert len(operations) == 6
+        assert all(item["phase"] == "observed" for item in operations)
+    finally:
+        service.close()

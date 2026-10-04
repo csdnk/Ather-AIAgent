@@ -3,10 +3,10 @@ from hashlib import sha256
 from fastapi.testclient import TestClient
 
 from aether_agent_memory.operate.basic.continuous import ContinuousOperate
-from aether_agent_memory.remember.local import create_runtime
 from aether_agent_memory.runtime.contracts.models import Permission, Principal, Scope
 from aether_agent_memory.runtime.flows.http import create_app
 from aether_agent_memory.runtime.foundation.common import now
+from azure_test_runtime import create_runtime
 from temporal_test_support import http_execution
 
 
@@ -14,7 +14,7 @@ def test_http_uses_shared_services_auth_scoping_and_health(tmp_path, temporal_se
     runtime = create_runtime(
         tmp_path / "http.db",
         tmp_path / "cache",
-        embedding_profile="lexical",
+        embedding_profile="injected",
         operate_factory=ContinuousOperate,
     )
     people = [
@@ -94,7 +94,7 @@ def test_http_worker_runs_queued_tasks_and_stops_on_shutdown(tmp_path, temporal_
     runtime = create_runtime(
         tmp_path / "worker.db",
         tmp_path / "cache",
-        embedding_profile="lexical",
+        embedding_profile="injected",
         operate_factory=ContinuousOperate,
     )
     person = Principal(

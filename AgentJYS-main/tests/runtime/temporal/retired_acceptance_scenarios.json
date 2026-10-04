@@ -1,0 +1,6 @@
+{
+  "T14": {
+    "reason": "old-data migration cancelled by user",
+    "removed": "SQLite/RF offline migration; current PostgreSQL task recovery remains tested"
+  }
+}

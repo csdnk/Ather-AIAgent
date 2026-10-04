@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING, cast
 
 from aether_agent_memory.remember.basic.pipeline import RememberPipeline
@@ -15,6 +16,7 @@ from aether_agent_memory.runtime.contracts.foundation import (
 )
 from aether_agent_memory.runtime.contracts.models import (
     EffectStatus,
+    ErrorCode,
     Permission,
     RecordRef,
     RecoveryDecision,
@@ -23,11 +25,10 @@ from aether_agent_memory.runtime.contracts.models import (
     TrustedContext,
 )
 from aether_agent_memory.runtime.foundation.common import fingerprint, later
-from aether_agent_memory.runtime.foundation.requests import text_hash
 
 if TYPE_CHECKING:
     from aether_agent_memory.runtime.flows.host import ThreeFlows
-    from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction
+    from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 
 class CacheMaintenance:
@@ -79,25 +80,13 @@ class CacheMaintenance:
         )
         engine.register_verifier(self.rule.verification_operation, self.verify)
 
-    def eligible(self, tx: SQLiteTransaction, ctx: TrustedContext, memory: MemoryRef) -> bool:
+    def eligible(self, tx: MetadataTransaction, ctx: TrustedContext, memory: MemoryRef) -> bool:
         return (
             self.remember.final_guard(tx, ctx, (memory,), "actuate").items[0].decision == "allowed"
         )
 
     def inspect(self, memory: MemoryRef, digest: str) -> bool:
-        from aether_agent_memory.operate.contracts.models import Tier
-
-        with self.executor.db() as db:
-            row = db.execute(
-                "SELECT tier,content_hash FROM copies WHERE key=?", (self.executor.key(memory),)
-            ).fetchone()
-        if not row or row[1] != digest:
-            return False
-        try:
-            data = self.executor.path(memory, Tier(row[0])).read_bytes()
-            return text_hash(data.decode("utf-8")) == digest
-        except (OSError, UnicodeError):
-            return False
+        return bool(self.executor.inspect(memory, digest))
 
     async def sample(self, ctx: TrustedContext) -> list[tuple[RecordRef, SignalObservation]]:
         result, cursor_key, cursor = await self.sample_batch(ctx)
@@ -114,19 +103,12 @@ class CacheMaintenance:
         cursor_key = fingerprint(ctx.principal.model_dump(mode="json"))
         with self.rf.uow.transaction() as tx:
             cursor = tx.read("cache_sample_cursors", cursor_key) or ""
-        with self.executor.db() as db:
-            rows = db.execute(
-                "SELECT key,memory,content_hash FROM copies WHERE key>? ORDER BY key LIMIT ?",
-                (cursor, self.batch_size),
-            ).fetchall()
-            if not rows:
-                rows = db.execute(
-                    "SELECT key,memory,content_hash FROM copies ORDER BY key LIMIT ?",
-                    (self.batch_size,),
-                ).fetchall()
+        rows = await asyncio.to_thread(self.executor.copies, cursor, self.batch_size)
+        if not rows:
+            rows = await asyncio.to_thread(self.executor.copies, "", self.batch_size)
         result = []
-        for key, raw, digest in rows:
-            memory = MemoryRef.model_validate_json(raw)
+        for copy in rows:
+            key, memory, digest = copy.key, copy.memory, copy.content_hash
             subject = RecordRef(
                 owner="operate",
                 object_type="cache_copy",
@@ -149,7 +131,7 @@ class CacheMaintenance:
                     prior["observation"]["observed_at"], self.signal.sample_interval_ms / 1000
                 ):
                     continue
-            readable = self.inspect(memory, digest)
+            readable = await asyncio.to_thread(self.inspect, memory, digest)
             evidence = RecordRef(
                 owner="operate",
                 object_type="cache_observation",
@@ -183,10 +165,10 @@ class CacheMaintenance:
                     ),
                 )
             )
-        return result, cursor_key, rows[-1][0] if rows else ""
+        return result, cursor_key, rows[-1].key if rows else ""
 
     def target(
-        self, tx: SQLiteTransaction, ctx: TrustedContext, task: TaskRecord
+        self, tx: MetadataTransaction, ctx: TrustedContext, task: TaskRecord
     ) -> tuple[MemoryRef, str]:
         self.rf.tasks.guard(tx, task)
         self.rf.identity.authorize(tx, ctx, Permission.RECOVER, task.subject)
@@ -203,7 +185,7 @@ class CacheMaintenance:
         return memory, str(evidence["content_hash"])
 
     def finish(
-        self, tx: SQLiteTransaction, ctx: TrustedContext, task: TaskRecord, digest: str
+        self, tx: MetadataTransaction, ctx: TrustedContext, task: TaskRecord, digest: str
     ) -> RunResult:
         ref = RecordRef(
             owner="operate",
@@ -225,7 +207,7 @@ class CacheMaintenance:
         item = await self.prepare_repair(ctx, task)
         if isinstance(item, RunResult):
             return item
-        self.repair_prepared(ctx, task, item)
+        await asyncio.to_thread(self.repair_prepared, ctx, task, item)
         with self.rf.uow.transaction() as tx:
             return self.finish(tx, ctx, task, item.content_hash)
 
@@ -238,7 +220,11 @@ class CacheMaintenance:
                 or not self.eligible(tx, ctx, memory)
             ):
                 raise ValueError("cache target changed before repair")
-            self.executor.repair(item, task.task_id)
+        self.executor.repair(item, task.task_id, ctx)
+        with self.rf.uow.transaction() as tx:
+            self.target(tx, ctx, task)
+            if not self.eligible(tx, ctx, item.ref):
+                raise ValueError("cache target changed after repair")
             self.rf.tasks.guard(tx, task)
 
     async def prepare_repair(
@@ -269,23 +255,22 @@ class CacheMaintenance:
     async def recover(self, ctx: TrustedContext, task: TaskRecord) -> RecoveryDecision:
         with self.rf.uow.transaction() as tx:
             memory, digest = self.target(tx, ctx, task)
-            with self.executor.db() as db:
-                original = db.execute(
-                    "SELECT memory,content_hash FROM repairs WHERE id=?", (task.task_id,)
-                ).fetchone()
-            if (
-                original == (memory.model_dump_json(), digest)
-                and self.eligible(tx, ctx, memory)
-                and self.inspect(memory, digest)
-            ):
+            eligible = self.eligible(tx, ctx, memory)
+        original = await asyncio.to_thread(self.executor.repair_record, task.task_id)
+        readable = await asyncio.to_thread(self.inspect, memory, digest) if eligible else False
+        if original == (memory.model_dump_json(), digest) and readable:
+            with self.rf.uow.transaction() as tx:
+                self.target(tx, ctx, task)
+                if not self.eligible(tx, ctx, memory):
+                    tx.abort(ErrorCode.RESULT_INVALIDATED, "cache target changed after readback")
                 self.finish(tx, ctx, task, digest)
-                return RecoveryDecision(
-                    action="query_only",
-                    effect_status="confirmed",
-                    original_operation_id=task.task_id,
-                    reason="original cache repair verified",
-                    evidence=(task.input_ref,),
-                )
+            return RecoveryDecision(
+                action="query_only",
+                effect_status="confirmed",
+                original_operation_id=task.task_id,
+                reason="original cache repair verified",
+                evidence=(task.input_ref,),
+            )
         return RecoveryDecision(
             action="attention",
             effect_status="unknown",
@@ -304,7 +289,12 @@ class CacheMaintenance:
                 return ()
             memory = MemoryRef.model_validate(evidence["memory"])
             digest = str(evidence["content_hash"])
-            if not self.eligible(tx, ctx, memory) or not self.inspect(memory, digest):
+            eligible = self.eligible(tx, ctx, memory)
+        if not eligible or not await asyncio.to_thread(self.inspect, memory, digest):
+            return ()
+        with self.rf.uow.transaction() as tx:
+            self.rf.identity.authorize(tx, ctx, Permission.RECOVER, incident.subject)
+            if not self.eligible(tx, ctx, memory):
                 return ()
             proof = RecordRef(
                 owner="operate",

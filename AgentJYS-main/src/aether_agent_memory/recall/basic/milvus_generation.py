@@ -1,5 +1,7 @@
 """Bounded, signed pagination of published generation candidates from Milvus."""
 
+from typing import Any
+
 from aether_agent_memory.recall.contracts.foundation import (
     ChunkHit,
     ChunkSearchRequest,
@@ -49,16 +51,20 @@ class MilvusGenerationSearch:
             (f"{i:012d}", h.model_copy(update={"rank": i + 1}).model_dump(mode="json"))
             for i, h in enumerate(hits)
         ]
-        with self.vectors.uow.transaction() as tx:
-            self.vectors.identity.revalidate(tx, ctx)
-            binding = [
-                ctx.principal.model_dump(mode="json"),
-                request.model_dump(mode="json", exclude={"cursor", "limit"}),
-                fingerprint(values),
-            ]
-            selected, cursor = tx.page(
-                values, binding, PageRequest(limit=request.limit, cursor=request.cursor)
-            )
+
+        def page() -> tuple[list[Any], str | None]:
+            with self.vectors.uow.transaction() as tx:
+                self.vectors.identity.revalidate(tx, ctx)
+                binding = [
+                    ctx.principal.model_dump(mode="json"),
+                    request.model_dump(mode="json", exclude={"cursor", "limit"}),
+                    fingerprint(values),
+                ]
+                return tx.page(
+                    values, binding, PageRequest(limit=request.limit, cursor=request.cursor)
+                )
+
+        selected, cursor = await self.vectors.metadata(page)
         bounded = len(result.candidates) >= self.max_hits
         return ChunkSearchResult(
             request=request,

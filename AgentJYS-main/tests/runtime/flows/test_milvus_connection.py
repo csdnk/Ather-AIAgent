@@ -1,17 +1,15 @@
 """Milvus boundary faults; controlled clients do not represent a live database."""
 
 import asyncio
-import os
 from hashlib import sha256
-from pathlib import Path
 from threading import Event
 
 import pytest
 
 from aether_agent_memory.runtime.contracts.models import Permission, Principal, Scope
 from aether_agent_memory.runtime.foundation.common import FoundationError
-from aether_agent_memory.runtime.foundation.host import Foundation
 from aether_agent_memory.runtime.vector_backend import MilvusConnection
+from azure_test_runtime import Foundation
 
 
 @pytest.fixture
@@ -150,7 +148,7 @@ def test_queued_projection_rechecks_object_grant_and_intent(foundation, method, 
     from aether_agent_memory.remember.contracts.models import MemoryRef, ProjectionRequest
     from aether_agent_memory.runtime.contracts.models import AuthorizationGrant
     from aether_agent_memory.runtime.foundation.common import later, now
-    from aether_agent_memory.runtime.vector_backend import SQLiteVectorStore
+    from aether_agent_memory.runtime.vector_backend import projection_ref
 
     class BlockingClient(Client):
         def __init__(self):
@@ -187,7 +185,7 @@ def test_queued_projection_rechecks_object_grant_and_intent(foundation, method, 
         grant_id="shared_memory",
         grantee_id="alice",
         grantee_tenant_id="t1",
-        resource=SQLiteVectorStore.ref(target),
+        resource=projection_ref(target),
         permissions=(Permission.READ, Permission.DELETE),
         revision=1,
         expires_at=later(clock[0], 1),
@@ -371,55 +369,220 @@ def test_existing_compatible_collection_is_prepared(foundation):
         connection.close()
 
 
-@pytest.mark.integration
-def test_real_lite_creates_and_reopens_collection_with_host_policy(tmp_path):
-    pytest.importorskip("milvus_lite")
-    from milvus_lite.server_manager import server_manager_instance
+def test_host_preserves_factory_provider_binding_and_rejects_silent_environment_switch(tmp_path):
+    from test_milvus_adapter import Client
 
-    from aether_agent_memory.recall.basic.config import RecallSettings
-    from aether_agent_memory.runtime.flows.host import ThreeFlows
+    from aether_agent_memory.runtime.flows.vector_adapters import MilvusVectors
+    from azure_test_runtime import ThreeFlows
 
-    directory = str(tmp_path)
-    if os.name == "nt":
-        import ctypes
+    class NamespacedVectors(MilvusVectors):
+        def __init__(self, uow, identity, space, dimensions, namespace):
+            super().__init__(uow, identity, space, dimensions, uri="test", client=Client())
+            self.namespace = namespace
 
-        buffer = ctypes.create_unicode_buffer(32768)
-        assert ctypes.windll.kernel32.GetShortPathNameW(directory, buffer, len(buffer))
-        directory = buffer.value  # FAISS on Windows requires an ASCII index path.
-    uri = str(Path(directory) / "vectors.db")
-    host = None
-    try:
-        settings = RecallSettings(milvus_uri=uri, milvus_serialize_writes=True)
-        host = ThreeFlows(
+        def binding(self):
+            return {"provider": "integration_milvus", "namespace": self.namespace}
+
+    def open_host(namespace):
+        return ThreeFlows(
             tmp_path / "host.db",
             tmp_path / "cache",
-            embedding_profile="lexical",
-            recall_settings=settings,
-        )
-        principal = Principal(
-            principal_id="alice",
-            home_scope=Scope(
-                tenant_id="t1", application_id="app", user_id="alice", agent_id="agent"
+            embedding_profile="injected",
+            vectors_factory=lambda uow, identity, space, dimensions: NamespacedVectors(
+                uow, identity, space, dimensions, namespace
             ),
-            permissions=tuple(Permission),
-            auth_epoch=1,
         )
-        host.foundation.identity.provision([(sha256(b"alice").hexdigest(), principal)])
-        connection = host.vectors
-        assert connection.serialize_writes is True
-        asyncio.run(connection.prepare(host.foundation.identity.context("alice")))
-        assert connection.prepared
-        indexes = connection.client.list_indexes(collection_name="p3_memories")
-        assert indexes
-        index = connection.client.describe_index(
-            collection_name="p3_memories", index_name=indexes[0]
-        )
-        assert index["metric_type"] == "IP"
-        # Re-enter validation against the existing real schema, with no data loss/rebuild.
-        connection.prepared = False
-        asyncio.run(connection.prepare(host.foundation.identity.context("alice")))
-        assert connection.prepared
+
+    first = open_host("first")
+    first.close()
+    second = None
+    try:
+        with pytest.raises(ValueError, match="vector backend changed"):
+            second = open_host("second")
     finally:
-        if host is not None:
-            host.close()
-        server_manager_instance.release_server(uri)
+        if second is not None:
+            second.close()
+
+
+def test_secure_milvus_configuration_passes_ca_and_server_name(foundation, tmp_path, monkeypatch):
+    import pymilvus
+
+    captured = {}
+
+    class Client:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(pymilvus, "MilvusClient", Client)
+    ca = tmp_path / "ca.pem"
+    ca.write_text("-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----\n")
+    connection = MilvusConnection(
+        foundation.uow,
+        foundation.identity,
+        "space",
+        2,
+        uri="https://milvus:19530",
+        secure=True,
+        ca_file=str(ca),
+        server_name="milvus.internal",
+        database="p3_staging",
+    )
+    try:
+        assert captured["secure"] is True
+        assert captured["server_pem_path"] == str(ca)
+        assert captured["server_name"] == "milvus.internal"
+        assert captured["db_name"] == "p3_staging"
+    finally:
+        connection.close()
+
+
+def test_milvus_ca_requires_secure_connection(foundation, tmp_path):
+    with pytest.raises(ValueError, match="secure"):
+        MilvusConnection(
+            foundation.uow,
+            foundation.identity,
+            "space",
+            2,
+            uri="http://milvus:19530",
+            ca_file=str(tmp_path / "ca.pem"),
+            secure=False,
+        )
+
+
+async def test_vector_metadata_waits_keep_transport_responsive(
+    foundation, slow_connection, monkeypatch
+):
+    from contextlib import contextmanager
+
+    connection, client = slow_connection
+    ctx = foundation.identity.context("alice")
+    loop = asyncio.get_running_loop()
+    original, responsive = foundation.uow.transaction, []
+
+    @contextmanager
+    def slow_transaction():
+        released = Event()
+        loop.call_soon_threadsafe(released.set)
+        responsive.append(released.wait(0.15))
+        with original() as tx:
+            yield tx
+
+    monkeypatch.setattr(foundation.uow, "transaction", slow_transaction)
+    assert await connection.call(ctx, "query") == ["read while writing"]
+    assert responsive and all(responsive), "vector metadata blocked transport callbacks"
+
+
+async def test_sdk_worker_preserves_contextvar_commit_guard(foundation, slow_connection):
+    from contextvars import ContextVar
+
+    marker = ContextVar("test_vector_guard", default="missing")
+    connection, client = slow_connection
+    token = marker.set("captured-execution")
+    observed = []
+    try:
+        await connection.call(
+            foundation.identity.context("alice"),
+            "query",
+            before_call=lambda: observed.append(marker.get()),
+        )
+    finally:
+        marker.reset(token)
+    assert observed == ["captured-execution"]
+
+
+@pytest.mark.parametrize("operation", ["project", "inspect", "delete", "search", "generation"])
+async def test_projection_and_search_metadata_keep_transport_responsive(
+    foundation, monkeypatch, operation
+):
+    from contextlib import contextmanager
+
+    from test_milvus_adapter import Client
+
+    from aether_agent_memory.recall.basic.milvus_generation import MilvusGenerationSearch
+    from aether_agent_memory.recall.contracts.foundation import ChunkSearchRequest, EmbeddingSpace
+    from aether_agent_memory.recall.contracts.models import VectorSearchRequest
+    from aether_agent_memory.remember.basic.projection import projection_target
+    from aether_agent_memory.remember.contracts.models import MemoryRef, ProjectionRequest
+    from aether_agent_memory.runtime.contracts.models import ScopeSelector
+    from aether_agent_memory.runtime.flows.vector_adapters import MilvusVectors
+
+    client = Client()
+    provider = MilvusVectors(
+        foundation.uow, foundation.identity, "test", 2, uri="test", client=client
+    )
+    provider.prepared = True
+    ctx = foundation.identity.context("alice", timeout_seconds=300)
+    target = projection_target(
+        MemoryRef(memory_id="responsive", version=1, scope=ctx.principal.home_scope),
+        sha256(b"body").hexdigest(),
+        "test",
+        generation="generation1",
+        body_hash=sha256(b"body").hexdigest(),
+    )
+    request = ProjectionRequest(
+        operation_id="responsive", target=target, vector=(1.0, 0.0), deadline_at=ctx.deadline_at
+    )
+    await provider.project(ctx, request)
+    original, responsive = foundation.uow.transaction, []
+    loop = asyncio.get_running_loop()
+
+    @contextmanager
+    def slow_transaction():
+        released = Event()
+        loop.call_soon_threadsafe(released.set)
+        responsive.append(released.wait(0.15))
+        with original() as tx:
+            yield tx
+
+    monkeypatch.setattr(foundation.uow, "transaction", slow_transaction)
+    try:
+        if operation == "project":
+            assert (await provider.project(ctx, request)).state == "verified"
+        elif operation == "inspect":
+            assert (await provider.inspect(ctx, target, "inspect")).state == "verified"
+        elif operation == "delete":
+            assert (await provider.delete(ctx, target, "delete")).state == "absent"
+        elif operation == "search":
+            result = await provider.search(
+                ctx,
+                VectorSearchRequest(
+                    selection=ScopeSelector(),
+                    vector=(1.0, 0.0),
+                    model_space="test",
+                    limit=10,
+                    deadline_at=ctx.deadline_at,
+                ),
+            )
+            assert len(result.candidates) == 1
+        else:
+            result = await MilvusGenerationSearch(provider).search(
+                ctx,
+                ChunkSearchRequest(
+                    operation_id="responsive",
+                    selection=ScopeSelector(),
+                    vector=(1.0, 0.0),
+                    model_space=EmbeddingSpace(
+                        model_space="test",
+                        model_id="fixture",
+                        model_revision="fixture",
+                        dimensions=2,
+                        tokenizer_id="fixture",
+                        query_prefix="",
+                        passage_prefix="",
+                        metric="inner_product",
+                        normalization="none",
+                        max_input_tokens=32,
+                    ),
+                    limit=10,
+                    deadline_at=ctx.deadline_at,
+                ),
+            )
+            assert len(result.hits) == 1
+        assert responsive and all(responsive), (
+            "projection/search metadata blocked transport callbacks"
+        )
+    finally:
+        provider.close()

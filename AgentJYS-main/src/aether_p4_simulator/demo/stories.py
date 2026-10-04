@@ -23,7 +23,6 @@ from aether_p4_simulator.validation.models import ConsolidateData
 from aether_p4_simulator.validation.story_models import DistillResultData, ObjectData, TaskData
 
 from .execution import StoryRun
-from .scenarios import RULES
 
 
 def consolidate(run: StoryRun, keys: Sequence[str]) -> list[MemoryRef]:
@@ -41,6 +40,9 @@ def consolidate(run: StoryRun, keys: Sequence[str]) -> list[MemoryRef]:
             *receipt.task_ids,
         ]
     )
+    run.task_ids.update(task_ids)
+    run.execution.task_groups[operation] = list(task_ids)
+    run.consume(operation)
     for task_id in task_ids:
         run.wait_task(task_id)
     refs = run.collect_episodes(keys)
@@ -52,11 +54,12 @@ def consolidate(run: StoryRun, keys: Sequence[str]) -> list[MemoryRef]:
 
 
 def library(run: StoryRun) -> None:
+    rules = run.definition.rules
     with run.step(1, "/p3/documents/{document_id}", method="PUT"):
         operation = run.op("upload")
         document_id = run.scope_id + "_rules"
         document = run.resolve(
-            partial(run.client.upload_document, document_id, RULES, operation),
+            partial(run.client.upload_document, document_id, rules, operation),
             DocumentInput,
             operation,
         )
@@ -64,10 +67,12 @@ def library(run: StoryRun) -> None:
             "文档回执",
             document.document_id == document_id
             and document.document_version == "1"
-            and document.expected_hash == hashlib.sha256(RULES.encode("utf-8")).hexdigest(),
+            and document.expected_hash == hashlib.sha256(rules.encode("utf-8")).hexdigest(),
             "UTF-8 原始字节、文档 ID、版本及 SHA-256 与本轮上传一致",
         )
-        run.remember("rules", RULES, document=document)
+        run.execution.documents["rules"] = document
+        run.consume(operation)
+        run.remember("rules", rules, document=run.execution.documents["rules"])
     with run.step(2, "/p3/remember") as step:
         run.remember("loan", step.user_text)
     with run.step(3, "/p3/recall") as step:
@@ -88,13 +93,13 @@ def library(run: StoryRun) -> None:
             "记忆正文与当前摘要快照一致；原始文档另从来源读取",
         )
         assert body.content is not None  # The preceding checked snapshot has a non-empty body.
-        quote = "借期 30 天"
+        quote = run.definition.text("library_quote")
         run.check("借期证据存在", quote in body.content, "真实摘要中包含待核对片段")
         start = body.content.index(quote)
         end = start + len(quote)
         excerpt = run.client.body_range(ref, start, end)
         source = run.receipts["rules"].source
-        source_start = RULES.index(quote)
+        source_start = rules.index(quote)
         source_end = source_start + len(quote)
         original = run.client.source_range(source, source_start, source_end)
         run.require_ref(excerpt.memory)
@@ -116,9 +121,9 @@ def library(run: StoryRun) -> None:
     with run.step(7, "/p3/recall") as step:
         run.recall(step.user_text, ("rules",), ("9 点", "17 点"))
     with run.step(8, "/p3/recall"):
-        run.remember("noise", "我今天整理了书桌，把水杯放到左边。")
-        run.recalls["last"] = run.recall(
-            "再确认一下，我借的是哪一本书？",
+        run.remember("noise", run.definition.text("library_noise"))
+        run.recall(
+            run.definition.text("library_loan_query"),
             ("loan",),
             ("机器学习入门",),
         )
@@ -149,9 +154,11 @@ def weather(run: StoryRun) -> None:
     with run.step(6, "/p3/remember/consolidate"):
         consolidate(run, keys)
     with run.step(7, "/p3/recall"):
-        run.recall("我之前为雨天定的备用安排是什么？", ("backup",), ("图书馆",), long_term=True)
+        run.recall(
+            run.definition.text("weather_backup_query"), ("backup",), ("图书馆",), long_term=True
+        )
     with run.step(8, "/p3/recall"):
-        run.recall("我原来的户外计划是什么？", ("park",), ("公园",), long_term=True)
+        run.recall(run.definition.text("weather_park_query"), ("park",), ("公园",), long_term=True)
         run.placement(run.episodes["park"][0])
 
 
@@ -159,16 +166,17 @@ def preferences(run: StoryRun) -> None:
     with run.step(1, "/p3/remember") as step:
         run.remember("preference", step.user_text)
     with run.step(2, "/p3/recall") as step:
-        old = run.recall(step.user_text, ("preference",), ("无糖咖啡", "安静"))
+        run.recall(step.user_text, ("preference",), ("无糖咖啡", "安静"))
+        run.recalls["before_correction"] = run.recalls["last"]
     with run.step(3, "/p3/remember/{memory_id}/correct"):
         before = run.current("preference")
         operation = run.op("correct")
         request = CorrectionRequest(
             expected_version=before.ref.version,
             expected_object_revision=before.object_revision,
-            content="我喜欢无糖红茶，阅读时希望安静。",
+            content=run.definition.text("preference_correction"),
             source=run.source_input("corrected_source"),
-            reason="本轮虚构偏好更正",
+            reason=run.definition.text("correction_reason"),
         )
         receipt = run.resolve(
             partial(run.client.correct, before.ref.memory_id, request, operation),
@@ -194,7 +202,7 @@ def preferences(run: StoryRun) -> None:
             "本轮新召回未混入旧饮品事实",
         )
     with run.step(5, "/p3/recalls/{recall_id}/result", method="GET"):
-        run.old_result_invalid(old)
+        run.old_result_invalid(run.recalls["before_correction"])
     with run.step(6, "/p3/remember/{memory_id}/lifecycle"):
         for target in ("archived", "active"):
             before = run.current("preference")
@@ -203,7 +211,7 @@ def preferences(run: StoryRun) -> None:
                 expected_version=before.ref.version,
                 expected_object_revision=before.object_revision,
                 target=target,
-                reason="本轮虚构安排生命周期检查",
+                reason=run.definition.text("lifecycle_reason"),
             )
             item = run.resolve(
                 partial(run.client.lifecycle, before.ref.memory_id, lifecycle_request, operation),
@@ -213,6 +221,7 @@ def preferences(run: StoryRun) -> None:
             run.require_ref(item.ref)
             run.require_sources(item.sources)
             run.check("生命周期 " + target, item.status == target, "使用每次新读取的对象修订号")
+            run.consume(operation)
         run.wait_ready(item.ref)
         run.current_step.response_text = "P3 已先确认归档，再确认恢复；恢复后的投影已就绪。"
     with run.step(7, "/p3/remember/{memory_id}/retention"):
@@ -226,8 +235,8 @@ def preferences(run: StoryRun) -> None:
             expected_object_revision=before.object_revision,
             enabled=True,
             completed=True,
-            archive_after_idle_hours=168,
-            reason="本轮只验证策略设置与回读，不等待实际过期",
+            archive_after_idle_hours=run.definition.number("retention_hours"),
+            reason=run.definition.text("retention_reason"),
         )
         configured = run.resolve(
             partial(
@@ -246,10 +255,15 @@ def preferences(run: StoryRun) -> None:
             and policy.get("version") == before.ref.version
             and policy.get("enabled") is True
             and policy.get("completed") is True
-            and policy.get("idle_hours") == 168,
-            "168 小时闲置归档策略已回读；本轮不声称过期或物理清理完成",
+            and policy.get("idle_hours") == run.definition.number("retention_hours"),
+            f"{run.definition.number('retention_hours')} 小时闲置归档策略已回读；"
+            "本轮不声称过期或物理清理完成",
         )
-        run.current_step.response_text = "实际策略：已启用、Working 已完成、闲置 168 小时后归档。"
+        run.consume(operation)
+        run.current_step.response_text = (
+            "实际策略：已启用、Working 已完成、"
+            f"闲置 {run.definition.number('retention_hours')} 小时后归档。"
+        )
     with run.step(8, "/p3/remember/{memory_id}/reprocess"):
         for name in ("reprocess", "reindex"):
             ref = run.current("preference").ref
@@ -259,8 +273,12 @@ def preferences(run: StoryRun) -> None:
                 TaskData,
                 operation,
             )
+            run.execution.task_slots[name] = task_receipt.task_id
+            run.task_ids.add(task_receipt.task_id)
+            run.save_state()
             run.wait_task(task_receipt.task_id)
             run.wait_ready(ref)
+            run.consume(operation)
         run.check("重处理与重建索引", True, "两个实际任务均 succeeded，且当前投影 ready")
         run.current_step.response_text = "重新处理与重建索引的任务已完成；不是只展示受理回执。"
 
@@ -273,8 +291,8 @@ def learning(run: StoryRun) -> None:
     with run.step(4, "/p3/recall") as step:
         run.recall(step.user_text, keys, ("列表", "字典", "小练习"))
     with run.step(5, "/p3/remember/consolidate"):
-        episodes = consolidate(run, keys)
-        run.placement(episodes[0])
+        run.episodes["distill"] = tuple(consolidate(run, keys))
+        run.placement(run.episodes["distill"][0])
     with run.step(6, "/p3/remember/reflection"):
         prior = run.client.reflection(run.selection).root
         run.check(
@@ -286,9 +304,9 @@ def learning(run: StoryRun) -> None:
         request = ReflectionRequest(
             selection=run.selection,
             expected_revision=0,
-            min_episodes=3,
-            period_hours=24,
-            reason="本轮学习记录反思设置检查",
+            min_episodes=run.definition.number("reflection_min_episodes"),
+            period_hours=run.definition.number("reflection_period_hours"),
+            reason=run.definition.text("reflection_reason"),
         )
         run.resolve(
             partial(run.client.configure_reflection, request, operation),
@@ -301,21 +319,30 @@ def learning(run: StoryRun) -> None:
         run.check(
             "反思策略回读",
             value.get("revision") == 1 and value.get("policy") == request.model_dump(mode="json"),
-            "登记与回读一致；不把 24 小时策略当成本轮已验证周期提炼",
+            f"登记与回读一致；不把 {request.period_hours:g} 小时策略当成本轮已验证周期提炼",
         )
+        run.consume(operation)
         run.current_step.response_text = (
-            "P3 已登记并回读反思策略：至少 3 条 episode，周期 24 小时。"
+            f"P3 已登记并回读反思策略：至少 {request.min_episodes} 条 episode，"
+            f"周期 {request.period_hours:g} 小时。"
         )
     with run.step(7, "/p3/remember/distill"):
+        episodes = run.episodes["distill"]
         for ref in episodes:
             run.require_ref(ref)
-        before = {ref.memory_id: ref for ref in run.catalog(require_complete=True)}
+        run.execution.baselines["before_distill"] = {
+            ref.memory_id: ref for ref in run.catalog(require_complete=True)
+        }
+        run.save_state()
         operation = run.op("distill")
         receipt = run.resolve(
             partial(run.client.distill, tuple(episodes), operation),
             TaskData,
             operation,
         )
+        run.execution.task_slots["distill"] = receipt.task_id
+        run.task_ids.add(receipt.task_id)
+        run.save_state()
         task = run.wait_task(receipt.task_id, allow_failed=True)
         if task.state != "succeeded":
             # A failed job alone is NOT proof that the model is missing.
@@ -360,8 +387,10 @@ def learning(run: StoryRun) -> None:
             and task.result_ref.scope == task.subject.scope,
             "原任务已成功且效果确认；结果必须绑定该提炼任务及本轮 episode",
         )
+        run.consume(operation)
         run.current_step.response_text = "原提炼任务已成功；下一步读取该任务的实际产物。"
     with run.step(8, "/p3/operations/{job_id}/result", method="GET"):
+        task = run.task(run.execution.task_slots["distill"])
         run.evidence.job_id = task.task_id
         run.evidence.task_ids = [task.task_id]
         result = run.client.operation_result(task.task_id, DistillResultData, timeout_seconds=10)
@@ -386,7 +415,7 @@ def learning(run: StoryRun) -> None:
                 item.kind == "semantic" and item.status == "active",
                 "提炼结果必须是 active semantic，不能把 episode 当作总结",
             )
-            previous = before.get(ref.memory_id)
+            previous = run.execution.baselines["before_distill"].get(ref.memory_id)
             if previous is None:
                 label = "新增"
             elif previous == ref:
@@ -415,11 +444,12 @@ def learning(run: StoryRun) -> None:
 
 
 def forget(run: StoryRun) -> None:
-    cleanup_tasks: list[str] = []
+    run.execution.task_groups.setdefault("cleanup", [])
     with run.step(1, "/p3/remember") as step:
         run.remember("booking", step.user_text)
     with run.step(2, "/p3/recall") as step:
-        old = run.recall(step.user_text, ("booking",), ("DEMO-BOOK-017",))
+        run.recall(step.user_text, ("booking",), ("DEMO-BOOK-017",))
+        run.recalls["before_delete"] = run.recalls["last"]
     with run.step(3, "/p3/remember/{memory_id}/delete"):
         item = run.current("booking")
         operation = run.op("delete_booking")
@@ -427,24 +457,26 @@ def forget(run: StoryRun) -> None:
             partial(
                 run.client.delete_memory,
                 item.ref.memory_id,
-                DeleteRequest(expected_revision=item.object_revision, reason="本轮虚构预约取消"),
+                DeleteRequest(
+                    expected_revision=item.object_revision,
+                    reason=run.definition.text("booking_delete_reason"),
+                ),
                 operation,
             ),
             DeleteReceipt,
             operation,
         )
         deletion_evidence(run, receipt, operation)
-        cleanup_tasks.extend(receipt.task_ids)
     with run.step(4, "/p3/recalls/{recall_id}/result", method="GET"):
-        run.old_result_invalid(old)
-        run.recall("我的测试预约编号是多少？", (), absent=tuple(run.refs))
+        run.old_result_invalid(run.recalls["before_delete"])
+        run.recall(run.definition.text("booking_query"), (), absent=tuple(run.refs))
         body = run.client.body(run.receipts["booking"].memories[0])
         run.check(
             "正文读屏障", body.outcome == "excluded", "删除后正文不可读取，不只检查搜索未命中"
         )
     for number, key, text, name in (
-        (5, "second", "独立测试资料二：纸质活动票 DEMO-SOURCE-028。", "delete_source"),
-        (6, "third", "独立测试资料三：演示取件码 DEMO-SOURCE-039。", "revoke_source"),
+        (5, "second", run.definition.text("second_source"), "delete_source"),
+        (6, "third", run.definition.text("third_source"), "revoke_source"),
     ):
         path = "/p3/sources/{source_id}/" + ("delete" if name == "delete_source" else "revoke")
         with run.step(number, path):
@@ -458,16 +490,19 @@ def forget(run: StoryRun) -> None:
                 partial(
                     getattr(run.client, name),
                     saved.source.source_id,
-                    DeleteRequest(expected_revision=1, reason="仅本轮独立虚构资料"),
+                    DeleteRequest(
+                        expected_revision=1, reason=run.definition.text("source_delete_reason")
+                    ),
                     operation,
                 ),
                 DeleteReceipt,
                 operation,
             )
             deletion_evidence(run, receipt, operation)
-            cleanup_tasks.extend(receipt.task_ids)
             try:
-                run.client.source_range(saved.source, 0, 8)
+                run.client.source_range(
+                    saved.source, 0, run.definition.number("deleted_source_range_end")
+                )
             except ValidationError as error:
                 if error.status != 410 or error.code != "memory_gone":
                     raise
@@ -475,9 +510,9 @@ def forget(run: StoryRun) -> None:
             else:
                 run.check("来源读屏障", False, "删除/撤销后来源仍可读")
     with run.step(7, "/p3/recall"):
-        run.recall("测试预约、活动票与取件码还有记录吗？", (), absent=tuple(run.refs))
+        run.recall(run.definition.text("forgotten_query"), (), absent=tuple(run.refs))
         run.catalog()
-        for task_id in dict.fromkeys(cleanup_tasks):
+        for task_id in dict.fromkeys(run.execution.task_groups["cleanup"]):
             run.wait_task(task_id)
         run.check("后台处置任务", True, "本轮返回的清理/重验证任务均已报告成功")
         run.current_step.response_text = (
@@ -493,6 +528,8 @@ def deletion_evidence(run: StoryRun, receipt: DeleteReceipt, operation: str) -> 
     run.evidence.task_ids = list(receipt.task_ids)
     run.evidence.cleanup_state = receipt.cleanup_state
     run.check("读屏障已提交", receipt.blocked, "真实删除/撤销回执；不把 pending 写成 completed")
+    run.execution.task_groups.setdefault("cleanup", []).extend(receipt.task_ids)
+    run.consume(operation)
     run.current_step.response_text = (
         f"P3 已确认读屏障，回执清理状态：{receipt.cleanup_state}。"
         "物理清理需另外核对，不能用“已受理”冒充完成。"

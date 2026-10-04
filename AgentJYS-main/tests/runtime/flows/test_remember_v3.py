@@ -1,15 +1,12 @@
 """Executable examples for the database-backed Remember workflow and failure boundaries."""
 
 import asyncio
-import sqlite3
 
 import pytest
 from remember_helpers import app as app
 from remember_helpers import context, drain, facts, recall, save
 
 from aether_agent_memory.remember.basic.comparison import ConservativeComparison
-from aether_agent_memory.remember.basic.service import memory_ref
-from aether_agent_memory.remember.basic.sqlite_p2 import SQLiteP2
 from aether_agent_memory.remember.contracts.models import (
     CandidateFact,
     DeleteRequest,
@@ -180,18 +177,6 @@ class Semantic:
         )
 
 
-def test_sqlite_p2_is_durable_immutable_and_separate_from_metadata(app):
-    receipt = save(app, "数据库原文：发布前必须核验。")
-    with app.foundation.uow.transaction() as tx:
-        record = tx.get(memory_ref(receipt.memories[0], versioned=True))
-    assert "content" not in record
-    p2 = SQLiteP2(app.remember.bodies.p2.path)
-    key = record["body_location"]["object_key"]
-    assert p2.get_object_sync(key).decode() == "数据库原文：发布前必须核验。"
-    with pytest.raises(ValueError, match="immutable"):
-        p2.put_object_sync(key, b"overwrite")
-    with sqlite3.connect(p2.path) as db:
-        assert db.execute("SELECT count(*) FROM objects").fetchone()[0] == 1
 
 
 def test_authorization_does_not_require_body_replica_or_available_p2(app):
@@ -201,7 +186,7 @@ def test_authorization_does_not_require_body_replica_or_available_p2(app):
     with app.foundation.uow.transaction() as tx:
         item = app.remember.current(tx, receipt.memories[0].memory_id)
         location = bodies.location(item.ref.scope, item.content)
-    bodies.path(location).unlink()
+    assert bodies.remote_only and not bodies.path(location).exists()
     bodies.p2.available = False
     ctx = context(app)
     with app.foundation.uow.transaction() as tx:
@@ -238,7 +223,6 @@ def test_policy_is_frozen_before_worker_changes(app):
 
 def test_concurrent_create_detects_space_change_and_reuses_fact(app):
     app.remember.extraction = Semantic()
-    receipt = save(app, "Deploy only after tests pass")
     owner = app.remember
 
     class CompetingWriter(ConservativeComparison):
@@ -261,6 +245,7 @@ def test_concurrent_create_detects_space_change_and_reuses_fact(app):
             return await super().compare(ctx, candidate, existing)
 
     owner.comparison = CompetingWriter()
+    receipt = save(app, "Deploy only after tests pass")
     drain(app)
     assert facts(app, receipt)[0].memory_id == "competing_fact"
     with owner.uow.transaction() as tx:
@@ -317,6 +302,32 @@ def test_same_event_addition_produces_new_version_not_new_event(app):
                 policy_version=request.policy_version,
             )
 
+    from aether_agent_memory.remember.basic.comparison import OccurrenceVerdict
+
+    class SameOccurrenceVerifier:
+        async def verify_occurrence(self, ctx, candidate, target, evidence):
+            return OccurrenceVerdict(
+                equivalent=False, same_identity=True, preserves_conditions=True,
+                same_occurrence=True, candidate_quote=candidate.text,
+                existing_quote=target.content,
+                candidate_context_quote=evidence.candidate_context.quote,
+                existing_context_quote=evidence.existing_context.quote,
+                reason="explicitly verified same deployment and additive cause",
+            )
+
+    from aether_agent_memory.remember.basic.comparison import ComparisonDecision
+
+    class AdditiveComparison:
+        async def compare(self, ctx, candidate, existing):
+            prior = next((item for item in existing if item.content in candidate.text), None)
+            return ComparisonDecision(
+                outcome="amend" if prior else "create",
+                target_id=prior.ref.memory_id if prior else None,
+                reason="proposed additive detail requires separate occurrence verification",
+            )
+
+    app.remember.comparison = AdditiveComparison()
+    app.remember.equivalence_verifier = SameOccurrenceVerifier()
     app.remember.extraction = Event()
     first = save(app, "Deployment failed.")
     drain(app)

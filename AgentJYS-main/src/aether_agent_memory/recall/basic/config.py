@@ -24,9 +24,15 @@ class RecallSettings(BaseModel):
     milvus_collection: str = "p3_memories"
     milvus_token_env: str = "P3_MILVUS_TOKEN"
     milvus_serialize_writes: bool = False
+    milvus_secure: bool = False
+    milvus_ca_file: str | None = None
+    milvus_server_name: str | None = None
+    milvus_database: str = "default"
 
     @model_validator(mode="after")
     def consistent(self) -> "RecallSettings":
+        if (self.milvus_ca_file or self.milvus_server_name) and not self.milvus_secure:
+            raise ValueError("Milvus certificate settings require secure=true")
         if self.rerank_policy != "disabled" and not self.reranker_model:
             raise ValueError("enabled reranking requires a model")
         if self.rerank_policy == "disabled" and self.reranker_model:

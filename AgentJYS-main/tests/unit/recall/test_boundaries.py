@@ -21,8 +21,8 @@ from aether_agent_memory.recall.embedding.service import (
 )
 from aether_agent_memory.recall.embedding_input import RecallQueryInputAdapter
 from aether_agent_memory.recall.query import RecallQueryService
-from aether_agent_memory.runtime.capability_store import SQLiteCapabilityStore
 from aether_agent_memory.runtime.contract_types import utcnow
+from azure_test_runtime import AzureRecords
 
 
 async def test_authority_time_is_part_of_original_budget(tmp_path, monkeypatch):
@@ -38,7 +38,7 @@ async def test_authority_time_is_part_of_original_budget(tmp_path, monkeypatch):
             return await super().authorize(request)
 
     monkeypatch.setattr(module, "utcnow", lambda: now)
-    store = SQLiteCapabilityStore(tmp_path / "state.db")
+    store = AzureRecords(tmp_path / "state.db")
     admitted = await RecallAdmissionService(store, SlowAuthority(), policy()).admit(recall_input())
     assert admitted.request.deadline_at == start + timedelta(milliseconds=2000)
     store.close()
@@ -49,7 +49,7 @@ async def test_authority_adapter_exception_has_stable_error(tmp_path):
         async def authorize(self, request):
             raise OSError("unreachable")
 
-    store = SQLiteCapabilityStore(tmp_path / "state.db")
+    store = AzureRecords(tmp_path / "state.db")
     with pytest.raises(RecallError, match="AUTHORITY_UNAVAILABLE"):
         await RecallAdmissionService(store, BrokenAuthority(), policy()).admit(recall_input())
     with store.transaction() as tx:
@@ -59,7 +59,7 @@ async def test_authority_adapter_exception_has_stable_error(tmp_path):
 
 async def test_separate_workers_share_one_durable_inference(tmp_path):
     path = tmp_path / "state.db"
-    stores = [SQLiteCapabilityStore(path), SQLiteCapabilityStore(path)]
+    stores = [AzureRecords(path), AzureRecords(path)]
     inputs = Inputs()
     gate = asyncio.Event()
     backends = [Backend(gate=gate), Backend()]
@@ -89,7 +89,7 @@ async def test_late_backend_cannot_publish_success(tmp_path):
                 # A provider may return despite the local cancellation request.
                 return await super().compute(request, text)
 
-    store = SQLiteCapabilityStore(tmp_path / "state.db")
+    store = AzureRecords(tmp_path / "state.db")
     inputs = Inputs()
     svc = SemanticEmbeddingService(store, inputs, runtime(LateBackend()), runtime(Backend()))
     with pytest.raises(SemanticEmbeddingError, match="EMBEDDING_DEADLINE_EXCEEDED"):
@@ -105,7 +105,7 @@ async def test_late_backend_cannot_publish_success(tmp_path):
 
 @pytest.mark.parametrize("fault", ["missing", "hash", "tokens"])
 async def test_invalid_resolved_input_rejected_before_compute(tmp_path, fault):
-    store = SQLiteCapabilityStore(tmp_path / "state.db")
+    store = AzureRecords(tmp_path / "state.db")
     inputs = Inputs()
     request = inputs.request(text="x" * 129 if fault == "tokens" else "text")
     if fault == "missing":
@@ -123,7 +123,7 @@ async def test_invalid_resolved_input_rejected_before_compute(tmp_path, fault):
 
 
 async def test_query_adapter_reauthorizes_and_cached_checkpoint_detects_corruption(tmp_path):
-    store = SQLiteCapabilityStore(tmp_path / "state.db")
+    store = AzureRecords(tmp_path / "state.db")
     authority = Authority()
     admission = RecallAdmissionService(store, authority, policy())
     inputs = RecallQueryInputAdapter(admission, caller_ref="recall-A")

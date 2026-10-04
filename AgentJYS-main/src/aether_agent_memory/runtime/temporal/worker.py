@@ -54,10 +54,12 @@ class WorkerHost:
         )
         self.workers: list[Worker] = []
         self.runners: list[asyncio.Task[None]] = []
+        self._stop_lock = asyncio.Lock()
+        self._closed = False
 
     async def start(self) -> None:
-        if self.workers:
-            raise RuntimeError("Temporal Worker already running")
+        if self._closed or self.workers:
+            raise RuntimeError("Temporal Worker host is closed or already running")
         for execution_class in sorted(self.execution_classes):
             periodic = self.periodic if execution_class == "periodic" else None
             worker = Worker(
@@ -91,9 +93,18 @@ class WorkerHost:
                 runner.result()
 
     async def stop(self) -> None:
-        await asyncio.gather(*(worker.shutdown() for worker in self.workers))
-        await asyncio.gather(*self.runners)
-        self.workers.clear()
-        self.runners.clear()
-        self.executor.shutdown(wait=False, cancel_futures=True)
-        self.workflow_executor.shutdown(wait=False, cancel_futures=True)
+        async with self._stop_lock:
+            if self._closed:
+                return
+            try:
+                await asyncio.gather(
+                    *(worker.shutdown() for worker in self.workers), return_exceptions=True
+                )
+                # A failed runner must still be observed and all other queues stopped.
+                await asyncio.gather(*self.runners, return_exceptions=True)
+            finally:
+                self.workers.clear()
+                self.runners.clear()
+                self.executor.shutdown(wait=False, cancel_futures=True)
+                self.workflow_executor.shutdown(wait=False, cancel_futures=True)
+                self._closed = True

@@ -110,19 +110,21 @@ async def test_checkpoint_reuse_after_activity_ack_loss(runtime, workflow_client
 async def test_model_output_without_checkpoint_consumes_remaining_budget(
     runtime, workflow_client, monkeypatch
 ):
-    from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction
+    from aether_agent_memory.runtime.foundation.postgres import (
+        PostgresTransaction as PostgresTransaction,
+    )
 
     runtime.remember.policy = runtime.remember.policy.model_copy(update={"max_model_calls": 2})
     registry = routes(runtime)
     ledger, job, _ = await job_for(runtime, "compress")
-    write = SQLiteTransaction.write
+    write = PostgresTransaction.write
 
     def interrupt_checkpoint(tx, table, key, value):
         if table == "remember_compression_parts":
             raise RuntimeError("crash after model output, before checkpoint commit")
         return write(tx, table, key, value)
 
-    monkeypatch.setattr(SQLiteTransaction, "write", interrupt_checkpoint)
+    monkeypatch.setattr(PostgresTransaction, "write", interrupt_checkpoint)
     host = WorkerHost(workflow_client, ledger, registry)
     await host.start()
     try:

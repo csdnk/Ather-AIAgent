@@ -9,10 +9,10 @@ import pytest
 from test_flows import app as app
 from test_flows import context, drain, facts, save
 
-from aether_agent_memory.recall.basic.adapters import projection_target
-from aether_agent_memory.recall.basic.milvus import MilvusVectors
 from aether_agent_memory.recall.contracts.models import ProjectionRequest, VectorSearchRequest
+from aether_agent_memory.remember.basic.projection import projection_target
 from aether_agent_memory.runtime.contracts.models import ScopeSelector
+from aether_agent_memory.runtime.flows.vector_adapters import MilvusVectors
 from aether_agent_memory.runtime.foundation.common import FoundationError
 
 

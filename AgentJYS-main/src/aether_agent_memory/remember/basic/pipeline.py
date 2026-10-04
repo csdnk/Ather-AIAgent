@@ -6,6 +6,7 @@ references. Local body replicas are durable runtime data, separate from caches.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 from contextvars import ContextVar
 from typing import Any, cast
@@ -41,6 +42,7 @@ from aether_agent_memory.remember.contracts.models import (
     SourceRef,
 )
 from aether_agent_memory.runtime.contracts.foundation import ResourceLocation
+from aether_agent_memory.runtime.contracts.http_evidence import HttpRequestEvidence
 from aether_agent_memory.runtime.contracts.models import (
     EffectStatus,
     ErrorCode,
@@ -58,8 +60,9 @@ from aether_agent_memory.runtime.contracts.models import (
 from aether_agent_memory.runtime.contracts.ports import Transaction
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint, later
 from aether_agent_memory.runtime.foundation.requests import select_scope, text_hash
-from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction, native
 from aether_agent_memory.runtime.foundation.telemetry import observed
+from aether_agent_memory.runtime.foundation.transactions import native
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 from .comparison import (
     ComparisonDecision,
@@ -82,6 +85,7 @@ from .content import Bodies
 from .dedup import canonical_text, source_identity, source_signature
 from .eligibility import qualify
 from .extraction import EvidenceValidationError, LiteralExtraction
+from .hydration import BodyReadRequiredError, hydrate_metadata_reads
 from .policy import RememberPolicy, chunks, importance
 from .projection import projection_target
 from .records import required_record
@@ -148,6 +152,7 @@ def checkpoint_provider_identity(provider: Any, seen: frozenset[int] = frozenset
     return identity
 
 
+@hydrate_metadata_reads
 @observed("remember")
 class RememberPipeline(Revalidation):
     independent_working_sources = True
@@ -209,7 +214,7 @@ class RememberPipeline(Revalidation):
         return qualify(self, native(tx), ctx, refs, purpose)
 
     def enqueue(
-        self, tx: SQLiteTransaction, ctx: TrustedContext, memory: MemorySnapshot, kind: str
+        self, tx: MetadataTransaction, ctx: TrustedContext, memory: MemorySnapshot, kind: str
     ) -> str:
         task_id = super().enqueue(tx, ctx, memory, kind)
         if tx.read("remember_task_policy", task_id) is None:
@@ -237,11 +242,16 @@ class RememberPipeline(Revalidation):
                 )
         return task_id
 
-    def decode(self, tx: SQLiteTransaction, raw: dict[str, Any]) -> MemorySnapshot:
+    def decode(self, tx: MetadataTransaction, raw: dict[str, Any]) -> MemorySnapshot:
         if "body_location" not in raw:
             return super().decode(tx, raw)
         record = MemoryRecord.model_validate(raw)
-        text = self.bodies.read_local(record.body_location)
+        if self.bodies.remote_only:
+            text = self.bodies.verified_text(record.body_location)
+            if text is None:
+                raise BodyReadRequiredError(record.ref, record.body_location)
+        else:
+            text = self.bodies.read_local(record.body_location)
         self.bodies.prepared[record.body_location.object_key] = record.body_location
         return MemorySnapshot(
             ref=record.ref,
@@ -262,7 +272,7 @@ class RememberPipeline(Revalidation):
             importance_policy_version=record.importance_policy_version,
         )
 
-    def put(self, tx: SQLiteTransaction, snapshot: MemorySnapshot) -> None:
+    def put(self, tx: MetadataTransaction, snapshot: MemorySnapshot) -> None:
         if snapshot.kind != MemoryKind.WORKING:
             index_key = self.duplicate_key(
                 snapshot.ref.scope, snapshot.kind.value, snapshot.content
@@ -323,7 +333,7 @@ class RememberPipeline(Revalidation):
 
     def new_source(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         source_id: str,
         scope: Scope,
         text: str,
@@ -354,7 +364,7 @@ class RememberPipeline(Revalidation):
 
     def source_replay(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         ctx: TrustedContext,
         request: RememberRequest,
         scope: Scope,
@@ -414,7 +424,7 @@ class RememberPipeline(Revalidation):
             ["normalized_exact_v1", scope.model_dump(mode="json"), kind, canonical_text(text)]
         )
 
-    def ensure_duplicate_index(self, tx: SQLiteTransaction) -> None:
+    def ensure_duplicate_index(self, tx: MetadataTransaction) -> None:
         if tx.read("remember_migrations", "normalized_exact_v1"):
             return
         for key, pointer in tx.rows("remember_current"):
@@ -427,9 +437,15 @@ class RememberPipeline(Revalidation):
             tx.write("remember_duplicate_index", index_key, list(dict.fromkeys([*ids, key])))
         tx.write("remember_migrations", "normalized_exact_v1", True)
 
+    def duplicate(
+        self, ctx: TrustedContext, candidate: CandidateFact, scope: Scope
+    ) -> MemorySnapshot | None:
+        with self.uow.transaction() as tx:
+            return self.duplicate_in(tx, ctx, candidate, scope)
+
     def duplicate_in(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         ctx: TrustedContext,
         candidate: CandidateFact,
         scope: Scope,
@@ -467,17 +483,22 @@ class RememberPipeline(Revalidation):
     async def save(self, ctx: TrustedContext, request: RememberRequest) -> RememberReceipt:
         prepared = await self.prepare_save(ctx, request)
         await self.persist_save(ctx, prepared)
-        result = self.commit_save(ctx, request, prepared)
+        result = await asyncio.to_thread(self.commit_save, ctx, request, prepared)
         return await self.admit_save_cache(ctx, prepared, result)
 
     async def prepare_save(self, ctx: TrustedContext, request: RememberRequest) -> dict[str, Any]:
         scope = select_scope(ctx, request.selection)
-        with self.uow.transaction() as tx:
-            key, previous = self.replay(tx, ctx, "remember.save", request)
-            ref = MemoryRef(scope=scope, memory_id=key, version=1)
-            self.identity.authorize(tx, ctx, Permission.WRITE, memory_ref(ref))
-            if previous:
-                return {"previous": previous["result"]}
+
+        def inspect_request() -> tuple[str, MemoryRef, Any]:
+            with self.uow.transaction() as tx:
+                key, previous = self.replay(tx, ctx, "remember.save", request)
+                ref = MemoryRef(scope=scope, memory_id=key, version=1)
+                self.identity.authorize(tx, ctx, Permission.WRITE, memory_ref(ref))
+            return key, ref, previous
+
+        key, ref, previous = await asyncio.to_thread(inspect_request)
+        if previous:
+            return {"previous": previous["result"]}
         document = None
         if request.content.kind == "document":
             reader = self.documents.get(request.content.provider_id)
@@ -521,11 +542,18 @@ class RememberPipeline(Revalidation):
             text = request.content.text
         if not text.strip() or len(text.encode("utf-8")) > self.max_input_bytes:
             raise FoundationError(ErrorCode.INVALID_ARGUMENT, "text exceeds input policy")
-        with self.uow.transaction() as tx:
-            self.identity.authorize(tx, ctx, Permission.WRITE, memory_ref(ref))
-            duplicate = self.source_replay(tx, ctx, request, scope, text, key)
-            if duplicate is not None:
-                return {"previous": duplicate.model_dump(mode="json")}
+
+        def inspect_source() -> dict[str, Any] | None:
+            with self.uow.transaction() as tx:
+                self.identity.authorize(tx, ctx, Permission.WRITE, memory_ref(ref))
+                duplicate = self.source_replay(tx, ctx, request, scope, text, key)
+                if duplicate is not None:
+                    return {"previous": duplicate.model_dump(mode="json")}
+            return None
+
+        duplicate_result = await asyncio.to_thread(inspect_source)
+        if duplicate_result is not None:
+            return duplicate_result
         summarized = self.summaries.needed(text, request.content.kind == "document")
         source_ref = SourceRef(
             source_id=fingerprint([key, "source"]),
@@ -645,13 +673,25 @@ class RememberPipeline(Revalidation):
         scope, key = Scope.model_validate(prepared["scope"]), prepared["key"]
         working_text = prepared["working_text"]
         memory = result.memories[0]
-        with self.uow.transaction() as tx:
-            allowed = self.final_guard(tx, ctx, (memory,), "recall").items[0].decision == "allowed"
+
+        def allowed_before_cache() -> bool:
+            with self.uow.transaction() as tx:
+                allowed = (
+                    self.final_guard(tx, ctx, (memory,), "recall").items[0].decision == "allowed"
+                )
+            return allowed
+
+        allowed = await asyncio.to_thread(allowed_before_cache)
         cache = await self.bodies.admit(scope, working_text) if allowed else "ineligible"
-        with self.uow.transaction() as tx:
-            still_allowed = (
-                self.final_guard(tx, ctx, (memory,), "recall").items[0].decision == "allowed"
-            )
+
+        def allowed_after_cache() -> bool:
+            with self.uow.transaction() as tx:
+                still_allowed = (
+                    self.final_guard(tx, ctx, (memory,), "recall").items[0].decision == "allowed"
+                )
+            return still_allowed
+
+        still_allowed = await asyncio.to_thread(allowed_after_cache)
         if not still_allowed and self.bodies.cache:
             # Reads always guard metadata, including while this compensating delete retries.
             try:
@@ -659,18 +699,26 @@ class RememberPipeline(Revalidation):
                 cache = "invalidated"
             except Exception:
                 cache = "cleanup_pending"
-                with self.uow.transaction() as tx:
-                    self.enqueue(tx, ctx, self.current(tx, key), "remember.cleanup")
-        with self.uow.transaction() as tx:
-            tx.write(
-                "remember_cache_admission",
-                key,
-                {"state": cache, "bytes": len(working_text.encode("utf-8"))},
-            )
+
+                def schedule_cleanup() -> None:
+                    with self.uow.transaction() as tx:
+                        self.enqueue(tx, ctx, self.current(tx, key), "remember.cleanup")
+
+                await asyncio.to_thread(schedule_cleanup)
+
+        def record_cache() -> None:
+            with self.uow.transaction() as tx:
+                tx.write(
+                    "remember_cache_admission",
+                    key,
+                    {"state": cache, "bytes": len(working_text.encode("utf-8"))},
+                )
+
+        await asyncio.to_thread(record_cache)
         return result
 
     def schedule(
-        self, tx: SQLiteTransaction, ctx: TrustedContext, scope: Scope, *, force: bool = False
+        self, tx: MetadataTransaction, ctx: TrustedContext, scope: Scope, *, force: bool = False
     ) -> tuple[str, ...]:
         pending = [
             (key, row)
@@ -715,16 +763,59 @@ class RememberPipeline(Revalidation):
             )
         return (task_id,)
 
-    def consolidate(self, ctx: TrustedContext, selection: ScopeSelector) -> tuple[str, ...]:
+    def consolidate(
+        self,
+        ctx: TrustedContext,
+        selection: ScopeSelector,
+        *,
+        http_request: HttpRequestEvidence | None = None,
+    ) -> tuple[str, ...]:
         scope = select_scope(ctx, selection)
         with self.uow.transaction() as tx:
             self.identity.revalidate(tx, ctx)
-            return self.schedule(tx, ctx, scope, force=True)
+            mutation = self.mutations.begin(
+                tx,
+                ctx,
+                "remember.consolidate",
+                (
+                    RecordRef(
+                        owner="remember",
+                        object_type="scope",
+                        object_id=fingerprint(scope.model_dump(mode="json")),
+                        scope=scope,
+                    ),
+                ),
+                selection.model_dump(mode="json"),
+                http_request=http_request,
+            )
+            if mutation.previous is not None:
+                original_tasks = mutation.previous["task_ids"]
+                assert isinstance(original_tasks, list)
+                return tuple(str(task) for task in original_tasks)
+            tasks = self.schedule(tx, ctx, scope, force=True)
+            mutation.finish({"task_ids": list(tasks)}, task_ids=tasks)
+            return tasks
 
-    def reprocess(self, ctx: TrustedContext, memory_id: str) -> str:
+    def reprocess(
+        self,
+        ctx: TrustedContext,
+        memory_id: str,
+        *,
+        http_request: HttpRequestEvidence | None = None,
+    ) -> str:
         with self.uow.transaction() as tx:
             item = self.current(tx, memory_id)
             self.identity.authorize(tx, ctx, Permission.WRITE, memory_ref(item.ref))
+            mutation = self.mutations.begin(
+                tx,
+                ctx,
+                "remember.reprocess",
+                (memory_ref(item.ref),),
+                None,
+                http_request=http_request,
+            )
+            if mutation.previous is not None:
+                return str(mutation.previous["task_id"])
             if self.final_guard(tx, ctx, (item.ref,), "recall").items[0].decision != "allowed":
                 raise FoundationError(
                     ErrorCode.MEMORY_GONE, "inactive memory cannot be reprocessed"
@@ -738,14 +829,36 @@ class RememberPipeline(Revalidation):
                 and summary["memory"] == item.ref.model_dump(mode="json")
             ):
                 kind = "remember.summarize"
-            return self.enqueue(tx, ctx, item, kind)
+            task_id = self.enqueue(tx, ctx, item, kind)
+            mutation.finish({"task_id": task_id}, task_ids=(task_id,))
+            return task_id
 
-    def distill(self, ctx: TrustedContext, refs: tuple[MemoryRef, ...]) -> str:
+    def distill(
+        self,
+        ctx: TrustedContext,
+        refs: tuple[MemoryRef, ...],
+        *,
+        http_request: HttpRequestEvidence | None = None,
+    ) -> str:
+        if not refs or len(refs) > self.policy.consolidation_messages:
+            raise FoundationError(ErrorCode.INVALID_ARGUMENT, "invalid review input count")
         with self.uow.transaction() as tx:
-            return self.distill_in(tx, ctx, refs)
+            mutation = self.mutations.begin(
+                tx,
+                ctx,
+                "remember.distill",
+                tuple(memory_ref(ref) for ref in refs),
+                [ref.model_dump(mode="json") for ref in refs],
+                http_request=http_request,
+            )
+            if mutation.previous is not None:
+                return str(mutation.previous["task_id"])
+            task_id = self.distill_in(tx, ctx, refs)
+            mutation.finish({"task_id": task_id}, task_ids=(task_id,))
+            return task_id
 
     def distill_in(
-        self, tx: SQLiteTransaction, ctx: TrustedContext, refs: tuple[MemoryRef, ...]
+        self, tx: MetadataTransaction, ctx: TrustedContext, refs: tuple[MemoryRef, ...]
     ) -> str:
         if not refs or len(refs) > self.policy.consolidation_messages:
             raise FoundationError(ErrorCode.INVALID_ARGUMENT, "invalid review input count")
@@ -780,7 +893,7 @@ class RememberPipeline(Revalidation):
 
     @staticmethod
     def processing_task_closure(
-        tx: SQLiteTransaction, memory_id: str, all_rows: list[dict[str, Any]]
+        tx: MetadataTransaction, memory_id: str, all_rows: list[dict[str, Any]]
     ) -> tuple[set[str], set[str]]:
         # Read batch relations once inside the caller's snapshot. A point lookup
         # per historical task (and per closure pass) stalls the shared database
@@ -975,7 +1088,7 @@ class RememberPipeline(Revalidation):
                 continue
         return count
 
-    def periodic_pending(self, tx: SQLiteTransaction, key: str) -> int:
+    def periodic_pending(self, tx: MetadataTransaction, key: str) -> int:
         row = tx.read("remember_pending", key)
         if not row or row["state"] != "pending":
             return 0
@@ -1034,7 +1147,7 @@ class RememberPipeline(Revalidation):
 
     def working_correction_body(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         ctx: TrustedContext,
         item: MemorySnapshot,
         source: SourceRef,
@@ -1070,13 +1183,13 @@ class RememberPipeline(Revalidation):
         )
         return body
 
-    def working_task_kind(self, tx: SQLiteTransaction, item: MemorySnapshot) -> str:
+    def working_task_kind(self, tx: MetadataTransaction, item: MemorySnapshot) -> str:
         row = tx.read("remember_working_summaries", item.ref.memory_id)
         if row and row["memory"] == item.ref.model_dump(mode="json") and row["state"] != "ready":
             return "remember.summarize"
         return "remember.extract"
 
-    def projection_buildable(self, tx: SQLiteTransaction, item: MemorySnapshot) -> bool:
+    def projection_buildable(self, tx: MetadataTransaction, item: MemorySnapshot) -> bool:
         if item.kind != MemoryKind.WORKING:
             return True
         row = tx.read("remember_working_summaries", item.ref.memory_id)
@@ -1089,71 +1202,98 @@ class RememberPipeline(Revalidation):
     ) -> None:
         # Authorize before object-store reads; provider keys come only from authority rows.
         locations = []
-        with self.uow.transaction() as tx:
-            for ref in refs:
-                self.identity.authorize(tx, ctx, Permission.READ, memory_ref(ref))
-                if self.final_guard(tx, ctx, (ref,), purpose).items[0].decision != "allowed":
-                    continue
-                raw = tx.get(memory_ref(ref, versioned=True))
-                if raw and "body_location" in raw:
-                    locations.append(
-                        (ref.scope, ResourceLocation.model_validate(raw["body_location"]))
-                    )
+
+        def authorized_locations() -> None:
+            with self.uow.transaction() as tx:
+                for ref in refs:
+                    self.identity.authorize(tx, ctx, Permission.READ, memory_ref(ref))
+                    if self.final_guard(tx, ctx, (ref,), purpose).items[0].decision != "allowed":
+                        continue
+                    raw = tx.get(memory_ref(ref, versioned=True))
+                    if raw and "body_location" in raw:
+                        locations.append(
+                            (ref.scope, ResourceLocation.model_validate(raw["body_location"]))
+                        )
+
+        await asyncio.to_thread(authorized_locations)
         for scope, location in locations:
             await self.bodies.read(scope, location)
 
     async def load_async(self, ctx: TrustedContext, refs: tuple[MemoryRef, ...]) -> MemoryReadBatch:
         await self.hydrate(ctx, refs)
-        return self.load(ctx, refs)
+        return await asyncio.to_thread(self.load, ctx, refs)
 
     async def working_async(
         self, ctx: TrustedContext, selection: ScopeSelector, page: PageRequest
     ) -> MemoryReadBatch:
         scope = select_scope(ctx, selection)
-        with self.uow.transaction() as tx:
-            self.identity.revalidate(tx, ctx)
-            selected = []
-            for key, pointer in tx.rows("remember_current"):
-                from aether_agent_memory.runtime.contracts.models import RecordRef
 
-                record_ref = RecordRef.model_validate(pointer)
-                if not self.identity.discoverable(tx, ctx, record_ref, selection):
-                    continue
-                raw = required_record(tx, record_ref)
-                if raw["kind"] == "working":
-                    selected.append((key, MemoryRef.model_validate(raw["ref"])))
-            refs, cursor = tx.page(selected, ["working", scope.model_dump(mode="json")], page)
+        def working_page() -> tuple[Any, Any]:
+            with self.uow.transaction() as tx:
+                self.identity.revalidate(tx, ctx)
+                selected = []
+                for key, pointer in tx.rows("remember_current"):
+                    from aether_agent_memory.runtime.contracts.models import RecordRef
+
+                    record_ref = RecordRef.model_validate(pointer)
+                    if not self.identity.discoverable(tx, ctx, record_ref, selection):
+                        continue
+                    raw = required_record(tx, record_ref)
+                    if raw["kind"] == "working":
+                        selected.append((key, MemoryRef.model_validate(raw["ref"])))
+                refs, cursor = tx.page(selected, ["working", scope.model_dump(mode="json")], page)
+            return refs, cursor
+
+        refs, cursor = await asyncio.to_thread(working_page)
         batch = await self.load_async(ctx, tuple(refs))
         return batch.model_copy(update={"next_cursor": cursor})
 
     async def read_body(self, ctx: TrustedContext, ref: MemoryRef) -> FullBodyReadResult:
         await self.hydrate(ctx, (ref,))
-        with self.uow.transaction() as tx:
-            eligibility = self.final_guard(tx, ctx, (ref,), "recall")
-            if eligibility.items[0].decision != "allowed":
-                return FullBodyReadResult(
-                    memory=ref,
-                    outcome="excluded",
-                    path="none",
-                    reason_code=eligibility.items[0].reason,
-                )
-            item = self.current(tx, ref.memory_id)
-            location = self.bodies.location(ref.scope, item.content)
+
+        def inspect_body() -> FullBodyReadResult | tuple[MemorySnapshot, ResourceLocation]:
+            with self.uow.transaction() as tx:
+                eligibility = self.final_guard(tx, ctx, (ref,), "recall")
+                if eligibility.items[0].decision != "allowed":
+                    return FullBodyReadResult(
+                        memory=ref,
+                        outcome="excluded",
+                        path="none",
+                        reason_code=eligibility.items[0].reason,
+                    )
+                item = self.current(tx, ref.memory_id)
+                location = self.bodies.location(ref.scope, item.content)
+            return item, location
+
+        selected = await asyncio.to_thread(inspect_body)
+        if isinstance(selected, FullBodyReadResult):
+            return selected
+        item, location = selected
         content, path = await self.bodies.read(ref.scope, location)
-        with self.uow.transaction() as tx:
-            eligible = self.final_guard(tx, ctx, (ref,), "recall").items[0]
-            if eligible.decision != "allowed" or eligible.checked_revision != item.object_revision:
-                return FullBodyReadResult(
-                    memory=ref, outcome="stale", path="none", reason_code="changed_during_read"
+
+        def recheck_body() -> FullBodyReadResult | GuardStamp:
+            with self.uow.transaction() as tx:
+                eligible = self.final_guard(tx, ctx, (ref,), "recall").items[0]
+                if (
+                    eligible.decision != "allowed"
+                    or eligible.checked_revision != item.object_revision
+                ):
+                    return FullBodyReadResult(
+                        memory=ref, outcome="stale", path="none", reason_code="changed_during_read"
+                    )
+                guard = GuardStamp(
+                    memory=ref,
+                    object_revision=item.object_revision,
+                    relations_revision=item.revision,
+                    authorization_epoch=ctx.principal.auth_epoch,
+                    body_hash=item.content_hash,
+                    checked_at=self.identity.clock(),
                 )
-            guard = GuardStamp(
-                memory=ref,
-                object_revision=item.object_revision,
-                relations_revision=item.revision,
-                authorization_epoch=ctx.principal.auth_epoch,
-                body_hash=item.content_hash,
-                checked_at=self.identity.clock(),
-            )
+            return guard
+
+        guard = await asyncio.to_thread(recheck_body)
+        if isinstance(guard, FullBodyReadResult):
+            return guard
         return FullBodyReadResult(
             memory=ref,
             outcome="read",
@@ -1237,14 +1377,98 @@ class RememberPipeline(Revalidation):
     async def prepare_background(
         self, ctx: TrustedContext, task: TaskRecord
     ) -> tuple[MemorySnapshot, ...] | RunResult:
-        with self.uow.transaction() as tx:
-            self.tasks.guard(tx, task)
-            raw = required_record(tx, task.input_ref)
-            ref = MemoryRef.model_validate(raw["ref"])
-            batch = tx.read("remember_batches", task.task_id)
-            refs = tuple(MemoryRef.model_validate(x) for x in batch["refs"]) if batch else (ref,)
+        def background_inputs() -> tuple[tuple[MemoryRef, ...], Any]:
+            with self.uow.transaction() as tx:
+                self.tasks.guard(tx, task)
+                raw = required_record(tx, task.input_ref)
+                ref = MemoryRef.model_validate(raw["ref"])
+                batch = tx.read("remember_batches", task.task_id)
+                refs = (
+                    tuple(MemoryRef.model_validate(x) for x in batch["refs"]) if batch else (ref,)
+                )
+            return refs, batch
+
+        refs, batch = await asyncio.to_thread(background_inputs)
         maintenance = task.kind in {"remember.cleanup", "remember.revalidate"}
         await self.hydrate(ctx, refs, "cleanup" if maintenance else "recall")
+        prepared = await asyncio.to_thread(
+            self.background_metadata, ctx, task, refs, batch, maintenance
+        )
+        if isinstance(prepared, RunResult):
+            return prepared
+        items = prepared
+        if task.kind in {"remember.extract", "remember.compress"}:
+            return await self.source_access.originals(ctx, items)
+        if task.kind == "remember.distill":
+            if not hasattr(self.extraction, "review_episodes"):
+                return RunResult(
+                    outcome="failed",
+                    effect_status=EffectStatus.NO_EFFECT,
+                    reason="episodic review provider not configured",
+                )
+            originals = []
+            seen = set()
+            for item in items:
+                for source in item.sources:
+                    if source.source_id in seen:
+                        continue
+                    seen.add(source.source_id)
+
+                    def read_original(source: Any) -> Any:
+                        with self.uow.transaction() as tx:
+                            row = tx.read("remember_sources", source.source_id)
+                        return row
+
+                    row = await asyncio.to_thread(read_original, source)
+                    if "original_location" in row:
+                        text, _ = await self.bodies.read(
+                            item.ref.scope,
+                            ResourceLocation.model_validate(row["original_location"]),
+                        )
+                    else:
+                        text = row["text"]
+                    originals.append(
+                        item.model_copy(
+                            update={
+                                "content": text,
+                                "content_hash": source.content_hash,
+                                "sources": (source,),
+                            }
+                        )
+                    )
+            # Do not deduplicate episodes that share an original: each version/result
+            # remains part of the review. Source originals are only the evidence pool.
+            if (
+                sum(self.tokenizer.count(i.content) for i in (*items, *originals))
+                > self.policy.extraction_chunk_tokens
+            ):
+                return RunResult(
+                    outcome="failed",
+                    effect_status=EffectStatus.NO_EFFECT,
+                    reason="review input budget exceeded; select a smaller evidence set",
+                )
+
+            def record_review() -> None:
+                with self.uow.transaction() as tx:
+                    self.tasks.guard(tx, task)
+                    tx.write(
+                        "remember_review_context",
+                        task.task_id,
+                        {"episodes": [i.model_dump(mode="json") for i in items]},
+                    )
+
+            await asyncio.to_thread(record_review)
+            return tuple(originals)
+        return items
+
+    def background_metadata(
+        self,
+        ctx: TrustedContext,
+        task: TaskRecord,
+        refs: tuple[MemoryRef, ...],
+        batch: dict[str, Any] | None,
+        maintenance: bool,
+    ) -> tuple[MemorySnapshot, ...] | RunResult:
         with self.uow.transaction() as tx:
             self.tasks.guard(tx, task)
             valid = self.final_guard(tx, ctx, refs, "cleanup" if maintenance else "recall")
@@ -1277,59 +1501,6 @@ class RememberPipeline(Revalidation):
             items = tuple(
                 self.decode(tx, required_record(tx, memory_ref(r, versioned=True))) for r in refs
             )
-        if task.kind in {"remember.extract", "remember.compress"}:
-            return await self.source_access.originals(ctx, items)
-        if task.kind == "remember.distill":
-            if not hasattr(self.extraction, "review_episodes"):
-                return RunResult(
-                    outcome="failed",
-                    effect_status=EffectStatus.NO_EFFECT,
-                    reason="episodic review provider not configured",
-                )
-            originals = []
-            seen = set()
-            for item in items:
-                for source in item.sources:
-                    if source.source_id in seen:
-                        continue
-                    seen.add(source.source_id)
-                    with self.uow.transaction() as tx:
-                        row = tx.read("remember_sources", source.source_id)
-                    if "original_location" in row:
-                        text, _ = await self.bodies.read(
-                            item.ref.scope,
-                            ResourceLocation.model_validate(row["original_location"]),
-                        )
-                    else:
-                        text = row["text"]
-                    originals.append(
-                        item.model_copy(
-                            update={
-                                "content": text,
-                                "content_hash": source.content_hash,
-                                "sources": (source,),
-                            }
-                        )
-                    )
-            # Do not deduplicate episodes that share an original: each version/result
-            # remains part of the review. Source originals are only the evidence pool.
-            if (
-                sum(self.tokenizer.count(i.content) for i in (*items, *originals))
-                > self.policy.extraction_chunk_tokens
-            ):
-                return RunResult(
-                    outcome="failed",
-                    effect_status=EffectStatus.NO_EFFECT,
-                    reason="review input budget exceeded; select a smaller evidence set",
-                )
-            with self.uow.transaction() as tx:
-                self.tasks.guard(tx, task)
-                tx.write(
-                    "remember_review_context",
-                    task.task_id,
-                    {"episodes": [i.model_dump(mode="json") for i in items]},
-                )
-            return tuple(originals)
         return items
 
     async def run_bound(self, ctx: TrustedContext, task: TaskRecord) -> RunResult:
@@ -1489,7 +1660,8 @@ class RememberPipeline(Revalidation):
                     quality="passed",
                     published=True,
                     reason="quality_and_ratio_passed"
-                    if ratio_met else "quality_passed_ratio_target_unmet",
+                    if ratio_met
+                    else "quality_passed_ratio_target_unmet",
                     location=location.model_copy(update={"kind": "artifact"}).model_dump(
                         mode="json"
                     ),
@@ -2062,6 +2234,11 @@ class RememberPipeline(Revalidation):
                     ErrorCode.DEPENDENCY_UNAVAILABLE, "comparison discovery unavailable"
                 )
             discovered = [x.target.memory.memory_id for x in result.candidates]
+        return self.related_metadata(ctx, candidate, scope, discovered)
+
+    def related_metadata(
+        self, ctx: TrustedContext, candidate: CandidateFact, scope: Scope, discovered: list[str]
+    ) -> tuple[MemorySnapshot, ...]:
         with self.uow.transaction() as tx:
             eligible = []
             for key, pointer in tx.rows("remember_current"):
@@ -2201,8 +2378,7 @@ class RememberPipeline(Revalidation):
         for candidate_index, candidate in enumerate(candidates[cursor:], start=cursor):
             verified_amend_identity = False
             existing: tuple[MemorySnapshot, ...]
-            with self.uow.transaction() as tx:
-                duplicate = self.duplicate_in(tx, ctx, candidate, items[0].ref.scope)
+            duplicate = self.duplicate(ctx, candidate, items[0].ref.scope)
             if duplicate is not None:
                 existing = (duplicate,)
                 decision = ComparisonDecision(
@@ -2559,7 +2735,9 @@ class RememberPipeline(Revalidation):
         }
 
     @staticmethod
-    def comparison_source_binding(tx: SQLiteTransaction, items: tuple[MemorySnapshot, ...]) -> str:
+    def comparison_source_binding(
+        tx: MetadataTransaction, items: tuple[MemorySnapshot, ...]
+    ) -> str:
         """Source validity/provenance changes invalidate saved semantic decisions."""
         return fingerprint(
             [
@@ -2898,7 +3076,7 @@ class RememberPipeline(Revalidation):
             return self.conflict_groups_in(tx, ctx, refs)
 
     def conflict_groups_in(
-        self, tx: SQLiteTransaction, ctx: TrustedContext, refs: tuple[MemoryRef, ...]
+        self, tx: MetadataTransaction, ctx: TrustedContext, refs: tuple[MemoryRef, ...]
     ) -> tuple[ConflictGroup, ...]:
         groups = [ConflictGroup.model_validate(raw) for _, raw in tx.rows("remember_conflicts")]
         components: list[dict[str, MemoryRef]] = []
@@ -3133,6 +3311,15 @@ class RememberPipeline(Revalidation):
     async def commit_projection(
         self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot, prepared: dict[str, Any]
     ) -> RunResult:
+        result = self.commit_projection_metadata(ctx, task, item, prepared)
+        if result is not None:
+            return result
+        targets = tuple(ProjectionTarget.model_validate(t) for t in prepared["targets"])
+        return await self.discard_projection(ctx, task, targets)
+
+    def commit_projection_metadata(
+        self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot, prepared: dict[str, Any]
+    ) -> RunResult | None:
         targets = tuple(ProjectionTarget.model_validate(t) for t in prepared["targets"])
         descriptors = tuple(ChunkDescriptor.model_validate(d) for d in prepared["descriptors"])
         generation, dimensions = task.task_id, prepared["dimensions"]
@@ -3185,7 +3372,7 @@ class RememberPipeline(Revalidation):
                         "chunks": len(targets),
                     },
                 )
-        return await self.discard_projection(ctx, task, targets)
+        return None
 
     async def discard_projection(
         self, ctx: TrustedContext, task: TaskRecord, targets: tuple[ProjectionTarget, ...]
@@ -3334,7 +3521,7 @@ class RememberPipeline(Revalidation):
         if self.bodies.cache:
             for old in legacy:
                 await self.bodies.cache.delete(old.ref.scope, old.content_hash)
-                if await self.bodies.cache.get(old.ref.scope, old.content_hash) is not None:
+                if not await self.bodies.cache.cleanup_complete(old.ref, old.content_hash):
                     return RunResult(
                         outcome="uncertain",
                         effect_status=EffectStatus.UNKNOWN,

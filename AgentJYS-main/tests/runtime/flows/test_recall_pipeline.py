@@ -7,7 +7,6 @@ import pytest
 from test_flows import app as app
 from test_flows import context, drain, facts, recall, save
 
-from aether_agent_memory.recall.basic.adapters import projection_target
 from aether_agent_memory.recall.basic.components import fuse
 from aether_agent_memory.recall.basic.config import RecallSettings
 from aether_agent_memory.recall.basic.reranking import CrossEncoderReranker
@@ -17,6 +16,7 @@ from aether_agent_memory.recall.contracts.models import (
     VectorCandidate,
     VectorSearchResult,
 )
+from aether_agent_memory.remember.basic.projection import projection_target
 from aether_agent_memory.remember.contracts.models import CorrectionRequest, DeleteRequest
 from aether_agent_memory.runtime.contracts.models import ScopeSelector
 from aether_agent_memory.runtime.foundation.common import FoundationError

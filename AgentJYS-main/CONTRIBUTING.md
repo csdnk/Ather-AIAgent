@@ -1,53 +1,57 @@
 # P3 开发与提交入口
 
-适用 `remember/basic`、`recall/basic`、`operate/basic` 与共享 `runtime`。产品基线为 PRD V1.3；本地基座可运行，完整产品、云部署与真实 Milvus 验收尚未完成。
+当前源码使用 Azure PostgreSQL、Redis、Milvus、Ceph 和独立 Temporal，同一套源码通过明确配置切换环境。开发者及 AI 助手先读 [Azure 开发环境与 AI 配置指南](../交付成果/部署运行/P3_Azure开发环境与AI配置指南_20261004.md)。旧 SQLite、RF 调度、协作演示脚本及重复依赖清单已退役；旧数据迁移取消。
 
 ## 每次改动
 
 1. 明确 B（Remember）、A（Recall/共享计算）、C（Operate）或 RF（公共机制/装配）Owner。
-2. 消费其他模块的契约，不直接修改其领域状态；公共契约变更由 RF 和受影响消费者共同评审。
-3. 复用 TrustedContext、UoW、Task、Outbox/Inbox、Trace 和恢复机制，不新建私有队列。
+2. 消费其他模块契约，不直接修改其领域状态；公共接口变更由 RF 和受影响消费者共同评审。
+3. 复用 TrustedContext、PG UoW、Temporal、Outbox/Inbox、Trace 和原操作恢复，不新建私有调度器。
 4. 事务内不做网络调用或跨 await 等待；提交前检查授权、版本、删除和租约。
-5. Unknown 查询原操作，重试保持幂等身份；不得用日志代替业务事实。
-6. 新节点接公共埋点，新依赖提供有界探针；记录错误码与摘要，不记录凭证和正文。
-7. 填写 PR 模板，列出消费者、正常与故障验证、未覆盖范围。旧报告不覆盖，当前说明同步更新。
+5. Unknown 查询原 operation/job；保持幂等身份，不重发原写入。
+6. 新节点接公共埋点，新依赖提供有界探针；不记录凭据和正文。
+7. PR 写明行为、消费者、真实与故障验证、未覆盖项；旧验收报告保留原日期及结论。
 
-各开发者使用独立分支/checkout，分支建议 `p3/<owner>/<issue>-<purpose>`，从仓库实际约定的基线创建。至少一名非作者评审；接口改动须经受影响消费者确认。
+每位开发者使用独立 `codex/` 分支，从维护者指定的基线或 reviewed SHA 创建。接口改动由受影响消费者评审；PR 由维护者决定合并。不要修改其他开发者的 dirty 文件、运行服务或共享数据。
 
-## 当前需求版本
+## 需求与接口来源
 
-采用 `contracts/p3/prd-baseline.yaml` 登记的V1.3与租户增量；旧requirements/source-manifest保留V1.2原文索引，不是V1.3全量验收证明。新增功能须同时落实V13-TEN增量。
-
-## 唯一字段与机制定义
-
-- [2026-09-22 RF运行服务与HTTP接入](docs/p3/development/08_RF运行服务与HTTP接入.md)：新监测契约、任务附件、维护处置、配置和本地备份恢复的实际接入与验证。
+当前需求以 `contracts/p3/prd-baseline.yaml` 登记的 V1.3 与租户增量为准。旧 requirements/source-manifest 的 V1.2 原文索引用于追溯，不能作为 V1.3 全量验收证明。
 
 - [契约入口](contracts/p3/README.md)：Python 类型为字段来源，Schema 自动生成。
-- [2026-09-21对象契约接入](docs/p3/development/07_对象契约接入.md)：底座、三流程及跨流程交接的新对象和服务接线边界。
-- [架构与机制](docs/p3/README.md)：领域职责、状态、事务、日志和恢复。
-- [流程责任](docs/p3/development/02_三流程接入与责任表.md)：提供方/消费方及交接完成条件。
-- [运行接入](docs/p3/development/04_公共底座首批实现与运行.md)：可运行的 sample Handler。
+- [架构与机制](docs/p3/README.md)：领域职责、状态、事务与恢复。
+- [流程责任](docs/p3/development/02_三流程接入与责任表.md)：提供方/消费方及交接条件。
+- [当前 CI 检查](docs/p3/development/11_CI检查与复验.md)：静态检查、契约与 AKS 真实后端测试的边界。
 
-面向团队阅读的完整协作基线位于交付包的 `交付成果/开发协作/`。这些外置交付文档不是测试运行依赖；独立检出本仓库即可运行下面的门禁。
+## 当前检查入口
 
-## 本地门禁
+Python 3.13；在 `AgentJYS-main` 执行，venv、模型、缓存、私密配置和日志在仓库外：
 
-Python 3.13；从仓库根目录执行：
-
-```text
-python -m pip install -r scripts/p3/requirements-collaboration.txt
-python scripts/p3/validate_collaboration.py
+```powershell
+python -m pip install --upgrade pip
+python -m pip install -e '.[embedding-onnx,resource-documents,remember-ceph]' --group dev
+python -B scripts/generate_proto.py
+python -B -m ruff check src tests scripts
+python -B -m mypy src --cache-dir <外部缓存目录>
+python -B scripts/p3/generate_schemas.py --check
+python -B -m pip wheel --no-deps --wheel-dir <外部wheel目录> .
 ```
 
-模型字段变更后先执行 `python scripts/p3/generate_schemas.py`，提交生成差异。校验不需要真实 Milvus 或模型权重；首次 tokenizer 词表下载可能需要网络。受限环境预置 TIKTOKEN_CACHE_DIR。
+模型字段变更后执行 `generate_schemas.py`，提交生成差异，再以 `--check` 复验。静态检查不能证明数据库或业务已运行。
 
-工程示例：`python scripts/p3/demo_foundation.py --directory <新的运行目录>`。真实 Embedding/重排序实验另见 `scripts/p3/validate_recall.py`，不是本门禁声称通过的内容。
+真实 Python 回归使用 `scripts/p3/run_aks_tests.py`：pytest 在独有 AKS Pod 运行，连接真实 Azure 后端及 test-owned Temporal。完整配置、公有资产和零跳过判定见开发者指南；缺权限或 backend 时明确失败，不切换旧 SQLite/Mock。外部 Rust P2 和 Nginx 网关测试单独配置并报告未执行边界。
+
+Web 用 Node.js 22，执行 `npm ci`、`npm run lint`、`npm test`、`npm run build`；可用 `AETHER_WEB_CACHE_DIR`、`AETHER_WEB_BUILD_DIR` 指定外部输出。Rust `engine` 的格式与测试按其 owner 的接口责任执行，不借清理改写提供方。
 
 ## 远端执行与评审
 
-GitHub：`.github/workflows/p3-collaboration.yml` / job `p3-gate`。
-Azure：`azure-pipelines.p3.yml` / job `P3Gate`。两者执行同一门禁命令；真实远端执行结果另验。
+GitHub 的实际入口是仓库根 `.github/workflows/`，嵌套重复工作流已删除。
 
-YAML 不会自动创建分支保护。维护者需先成功运行流水线，再将其设为目标分支必需检查并启用非作者评审。Azure Repos 用 Branch policies 的 Build validation 绑定流水线。RF 将角色对应到实际账号后配置路径评审；没有账号信息时不创建伪 CODEOWNERS。既有仓库 CI 和分支规则仍须遵守。
+- `ci.yml`：Python 静态/Schema/wheel、Web 与 Rust 检查。
+- `p3-contracts.yml`：独立契约检查。
+- `p3-azure-tests.yml`：手动指定 reviewed full SHA，通过 `azure-tests` environment 的受控 Secret 在 AKS 跑真实回归。
+- `azure-pipelines.p3.yml`：源码与契约检查入口。
 
-源码、测试、必要配置和流水线留仓库；运行数据、凭证、下载权重和原始报告放独立工作目录，不提交到 Git。
+维护者须配置 GitHub environment/Secret、真实执行并核对 checks 后，再决定 required checks/评审规则；YAML 不会自动启用分支保护。403 也不能证明“仅维护者可以合并”的规则已生效。
+
+源码、测试、运行模板和必要文档留 Git。运行数据、凭据、kubeconfig、下载权重、原始日志不提交；面向用户的正式结论放 `交付成果/`，处理记录放项目外。

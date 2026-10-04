@@ -4,13 +4,11 @@ import asyncio
 import json
 import os
 import secrets
-import tempfile
+from contextlib import suppress
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
-from aether_agent_memory.operate.basic.executor import LocalCacheExecutor
 from aether_agent_memory.operate.basic.service import Operate
-from aether_agent_memory.recall.basic.adapters import SPACE, LexicalEmbedding
 from aether_agent_memory.recall.basic.config import RecallSettings
 from aether_agent_memory.recall.basic.reranking import CrossEncoderReranker, Reranker
 from aether_agent_memory.recall.basic.service import Recall
@@ -29,14 +27,15 @@ from aether_agent_memory.remember.contracts.ports import (
     MemoryQualificationPort,
     MemoryReadPort,
 )
-from aether_agent_memory.runtime.contracts.models import TrustedContext
+from aether_agent_memory.runtime.contracts.models import TaskRecord, TrustedContext
 from aether_agent_memory.runtime.foundation.common import fingerprint, now
 from aether_agent_memory.runtime.foundation.host import Foundation
 from aether_agent_memory.runtime.foundation.requests import text_hash
-from aether_agent_memory.runtime.foundation.telemetry import attach_provider
+from aether_agent_memory.runtime.foundation.telemetry import Telemetry, attach_provider
+from aether_agent_memory.runtime.storage.ports import MetadataUnitOfWork
 
-from .health import Health, Probe, sqlite_probe, storage_probe
-from .vector_adapters import MilvusVectors, SQLiteVectors, VectorBackend
+from .health import Health, Probe, storage_probe
+from .vector_adapters import MilvusVectors, VectorBackend
 
 if TYPE_CHECKING:
     from aether_agent_memory.recall.embedding.p3 import NativeP3Embedding
@@ -66,6 +65,10 @@ class ThreeFlows:
         remember_factory: Any = None,
         operate_factory: Any = None,
         postgres_dsn: str | None = None,
+        cache_factory: Any = None,
+        vectors_factory: Any = None,
+        uow: MetadataUnitOfWork | None = None,
+        telemetry: Telemetry | None = None,
     ) -> None:
         self.recall_settings = recall_settings or (
             RecallSettings.model_validate(
@@ -85,6 +88,8 @@ class ThreeFlows:
             maintenance_principals=maintenance_principals,
             backup_root=backup_root,
             postgres_dsn=postgres_dsn,
+            uow=uow,
+            telemetry=telemetry,
         )
         self.owned_vectors = None
         self.owned_reranker = None
@@ -92,7 +97,7 @@ class ThreeFlows:
         self.closed = False
         self.execution: Any = None
         self.native_embedding: NativeP3Embedding | None = None
-        if embedding_profile not in {"native", "lexical"}:
+        if embedding_profile not in {"native", "injected"}:
             self.foundation.close()
             raise ValueError("unknown embedding profile")
         try:
@@ -105,9 +110,13 @@ class ThreeFlows:
                     self.foundation.uow, self.foundation.identity, embedding_config
                 )
                 embedding = self.native_embedding
-            self.embedding = embedding or LexicalEmbedding()
+            if embedding is None:
+                raise ValueError("an explicit embedding provider is required")
+            self.embedding = embedding
             selected_space = getattr(self.embedding, "model_space", None)
-            self.model_space = model_space or selected_space or SPACE
+            self.model_space = model_space or selected_space
+            if not self.model_space:
+                raise ValueError("embedding provider requires an explicit model space")
             if selected_space and self.model_space != selected_space:
                 raise ValueError("configured model space differs from loaded provider")
             dimensions = getattr(self.embedding, "dimensions", None)
@@ -115,6 +124,14 @@ class ThreeFlows:
                 raise ValueError(
                     "injected embedding needs dimensions or an explicit vector adapter"
                 )
+            if vectors is None and vectors_factory is not None:
+                self.owned_vectors = vectors_factory(
+                    self.foundation.uow,
+                    self.foundation.identity,
+                    self.model_space,
+                    int(dimensions or 0),
+                )
+                vectors = self.owned_vectors
             if vectors is None and self.recall_settings.milvus_uri:
                 self.owned_vectors = MilvusVectors(
                     self.foundation.uow,
@@ -125,27 +142,29 @@ class ThreeFlows:
                     collection=self.recall_settings.milvus_collection,
                     token=os.environ.get(self.recall_settings.milvus_token_env, ""),
                     serialize_writes=self.recall_settings.milvus_serialize_writes,
+                    secure=self.recall_settings.milvus_secure,
+                    ca_file=self.recall_settings.milvus_ca_file,
+                    server_name=self.recall_settings.milvus_server_name,
+                    database=self.recall_settings.milvus_database,
                 )
                 vectors = self.owned_vectors
-            self.vectors = vectors or SQLiteVectors(
-                self.foundation.uow,
-                self.foundation.identity,
-                self.model_space,
-                int(dimensions or 0),
-            )
+            if vectors is None:
+                raise ValueError("an explicit vector provider is required")
+            self.vectors = vectors
             with self.foundation.uow.transaction() as tx:
                 prior = tx.read("settings", "p3_embedding_binding")
                 if prior and prior["retrieval_space_ref"] != self.model_space:
                     raise ValueError("database is bound to another embedding model space")
+                provider_binding = getattr(self.vectors, "binding", None)
                 vector_binding = (
-                    {
+                    provider_binding()
+                    if callable(provider_binding)
+                    else {
                         "provider": "milvus",
                         "endpoint_hash": fingerprint(self.recall_settings.milvus_uri),
                         "collection": self.recall_settings.milvus_collection,
                     }
-                    if self.owned_vectors
-                    else {"provider": "sqlite"}
-                    if type(self.vectors) is SQLiteVectors
+                    if isinstance(self.owned_vectors, MilvusVectors)
                     else {"provider": "injected"}
                 )
                 old_binding = tx.read("settings", "p3_vector_binding")
@@ -163,153 +182,141 @@ class ThreeFlows:
                 self.native_embedding.close()
             self.foundation.close()
             raise
-        self.embedding_profile = (
-            "native" if self.native_embedding else "injected" if embedding else "lexical"
-        )
-        self.projections = ProjectionAccess(self.vectors)
-        self.vector_search = SearchAccess(self.vectors)
-        self.remember = (remember_factory or Remember)(
-            self.foundation.uow,
-            self.foundation.identity,
-            self.foundation.tasks,
-            self.foundation.events,
-            extraction or LiteralExtraction(),
-            self.embedding,
-            self.projections,
-            self.model_space,
-            **({"tokenizer": selected_tokenizer} if remember_factory else {}),
-        )
-        if reranker is None and self.recall_settings.rerank_policy != "disabled":
-            self.owned_reranker = CrossEncoderReranker(
-                str(self.recall_settings.reranker_model),
-                revision=self.recall_settings.reranker_revision,
-                cache=self.recall_settings.reranker_cache,
-                max_length=self.recall_settings.rerank_max_length,
+        self.embedding_profile = "native" if self.native_embedding else "injected"
+        try:
+            self.projections = ProjectionAccess(self.vectors)
+            self.vector_search = SearchAccess(self.vectors)
+            self.remember = (remember_factory or Remember)(
+                self.foundation.uow,
+                self.foundation.identity,
+                self.foundation.tasks,
+                self.foundation.events,
+                extraction or LiteralExtraction(),
+                self.embedding,
+                self.projections,
+                self.model_space,
+                **({"tokenizer": selected_tokenizer} if remember_factory else {}),
             )
-            reranker = self.owned_reranker
-        self.recall = Recall(
-            self.foundation.uow,
-            self.foundation.identity,
-            self.foundation.events,
-            self.remember,
-            self.embedding,
-            self.vector_search,
-            self.model_space,
-            settings=self.recall_settings,
-            tokenizer=selected_tokenizer,
-            reranker=reranker,
-        )
-        self.executor = LocalCacheExecutor(cache_root)
-        self.operate = (operate_factory or Operate)(
-            self.foundation.uow,
-            self.foundation.identity,
-            self.foundation.tasks,
-            self.foundation.events,
-            self.remember,
-            self.remember,
-            self.executor,
-        )
-        self.last_period = ""
-        for provider, name in (
-            (self.remember.extraction, "extraction"),
-            (self.embedding, "embedding"),
-            (self.vectors, "vectors"),
-            (self.executor, "executor"),
-        ):
-            attach_provider(provider, self.foundation.telemetry, name)
-        if reranker:
-            attach_provider(reranker, self.foundation.telemetry, "reranker")
-        self.health = Health(self)
-
-        async def database_probe(ctx: TrustedContext) -> dict[str, object]:
-            return await asyncio.to_thread(storage_probe, self.foundation.uow, write=True)
-
-        async def log_probe(ctx: TrustedContext) -> dict[str, object]:
-            return await asyncio.to_thread(storage_probe, self.foundation.telemetry, write=True)
-
-        async def executor_probe(ctx: TrustedContext) -> dict[str, object]:
-            def check() -> dict[str, object]:
-                result = sqlite_probe(self.executor.root / "executor.db", write=True)
-                # Dedicated temporary probe files; no action or memory is changed.
-                for tier in ("cold", "warm", "hot"):
-                    with tempfile.TemporaryFile(dir=self.executor.root / tier) as file:
-                        file.write(b"p3-health")
-                        file.flush()
-                        os.fsync(file.fileno())
-                        file.seek(0)
-                        if file.read() != b"p3-health":
-                            raise OSError("cache probe mismatch")
-                return result
-
-            return await asyncio.to_thread(check)
-
-        async def extraction_probe(ctx: TrustedContext) -> dict[str, object]:
-            if type(self.remember.extraction) is LiteralExtraction:
-                result = await self.remember.extraction.extract(
-                    ctx,
-                    ExtractionRequest(
-                        source=SourceRef(
-                            source_id="health_probe",
-                            source_version=1,
-                            content_hash=text_hash("health probe"),
-                            locator="health",
-                        ),
-                        text="health probe",
-                        existing=(),
-                        policy_version="health_v1",
-                    ),
+            if reranker is None and self.recall_settings.rerank_policy != "disabled":
+                self.owned_reranker = CrossEncoderReranker(
+                    str(self.recall_settings.reranker_model),
+                    revision=self.recall_settings.reranker_revision,
+                    cache=self.recall_settings.reranker_cache,
+                    max_length=self.recall_settings.rerank_max_length,
                 )
-                return {"state": "available" if len(result.candidates) == 1 else "unavailable"}
-            return {"state": "unknown"}
+                reranker = self.owned_reranker
+            self.recall = Recall(
+                self.foundation.uow,
+                self.foundation.identity,
+                self.foundation.events,
+                self.remember,
+                self.embedding,
+                self.vector_search,
+                self.model_space,
+                settings=self.recall_settings,
+                tokenizer=selected_tokenizer,
+                reranker=reranker,
+            )
+            if cache_factory is None:
+                raise ValueError("an explicit cache executor provider is required")
+            self.executor = cache_factory(
+                self.foundation.uow, self.foundation.identity, self.remember
+            )
+            self.operate = (operate_factory or Operate)(
+                self.foundation.uow,
+                self.foundation.identity,
+                self.foundation.tasks,
+                self.foundation.events,
+                self.remember,
+                self.remember,
+                self.executor,
+            )
+            self.last_period = ""
+            for provider, name in (
+                (self.remember.extraction, "extraction"),
+                (self.embedding, "embedding"),
+                (self.vectors, "vectors"),
+                (self.executor, "executor"),
+            ):
+                attach_provider(provider, self.foundation.telemetry, name)
+            if reranker:
+                attach_provider(reranker, self.foundation.telemetry, "reranker")
+            self.health = Health(self)
 
-        async def embedding_probe(ctx: TrustedContext) -> dict[str, object]:
-            if self.native_embedding:
-                return await self.native_embedding.health(ctx)
-            if type(self.embedding) is LexicalEmbedding:
-                vector = self.embedding.features("健康检测")
-                return {"state": "available" if len(vector) == 256 else "unavailable"}
-            return {"state": "unknown"}
+            async def database_probe(ctx: TrustedContext) -> dict[str, object]:
+                return await asyncio.to_thread(storage_probe, self.foundation.uow, write=True)
 
-        async def vector_probe(ctx: TrustedContext) -> dict[str, object]:
-            if self.owned_vectors:
-                return await self.owned_vectors.health(ctx)
-            if type(self.vectors) is SQLiteVectors:
-                if not self.vectors.available:
-                    return {"state": "unavailable"}
-                return await asyncio.to_thread(storage_probe, self.vectors.uow)
-            return {"state": "unknown"}
+            async def log_probe(ctx: TrustedContext) -> dict[str, object]:
+                return await asyncio.to_thread(storage_probe, self.foundation.telemetry, write=True)
 
-        async def reranker_probe(ctx: TrustedContext) -> dict[str, object]:
-            if self.owned_reranker:
-                return await self.owned_reranker.health(ctx)
-            return {
-                "state": "disabled"
-                if self.recall_settings.rerank_policy == "disabled"
-                else "unknown"
-            }
+            async def executor_probe(ctx: TrustedContext) -> dict[str, object]:
+                return await asyncio.to_thread(self.executor.probe)
 
-        async def tokenizer_probe(ctx: TrustedContext) -> dict[str, object]:
-            return {
-                "state": "available"
-                if self.recall.tokenizer.count("健康检测") > 0
-                else "unavailable",
-                "tokenizer_id": self.recall.tokenizer.identifier,
-            }
+            async def extraction_probe(ctx: TrustedContext) -> dict[str, object]:
+                if type(self.remember.extraction) is LiteralExtraction:
+                    result = await self.remember.extraction.extract(
+                        ctx,
+                        ExtractionRequest(
+                            source=SourceRef(
+                                source_id="health_probe",
+                                source_version=1,
+                                content_hash=text_hash("health probe"),
+                                locator="health",
+                            ),
+                            text="health probe",
+                            existing=(),
+                            policy_version="health_v1",
+                        ),
+                    )
+                    return {"state": "available" if len(result.candidates) == 1 else "unavailable"}
+                return {"state": "unknown"}
 
-        for name, probe in (
-            ("database", database_probe),
-            ("logs", log_probe),
-            ("executor", executor_probe),
-            ("extraction", extraction_probe),
-            ("embedding", embedding_probe),
-            ("vectors", vector_probe),
-            ("reranker", reranker_probe),
-            ("tokenizer", tokenizer_probe),
-        ):
-            self.health.register(name, probe)
+            async def embedding_probe(ctx: TrustedContext) -> dict[str, object]:
+                if self.native_embedding:
+                    return await self.native_embedding.health(ctx)
+                return {"state": "unknown"}
 
-        if remember_factory is not None:
-            remember_factory.attach(self)
+            async def vector_probe(ctx: TrustedContext) -> dict[str, object]:
+                if self.owned_vectors:
+                    return cast(dict[str, object], await self.owned_vectors.health(ctx))
+                return {"state": "unknown"}
+
+            async def reranker_probe(ctx: TrustedContext) -> dict[str, object]:
+                if self.owned_reranker:
+                    return await self.owned_reranker.health(ctx)
+                return {
+                    "state": "disabled"
+                    if self.recall_settings.rerank_policy == "disabled"
+                    else "unknown"
+                }
+
+            async def tokenizer_probe(ctx: TrustedContext) -> dict[str, object]:
+                return {
+                    "state": "available"
+                    if self.recall.tokenizer.count("健康检测") > 0
+                    else "unavailable",
+                    "tokenizer_id": self.recall.tokenizer.identifier,
+                }
+
+            for name, probe in (
+                ("database", database_probe),
+                ("logs", log_probe),
+                ("executor", executor_probe),
+                ("extraction", extraction_probe),
+                ("embedding", embedding_probe),
+                ("vectors", vector_probe),
+                ("reranker", reranker_probe),
+                ("tokenizer", tokenizer_probe),
+            ):
+                self.health.register(name, probe)
+
+            if remember_factory is not None:
+                remember_factory.attach(self)
+        except BaseException:
+            # Preserve the initialization failure after attempting every close.
+            with suppress(BaseException):
+                self.close()
+            raise
 
     def enable_generation_recall(
         self,
@@ -323,12 +330,12 @@ class ThreeFlows:
         probe: Probe | None = None,
     ) -> None:
         # 仅在启动装配时启用新流程：调用方必须提供完整 B 接口及匹配的模型空间。
-        # 存在运行中请求时拒绝切换，防止同一请求跨越两套组包和授权策略。
+        # 重启仅恢复已绑定的同一策略；运行中请求不能切换组包和授权策略。
         """Bootstrap-only opt-in. B providers are required; no fake compatibility stamps."""
         from aether_agent_memory.recall.basic.candidates import MemoryCandidates
         from aether_agent_memory.recall.basic.generation import GenerationRecall
-        from aether_agent_memory.recall.basic.generation_search import SQLiteGenerationSearch
         from aether_agent_memory.recall.embedding.spaces import EmbeddingSpaces
+        from aether_agent_memory.runtime.temporal.recall import recall_binding
 
         if isinstance(self.recall, GenerationRecall):
             raise ValueError("generation Recall is already configured")
@@ -349,17 +356,16 @@ class ThreeFlows:
             self.native_embedding is not None and space != self.native_embedding.space
         ):
             raise ValueError("new Recall space must match the configured embedding")
-        with self.foundation.uow.transaction() as tx:
-            if any(
-                row["record"]["state"] in {"accepted", "running"}
-                for _, row in tx.rows("recall_requests")
-            ):
-                raise ValueError("cannot switch Recall while requests are running")
         if search is None and isinstance(self.vectors, MilvusVectors):
             from aether_agent_memory.recall.basic.milvus_generation import MilvusGenerationSearch
 
             search = MilvusGenerationSearch(self.vectors)
-        vectors = search or SQLiteGenerationSearch(self.foundation.uow, self.foundation.identity)
+        generation_search_factory = getattr(self.vectors, "generation_search", None)
+        if search is None and callable(generation_search_factory):
+            search = generation_search_factory()
+        if search is None:
+            raise ValueError("an explicit generation search provider is required")
+        vectors = search
         candidates = MemoryCandidates(
             self.foundation.uow,
             self.foundation.identity,
@@ -368,7 +374,26 @@ class ThreeFlows:
             qualification,
             EmbeddingSpaces((space,)),
         )
-        self.recall = GenerationRecall(self.recall, candidates, bodies, guards)
+        configured = GenerationRecall(self.recall, candidates, bodies, guards)
+        with self.foundation.uow.transaction() as tx:
+            for recall_id, row in tx.rows("recall_requests"):
+                if row["record"]["state"] not in {"accepted", "running"}:
+                    continue
+                saved = tx.read("tasks", recall_id)
+                task = TaskRecord.model_validate(saved["record"]) if saved else None
+                value = tx.get(task.input_ref) if task is not None else None
+                if (
+                    getattr(self, "execution", None) is not None
+                    or task is None
+                    or task.task_id != recall_id
+                    or task.kind != "recall.execute"
+                    or value is None
+                    or value.get("recall_id") != recall_id
+                    or fingerprint(value) != task.input_hash
+                    or value.get("binding") != recall_binding(configured)
+                ):
+                    raise ValueError("cannot switch Recall while requests are running")
+        self.recall = configured
         self.recall.memories = memories
         for provider, name in (
             (vectors, "generation_search"),
@@ -420,12 +445,14 @@ class ThreeFlows:
         # Closing must work when PG is down, and one failed provider must not
         # abandon the pool or other clients before Service releases ownership.
         for resource in (
+            getattr(self, "health", None),
             self.native_embedding,
             self.owned_reranker,
             self.owned_vectors,
+            getattr(self, "executor", None),
             self.foundation,
         ):
-            if resource is not None:
+            if resource is not None and hasattr(resource, "close"):
                 try:
                     resource.close()
                 except BaseException as exc:

@@ -1,5 +1,6 @@
 """Remember implementations of the existing generation Recall contracts."""
 
+import asyncio
 from typing import Any, Literal
 
 from aether_agent_memory.remember.contracts.foundation import (
@@ -23,7 +24,8 @@ from aether_agent_memory.runtime.contracts.models import (
 from aether_agent_memory.runtime.contracts.ports import Transaction
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
 from aether_agent_memory.runtime.foundation.requests import select_scope
-from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction, native
+from aether_agent_memory.runtime.foundation.transactions import native
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 from .records import required_record
 from .service import memory_ref
@@ -34,6 +36,14 @@ class RememberBoundary:
         self.remember = remember
 
     async def projection_readiness(
+        self,
+        ctx: TrustedContext,
+        selection: ScopeSelector,
+        memory_source: Literal["working", "long_term"],
+    ) -> ProjectionReadiness:
+        return await asyncio.to_thread(self._projection_readiness, ctx, selection, memory_source)
+
+    def _projection_readiness(
         self,
         ctx: TrustedContext,
         selection: ScopeSelector,
@@ -105,7 +115,7 @@ class RememberBoundary:
         if len({r.model_dump_json() for r in refs}) != len(refs):
             raise FoundationError(ErrorCode.INVALID_ARGUMENT, "duplicate memory references")
 
-    def guard_in(self, tx: SQLiteTransaction, ctx: TrustedContext, ref: MemoryRef) -> GuardStamp:
+    def guard_in(self, tx: MetadataTransaction, ctx: TrustedContext, ref: MemoryRef) -> GuardStamp:
         owner = self.remember
         owner.identity.authorize(tx, ctx, Permission.READ, memory_ref(ref))
         if owner.final_guard(tx, ctx, (ref,), "recall").items[0].decision != "allowed":
@@ -123,6 +133,14 @@ class RememberBoundary:
         )
 
     async def qualify(
+        self,
+        ctx: TrustedContext,
+        targets: tuple[CandidateQualificationTarget, ...],
+        purpose: Literal["recall", "extraction"],
+    ) -> tuple[CandidateQualificationResult, ...]:
+        return await asyncio.to_thread(self._qualify, ctx, targets, purpose)
+
+    def _qualify(
         self,
         ctx: TrustedContext,
         targets: tuple[CandidateQualificationTarget, ...],

@@ -12,8 +12,8 @@ from test_temporal_http import configuration, headers, wait_ready
 
 from aether_agent_memory.recall.contracts.models import RecallRequest
 from aether_agent_memory.runtime.contracts.models import EffectStatus
-from aether_agent_memory.runtime.flows.application import Service
 from aether_agent_memory.runtime.temporal.models import StepResult
+from azure_component_service import Service
 
 
 def until(check, seconds=60):
@@ -146,13 +146,22 @@ def test_http_control_reaches_original_workflow_after_ack_loss(
             assert len(tx.rows("temporal_control_intents")) == 1
 
 
-def test_closed_original_control_is_reported_and_never_restarted(tmp_path, temporal_server):
+@pytest.mark.parametrize("diagnose_first", [False, True])
+def test_closed_original_control_is_reported_and_never_restarted(
+    tmp_path, temporal_server, diagnose_first
+):
     service = Service(configuration(tmp_path, temporal_server.endpoint))
     with TestClient(service.app()) as client:
         wait_ready(client, service)
-        # Admit a real job while its lane is deliberately paused at the Worker boundary.
-        worker = service.execution.workers
-        client.portal.call(worker.stop)
+
+        # Stop supervision before pausing workers: stopping only the Worker now
+        # deliberately triggers its supervisor to restart it.
+        async def pause_execution():
+            service.execution.stopped.set()
+            await service.execution.runner
+            await service.execution.workers.stop()
+
+        client.portal.call(pause_execution)
         job = service.execution.recall.accept(
             service.runtime.foundation.identity.context("alice"),
             RecallRequest(query="closed", sources="long_term", selection={}),
@@ -178,13 +187,37 @@ def test_closed_original_control_is_reported_and_never_restarted(tmp_path, tempo
                     reason="original chain",
                 ),
             )
+        if diagnose_first:
+            from aether_agent_memory.runtime.temporal.models import WorkflowBinding
+            from aether_agent_memory.runtime.temporal.periodic import PeriodicActivities
+
+            original = WorkflowBinding.model_validate(binding)
+            status = client.portal.call(service.execution.gateway.describe, original)
+            assert status.state == "terminated"
+            with service.runtime.foundation.uow.transaction() as tx:
+                PeriodicActivities(service.execution.ledger, service.execution.gateway).diagnose(
+                    tx, original, status
+                )
         client.portal.call(service.execution.bridge.flush)
         result = client.get("/p3/controls/closed-control", headers=headers())
         assert result.status_code == 200, result.text
         assert result.json()["state"] == "failed"
-        assert "CLOSED" in result.json()["reason"] or "INVALID_ARGUMENT" in result.json()["reason"]
+        assert result.json()["reason"] == (
+            "BUSINESS_TECHNICAL_STATE_MISMATCH"
+            if diagnose_first
+            else "CONTROL_NOT_DELIVERED:INVALID_ARGUMENT"
+        )
         with service.runtime.foundation.uow.transaction() as tx:
             assert tx.read("temporal_bindings", job.job_id)["binding"] == binding
+            assert len(tx.rows("temporal_control_intents")) == 1
+            task = tx.read("tasks", job.job_id)
+            if diagnose_first:
+                assert task["record"]["state"] == "failed"
+                assert task["record"]["error_code"] == "EXECUTION_INTERRUPTED"
+                assert task["terminal_reason"] == "BUSINESS_TECHNICAL_STATE_MISMATCH"
+        description = client.portal.call(handle.describe)
+        assert description.status.name == "TERMINATED"
+        assert description.run_id == binding["current_run_id"]
 
 
 def test_periodic_controls_require_deployment_operator_and_keep_chain(tmp_path, temporal_server):

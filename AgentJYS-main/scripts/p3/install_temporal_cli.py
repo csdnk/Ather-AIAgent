@@ -3,7 +3,6 @@
 import argparse
 import hashlib
 import io
-import os
 import platform
 import tarfile
 import urllib.request
@@ -26,16 +25,18 @@ ARCHIVES = {
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--directory", required=True, type=Path)
+    parser.add_argument("--target-platform", choices=sorted(ARCHIVES),
+                        default=platform.system(), help="Download Linux CLI assets from Windows")
     args = parser.parse_args()
-    if platform.machine().lower() not in {"amd64", "x86_64"} or platform.system() not in ARCHIVES:
+    if platform.machine().lower() not in {"amd64", "x86_64"}:
         parser.error("this pinned package supports Windows/Linux AMD64")
-    archive, digest = ARCHIVES[platform.system()]
+    archive, digest = ARCHIVES[args.target_platform]
     url = f"https://github.com/temporalio/cli/releases/download/v{VERSION}/temporal_cli_{VERSION}_{archive}"
     with urllib.request.urlopen(url, timeout=60) as response:
         raw = response.read()
     if hashlib.sha256(raw).hexdigest() != digest:
         raise ValueError("Temporal CLI release checksum differs")
-    name = "temporal.exe" if os.name == "nt" else "temporal"
+    name = "temporal.exe" if args.target_platform == "Windows" else "temporal"
     if archive.endswith("zip"):
         with zipfile.ZipFile(io.BytesIO(raw)) as package:
             binary = package.read(name)

@@ -6,8 +6,8 @@ import json
 
 import pytest
 
-from aether_agent_memory.b1.models import EmbeddingRecord
 from aether_agent_memory.p2.client import P2GrpcClient
+from aether_agent_memory.p2.models import EmbeddingRecord
 
 
 class _Message:
@@ -19,6 +19,7 @@ class _Proto:
     GetObjectRangeRequest = _Message
     CreateCollectionRequest = _Message
     InsertVectorRequest = _Message
+    DeleteVectorsRequest = _Message
     VectorRecord = _Message
     SearchVectorRequest = _Message
     ListSegmentsRequest = _Message
@@ -209,3 +210,159 @@ async def test_p2_client_exposes_segment_control_with_route_epoch() -> None:
     assert [call[0] for call in _SegmentStub.calls] == ["list", "freeze", "complete", "failed"]
     assert _SegmentStub.calls[1][1].expected_route_epoch == 4
     assert _SegmentStub.calls[2][1].expected_route_epoch == 4
+
+
+# Sync channels are owned independently of asyncio channels and enforce deadlines.
+def test_sync_object_client_reads_and_writes_without_asyncio_channel():
+    from types import SimpleNamespace
+
+    class SyncObjectStub:
+        def __init__(self):
+            self.data = None
+            self.calls = []
+
+        def CreateBucket(self, request, *, timeout):
+            self.calls.append(("bucket", request.bucket, timeout))
+
+        def PutObject(self, request, *, timeout):
+            self.calls.append(("put", request.key, timeout))
+            self.data = request.data
+            return _Message(
+                bucket=request.bucket,
+                key=request.key,
+                etag="etag",
+                size=len(request.data),
+                md5_hex=None,
+                blake3_hex=None,
+            )
+
+        def GetObject(self, request, *, timeout):
+            self.calls.append(("get", request.key, timeout))
+            return _Message(data=self.data)
+
+    stub = SyncObjectStub()
+    client = P2GrpcClient("fixture", timeout_seconds=2)
+    client._sync_channel = object()
+    client._sync_pb = SimpleNamespace(
+        CreateBucketRequest=_Message, PutObjectRequest=_Message, GetObjectRequest=_Message
+    )
+    client._sync_grpc = SimpleNamespace(ObjectServiceStub=lambda channel: stub)
+    meta = client.put_object_sync("input", b"immutable bytes")
+    assert meta.size == 15
+    assert client.get_object_sync("input") == b"immutable bytes"
+    assert all(call[2] == 2 for call in stub.calls)
+    assert client._channel is None
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize(
+    "outcome", ["confirmed", "delayed", "different_bytes", "different_key", "missing", "denied"]
+)
+async def test_uncertain_object_write_reads_original_result_without_repeating_write(
+    asynchronous, outcome
+):
+    from types import SimpleNamespace
+
+    import grpc
+
+    from aether_agent_memory.p2.client import P2UnavailableError
+
+    class WriteFailure(grpc.RpcError):
+        def code(self):
+            return (
+                grpc.StatusCode.PERMISSION_DENIED
+                if outcome == "denied"
+                else grpc.StatusCode.INTERNAL
+            )
+
+    class NotVisibleYet(grpc.RpcError):
+        def code(self):
+            return grpc.StatusCode.NOT_FOUND
+
+    failure = WriteFailure()
+    calls = []
+    metadata = _Message(bucket="p3-memory", key="original", etag="actual-etag", size=4)
+    if outcome == "different_key":
+        metadata.key = "foreign"
+
+    def create(request, *, timeout):
+        calls.append("create")
+
+    def write(request, *, timeout):
+        calls.append("put")
+        assert request.key == "original" and request.data == b"body"
+        raise failure
+
+    def read(request, *, timeout):
+        calls.append("get")
+        assert request.key == "original" and request.bucket == "p3-memory"
+        if outcome == "missing":
+            raise failure
+        if outcome == "delayed" and calls.count("get") == 1:
+            raise NotVisibleYet()
+        return _Message(
+            data=b"different" if outcome == "different_bytes" else b"body", meta=metadata
+        )
+
+    async def create_async(*args, **kwargs):
+        return create(*args, **kwargs)
+
+    async def write_async(*args, **kwargs):
+        return write(*args, **kwargs)
+
+    async def read_async(*args, **kwargs):
+        return read(*args, **kwargs)
+
+    stub = SimpleNamespace(
+        CreateBucket=create_async if asynchronous else create,
+        PutObject=write_async if asynchronous else write,
+        GetObject=read_async if asynchronous else read,
+    )
+    client = P2GrpcClient("component", timeout_seconds=0.05)
+    proto = SimpleNamespace(
+        CreateBucketRequest=_Message, PutObjectRequest=_Message, GetObjectRequest=_Message
+    )
+    if asynchronous:
+        client._channel = object()
+        client._pb, client._grpc = proto, SimpleNamespace(ObjectServiceStub=lambda channel: stub)
+    else:
+        client._sync_channel = object()
+        client._sync_pb = proto
+        client._sync_grpc = SimpleNamespace(ObjectServiceStub=lambda channel: stub)
+
+    async def invoke():
+        if asynchronous:
+            return await client.put_object("original", b"body")
+        return client.put_object_sync("original", b"body")
+
+    if outcome in {"confirmed", "delayed"}:
+        result = await invoke()
+        assert result.etag == "actual-etag" and result.key == "original" and result.size == 4
+    else:
+        with pytest.raises((grpc.RpcError, P2UnavailableError)):
+            await invoke()
+    assert calls[:2] == ["create", "put"]
+    if outcome == "missing":
+        assert calls[2:] and set(calls[2:]) == {"get"}
+    else:
+        expected_reads = [] if outcome == "denied" else ["get"] * (2 if outcome == "delayed" else 1)
+        assert calls[2:] == expected_reads
+
+
+@pytest.mark.parametrize("confirmed", [0, 2])
+async def test_delete_rejects_incomplete_or_unbound_acknowledgement(confirmed):
+    from types import SimpleNamespace
+
+    from aether_agent_memory.p2.client import P2UnavailableError
+
+    class DeleteStub:
+        async def DeleteVectors(self, request, *, timeout):
+            assert request.ids == ["vector1"]
+            return _Message(deleted=confirmed)
+
+    client = P2GrpcClient("fixture")
+    client._channel = object()
+    client._pb = _Proto
+    client._grpc = SimpleNamespace(VectorServiceStub=lambda channel: DeleteStub())
+    with pytest.raises(P2UnavailableError):
+        await client.delete_vectors(["vector1"])
