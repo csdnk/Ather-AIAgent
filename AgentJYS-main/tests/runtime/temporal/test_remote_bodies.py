@@ -8,34 +8,16 @@ from aether_agent_memory.remember.basic.content import Bodies
 from aether_agent_memory.remember.basic.policy import RememberPolicy
 from aether_agent_memory.runtime.contracts.models import ErrorCode, Scope
 from aether_agent_memory.runtime.foundation.common import FoundationError
-from azure_test_runtime import create_runtime
-
-
-class RemoteObjects:
-    endpoint = "p2.internal:50051"
-    bucket = "test-memory"
-
-    def __init__(self):
-        self.data = {}
-
-    def put_object_sync(self, key, value):
-        if key in self.data and self.data[key] != value:
-            raise ValueError("immutable key conflict")
-        self.data[key] = value
-
-    def get_object_sync(self, key):
-        return self.data.get(key)
+from azure_test_runtime import create_runtime, objects_for_path, owned
 
 
 def test_remote_body_binding_does_not_depend_on_worker_local_directory(tmp_path):
-    objects = RemoteObjects()
     database = tmp_path / "test.db"
     first = create_runtime(
         database,
         tmp_path / "a-cache",
         body_root=tmp_path / "a-body",
         embedding_profile="injected",
-        p2=objects,
     )
     first.close()
     second = create_runtime(
@@ -43,30 +25,31 @@ def test_remote_body_binding_does_not_depend_on_worker_local_directory(tmp_path)
         tmp_path / "b-cache",
         body_root=tmp_path / "b-body",
         embedding_profile="injected",
-        p2=objects,
     )
     second.close()
 
 
 def test_remote_body_hash_and_existence_are_checked_even_with_local_spool(tmp_path):
-    objects = RemoteObjects()
+    objects = objects_for_path(tmp_path / "objects")
     bodies = Bodies(tmp_path / "derived", RememberPolicy(), p2=objects)
     scope = Scope(tenant_id="t1", application_id="a1", user_id="u1", agent_id="bot")
     location = bodies.stage(scope, "durable body")
     assert bodies.read_local(location) == "durable body"
     bodies.path(location).write_text("durable body", encoding="utf-8")
-    objects.data.clear()
+    objects.delete_object_sync(location.object_key)
     with pytest.raises(FoundationError) as error:
         bodies.read_local(location)
     assert error.value.code in {ErrorCode.NOT_FOUND, ErrorCode.DEPENDENCY_UNAVAILABLE}
-    objects.data[location.object_key] = b"tampered"
+    assert objects.get_object_sync(location.object_key) is None
+    # Own address was deleted first: publish independently hashed wrong bytes so
+    # the body layer must still reject a transport-valid but domain-invalid body.
+    objects.put_object_sync(location.object_key, b"tampered")
     with pytest.raises(FoundationError) as error:
         bodies.read_local(location)
     assert error.value.code == ErrorCode.CONTRACT_VIOLATION
 
 
-def test_pg_remote_body_reopens_without_spool_and_reads_outside_transaction(tmp_path):
-    import os
+def test_pg_remote_body_reopens_without_spool_and_reads_outside_transaction(tmp_path, monkeypatch):
     from uuid import uuid4
 
     from aether_agent_memory.remember.contracts.models import (
@@ -78,16 +61,14 @@ def test_pg_remote_body_reopens_without_spool_and_reads_outside_transaction(tmp_
     from aether_agent_memory.runtime.foundation.common import now
     from aether_agent_memory.runtime.foundation.requests import text_hash
 
-    dsn = os.environ.get("P3_TEST_STATE_DSN")
-    assert dsn, "real PostgreSQL is required"
-    objects = RemoteObjects()
+    database = tmp_path / "not-created.db"
+    dsn = owned().dsn(database)
     first = create_runtime(
         tmp_path / "not-created.db",
         tmp_path / "a-cache",
         body_root=tmp_path / "a-body",
         postgres_dsn=dsn,
         embedding_profile="injected",
-        p2=objects,
     )
     token = uuid4().hex
     principal = Principal(
@@ -106,14 +87,6 @@ def test_pg_remote_body_reopens_without_spool_and_reads_outside_transaction(tmp_
         content=TextInput(kind="text", text="遠端 postgres Ceph immutable source"),
     )
 
-    # The port implementation verifies bytes before publication.
-    async def get_object(key):
-        return objects.get_object_sync(key)
-
-    async def put_object(key, data):
-        objects.put_object_sync(key, data)
-
-    objects.get_object, objects.put_object = get_object, put_object
     import asyncio
 
     receipt = asyncio.run(first.remember.save(ctx, request))
@@ -125,18 +98,18 @@ def test_pg_remote_body_reopens_without_spool_and_reads_outside_transaction(tmp_
         body_root=tmp_path / "b-body",
         postgres_dsn=dsn,
         embedding_profile="injected",
-        p2=objects,
     )
-    original = objects.get_object_sync
+    transport = second.remember.bodies.p2.transport.client
+    original = transport.get_object
     calls = []
 
-    def no_transaction_read(key):
+    def no_transaction_read(**kwargs):
         with second.foundation.uow.transaction() as tx:
             tx.write("remote_read_probe", uuid4().hex, {"ok": True})
-        calls.append(key)
-        return original(key)
+        calls.append(kwargs["Key"])
+        return original(**kwargs)
 
-    objects.get_object_sync = no_transaction_read
+    monkeypatch.setattr(transport, "get_object", no_transaction_read)
     try:
         ctx = second.foundation.identity.context(token)
         item = second.remember.get(ctx, receipt.memories[0].memory_id)
@@ -159,7 +132,7 @@ def test_async_hydration_does_not_replay_external_effects(tmp_path):
     from aether_agent_memory.runtime.contracts.models import Principal, TrustedContext
 
     scope = Scope(tenant_id="t", application_id="a", user_id="u", agent_id="b")
-    bodies = Bodies(tmp_path / "body", RememberPolicy())
+    bodies = Bodies(tmp_path / "body", RememberPolicy(), p2=objects_for_path(tmp_path / "objects"))
     calls = []
 
     @hydrate_metadata_reads
@@ -188,7 +161,7 @@ def test_async_hydration_does_not_replay_external_effects(tmp_path):
 
 
 def test_pg_authority_never_writes_local_replica_even_on_reconciliation(tmp_path):
-    objects = RemoteObjects()
+    objects = objects_for_path(tmp_path / "objects")
     bodies = Bodies(tmp_path / "body", RememberPolicy(), p2=objects)
     bodies.remote_only = True
     scope = Scope(tenant_id="t", application_id="a", user_id="u", agent_id="b")
@@ -198,9 +171,8 @@ def test_pg_authority_never_writes_local_replica_even_on_reconciliation(tmp_path
     assert bodies.verified_text(location) == "same verified bytes"
 
 
-def test_guard_checks_metadata_without_fetching_body_after_restart(tmp_path):
+def test_guard_checks_metadata_without_fetching_body_after_restart(tmp_path, monkeypatch):
     import asyncio
-    import os
     from uuid import uuid4
 
     from aether_agent_memory.remember.contracts.models import (
@@ -211,17 +183,7 @@ def test_guard_checks_metadata_without_fetching_body_after_restart(tmp_path):
     from aether_agent_memory.runtime.contracts.models import Permission, Principal, ScopeSelector
     from aether_agent_memory.runtime.foundation.common import now
 
-    dsn = os.environ.get("P3_TEST_STATE_DSN")
-    assert dsn, "real PostgreSQL is required"
-    objects = RemoteObjects()
-
-    async def get_object(key):
-        return objects.get_object_sync(key)
-
-    async def put_object(key, data):
-        objects.put_object_sync(key, data)
-
-    objects.get_object, objects.put_object = get_object, put_object
+    dsn = owned().dsn(tmp_path / "absent.db")
     scope = Scope(tenant_id="guard-" + uuid4().hex, application_id="a", user_id="u", agent_id="b")
     token = uuid4().hex
     principal = Principal(
@@ -230,7 +192,7 @@ def test_guard_checks_metadata_without_fetching_body_after_restart(tmp_path):
         home_scope=scope,
         permissions=tuple(Permission),
     )
-    options = dict(postgres_dsn=dsn, embedding_profile="injected", p2=objects)
+    options = dict(postgres_dsn=dsn, embedding_profile="injected")
     first = create_runtime(tmp_path / "absent.db", tmp_path / "a-cache", **options)
     first.foundation.identity.provision([(sha256(token.encode()).hexdigest(), principal)])
     ctx = first.foundation.identity.context(token)
@@ -251,6 +213,11 @@ def test_guard_checks_metadata_without_fetching_body_after_restart(tmp_path):
     )
     first.close()
     second = create_runtime(tmp_path / "absent.db", tmp_path / "b-cache", **options)
+
+    def unavailable(**kwargs):
+        raise AssertionError("metadata authorization fetched a remote body")
+
+    monkeypatch.setattr(second.remember.bodies.p2.transport.client, "get_object", unavailable)
     try:
         ctx = second.foundation.identity.context(token)
         with second.foundation.uow.transaction() as tx:

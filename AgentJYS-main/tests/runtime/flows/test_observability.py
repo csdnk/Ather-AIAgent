@@ -7,9 +7,12 @@ import subprocess
 import sys
 from contextlib import contextmanager
 from hashlib import sha256
+from pathlib import Path
 
 import psycopg
 import pytest
+import remember_helpers
+from remember_helpers import facts
 from test_flows import app as app
 from test_flows import context, drain, save, source
 
@@ -17,7 +20,10 @@ from aether_agent_memory.recall.contracts.models import RecallRequest
 from aether_agent_memory.remember.contracts.models import RememberRequest, TextInput
 from aether_agent_memory.runtime.contracts.models import Permission, ScopeSelector
 from aether_agent_memory.runtime.foundation.common import FoundationError
-from azure_test_runtime import Telemetry, ThreeFlows
+from aether_agent_memory.runtime.foundation.postgres_telemetry import PostgresTelemetry
+from azure_test_runtime import create_runtime, owned
+
+pipeline_app = remember_helpers.app
 
 
 async def test_health_metadata_waits_keep_transport_responsive(app, monkeypatch):
@@ -51,7 +57,10 @@ def records(host, ctx, trace_id):
         after = page["next_after"]
 
 
-def test_trace_survives_restart_and_reaches_automatic_operate(app, temporal_server):
+def test_trace_survives_restart_and_reaches_automatic_operate(
+    pipeline_app, temporal_server, monkeypatch
+):
+    app = pipeline_app
     ctx = context(app)
     receipt = asyncio.run(
         app.remember.save(
@@ -63,34 +72,144 @@ def test_trace_survives_restart_and_reaches_automatic_operate(app, temporal_serv
             ),
         )
     )
-    restarted = ThreeFlows(app.foundation.uow.path, app.executor.root, embedding_profile="injected")
+    from aether_agent_memory.operate.basic.continuous import ContinuousOperate
+
+    restarted = create_runtime(
+        app.foundation.uow.path,
+        app.foundation.uow.path.parent / "cache",
+        embedding_profile="injected",
+        operate_factory=ContinuousOperate,
+    )
     from temporal_test_support import seed_driver
 
     seed_driver(restarted, temporal_server)
     try:
-        restarted.executor.drop_next_response = True
+        drain(restarted)
+        from aether_agent_memory.operate.basic.maintenance import CacheMaintenance
+        from aether_agent_memory.operate.basic.temporal_stages import RepairStages
+
+        item = restarted.remember.get(context(restarted), facts(restarted, receipt)[0].memory_id)
+        cache = restarted.executor.cache
+        key, field, _ = cache.keys(item.ref.scope, item.content_hash)
+        assert cache.client.hget(key, field) == item.content.encode()
+        cache.client.hset(key, field, b"corrupt")
+        repair_ctx = context(restarted).model_copy(update={"trace_id": ctx.trace_id})
+        maintenance = CacheMaintenance(restarted)
+        samples = asyncio.run(maintenance.sample(repair_ctx))
+        incidents = [
+            incident
+            for subject, sample in samples
+            for incident in restarted.foundation.dispositions.observe(repair_ctx, subject, sample)
+        ]
+        incident = next(
+            i for i in incidents if i.subject.object_id == restarted.executor.key(item.ref)
+        )
+        with restarted.foundation.uow.transaction() as tx:
+            job_id = tx.read("incidents", incident.incident_id)["task_id"]
+            expected_jobs = {tx.read("incidents", i.incident_id)["task_id"]: i for i in incidents}
+        repair, reconcile = restarted.executor.repair, RepairStages.reconcile
+        repairs, reconciliations = [], []
+
+        def lost_confirmation(item, operation_id, ctx=None):
+            repair(item, operation_id, ctx)
+            repairs.append(operation_id)
+            raise OSError("lost real Redis repair acknowledgement")
+
+        async def observed_reconcile(stages, step):
+            reconciliations.append(step.job.job_id)
+            return await reconcile(stages, step)
+
+        monkeypatch.setattr(restarted.executor, "repair", lost_confirmation)
+        monkeypatch.setattr(RepairStages, "reconcile", observed_reconcile)
         drain(restarted)
         logs = records(restarted, context(restarted), ctx.trace_id)
+        directory = os.environ.get("P3_DIAGNOSTIC_ROOT")
+        if directory:
+            tag = os.environ.get("P3_DIAGNOSTIC_TAG", "trace")
+            (Path(directory) / (tag + "-trace-diagnostic.json")).write_text(
+                json.dumps(
+                    dict(
+                        logs=logs,
+                        repairs=repairs,
+                        reconciliations=reconciliations,
+                        incidents=[i.model_dump(mode="json") for i in incidents],
+                    )
+                ),
+                encoding="utf-8",
+            )
+        # This manually committed sample contains both references to the digest.
+        # Each actual incident must submit exactly once and reconcile its own ID.
+        assert len(expected_jobs) == len(incidents) == 2
+        assert len(repairs) == len(set(repairs)) == len(expected_jobs)
+        assert set(repairs) == set(expected_jobs) <= set(reconciliations)
+        assert restarted.executor.repair_record(job_id) == (
+            item.ref.model_dump_json(),
+            item.content_hash,
+        )
+        assert cache.client.hget(key, field) == item.content.encode()
+        with restarted.foundation.uow.transaction() as tx:
+            for original_job, original_incident in expected_jobs.items():
+                repaired = tx.read("incidents", original_incident.incident_id)["record"]
+                assert repaired["state"] == "resolved"
+                assert repaired["verification"] == "passed" and repaired["verification_refs"]
+                assert restarted.foundation.tasks.load(tx, original_job)[1].state == "succeeded"
         names = {r["node"] for r in logs}
         assert {
             "remember.save",
-            "remember.run",
+            "remember.generate_extraction",
             "extraction.extract",
             "embedding.embed",
+            "remember.generate_projection",
             "vectors.project",
+            "remember.commit_projection",
             "runtime.temporal.step",
             "operate.submit_evaluation",
-            "executor.submit",
-            "executor.verify_read",
+            "executor.observe",
+            "executor.resources",
         } <= names
-        assert {"operate.reconcile", "executor.query"} <= names
+        assert job_id in json.dumps(logs)
+        starts = {
+            r["span_id"]: r["input"]
+            for r in logs
+            if r["node"] == "runtime.temporal.step" and r["phase"] == "started"
+        }
+        interrupted = {
+            starts[r["span_id"]]["task_id"]
+            for r in logs
+            if r["node"] == "runtime.temporal.step"
+            and r["phase"] == "returned"
+            and r["span_id"] in starts
+            and starts[r["span_id"]]["stage"] == "repair"
+            and starts[r["span_id"]]["mode"] == "execute"
+            and r["output"]["outcome"] == "query"
+            and r["output"]["effect_status"] == "unknown"
+            and r["output"]["reason_code"] == "PROVIDER_INTERRUPTED"
+        }
+        reconciled = {
+            starts[r["span_id"]]["task_id"]
+            for r in logs
+            if r["node"] == "runtime.temporal.step"
+            and r["phase"] == "returned"
+            and r["span_id"] in starts
+            and starts[r["span_id"]]["stage"] == "repair"
+            and starts[r["span_id"]]["mode"] == "reconcile"
+            and r["output"]["outcome"] == "done"
+            and r["output"]["effect_status"] == "confirmed"
+        }
+        assert interrupted == reconciled == set(expected_jobs), (
+            "every lost acknowledgement needs persisted unknown-effect and original-ID recovery"
+        )
         producer_spans = {r["span_id"] for r in logs if r["node"] == "runtime.tasks.enqueue"}
         invoke_spans = {
             r["span_id"]
             for r in logs
             if r["node"] == "runtime.temporal.step" and r["parent_span_id"] in producer_spans
         }
-        assert any(r["parent_span_id"] in invoke_spans for r in logs if r["node"] == "remember.run")
+        assert any(
+            r["parent_span_id"] in invoke_spans
+            for r in logs
+            if r["node"] == "remember.generate_extraction"
+        )
         assert receipt.task_ids[0] in json.dumps(logs)
         assert "不要记录到技术日志的私人内容" not in json.dumps(logs, ensure_ascii=False)
         assert any(r["phase"] == "committed" for r in logs)
@@ -149,26 +268,31 @@ def test_diagnostics_require_maintenance_permission(app):
 
 def test_process_kill_leaves_open_span_not_success(app, tmp_path):
     ctx = context(app)
-    path = tmp_path / "crash.logs.db"
+    path = tmp_path / "crash.logs"
+    dsn = owned().dsn(str(path) + ".logs")
     script = """
-import os,sys
-from aether_agent_memory.runtime.foundation.telemetry import Telemetry
+import json,os,sys
+from aether_agent_memory.runtime.foundation.postgres_telemetry import PostgresTelemetry
 from aether_agent_memory.runtime.contracts.models import TrustedContext
-log=Telemetry(sys.argv[1])
-with log.span(TrustedContext.model_validate_json(sys.argv[2]), 'test.crash'):
+payload=json.loads(sys.stdin.readline())
+log=PostgresTelemetry(payload['dsn'], payload['path'])
+with log.span(TrustedContext.model_validate(payload['context']), 'test.crash'):
     print('started',flush=True)
     sys.stdin.read(1)
-    os._exit(23)  # Abrupt process death: no span/database cleanup.
+    os._exit(23)  # Abrupt death leaves committed started evidence in real PG.
 """
-    env = {**os.environ, "PYTHONPATH": "src"}
     child = subprocess.Popen(
-        [sys.executable, "-c", script, str(path), ctx.model_dump_json()],
+        [sys.executable, "-B", "-c", script],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        env=env,
+        env=dict(os.environ),
     )
+    child.stdin.write(
+        json.dumps(dict(dsn=dsn, path=str(path), context=ctx.model_dump(mode="json"))) + "\n"
+    )
+    child.stdin.flush()
     try:
         assert child.stdout.readline().strip() == "started"
         # Windows virtualenv Popen may target a launcher, not the Python worker.
@@ -179,7 +303,7 @@ with log.span(TrustedContext.model_validate_json(sys.argv[2]), 'test.crash'):
         if child.poll() is None:
             child.kill()
             child.communicate(timeout=10)
-    log = Telemetry(path)
+    log = PostgresTelemetry(dsn, path)
     try:
         page = log.page(ctx, ctx.trace_id)
         assert page["overview"]["open_span_count"] == 1
@@ -206,7 +330,7 @@ def test_async_cancellation_is_logged(app):
     assert any(r["phase"] == "cancelled" for r in records(app, ctx, ctx.trace_id))
 
 
-def test_health_observes_dependencies_worker_staleness_and_no_recovery(app):
+def test_health_observes_dependencies_worker_staleness_and_no_recovery(app, monkeypatch):
     ctx = context(app)
     first = asyncio.run(app.health.report(ctx))
     assert first["runtime"]["worker_state"] == "unavailable"
@@ -217,7 +341,11 @@ def test_health_observes_dependencies_worker_staleness_and_no_recovery(app):
     assert (
         healthy["runtime"]["worker_state"] == "unavailable"
     )  # Ephemeral test Workers have stopped.
-    app.vectors.available = False
+
+    def unavailable(**kwargs):
+        raise OSError("controlled real Milvus collection probe outage")
+
+    monkeypatch.setattr(app.vectors.client, "has_collection", unavailable)
     with app.foundation.uow.transaction() as tx:
         for key, row in tx.rows("workers"):
             tx.write("workers", key, {**row, "last_seen": "2000-01-01T00:00:00.000000Z"})
@@ -258,10 +386,14 @@ def test_working_health_requires_vector_dependencies_without_blocking_saved_body
     assert "无糖咖啡" in body.content
 
 
-def test_recall_trace_keeps_dependency_failure_without_lexical_fallback(app):
+def test_recall_trace_keeps_dependency_failure_without_lexical_fallback(app, monkeypatch):
     save(app)
     drain(app)
-    app.vectors.available = False
+
+    def unavailable(**kwargs):
+        raise OSError("controlled real Milvus search outage")
+
+    monkeypatch.setattr(app.vectors.client, "search", unavailable)
     ctx = context(app)
     with pytest.raises(FoundationError) as failure:
         asyncio.run(

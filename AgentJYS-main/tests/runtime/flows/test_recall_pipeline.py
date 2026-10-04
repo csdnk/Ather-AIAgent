@@ -125,16 +125,28 @@ def test_delete_during_rerank_blocks_context_commit(app):
 def test_source_timeout_preserves_working_and_records_reason(app, monkeypatch):
     save(app)
     drain(app)
-    app.recall.sources.settings = RecallSettings(source_timeout_seconds=0.01)
+    # A real Azure working-source baseline keeps the 10ms timeout test focused
+    # on the intentionally blocked long-term provider, independently of TLS latency.
+    sources = app.recall.sources
+    baseline_ctx = context(app)
+    baseline_request = RecallRequest(
+        query="我喜欢无糖咖啡", sources="both", selection=ScopeSelector(session_id="session_1")
+    )
+    working = asyncio.run(sources.working(baseline_ctx, baseline_request))
+    assert working.candidates and working.coverage == "complete"
+    sources.settings = RecallSettings(source_timeout_seconds=0.01)
 
-    original = app.vectors.search
+    async def confirmed_working(ctx, request):
+        assert request.query == baseline_request.query
+        assert request.selection == baseline_request.selection
+        return working
 
-    async def slow(ctx, request):
-        if request.memory_source == "long_term":
-            await asyncio.sleep(1)
-        return await original(ctx, request)
+    async def slow_long_term(ctx, request, recall_id):
+        await asyncio.sleep(1)
+        raise AssertionError("slow source must have been cancelled by its budget")
 
-    monkeypatch.setattr(app.vectors, "search", slow)
+    monkeypatch.setattr(sources, "working", confirmed_working)
+    monkeypatch.setattr(sources, "long_term", slow_long_term)
     pack = recall(app, sources="both", selection=ScopeSelector(session_id="session_1"))
     assert pack.outcome == "degraded"
     assert "long_term:source_timeout" in pack.degradation_reasons

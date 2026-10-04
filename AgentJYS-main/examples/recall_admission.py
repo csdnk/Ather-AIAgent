@@ -1,15 +1,22 @@
-"""Run with: python examples/recall_admission.py (installed project required).
+"""Admission-only example using real PostgreSQL, with trusted inputs on stdin.
 
-Uses ONLY test doubles; no model inference, database or external writes.
+Input JSON contains postgres_dsn and authorization_snapshots. The latter are
+verified setup evidence, supplied by the developer's trusted authority adapter.
+Ordinary HTTP input must never provision its own authorization. Use a personal
+p3_dev_ or p3_test_ database. This example writes admission records, starts their
+execution state, and closes the database connection; it does not produce context.
+See docs/recall_admission_first_batch.md for invocation and payload requirements.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+import sys
 from datetime import timedelta
 
-from aether_agent_memory.mocks.recall import InMemoryRecallRecords, StaticRecallAuthority
+from psycopg.conninfo import conninfo_to_dict
+
 from aether_agent_memory.recall.admission import (
     RecallAdmissionService,
     RecallAuthorization,
@@ -19,76 +26,98 @@ from aether_agent_memory.recall.admission import (
 )
 from aether_agent_memory.recall.execution import RecallExecutionService
 from aether_agent_memory.recall.store import RecordRecallExecutionStore
-from aether_agent_memory.runtime.contract_types import Scope, utcnow
+from aether_agent_memory.runtime.contract_types import utcnow
+from aether_agent_memory.runtime.foundation.postgres import PostgresCapabilityStore
+
+
+class StoredAuthorization:
+    """Read independently provisioned proof; unknown evidence fails closed."""
+
+    def __init__(self, records: PostgresCapabilityStore) -> None:
+        self.records = records
+
+    async def authorize(self, request: RecallInput) -> RecallAuthorization:
+        with self.records.transaction() as tx:
+            raw = tx.get(
+                "recall_example_authorizations", request.principal_ref, request.authorization_ref
+            )
+        if raw is None:
+            raise RecallError("AUTHORITY_UNKNOWN")
+        return RecallAuthorization.model_validate_json(raw)
 
 
 async def main() -> None:
+    payload = json.loads(sys.stdin.readline())
+    dsn = payload["postgres_dsn"]
+    database = conninfo_to_dict(dsn).get("dbname", "")
+    if not database.startswith(("p3_dev_", "p3_test_")):
+        raise ValueError("the example requires a personal p3_dev_ or p3_test_ database")
+    snapshots = payload["authorization_snapshots"]
+    if not 1 <= len(snapshots) <= 5:
+        raise ValueError("supply one to five independently verified authorization snapshots")
     policy = RecallPolicy(
-        tokenizer_id="fixture-tokenizer",
+        tokenizer_id="example-tokenizer",
         tokenizer_version="1",
         template_version="1",
-        retrieval_space_ref="fixture-space",
+        retrieval_space_ref="example-space",
     )
-    for name, current, working, long_term in (
-        ("combined", True, True, True),
-        ("working_only", True, True, False),
-        ("long_term_only", False, False, True),
-        ("scope_denied", True, False, False),
-        ("authority_unknown", True, None, True),
-    ):
-        scope = Scope(
-            tenant_id="fixture-tenant",
-            project_id=None,
-            agent_id="fixture-agent",
-            session_id="fixture-session" if current else None,
-            task_id=None,
-        )
-        authority = StaticRecallAuthority(
-            RecallAuthorization(
-                scope=scope,
-                principal_ref="fixture-principal",
-                evidence_ref="fixture-proof",
-                scope_valid=True,
-                working_read=working,
-                long_term_read=long_term,
-                valid_until=utcnow() + timedelta(seconds=30),
-            )
-        )
-        store = RecordRecallExecutionStore(InMemoryRecallRecords())
+    records = PostgresCapabilityStore(dsn)
+    try:
+        authority = StoredAuthorization(records)
+        store = RecordRecallExecutionStore(records)
         service = RecallAdmissionService(None, authority, policy, execution_store=store)
-        request = RecallInput(
-            request_id=name,
-            trace_id=name,
-            query="这个项目之前定过哪些约定？",
-            scope=scope,
-            principal_ref="fixture-principal",
-            authorization_ref="fixture-proof",
-            idempotency_key=name,
-            deadline_at=utcnow() + timedelta(seconds=5),
-            token_budget=128,
-        )
-        try:
-            admitted = await service.admit(request)
-            execution = RecallExecutionService(store).start(
-                scope.tenant_id,
-                admitted.request.recall_id,
-                owner="fixture-worker",
-            )
-            print(
-                json.dumps(
-                    {
-                        "scenario": name,
-                        "mode": admitted.request.retrieval_mode,
-                        "state": execution.state,
-                        "recall_id": execution.recall_id,
-                        "context_produced": False,
-                        "backend": "test-double",
-                    },
-                    ensure_ascii=False,
+        for row in snapshots:
+            evidence = RecallAuthorization.model_validate(row["authorization"])
+            with records.transaction() as tx:
+                raw = evidence.model_dump_json()
+                prior = tx.get(
+                    "recall_example_authorizations", evidence.principal_ref, evidence.evidence_ref
                 )
+                if prior is not None and prior != raw:
+                    raise ValueError("example authorization proof changed; use fresh evidence IDs")
+                tx.put(
+                    "recall_example_authorizations",
+                    evidence.principal_ref,
+                    evidence.evidence_ref,
+                    raw,
+                )
+            request = RecallInput(
+                request_id=row["scenario"],
+                trace_id=row["scenario"],
+                query="这个项目之前定过哪些约定？",
+                scope=evidence.scope,
+                principal_ref=evidence.principal_ref,
+                authorization_ref=evidence.evidence_ref,
+                idempotency_key=row["scenario"],
+                deadline_at=utcnow() + timedelta(seconds=5),
+                token_budget=128,
             )
-        except RecallError as exc:
-            print(json.dumps({"scenario": name, "rejected": exc.code}, ensure_ascii=False))
+            try:
+                admitted = await service.admit(request)
+                execution = RecallExecutionService(store).start(
+                    evidence.scope.tenant_id, admitted.request.recall_id, owner="example-worker"
+                )
+                print(
+                    json.dumps(
+                        dict(
+                            scenario=row["scenario"],
+                            mode=admitted.request.retrieval_mode,
+                            state=execution.state,
+                            recall_id=execution.recall_id,
+                            context_produced=False,
+                            backend="postgresql",
+                        ),
+                        ensure_ascii=False,
+                    )
+                )
+            except RecallError as exc:
+                print(
+                    json.dumps(
+                        dict(scenario=row["scenario"], rejected=exc.code), ensure_ascii=False
+                    )
+                )
+    finally:
+        records.close()
 
 
 if __name__ == "__main__":

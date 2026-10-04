@@ -131,7 +131,17 @@ def stop(directory):
         end = time.monotonic() + 20
         while time.monotonic() < end:
             if status(directory)["state"] == "stopped":
-                return {"state": "stopped", "ready": False}
+                # The control socket closes before the owner has terminated its
+                # child and released the store. Keep command ownership until
+                # the acknowledged owner's actual directory lock is available.
+                server = DirectoryLock()
+                try:
+                    server.acquire(directory / "server-lock")
+                except RuntimeError:
+                    pass
+                else:
+                    server.release()
+                    return {"state": "stopped", "ready": False}
             time.sleep(0.1)
         raise TimeoutError("Temporal owner did not stop")
     finally:

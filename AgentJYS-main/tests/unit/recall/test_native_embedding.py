@@ -104,6 +104,24 @@ def request_for(binding, text="input", usage="Query"):
     )
 
 
+def test_request_expired_before_creation_reports_deadline(model, monkeypatch):
+    backend = native.NativeEmbeddingBackend(native.NativeEmbeddingSettings(backend="openvino"))
+    try:
+        binding = binding_for(backend)
+        # The deadline was valid when admitted, but preprocessing/metadata work
+        # consumed it before the compute request was created. No inference may run.
+        monkeypatch.setattr(
+            "aether_agent_memory.recall.embedding.service.utcnow",
+            lambda: utcnow() + timedelta(seconds=60),
+        )
+        with pytest.raises(SemanticEmbeddingError) as error:
+            request_for(binding)
+        assert error.value.code == "EMBEDDING_DEADLINE_EXCEEDED"
+        assert model[1] == []
+    finally:
+        backend.shutdown()
+
+
 async def test_native_formats_usage_normalizes_and_saves_evidence(model):
     engine, calls = model
     backend = native.NativeEmbeddingBackend(

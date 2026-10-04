@@ -9,6 +9,7 @@ from test_ledger import admit, delivery
 from test_ledger import foundation as foundation
 from test_ledger import ledger as ledger
 
+from aether_agent_memory.remember.contracts.models import MemoryRef
 from aether_agent_memory.runtime.contracts.models import EffectStatus, TaskState
 from aether_agent_memory.runtime.temporal.bridge import IntentBridge
 from aether_agent_memory.runtime.temporal.gateway import TemporalGateway
@@ -167,15 +168,18 @@ async def test_p3_periodic_routes_keep_due_items_and_exclude_external_repair(per
         "temporal_maintenance_principals",
         "temporal_bindings",
     }
-    with runtime.executor.db() as db:
-        copy = db.execute(
-            "SELECT tier FROM copies WHERE key=?", (runtime.executor.key(item.ref),)
-        ).fetchone()
+    copy = next((copy for copy in runtime.executor.copies() if copy.memory == item.ref), None)
+    # One Redis digest can back distinct Working and episodic memory copies.
+    affected = {
+        copy.memory.model_dump_json()
+        for copy in runtime.executor.copies()
+        if copy.memory.scope == item.ref.scope and copy.content_hash == item.content_hash
+    }
+    assert item.ref.model_dump_json() in affected and len(affected) == 2
     assert copy is not None
-    if copy:
-        from aether_agent_memory.operate.contracts.models import Tier
-
-        runtime.executor.path(item.ref, Tier(copy[0])).write_bytes(b"corrupt")
+    cache = runtime.executor.cache
+    key, field, _ = cache.keys(item.ref.scope, copy.content_hash)
+    cache.client.hset(key, field, b"corrupt")
     runtime.foundation.tasks.on_admitted = ledger.bind_admitted
     commit, prepare = runner.routes["temporal_maintenance_principals"]
 
@@ -203,7 +207,11 @@ async def test_p3_periodic_routes_keep_due_items_and_exclude_external_repair(per
                 for _, row in tx.rows("tasks")
                 if row["record"]["kind"] == "operate_repair_cache"
             ]
-            assert len(repairs) == 1
+            assert len(repairs) == len(affected)
+            targets = {row["record"]["subject"]["object_id"] for row in repairs}
+            assert targets == {
+                runtime.executor.key(MemoryRef.model_validate_json(ref)) for ref in affected
+            }
 
 
 @pytest.mark.asyncio
@@ -213,7 +221,6 @@ async def test_cache_sampling_skips_early_ticks_without_delaying_due_checks(
     from test_operate_workflow import memory
 
     from aether_agent_memory.operate.basic.maintenance import CacheMaintenance
-    from aether_agent_memory.operate.contracts.models import Tier
     from aether_agent_memory.runtime.foundation.common import later, now
     from aether_agent_memory.runtime.temporal.config import TemporalConfiguration
     from aether_agent_memory.runtime.temporal.gateway import connect_client
@@ -231,6 +238,12 @@ async def test_cache_sampling_skips_early_ticks_without_delaying_due_checks(
     runner = api.PeriodicActivities(ledger, TemporalGateway(client, ledger))
     api.register_p3_periodic(runner, runtime, maintenance, ("alice",))
     runtime.foundation.tasks.on_admitted = ledger.bind_admitted
+    affected = {
+        copy.key
+        for copy in runtime.executor.copies()
+        if copy.memory.scope == item.ref.scope and copy.content_hash == item.content_hash
+    }
+    assert runtime.executor.key(item.ref) in affected and len(affected) == 2
     started = stamp = now()
     monkeypatch.setattr(runtime.foundation.tasks, "clock", lambda: stamp)
 
@@ -253,11 +266,9 @@ async def test_cache_sampling_skips_early_ticks_without_delaying_due_checks(
         assert initial[sample_id]["observation"]["value"] == "healthy"
         assert tx.rows("incidents") == []
 
-    with runtime.executor.db() as db:
-        tier = db.execute(
-            "SELECT tier FROM copies WHERE key=?", (runtime.executor.key(item.ref),)
-        ).fetchone()[0]
-    runtime.executor.path(item.ref, Tier(tier)).write_bytes(b"corrupt")
+    cache = runtime.executor.cache
+    key, field, _ = cache.keys(item.ref.scope, item.content_hash)
+    cache.client.hset(key, field, b"corrupt")
 
     # A one-second periodic tick must not submit a five-second signal early.
     for number, elapsed in ((1, 1), (2, 4.999)):
@@ -279,8 +290,9 @@ async def test_cache_sampling_skips_early_ticks_without_delaying_due_checks(
         assert observation["observed_at"] == stamp
         assert observation["value"] == "corrupt"
         incidents = tx.rows("incidents")
-        assert len(incidents) == 1
-        assert incidents[0][1]["record"]["subject"]["object_id"] == runtime.executor.key(item.ref)
+        assert len(incidents) == len(affected)
+        assert {row["record"]["subject"]["object_id"] for _, row in incidents} == affected
+        assert all(row["record"]["state"] == "recovering" for _, row in incidents)
 
 
 @pytest.mark.asyncio
@@ -390,6 +402,10 @@ async def test_periodic_cache_sampling_keeps_signal_cadence_across_operators(
     commit, prepare = runner.routes["temporal_maintenance_principals"]
 
     prepared = await prepare("alice")
+    # Both real prepares precede the first commit. Only committed samples can
+    # throttle prepare, while commit must reject a competing early refresh.
+    stamp = later(stamp, 1)
+    bob_prepared = await prepare("bob")
     with runtime.foundation.uow.transaction() as tx:
         commit(tx, "alice", 1, prepared)
         samples = tx.rows("signal_samples")
@@ -402,8 +418,7 @@ async def test_periodic_cache_sampling_keeps_signal_cadence_across_operators(
     with pytest.raises(FoundationError) as error, runtime.foundation.uow.transaction() as tx:
         commit(tx, "alice", 1, (ctx, ([(subject, conflicting)], cursor_key, cursor)))
     assert error.value.code == ErrorCode.VERSION_CONFLICT
-    stamp = later(stamp, 1)
-    prepared = await prepare("bob")
+    prepared = bob_prepared
     assert prepared[1][0], "the second operator must actually inspect the shared cache"
     assert baseline_subjects & {
         fingerprint(subject.model_dump(mode="json")) for subject, _ in prepared[1][0]

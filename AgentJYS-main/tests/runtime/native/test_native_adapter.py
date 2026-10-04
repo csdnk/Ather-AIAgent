@@ -11,8 +11,19 @@ from aether_agent_memory.recall.contracts.models import EmbeddingRequest
 from aether_agent_memory.recall.embedding import p3
 from aether_agent_memory.recall.embedding.service import ComputedEmbedding, SemanticEmbeddingError
 from aether_agent_memory.runtime.contracts.models import Permission, Principal, Scope
+from aether_agent_memory.runtime.flows.host import ThreeFlows
 from aether_agent_memory.runtime.foundation.common import FoundationError, later, now
-from azure_test_runtime import ThreeFlows
+from azure_test_runtime import provider_options
+from controlled_embedding import ControlledEmbedding
+
+
+def open_host(path, cache_root, **kwargs):
+    # Exercise the production default profile; only its native compute boundary is controlled.
+    options = dict(provider_options(path))
+    options.pop("p2")
+    options.pop("body_cache")
+    options.update(kwargs)
+    return ThreeFlows(path, cache_root, **options)
 
 
 class Backend:
@@ -69,7 +80,7 @@ def app(monkeypatch, tmp_path):
     monkeypatch.setattr(Backend, "change", None)
     monkeypatch.setattr(Backend, "failure", None)
     monkeypatch.setattr(Backend, "delay", 0)
-    host = ThreeFlows(tmp_path / "p3.db", tmp_path / "cache")
+    host = open_host(tmp_path / "p3.db", tmp_path / "cache")
     host.foundation.identity.provision(
         [
             (
@@ -111,7 +122,7 @@ def test_space_reports_loaded_tokenizer_limit(monkeypatch, tmp_path):
     # 公布的上限必须来自实际后端，不能把较宽的配置值当成模型真实能力。
     monkeypatch.setattr(p3, "NativeEmbeddingBackend", Backend)
     monkeypatch.setattr(Backend, "max_input_tokens", 256)
-    host = ThreeFlows(tmp_path / "limited.db", tmp_path / "cache")
+    host = open_host(tmp_path / "limited.db", tmp_path / "cache")
     try:
         assert host.native_embedding.space.max_input_tokens == 256
     finally:
@@ -142,7 +153,7 @@ def test_query_passage_binding_mismatch_closes_backends(monkeypatch, tmp_path):
     monkeypatch.setattr(p3, "NativeEmbeddingBackend", MismatchedBackend)
     MismatchedBackend.closed_count = 0
     with pytest.raises(FoundationError, match="query/passage"):
-        ThreeFlows(tmp_path / "mismatch.db", tmp_path / "cache")
+        open_host(tmp_path / "mismatch.db", tmp_path / "cache")
     assert MismatchedBackend.closed_count == 2
 
 
@@ -241,7 +252,15 @@ def test_native_deadline_is_enforced(app, monkeypatch):
     req = request(app, ctx).model_copy(update={"deadline_at": later(now(), 0.02)})
     with pytest.raises(FoundationError) as error:
         asyncio.run(app.embedding.embed(ctx, req))
-    assert error.value.code == "DEADLINE_EXCEEDED"
+    assert error.value.code == "DEADLINE_EXCEEDED", (
+        repr(error.value),
+        repr(error.value.__cause__),
+        [
+            (type(cause).__name__, str(cause))
+            for cause in (error.value.__cause__, getattr(error.value.__cause__, "__cause__", None))
+            if cause is not None
+        ],
+    )
 
 
 def test_long_input_rejected_without_truncation_or_backend_call(app):
@@ -256,11 +275,16 @@ def test_changed_model_rejected_without_relabeling_existing_database(app, monkey
         old = tx.read("settings", "p3_embedding_binding")
     monkeypatch.setattr(Backend, "model_version", "c" * 64)
     with pytest.raises(FoundationError):
-        ThreeFlows(app.foundation.uow.path, app.executor.root)
+        open_host(app.foundation.uow.path, app.foundation.uow.path.parent / "cache")
     with app.foundation.uow.transaction() as tx:
         assert tx.read("settings", "p3_embedding_binding") == old
 
 
 def test_native_database_cannot_silently_switch_to_lexical(app):
-    with pytest.raises(ValueError):
-        ThreeFlows(app.foundation.uow.path, app.executor.root, embedding_profile="injected")
+    with pytest.raises(ValueError, match="bound to another embedding model space"):
+        open_host(
+            app.foundation.uow.path,
+            app.foundation.uow.path.parent / "cache",
+            embedding_profile="injected",
+            embedding=ControlledEmbedding(),
+        )

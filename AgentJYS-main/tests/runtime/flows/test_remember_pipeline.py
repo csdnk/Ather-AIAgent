@@ -226,34 +226,32 @@ def test_compression_ratio_and_independent_quality_gate(app, passed, ratio_ok, p
     assert facts(app, receipt)  # Compression rejection never blocks extraction.
 
 
-def test_p2_failure_never_returns_saved_and_verified_read_repairs_replica(app):
-    class P2:
-        fail = True
-        data = {}
+def test_p2_failure_never_returns_saved_and_verified_read_repairs_replica(app, monkeypatch):
+    bodies = app.remember.bodies
+    transport = bodies.p2.transport.client
 
-        async def get_object(self, key):
-            if self.fail:
-                raise OSError("P2 unavailable")
-            return self.data.get(key)
+    def unavailable(**kwargs):
+        raise OSError("controlled Ceph read failure")
 
-        async def put_object(self, key, data):
-            self.data[key] = data
-
-    p2 = P2()
-    app.remember.bodies.p2 = p2
-    with pytest.raises(FoundationError):
-        save(app, "P2 original", operation="p2_save")
+    with monkeypatch.context() as fault:
+        fault.setattr(transport, "get_object", unavailable)
+        with pytest.raises(FoundationError) as error:
+            save(app, "P2 original", operation="p2_save")
+        assert error.value.code == "DEPENDENCY_UNAVAILABLE"
     with app.foundation.uow.transaction() as tx:
         assert tx.rows("remember_current") == []
-    p2.fail = False
     receipt = save(app, "P2 original", operation="p2_save")
     with app.foundation.uow.transaction() as tx:
         raw = tx.get(memory_ref(receipt.memories[0], versioned=True))
     record = MemoryRecord.model_validate(raw)
-    app.remember.bodies.path(record.body_location).write_text("corrupt", encoding="utf-8")
+    assert bodies.remote_only and not bodies.path(record.body_location).exists()
+    cache = bodies.cache
+    key, field, _ = cache.keys(record.ref.scope, record.body_location.content_hash)
+    cache.client.hset(key, field, b"corrupt")
     body = asyncio.run(app.remember.read_body(context(app), receipt.memories[0]))
-    assert body.outcome == "read" and body.content == "P2 original" and body.path == "p2"
+    assert body.outcome == "read" and body.content == "P2 original" and body.path == "authority"
     drain(app)
+    assert cache.raw_sync(record.ref.scope, record.body_location.content_hash) == b"P2 original"
 
 
 def test_redis_full_body_quota_hash_and_delete(app, azure_redis):
@@ -311,12 +309,14 @@ def test_delete_every_chunk_and_tombstone_late_write(app):
     receipt = save(app, "rollback evidence " * 250)
     drain(app)
     ref = facts(app, receipt)[0]
-    with app.foundation.uow.transaction() as tx:
-        rows = [
-            row
-            for _, row in tx.rows("recall_vectors")
-            if row["target"]["memory"] == ref.model_dump(mode="json")
-        ]
+    rows = app.vectors.client.query(
+        collection_name=app.vectors.collection,
+        filter='target["memory"]["memory_id"] == "' + ref.memory_id + '"',
+        output_fields=["target", "vector"],
+        limit=100,
+        consistency_level="Strong",
+        timeout=10,
+    )
     assert len(rows) > 1
     item = app.remember.get(context(app), ref.memory_id)
     app.remember.delete(
@@ -325,12 +325,23 @@ def test_delete_every_chunk_and_tombstone_late_write(app):
         DeleteRequest(expected_revision=item.object_revision, reason="forget event"),
     )
     drain(app)
+    actual = app.vectors.client.query(
+        collection_name=app.vectors.collection,
+        filter='target["memory"]["memory_id"] == "' + ref.memory_id + '"',
+        output_fields=["target"],
+        limit=100,
+        consistency_level="Strong",
+        timeout=10,
+    )
+    assert actual == []
     with app.foundation.uow.transaction() as tx:
-        assert not [
-            row
-            for _, row in tx.rows("recall_vectors")
-            if row["target"]["memory"] == ref.model_dump(mode="json")
-        ]
+        assert all(
+            tx.read(
+                app.vectors.projection_namespace,
+                ProjectionTarget.model_validate(row["target"]).vector_id,
+            )["deleted"]
+            for row in rows
+        )
     from aether_agent_memory.remember.contracts.models import ProjectionRequest
 
     with pytest.raises(FoundationError):
@@ -352,8 +363,6 @@ def test_unicode_token_chunks_cover_every_character(app):
     pieces = chunks(text, app.remember.tokenizer.count, 8)
     assert "".join(s for _, _, s in pieces) == text
     assert all(text[a:b] == s and app.remember.tokenizer.count(s) <= 8 for a, b, s in pieces)
-
-
 
 
 def test_explicit_review_creates_semantic_without_overwriting_episode(app):

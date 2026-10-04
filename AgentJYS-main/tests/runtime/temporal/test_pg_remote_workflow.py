@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import os
 from hashlib import sha256
 from uuid import uuid4
 
@@ -28,45 +27,13 @@ from aether_agent_memory.runtime.temporal.ledger import ExecutionLedger
 from aether_agent_memory.runtime.temporal.registry import StageRegistry
 from aether_agent_memory.runtime.temporal.remember import register_remember
 from aether_agent_memory.runtime.temporal.worker import WorkerHost
-from azure_test_runtime import create_runtime
-
-
-class ImmutableObjects:
-    endpoint = "shared.controlled.internal:50051"
-    bucket = "closure"
-    immutable_write_replay_safe = True
-
-    def __init__(self):
-        self.data = {}
-
-    def put_object_sync(self, key, value):
-        if key in self.data and self.data[key] != value:
-            raise ValueError("immutable conflict")
-        self.data[key] = value
-
-    def get_object_sync(self, key):
-        return self.data.get(key)
-
-    async def get_object(self, key):
-        return self.get_object_sync(key)
-
-    async def put_object(self, key, value):
-        return self.put_object_sync(key, value)
+from azure_test_runtime import create_runtime, owned
 
 
 @pytest.mark.asyncio
 async def test_pg_admission_other_worker_and_restart_correction(tmp_path, workflow_client):
-    dsn = os.environ.get("P3_TEST_STATE_DSN")
-    assert dsn, "real PostgreSQL required"
-    import psycopg
-    from psycopg import sql
-    from psycopg.conninfo import make_conninfo
-
-    schema = "closure_" + uuid4().hex
-    with psycopg.connect(dsn, autocommit=True) as connection:
-        connection.execute(sql.SQL("CREATE SCHEMA {} ").format(sql.Identifier(schema)))
-    dsn = make_conninfo(dsn, options="-csearch_path=" + schema)
-    objects = ImmutableObjects()
+    dsn = owned().dsn(tmp_path / "shared-metadata")
+    namespace = "test-" + uuid4().hex
     deployment = "pg-" + uuid4().hex
     endpoint = workflow_client.service_client.config.target_host
     config = TemporalConfiguration(deployment_id=deployment, endpoint=endpoint)
@@ -82,15 +49,16 @@ async def test_pg_admission_other_worker_and_restart_correction(tmp_path, workfl
 
     def instance(name):
         folder = tmp_path / name
+        owned().provider_namespaces[str((folder / "not-created.db").resolve())] = namespace
         runtime = create_runtime(
             folder / "not-created.db",
             folder / "cache",
             body_root=folder / "bodies",
             postgres_dsn=dsn,
             embedding_profile="injected",
-            p2=objects,
         )
         hosts.append(runtime)
+        objects = runtime.remember.bodies.p2
         ledger = ExecutionLedger(runtime.foundation.tasks, config)
         inputs = InputStore(
             runtime.foundation.uow, runtime.foundation.identity, folder / "inputs", objects=objects
@@ -180,10 +148,6 @@ async def test_pg_admission_other_worker_and_restart_correction(tmp_path, workfl
 
 @pytest.mark.asyncio
 async def test_pg_periodic_hydrates_without_committing_probe_effects(tmp_path, workflow_client):
-    import psycopg
-    from psycopg import sql
-    from psycopg.conninfo import make_conninfo
-
     from aether_agent_memory.operate.basic.continuous import ContinuousOperate
     from aether_agent_memory.operate.basic.maintenance import CacheMaintenance
     from aether_agent_memory.remember.basic.policy import RememberPolicy
@@ -195,18 +159,14 @@ async def test_pg_periodic_hydrates_without_committing_probe_effects(tmp_path, w
         register_p3_periodic,
     )
 
-    dsn = os.environ.get("P3_TEST_STATE_DSN")
-    assert dsn
-    schema = "periodic_" + uuid4().hex
-    with psycopg.connect(dsn, autocommit=True) as connection:
-        connection.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
-    dsn = make_conninfo(dsn, options="-csearch_path=" + schema)
-    objects = ImmutableObjects()
+    dsn = owned().dsn(tmp_path / "shared-metadata")
+    namespace = "test-" + uuid4().hex
+    for name in ("first", "second"):
+        owned().provider_namespaces[str((tmp_path / name / "none.db").resolve())] = namespace
     policy = RememberPolicy(consolidation_messages=1000, consolidation_seconds=3600)
     options = dict(
         postgres_dsn=dsn,
         embedding_profile="injected",
-        p2=objects,
         remember_policy=policy,
         operate_factory=ContinuousOperate,
     )

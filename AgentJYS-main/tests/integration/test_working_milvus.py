@@ -115,6 +115,52 @@ def recall(client, query, *, session="s1", user="alice", sources="working"):
             "token_budget": 1000,
         },
     )
+    if response.status_code != 200:
+        directory = os.environ.get("P3_DIAGNOSTIC_ROOT")
+        if directory:
+            service = client.app.state.service
+            rf = service.runtime.foundation
+            job_id = response.headers.get("x-p3-job-id")
+            with rf.uow.transaction() as tx:
+                tables = {
+                    name: tx.rows(name)
+                    for name in (
+                        "recall_requests",
+                        "recall_stages",
+                        "tasks",
+                        "temporal_bindings",
+                        "temporal_diagnostics",
+                        "temporal_steps",
+                    )
+                }
+            rows = []
+            for name, records in tables.items():
+                for key, row in records:
+                    if job_id is None or job_id in json.dumps(row):
+                        rows.append(dict(table=name, key=key, record=row))
+            logs = []
+            with service.runtime.foundation.telemetry.reader() as connection:
+                logs = [
+                    row[0]
+                    for row in connection.execute(
+                        "SELECT data FROM node_logs WHERE data LIKE %s ORDER BY sequence",
+                        ("%" + (job_id or "__no_job__") + "%",),
+                    ).fetchall()
+                ]
+            tag = os.environ.get("P3_DIAGNOSTIC_TAG", "working")
+            (Path(directory) / (tag + "-working-diagnostic.json")).write_text(
+                json.dumps(
+                    dict(
+                        job_id=job_id,
+                        response=response.json(),
+                        records=rows,
+                        node_logs=logs,
+                        supervisor=service.execution.state,
+                    ),
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
     assert response.status_code == 200, response.text
     return response.json()
 
@@ -312,10 +358,13 @@ def test_real_working_connection_and_service_restart(real_config):
 
     backend = service.runtime.vectors
     fresh = MilvusClient(
-        uri=os.environ["P3_TEST_MILVUS_URI"], token=os.environ["P3_TEST_MILVUS_TOKEN"],
-        db_name=backend.database, secure=True,
+        uri=os.environ["P3_TEST_MILVUS_URI"],
+        token=os.environ["P3_TEST_MILVUS_TOKEN"],
+        db_name=backend.database,
+        secure=True,
         server_pem_path=os.environ["P3_TEST_MILVUS_CA_FILE"],
-        server_name=os.environ["P3_TEST_MILVUS_SERVER_NAME"], timeout=10,
+        server_name=os.environ["P3_TEST_MILVUS_SERVER_NAME"],
+        timeout=10,
     )
     try:
         fresh.load_collection(backend.collection, timeout=10)

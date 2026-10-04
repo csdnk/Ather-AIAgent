@@ -1,5 +1,5 @@
 """Real A + Azure PostgreSQL/Milvus, strict B double. Does not implement B publication."""
-# 候选消费者测试：真实 A/RF/SQLite，编码及 B 资格使用严格替身。
+# 候选消费者测试：真实 A 与 Azure PostgreSQL/Milvus，编码及 B 资格使用严格替身。
 # 故意注入高分排除、证据错配和预算耗尽，验证 A 不会把不可信命中变成可读记忆。
 
 import asyncio
@@ -242,6 +242,7 @@ def test_corrupt_vector_rejected(app):
         row["vector"] = [1.0]
         tx.write("generation_vectors", key, row)
     from pymilvus.exceptions import MilvusException
+
     # Real Milvus rejects malformed float-vector dimensions at the write boundary.
     with pytest.raises((FoundationError, MilvusException)):
         asyncio.run(search.search(ctx, request))

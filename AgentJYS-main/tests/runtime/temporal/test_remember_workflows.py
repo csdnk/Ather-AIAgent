@@ -10,7 +10,7 @@ from test_ingress import runtime as runtime
 
 from aether_agent_memory.remember.contracts.models import RememberRequest, SourceInput, TextInput
 from aether_agent_memory.runtime.contracts.models import ScopeSelector
-from aether_agent_memory.runtime.foundation.common import now
+from aether_agent_memory.runtime.foundation.common import FoundationError, now
 from aether_agent_memory.runtime.temporal.bridge import IntentBridge
 from aether_agent_memory.runtime.temporal.config import TemporalConfiguration
 from aether_agent_memory.runtime.temporal.gateway import TemporalGateway
@@ -307,6 +307,26 @@ async def test_cleanup_of_absent_target_still_installs_tombstone(runtime, workfl
             workflow_client.get_workflow_handle(f"p3/test/{job.kind}/{job.job_id}").result(), 60
         )
         with runtime.foundation.uow.transaction() as tx:
-            assert tx.read("projection_tombstones", target.vector_id) is True
+            intent = tx.read(runtime.vectors.projection_namespace, target.vector_id)
+            assert intent["deleted"] is True
+        assert (
+            await runtime.projections.inspect(
+                runtime.foundation.identity.context("alice"), target, "absent"
+            )
+        ).state == "absent"
+        from aether_agent_memory.remember.contracts.models import ProjectionRequest
+
+        ctx = runtime.foundation.identity.context("alice")
+        with pytest.raises(FoundationError) as error:
+            await runtime.projections.project(
+                ctx,
+                ProjectionRequest(
+                    operation_id="late",
+                    target=target,
+                    vector=(1.0,) * runtime.vectors.dimensions,
+                    deadline_at=ctx.deadline_at,
+                ),
+            )
+        assert error.value.code == "IDEMPOTENCY_CONFLICT"
     finally:
         await host.stop()

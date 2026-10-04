@@ -177,9 +177,7 @@ class Semantic:
         )
 
 
-
-
-def test_authorization_does_not_require_body_replica_or_available_p2(app):
+def test_authorization_does_not_require_body_replica_or_available_p2(app, monkeypatch):
     receipt = save(app, "metadata independent authorization")
     bodies = app.remember.bodies
     ctx = context(app)
@@ -187,15 +185,25 @@ def test_authorization_does_not_require_body_replica_or_available_p2(app):
         item = app.remember.current(tx, receipt.memories[0].memory_id)
         location = bodies.location(item.ref.scope, item.content)
     assert bodies.remote_only and not bodies.path(location).exists()
-    bodies.p2.available = False
-    ctx = context(app)
-    with app.foundation.uow.transaction() as tx:
-        assert (
-            app.remember.final_guard(tx, ctx, (item.ref,), "recall").items[0].decision == "allowed"
-        )
-    with pytest.raises(FoundationError):
-        asyncio.run(app.remember.read_body(context(app), item.ref))
-    bodies.p2.available = True
+    cache = bodies.cache
+    cache.delete_sync(item.ref.scope, item.content_hash)
+    bodies.verified.clear()
+    bodies.verified_bytes = 0
+
+    def unavailable(**kwargs):
+        raise OSError("controlled Ceph read outage")
+
+    with monkeypatch.context() as fault:
+        fault.setattr(bodies.p2.transport.client, "get_object", unavailable)
+        ctx = context(app)
+        with app.foundation.uow.transaction() as tx:
+            assert (
+                app.remember.final_guard(tx, ctx, (item.ref,), "recall").items[0].decision
+                == "allowed"
+            )
+        with pytest.raises(FoundationError) as error:
+            asyncio.run(app.remember.read_body(context(app), item.ref))
+        assert error.value.code == "DEPENDENCY_UNAVAILABLE"
     assert asyncio.run(app.remember.read_body(context(app), item.ref)).content == item.content
 
 
@@ -307,8 +315,11 @@ def test_same_event_addition_produces_new_version_not_new_event(app):
     class SameOccurrenceVerifier:
         async def verify_occurrence(self, ctx, candidate, target, evidence):
             return OccurrenceVerdict(
-                equivalent=False, same_identity=True, preserves_conditions=True,
-                same_occurrence=True, candidate_quote=candidate.text,
+                equivalent=False,
+                same_identity=True,
+                preserves_conditions=True,
+                same_occurrence=True,
+                candidate_quote=candidate.text,
                 existing_quote=target.content,
                 candidate_context_quote=evidence.candidate_context.quote,
                 existing_context_quote=evidence.existing_context.quote,

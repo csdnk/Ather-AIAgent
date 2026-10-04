@@ -8,7 +8,7 @@
 
 P3 将对话、任务信息和文档保存为可追溯记忆，并按请求身份、来源、版本、有效性及 token 预算返回上下文，供上层 Agent 使用。对外业务是 **Remember（存储记忆）**和 **Recall（召回记忆）**；Operate 是内部持续运行的热度、缓存与恢复机制。
 
-**状态更新：2026-09-30。统一服务已接入 Temporal，启动时必须连接独立 Temporal Server。** 本地验证结果与未验收项见 [Temporal 工程验收](../交付成果/测试与验收/P3_Temporal接入工程验收_20260930.md)，新建与已有目录操作见 [运行和迁移指南](../交付成果/部署运行/P3_Temporal本地运行与迁移指南_20260930.md)。
+**当前服务必须连接独立 Temporal Server。** 新环境不迁移旧 SQLite 数据；统一使用完整 Azure 配置及个人数据空间。启动、测试和恢复按上面的开发指南操作；2026-09-30 的 Temporal 交付记录只代表当时的验证范围。
 
 租户入口与权限配置见 [租户与可观测性接入](docs/p3/development/12_租户入口与可观测性接入.md) 和 [Keycloak 组织成员权限](docs/p3/development/14_Keycloak原生组织成员与权限复用.md)。
 
@@ -62,7 +62,7 @@ Linux/macOS 在第二个终端重新设置前述变量，再执行：
 
 脚本会写入一条带唯一标识的测试记忆、主动结束批次、等待长期索引、查询并再次获取结果。成功输出含 `"passed": true`、`operation_id` 和 `recall_id`；不会输出凭据。测试记忆会保留在部署数据中。
 
-若要在 Web 中观察三流程运行，将命令中的 `smoke_service.py` 换为 `monitor_demo.py`。它额外验证 Working 召回、连续读取触发 Operate 自动 hot 放置、放置后的召回和三流程诊断记录，输出可在监控页查询的任务 ID 与 Trace ID。详见 [边测试边监测](web/README.md#一边运行三流程用例一边查看真实轨迹)。
+若要在 Web 中观察三流程运行，将命令中的 `scripts/p3/smoke_service.py` 换为 `scripts/p3/monitor_demo.py`。它额外验证 Working 召回、连续读取触发 Operate 自动 hot 放置、放置后的召回和三流程诊断记录，输出可在监控页查询的任务 ID 与 Trace ID。详见 [边测试边监测](web/README.md#一边运行三流程用例一边查看真实轨迹)。
 
 ## 预设对话 Web 演示
 

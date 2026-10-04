@@ -165,11 +165,14 @@ def test_jwt_uses_server_scope_and_supports_jwt_only_principal(foundation, autho
         {"aud": "another-service"},
         {"iss": "https://evil.example"},
         {"sub": "unmapped-user"},
-        {"nbf": int(time.time()) + 3600},
+        {"nbf": 3600},
         {"sub": 42},
     ],
 )
 def test_invalid_jwt_is_rejected(foundation, authority, signing_key, updates):
+    # Generate the future stamp when this test executes, after long earlier suites.
+    if "nbf" in updates:
+        updates = {**updates, "nbf": int(time.time()) + updates["nbf"]}
     auth, _ = authority
     provision(foundation)
     with pytest.raises(FoundationError) as error:
@@ -650,8 +653,8 @@ def test_startup_failure_closes_new_auth_trace_resources(tmp_path, monkeypatch):
 
     from opentelemetry.sdk.trace import TracerProvider
 
+    from aether_agent_memory.runtime.flows.host import ThreeFlows
     from aether_agent_memory.runtime.flows.jwt_auth import JWTAuthenticator
-    from azure_test_runtime import ThreeFlows
 
     # Instrument before construction: Service owns the bound closers it registers.
     for label, owner, method in (

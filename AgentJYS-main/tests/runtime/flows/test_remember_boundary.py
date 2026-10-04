@@ -135,7 +135,7 @@ def test_generation_projection_verification_and_cleanup_cover_both_local_indexes
     _, target = projection(app, ref)
     legacy = ProjectionTarget.model_validate(target.model_dump())
     with app.foundation.uow.transaction() as tx:
-        tx.raw.delete("p3_rf_generation_vectors", "system", target.vector_id)
+        tx.raw.delete("p3_rf_" + app.vectors.projection_namespace, "system", target.vector_id)
     result = asyncio.run(app.projections.inspect(context(app), legacy, "verify"))
     assert not result.searchable
     item = app.remember.get(context(app), ref.memory_id)
@@ -146,11 +146,19 @@ def test_generation_projection_verification_and_cleanup_cover_both_local_indexes
     )
     drain(app)
     with app.foundation.uow.transaction() as tx:
-        for table in ("generation_vectors", "recall_vectors"):
-            assert not any(
-                (row.get("hit") or row.get("target"))["memory"] == ref.model_dump(mode="json")
-                for _, row in tx.rows(table)
-            )
+        assert not any(
+            row["data"]["target"]["memory"] == ref.model_dump(mode="json") and not row["deleted"]
+            for _, row in tx.rows(app.vectors.projection_namespace)
+        )
+    rows = app.vectors.client.query(
+        collection_name=app.vectors.collection,
+        filter='target["memory"]["memory_id"] == "' + ref.memory_id + '"',
+        output_fields=["target"],
+        limit=100,
+        consistency_level="Strong",
+        timeout=10,
+    )
+    assert rows == []
 
 
 def test_summary_cache_fill_racing_deletion_does_not_leave_a_readable_replica(app):

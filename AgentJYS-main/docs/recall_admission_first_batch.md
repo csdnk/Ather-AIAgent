@@ -71,17 +71,37 @@ execution = RecallExecutionService(rf_execution_store).start(
 
 ## 演示与验证
 
-在已安装项目及 dev 依赖的 Python 3.13 环境运行：
+当前示例更新（2026-10-05）：`examples/recall_admission.py` 使用真实 PostgreSQL。开发者将可信配置 JSON 保存在仓库外，经 stdin 输入；DSN 不放命令参数，普通调用方不得自行填写授权证据。示例仅接受个人 `p3_dev_` 或 `p3_test_` 数据库，写入受理记录并推进执行状态，结束后关闭连接。
 
-```text
-python examples/recall_admission.py
-python -m pytest tests/unit/recall/test_execution_skeleton.py -q
-python -m pytest tests/unit/recall -q
+```powershell
+Get-Content -Raw E:/deployment/my-p3/recall-example.json | python -B examples/recall_admission.py
 ```
 
-演示输出三种检索模式的 RUNNING_REQUEST_VALIDATION，以及 SCOPE_DENIED、AUTHORITY_UNAVAILABLE 两个拒绝场景。`context_produced=false`，后端明确为 test-double。
+输入形状如下。`postgres_dsn` 由维护者安全提供，证书路径适配当前机器；`authorization_snapshots` 必须来自可信身份 adapter，真实作用域、证据编号、权限和有效期由部署方核验。每次独立运行使用新的证据与场景 ID，避免给旧执行扩大权限或期限。
 
-测试替身位于 `mocks/recall.py`，不接入 bootstrap。它只模拟单进程事务和固定授权证据，不证明数据库隔离、持久化、加密、RF 服务可用性或真实进程重启恢复。
+```json
+{
+  "postgres_dsn": "host=<Azure PG域名> port=5432 dbname=p3_dev_alice01 user=<个人role> password=<安全注入> sslmode=verify-full sslrootcert=<CA绝对路径>",
+  "authorization_snapshots": [
+    {
+      "scenario": "my_combined_example",
+      "authorization": {
+        "scope": {
+          "tenant_id": "<获授权租户>", "project_id": null,
+          "agent_id": "<获授权Agent>", "session_id": "<获授权会话>", "task_id": null
+        },
+        "principal_ref": "<已认证主体>", "evidence_ref": "<独立证据ID>",
+        "scope_valid": true, "working_read": true, "long_term_read": true,
+        "valid_until": "<当前有效的UTC时间>"
+      }
+    }
+  ]
+}
+```
+
+有效输入输出 `RUNNING_REQUEST_VALIDATION`、`context_produced=false`、`backend=postgresql`。逐来源拒绝/未知仍按受理契约失败，不以空上下文伪装成功。历史的生产 `mocks/recall.py` 已删除；有限受控模型与故障输入留在 `tests/`，用于业务契约测试，不能替代真实服务验收。
+
+测试按[Azure 开发指南](../../交付成果/部署运行/P3_Azure开发环境与AI配置指南_20261004.md)在独有 AKS Pod 运行，使用自己的真实数据库/存储范围。示例的 fresh-process 测试覆盖三模式、两拒绝及 Query/Passage 共享计算，生产 BGE 推理另有门禁。
 
 本批验收覆盖三模式、task-only、未知授权/撤权、非法筛选、服务器配置变化、显式语义冲突、同键并发、取消等待者、原子受理回包丢失、未知写不重发、独立 Worker 配额、检查点绑定/篡改、租约过期及旧 Worker 写入。标准字段与版本仍由原数据字典和已有模型维护。
 

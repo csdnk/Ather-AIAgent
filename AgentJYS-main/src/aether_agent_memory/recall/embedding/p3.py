@@ -200,7 +200,9 @@ class NativeP3Embedding:
             seconds = (
                 datetime.fromisoformat(request.deadline_at) - datetime.fromisoformat(now())
             ).total_seconds()
-            async with asyncio.timeout(max(0, seconds)):
+            if seconds <= 0:
+                raise TimeoutError("embedding deadline elapsed before compute")
+            async with asyncio.timeout(seconds):
                 items = []
                 for index, text in enumerate(request.texts):
                     native_request = make_embedding_request(
