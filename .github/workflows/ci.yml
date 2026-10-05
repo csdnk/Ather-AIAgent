@@ -8,23 +8,6 @@ defaults:
   run:
     working-directory: AgentJYS-main
 jobs:
-  web:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: AgentJYS-main/web
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: AgentJYS-main/web/package-lock.json
-      - run: npm ci
-      - run: npm run lint
-      - run: npm test
-      - run: npm run build
   python:
     runs-on: ubuntu-latest
     steps:
@@ -44,6 +27,8 @@ jobs:
         run: python -m mypy src
       - name: Check generated contracts
         run: python scripts/p3/generate_schemas.py --check
+      - name: Platform tests (external integrations explicitly opt in)
+        run: python -B -m pytest tests/platform -q -p no:cacheprovider --basetemp "${{ runner.temp }}/platform-tests"
       - name: Build Python package
         run: python -m pip wheel --no-deps --wheel-dir "${{ runner.temp }}/p3-wheels" .
       # Real storage and recovery tests run in the manually approved AKS workflow.
@@ -60,3 +45,21 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Cargo test
         run: cargo test --workspace
+
+  platform-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install web build and test dependencies outside source
+        run: npm install --prefix "${{ runner.temp }}/web-deps" --no-audit --no-fund react@19.2.0 react-dom@19.2.0 esbuild@0.28.0 jsdom@26.1.0
+      - name: Test and build Agent web
+        env:
+          AETHER_WEB_DEPENDENCIES: ${{ runner.temp }}/web-deps
+          AETHER_WEB_DIST: ${{ runner.temp }}/platform-web
+          AETHER_PUBLIC_PATH: /agent
+        run: |
+          node --test platform-web/tests/*.test.mjs
+          node scripts/platform/build_web.mjs

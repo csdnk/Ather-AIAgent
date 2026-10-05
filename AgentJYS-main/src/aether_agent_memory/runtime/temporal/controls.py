@@ -14,6 +14,7 @@ from aether_agent_memory.runtime.contracts.models import (
     Positive,
     RecordRef,
     RecoveryRequest,
+    TaskRecord,
     TrustedContext,
 )
 from aether_agent_memory.runtime.foundation.common import fingerprint, later, now
@@ -52,14 +53,19 @@ class ControlAdmission:
             if row is None:
                 tx.abort(ErrorCode.NOT_FOUND, "control operation not found")
             operation = OperationRecord.model_validate(row["record"])
-            self.tasks.identity.authorize(tx, ctx, Permission.RECOVER, operation.subject)
+            if operation.phase in {"task.cancel", "task.reconcile"} and operation.task_ids:
+                for task_id in operation.task_ids:
+                    _, task = self.tasks.load(tx, task_id)
+                    authorize_task(self.ledger, tx, ctx, task)
+            else:
+                self.tasks.identity.authorize(tx, ctx, Permission.RECOVER, operation.subject)
             return operation
 
     def task(
         self, tx: MetadataTransaction, ctx: TrustedContext, job_id: str, request: ControlRequest
     ) -> OperationRecord:
         row, task = self.tasks.load(tx, job_id)
-        self.tasks.identity.authorize(tx, ctx, Permission.RECOVER, task.subject)
+        authorize_task(self.ledger, tx, ctx, task)
         signature = fingerprint(
             [ctx.principal.principal_id, "task", job_id, request.model_dump(mode="json")]
         )
@@ -197,6 +203,15 @@ class ControlAdmission:
         return operation
 
 
+def authorize_task(
+    ledger: ExecutionLedger, tx: MetadataTransaction, ctx: TrustedContext, task: TaskRecord
+) -> None:
+    if not ledger.tasks.identity.permits_task_maintenance(
+        tx, ctx, Permission.RECOVER, task, ledger.periodic_operators
+    ):
+        tx.abort(ErrorCode.FORBIDDEN, "task control access denied")
+
+
 def authorize_delivery(
     ledger: ExecutionLedger, tx: MetadataTransaction, row: dict[str, Any]
 ) -> None:
@@ -204,7 +219,13 @@ def authorize_delivery(
         update={"deadline_at": later(ledger.tasks.clock(), 30)}
     )
     subject = RecordRef.model_validate(row["subject"])
-    ledger.tasks.identity.authorize(tx, ctx, Permission.RECOVER, subject)
+    if row["target"] == "task":
+        _, task = ledger.tasks.load(tx, row["intent"]["job_id"])
+        if task.subject != subject:
+            tx.abort(ErrorCode.VERSION_CONFLICT, "control target changed")
+        authorize_task(ledger, tx, ctx, task)
+    else:
+        ledger.tasks.identity.authorize(tx, ctx, Permission.RECOVER, subject)
     if row["target"] == "periodic" and (
         ctx.principal.principal_id not in ledger.periodic_operators
         or Permission.CONFIGURE not in ctx.principal.permissions

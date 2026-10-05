@@ -27,6 +27,22 @@ class IntentBridge:
         self._lock = asyncio.Lock()
         self._backoff: dict[str, tuple[int, float]] = {}
         self._next_kind = "control"
+        self._next_recall = True
+
+    def pop_start(self, queue: deque[tuple[str, str, Any]]) -> tuple[str, str, Any]:
+        """Alternate recall and background attempts even across one-item flushes."""
+        index = next(
+            (
+                i
+                for i, item in enumerate(queue)
+                if (item[2]["intent"]["job"].get("kind") == "recall.execute") == self._next_recall
+            ),
+            0,
+        )
+        item = queue[index]
+        del queue[index]
+        self._next_recall = item[2]["intent"]["job"].get("kind") != "recall.execute"
+        return item
 
     async def flush(self, limit: int = 100) -> int:
         if not 1 <= limit <= 1000:
@@ -42,7 +58,7 @@ class IntentBridge:
                 return (
                     [
                         ("start", key, row)
-                        for key, row in tx.pending_intent_rows("start", limit=limit)
+                        for key, row in tx.pending_intent_rows("start", limit=max(2, limit))
                     ],
                     [
                         ("control", key, row)
@@ -76,7 +92,11 @@ class IntentBridge:
                 selected = "start" if selected == "control" else "control"
             if not queues[selected]:
                 break
-            kind, key, row = queues[selected].popleft()
+            kind, key, row = (
+                self.pop_start(queues[selected])
+                if selected == "start"
+                else queues[selected].popleft()
+            )
             # Alternate attempts, including failed RPCs, across flush calls.
             # Even limit=1 or one slow start cannot indefinitely delay controls.
             self._next_kind = "start" if kind == "control" else "control"

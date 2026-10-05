@@ -1,0 +1,74 @@
+{
+  "spec": {
+    "template": {
+      "spec": {
+        "containers": [
+          {
+            "name": "identity-projection",
+            "image": "aetherp3acr-a0bne7gpetbpdcbq.azurecr.io/aether/p3:demo-db81fe0c2098-cadence-2d66c573",
+            "command": [
+              "python",
+              "-u",
+              "-m",
+              "aether_platform.projection",
+              "--config",
+              "/cloud-config/private.json",
+              "--target",
+              "/work"
+            ],
+            "env": [
+              {
+                "name": "PYTHONPATH",
+                "value": "/cloud:/work/deps"
+              },
+              {
+                "name": "PYTHONDONTWRITEBYTECODE",
+                "value": "1"
+              }
+            ],
+            "volumeMounts": [
+              {
+                "name": "work",
+                "mountPath": "/work"
+              },
+              {
+                "name": "cloud-projection",
+                "mountPath": "/cloud/aether_platform",
+                "readOnly": true
+              },
+              {
+                "name": "cloud-config",
+                "mountPath": "/cloud-config",
+                "readOnly": true
+              }
+            ],
+            "resources": {
+              "requests": {
+                "cpu": "50m",
+                "memory": "128Mi"
+              },
+              "limits": {
+                "cpu": "500m",
+                "memory": "256Mi"
+              }
+            }
+          }
+        ],
+        "volumes": [
+          {
+            "name": "cloud-projection",
+            "configMap": {
+              "name": "aether-cloud-projection"
+            }
+          },
+          {
+            "name": "cloud-config",
+            "secret": {
+              "secretName": "aether-platform-config"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

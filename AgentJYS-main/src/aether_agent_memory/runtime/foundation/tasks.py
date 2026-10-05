@@ -50,8 +50,10 @@ class Tasks:
         per_scope_running: int = 1,
         pending_limit_per_tenant: int = 300,
         per_tenant_running: int = 1,
+        maintenance_principals: tuple[str, ...] = (),
     ) -> None:
         self.uow, self.identity, self.clock = uow, identity, clock
+        self.maintenance_principals = maintenance_principals
         if (
             min(
                 lease_seconds,
@@ -398,10 +400,13 @@ class Tasks:
         self, tx: Transaction, ctx: TrustedContext, request: RecoveryRequest
     ) -> OperationRecord:
         sql = native(tx)
-        row, task = self.load(sql, request.task_id)
-        self.identity.authorize(tx, ctx, Permission.RECOVER, task.subject)
+        self.identity.revalidate(tx, ctx)
         if self.on_recovery is None:
+            _, task = self.load(sql, request.task_id)
+            self.identity.authorize(tx, ctx, Permission.RECOVER, task.subject)
             sql.abort(ErrorCode.DEPENDENCY_UNAVAILABLE, "Temporal control admission is required")
+        # The configured Temporal admission authorizes the loaded task, including
+        # narrow deployment maintenance authority, and rechecks at delivery.
         return self.on_recovery(sql, ctx, request)
 
     def close_recovery_operations(

@@ -36,3 +36,9 @@ Desktop.ini
 **/*.db-shm
 
 **/directory-client-secret
+
+# Private platform credentials and local test account passwords
+**/*.private.json
+**/*.private.yaml
+**/private.json
+**/测试账号密码_*.md

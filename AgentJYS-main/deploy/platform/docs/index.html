@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aether · P3 API 接口文档</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui.css">
+  <style>
+    body { margin: 0; background: #fafafa; font-family: system-ui, sans-serif; }
+    header { padding: 24px max(24px, calc((100% - 1460px) / 2)); background: #123f3c; color: #fff; }
+    header h1 { margin: 0 0 10px; font-size: 25px; }
+    header p { margin: 8px 0; line-height: 1.7; }
+    header a { color: #c9f4e5; margin-right: 20px; }
+    .search { display: block; margin-top: 18px; }
+    .search input { display: block; width: min(560px, 85%); margin-top: 8px; padding: 12px; border: 1px solid #b9d5d1; border-radius: 6px; font-size: 16px; }
+    #load-status { margin: 20px; color: #5b6463; }
+    .swagger-ui .information-container { margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>P3 API 接口文档</h1>
+    <p>查看当前云端 P3 的接口、请求参数、数据模型和响应结构。</p>
+    <p>此页面供平台管理员查阅，不提供在线执行接口的操作。实际调用使用获准的 API 接入方式及对应用户令牌。</p>
+    <nav><a href="/openapi.json" target="_blank" rel="noopener">查看 OpenAPI JSON</a><a href="/app/default%20workspace/aether-admin">管理后台</a><a href="/agent/">Agent</a></nav>
+    <label class="search">搜索接口<input id="api-search" type="search" placeholder="输入路径、方法或描述，例如 remember、recall、GET" disabled></label>
+  </header>
+  <p id="load-status" role="status">正在加载接口定义…</p>
+  <div id="swagger-ui"></div>
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui-bundle.js"></script>
+  <script>
+    const status = document.getElementById('load-status');
+    async function loadDocumentation() {
+      try {
+        const response = await fetch('/openapi.json', {credentials: 'same-origin'});
+        if (!response.ok || !(response.headers.get('content-type') || '').includes('application/json')) {
+          throw new Error('请先以 platform_admin 登录管理后台，再重新打开文档。');
+        }
+        const spec = await response.json();
+        if (typeof SwaggerUIBundle !== 'function') {
+          throw new Error('文档界面资源未能加载，可使用上方 OpenAPI JSON 链接查看接口定义。');
+        }
+        function render(search = '') {
+          const needle = search.trim().toLowerCase();
+          const paths = {};
+          for (const [path, item] of Object.entries(spec.paths)) {
+            const selected = {};
+            for (const [method, operation] of Object.entries(item)) {
+              if (!['get','post','put','patch','delete','head','options','trace'].includes(method)) continue;
+              const words = [path, method, operation.summary || '', operation.description || ''].join(' ').toLowerCase();
+              if (!needle || words.includes(needle)) selected[method] = operation;
+            }
+            if (Object.keys(selected).length) {
+              paths[path] = {...item, ...selected};
+              for (const method of ['get','post','put','patch','delete','head','options','trace']) {
+                if (!(method in selected)) delete paths[path][method];
+              }
+            }
+          }
+          SwaggerUIBundle({
+          spec: {...spec, paths}, dom_id: '#swagger-ui', deepLinking: true, filter: false,
+          docExpansion: 'list', supportedSubmitMethods: [], tryItOutEnabled: false,
+          validatorUrl: null, persistAuthorization: false,
+          presets: [SwaggerUIBundle.presets.apis],
+          onComplete: () => { status.hidden = true; }
+          });
+        }
+        render();
+        const search = document.getElementById('api-search');
+        search.disabled = false;
+        let timer;
+        search.addEventListener('input', () => {
+          clearTimeout(timer);
+          timer = setTimeout(() => render(search.value), 200);
+        });
+      } catch (error) {
+        status.textContent = error.message || '接口文档加载失败，请稍后刷新。';
+      }
+    }
+    loadDocumentation();
+  </script>
+</body>
+</html>

@@ -109,6 +109,8 @@ class TemporalService:
         self.periodic: PeriodicController | None = None
         self.runner: asyncio.Task[None] | None = None
         self.stopped = asyncio.Event()
+        self.wakeup = asyncio.Event()
+        self.dispatch_progress = False
         self.accepting = False
         self.checked = 0.0
         self.identity_checked = 0.0
@@ -227,7 +229,7 @@ class TemporalService:
                 if runner.done():
                     runner.result()
                     raise RuntimeError("Temporal Worker stopped")
-            await self.bridge.flush()
+            self.dispatch_progress = bool(await self.bridge.flush())
             self.state.update(
                 worker="running",
                 temporal="available",
@@ -274,14 +276,19 @@ class TemporalService:
         while not self.stopped.is_set():
             with suppress(TimeoutError):
                 await asyncio.wait_for(
-                    self.stopped.wait(), self.config.poll_seconds if self.accepting else 1
+                    self.wakeup.wait(),
+                    (0.05 if self.dispatch_progress else self.config.poll_seconds)
+                    if self.accepting
+                    else 1,
                 )
+            self.wakeup.clear()
             if not self.stopped.is_set():
                 await self.refresh()
 
     async def stop(self) -> None:
         self.accepting = False
         self.stopped.set()
+        self.wakeup.set()
         if self.runner is not None:
             self.runner.cancel()
             await asyncio.gather(self.runner, return_exceptions=True)
@@ -480,6 +487,7 @@ class TemporalService:
         http_request: HttpRequestEvidence | None = None,
     ) -> JsonValue:
         job = await asyncio.to_thread(self.accept, ctx, kind, payload, http_request=http_request)
+        self.wakeup.set()
         if headers is not None:
             headers["Location"] = f"/p3/operations/{job.job_id}"
             headers["X-P3-Job-ID"] = job.job_id

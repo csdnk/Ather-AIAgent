@@ -28,11 +28,3 @@ services:
       interval: 15s
       timeout: 5s
       retries: 3
-  web:
-    image: ${AETHER_WEB_IMAGE:?Set the validated Web image by digest}
-    restart: unless-stopped
-    depends_on:
-      p3:
-        condition: service_healthy
-    ports:
-      - "127.0.0.1:${AETHER_HOST_WEB_PORT:-3000}:80"

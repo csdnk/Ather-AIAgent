@@ -1,0 +1,702 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    aether-owner: azure-platform-release-20261005
+  name: aether-platform
+  namespace: aether-p3-demo
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: aether-platform
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: aether-platform
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - command:
+        - python
+        - -B
+        - -c
+        - 'import hashlib,json,pathlib,os
+
+          root=pathlib.Path(''/release/app'')
+
+          expected=json.load(open(''/release/files.sha256.json''))
+
+          assert all(hashlib.sha256((root/n).read_bytes()).hexdigest()==v for n,v
+          in expected.items()),''Release checksum mismatch''
+
+          os.execv(''/usr/local/bin/python'',[''python'',''-B'',''/release/app/run_cloud.py'',''--config'',''/config/private.json''])
+
+          '
+        env:
+        - name: PYTHONPATH
+          value: /release/app/src:/release/deps
+        - name: PYTHONDONTWRITEBYTECODE
+          value: '1'
+        - name: AETHER_RELEASE_SHA
+          value: 527581392066211177acb96de7bf9188ed438df22325d951878f44d7c4dde3ec
+        image: python:3.13-slim
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /agent/
+            port: 19010
+            scheme: HTTP
+          initialDelaySeconds: 20
+          periodSeconds: 15
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: aether-platform
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /agent/
+            port: 19010
+            scheme: HTTP
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: '2'
+            memory: 2Gi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsGroup: 10001
+          runAsNonRoot: true
+          runAsUser: 10001
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /release
+          name: release
+          readOnly: true
+        - mountPath: /config
+          name: config
+          readOnly: true
+        - mountPath: /identity-config
+          name: identity
+          readOnly: true
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        fsGroup: 10001
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: release
+        persistentVolumeClaim:
+          claimName: aether-platform-release
+      - name: config
+        secret:
+          defaultMode: 420
+          secretName: aether-platform-config
+      - name: identity
+        secret:
+          defaultMode: 420
+          items:
+          - key: private.json
+            path: private.json
+          secretName: aether-identity-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    aether-owner: azure-platform-release-20261005
+  name: aether-platform-db
+  namespace: aether-p3-demo
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: aether-platform-db
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: aether-platform-db
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: POSTGRES_USER
+          value: aether_lab
+        - name: POSTGRES_DB
+          value: aether_platform_lab
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: aether-platform-database
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        image: postgres:17.6
+        imagePullPolicy: IfNotPresent
+        name: aether-platform-db
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+            - -d
+            - aether_platform_lab
+          failureThreshold: 6
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        resources:
+          limits:
+            cpu: '2'
+            memory: 2Gi
+          requests:
+            cpu: 100m
+            memory: 512Mi
+        startupProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+            - -d
+            - aether_platform_lab
+          failureThreshold: 60
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: data
+        - mountPath: /docker-entrypoint-initdb.d
+          name: init
+          readOnly: true
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: aether-platform-database
+      - name: init
+        secret:
+          defaultMode: 420
+          items:
+          - key: init.sql
+            path: 01-keycloak.sql
+          secretName: aether-platform-database
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    aether-owner: azure-platform-release-20261005
+  name: aether-keycloak
+  namespace: aether-p3-demo
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: aether-keycloak
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: aether-keycloak
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - command:
+        - /opt/keycloak/bin/kc.sh
+        - start
+        - --import-realm
+        env:
+        - name: KC_DB
+          value: postgres
+        - name: KC_DB_URL
+          value: jdbc:postgresql://aether-platform-db:5432/keycloak
+        - name: KC_DB_USERNAME
+          value: keycloak
+        - name: KC_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: keycloak-password
+              name: aether-platform-database
+        - name: KC_HOSTNAME
+          value: https://aether-p3-demo-c50c3827.southeastasia.cloudapp.azure.com/identity
+        - name: KC_HTTP_ENABLED
+          value: 'true'
+        - name: KC_HTTP_RELATIVE_PATH
+          value: /identity
+        - name: KC_PROXY_HEADERS
+          value: xforwarded
+        - name: KC_HEALTH_ENABLED
+          value: 'true'
+        image: quay.io/keycloak/keycloak:26.8.0
+        imagePullPolicy: IfNotPresent
+        name: aether-keycloak
+        readinessProbe:
+          failureThreshold: 6
+          httpGet:
+            path: /identity/realms/aether-lab/.well-known/openid-configuration
+            port: 8080
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        resources:
+          limits:
+            cpu: '2'
+            memory: 2Gi
+          requests:
+            cpu: 100m
+            memory: 768Mi
+        startupProbe:
+          failureThreshold: 60
+          httpGet:
+            path: /identity/realms/aether-lab/.well-known/openid-configuration
+            port: 8080
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /opt/keycloak/data/import
+          name: realm
+          readOnly: true
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: realm
+        secret:
+          defaultMode: 420
+          items:
+          - key: realm.json
+            path: aether-lab-realm.json
+          secretName: aether-identity-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    aether-owner: azure-platform-release-20261005
+  name: aether-budibase
+  namespace: aether-p3-demo
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: aether-budibase
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: aether-budibase
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - envFrom:
+        - secretRef:
+            name: aether-budibase-config
+        image: budibase/budibase:v3.47.0
+        imagePullPolicy: IfNotPresent
+        name: aether-budibase
+        readinessProbe:
+          failureThreshold: 6
+          httpGet:
+            path: /builder/auth/login
+            port: 80
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        resources:
+          limits:
+            cpu: '2'
+            memory: 4Gi
+          requests:
+            cpu: 100m
+            memory: 1Gi
+        startupProbe:
+          failureThreshold: 60
+          httpGet:
+            path: /builder/auth/login
+            port: 80
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /data
+          name: data
+        env: []
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: aether-budibase-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    aether-owner: azure-platform-release-20261005
+  name: aether-platform
+  namespace: aether-p3-demo
+spec:
+  internalTrafficPolicy: Cluster
+  ports:
+  - port: 19010
+    protocol: TCP
+    targetPort: 19010
+  selector:
+    app: aether-platform
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    aether-owner: azure-platform-release-20261005
+  name: aether-platform-db
+  namespace: aether-p3-demo
+spec:
+  internalTrafficPolicy: Cluster
+  ports:
+  - port: 5432
+    protocol: TCP
+    targetPort: 5432
+  selector:
+    app: aether-platform-db
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    aether-owner: azure-platform-release-20261005
+  name: aether-keycloak
+  namespace: aether-p3-demo
+spec:
+  internalTrafficPolicy: Cluster
+  ports:
+  - port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: aether-keycloak
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    aether-owner: azure-platform-release-20261005
+  name: aether-budibase
+  namespace: aether-p3-demo
+spec:
+  internalTrafficPolicy: Cluster
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: aether-budibase
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    aether-owner: azure-platform-release-20261005
+  name: aether-agent-p3
+  namespace: aether-p3-demo
+spec:
+  internalTrafficPolicy: Cluster
+  ports:
+  - port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: aether-agent-p3
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    aether-owner: azure-platform-release-20261005
+  name: aether-platform-release
+  namespace: aether-p3-demo
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: managed-csi
+  volumeMode: Filesystem
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    aether-owner: azure-platform-release-20261005
+  name: aether-platform-database
+  namespace: aether-p3-demo
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: managed-csi
+  volumeMode: Filesystem
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    aether-owner: azure-platform-release-20261005
+  name: aether-budibase-data
+  namespace: aether-p3-demo
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: managed-csi
+  volumeMode: Filesystem
+---
+apiVersion: v1
+data:
+  __init__.py: ''
+  directory.py: "\"\"\"Business identity authority. All public operations recheck\
+    \ current authority.\n\nThis increment supplies directory reads, profile edits\
+    \ and fail-closed disabling.\nOutbox completion and account enable/transfer require\
+    \ the projection worker.\n\"\"\"\n\nimport hashlib\nimport json\nimport re\nfrom\
+    \ collections.abc import Iterator\nfrom contextlib import contextmanager\nfrom\
+    \ dataclasses import dataclass\nfrom typing import Any, cast\n\nimport psycopg\n\
+    from psycopg import sql\nfrom psycopg.rows import dict_row\nfrom psycopg.types.json\
+    \ import Jsonb\n\n\nclass AccessDeniedError(ValueError):\n    \"\"\"The current\
+    \ business identity cannot perform this operation.\"\"\"\n\n\n@dataclass(frozen=True)\n\
+    class Actor:\n    id: str\n    issuer: str\n    subject: str\n    tenant_id: str\
+    \ | None\n    role: str\n    version: int\n\n\nSCHEMA = \"\"\"\nCREATE TABLE IF\
+    \ NOT EXISTS fixture_installation (\n    singleton boolean PRIMARY KEY DEFAULT\
+    \ true CHECK (singleton), dataset text NOT NULL\n);\nCREATE TABLE IF NOT EXISTS\
+    \ tenants (\n    id text PRIMARY KEY, name text NOT NULL, enabled boolean NOT\
+    \ NULL\n);\nCREATE TABLE IF NOT EXISTS users (\n    id text PRIMARY KEY, issuer\
+    \ text NOT NULL, subject text NOT NULL,\n    username text NOT NULL UNIQUE, display_name\
+    \ text NOT NULL,\n    tenant_id text REFERENCES tenants(id),\n    role text NOT\
+    \ NULL CHECK (role IN ('platform_admin','tenant_admin','user')),\n    enabled\
+    \ boolean NOT NULL, version integer NOT NULL DEFAULT 1,\n    sync_status text\
+    \ NOT NULL DEFAULT 'identity_only',\n    UNIQUE(issuer, subject),\n    CHECK ((role\
+    \ = 'platform_admin' AND tenant_id IS NULL)\n        OR (role IN ('tenant_admin','user')\
+    \ AND tenant_id IS NOT NULL))\n);\nCREATE TABLE IF NOT EXISTS identity_commands\
+    \ (\n    id text PRIMARY KEY, actor_id text NOT NULL REFERENCES users(id),\n \
+    \   target_id text NOT NULL REFERENCES users(id), fingerprint text NOT NULL,\n\
+    \    payload jsonb NOT NULL, result jsonb NOT NULL,\n    status text NOT NULL\
+    \ DEFAULT 'pending', created_at timestamptz NOT NULL DEFAULT now()\n);\nCREATE\
+    \ TABLE IF NOT EXISTS audit_events (\n    id bigint GENERATED ALWAYS AS IDENTITY\
+    \ PRIMARY KEY,\n    command_id text NOT NULL UNIQUE REFERENCES identity_commands(id),\n\
+    \    actor_id text NOT NULL, target_id text NOT NULL,\n    action text NOT NULL,\
+    \ created_at timestamptz NOT NULL DEFAULT now()\n);\n\"\"\"\n\n\nclass Directory:\n\
+    \    def __init__(self, dsn: str, *, schema: str = \"aether_platform\") -> None:\n\
+    \        if not re.fullmatch(r\"[a-z][a-z0-9_]{0,62}\", schema):\n           \
+    \ raise ValueError(\"Invalid database schema\")\n        self.dsn, self.schema\
+    \ = dsn, schema\n\n    @contextmanager\n    def connection(self) -> Iterator[psycopg.Connection[dict[str,\
+    \ Any]]]:\n        with psycopg.connect(self.dsn, row_factory=dict_row) as conn:\n\
+    \            conn.execute(sql.SQL(\"SET LOCAL search_path TO {}\").format(sql.Identifier(self.schema)))\n\
+    \            yield conn\n\n    def migrate(self) -> None:\n        with self.connection()\
+    \ as conn:\n            conn.execute(\n                sql.SQL(\"CREATE SCHEMA\
+    \ IF NOT EXISTS {}\").format(sql.Identifier(self.schema))\n            )\n   \
+    \         conn.execute(SCHEMA)\n\n    def seed(\n        self, dataset: str, tenants:\
+    \ list[dict[str, Any]], users: list[dict[str, Any]]\n    ) -> None:\n        \"\
+    \"\"Lab bootstrap only; repeated imports preserve all maintained rows.\"\"\"\n\
+    \        with self.connection() as conn:\n            conn.execute(\"SELECT pg_advisory_xact_lock(190102026)\"\
+    )\n            installed = conn.execute(\"SELECT dataset FROM fixture_installation\"\
+    ).fetchone()\n            if installed and installed[\"dataset\"] != dataset:\n\
+    \                raise ValueError(\"Database belongs to a different fixture dataset\"\
+    )\n            if not installed:\n                if conn.execute(\"SELECT 1 FROM\
+    \ users LIMIT 1\").fetchone():\n                    raise ValueError(\"Refusing\
+    \ to seed a non-fixture directory\")\n                conn.execute(\"INSERT INTO\
+    \ fixture_installation(dataset) VALUES (%s)\", (dataset,))\n            for tenant\
+    \ in tenants:\n                conn.execute(\n                    \"INSERT INTO\
+    \ tenants(id,name,enabled) VALUES (%s,%s,%s) \"\n                    \"ON CONFLICT\
+    \ (id) DO NOTHING\",\n                    (tenant[\"id\"], tenant[\"name\"], tenant[\"\
+    enabled\"]),\n                )\n            for user in users:\n            \
+    \    conn.execute(\n                    \"INSERT INTO users(id,issuer,subject,username,display_name,\"\
+    \n                    \"tenant_id,role,enabled) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)\
+    \ \"\n                    \"ON CONFLICT (id) DO NOTHING\",\n                 \
+    \   tuple(\n                        user[k]\n                        for k in\
+    \ (\n                            \"id\",\n                            \"issuer\"\
+    ,\n                            \"subject\",\n                            \"username\"\
+    ,\n                            \"display_name\",\n                           \
+    \ \"tenant_id\",\n                            \"role\",\n                    \
+    \        \"enabled\",\n                        )\n                    ),\n   \
+    \             )\n\n    @staticmethod\n    def _authenticate(conn: psycopg.Connection[dict[str,\
+    \ Any]], issuer: str, subject: str) -> Actor:\n        row = conn.execute(\n \
+    \           \"SELECT u.* FROM users u LEFT JOIN tenants t ON u.tenant_id=t.id\
+    \ \"\n            \"WHERE u.issuer=%s AND u.subject=%s AND u.enabled \"\n    \
+    \        \"AND (u.tenant_id IS NULL OR t.enabled)\",\n            (issuer, subject),\n\
+    \        ).fetchone()\n        if not row:\n            raise AccessDeniedError(\"\
+    Identity is unavailable\")\n        return Actor(**{k: row[k] for k in Actor.__dataclass_fields__})\n\
+    \n    def authenticate(self, issuer: str, subject: str) -> Actor:\n        with\
+    \ self.connection() as conn:\n            return self._authenticate(conn, issuer,\
+    \ subject)\n\n    def _admin(self, conn: psycopg.Connection[dict[str, Any]], actor:\
+    \ Actor) -> Actor:\n        current = self._authenticate(conn, actor.issuer, actor.subject)\n\
+    \        if current != actor or current.role not in {\"platform_admin\", \"tenant_admin\"\
+    }:\n            raise AccessDeniedError(\"Administration is unavailable\")\n \
+    \       return current\n\n    def list_users(self, actor: Actor) -> list[dict[str,\
+    \ Any]]:\n        with self.connection() as conn:\n            actor = self._admin(conn,\
+    \ actor)\n            return conn.execute(\n                \"SELECT id,username,display_name,tenant_id,role,enabled,\"\
+    \n                \"version,sync_status FROM users \"\n                \"WHERE\
+    \ (%s OR tenant_id=%s) ORDER BY username\",\n                (actor.role == \"\
+    platform_admin\", actor.tenant_id),\n            ).fetchall()\n\n    def get_user(self,\
+    \ actor: Actor, user_id: str) -> dict[str, Any]:\n        for row in self.list_users(actor):\n\
+    \            if row[\"id\"] == user_id:\n                return row\n        raise\
+    \ AccessDeniedError(\"User is unavailable\")\n\n    def update_user(\n       \
+    \ self, actor: Actor, user_id: str, changes: dict[str, Any], command_id: str\n\
+    \    ) -> dict[str, Any]:\n        if not changes or set(changes) - {\"display_name\"\
+    , \"enabled\"}:\n            raise AccessDeniedError(\"Unsupported account change\"\
+    )\n        if \"display_name\" in changes and (\n            not isinstance(changes[\"\
+    display_name\"], str)\n            or not 1 <= len(changes[\"display_name\"].strip())\
+    \ <= 120\n        ):\n            raise ValueError(\"Invalid display name\")\n\
+    \        if \"enabled\" in changes and changes[\"enabled\"] is not False:\n  \
+    \          raise AccessDeniedError(\"Enabling requires verified identity projections\"\
+    )\n        if not command_id or len(command_id) > 128:\n            raise ValueError(\"\
+    Invalid command identifier\")\n        fingerprint = hashlib.sha256(\n       \
+    \     json.dumps([user_id, changes], sort_keys=True).encode()\n        ).hexdigest()\n\
+    \        with self.connection() as conn:\n            # Serialize business writes,\
+    \ including last-admin checks and bootstrap.\n            conn.execute(\"SELECT\
+    \ pg_advisory_xact_lock(190102026)\")\n            actor = self._admin(conn, actor)\n\
+    \            target = conn.execute(\n                \"SELECT * FROM users WHERE\
+    \ id=%s FOR UPDATE\", (user_id,)\n            ).fetchone()\n            if not\
+    \ target or (\n                actor.role == \"tenant_admin\"\n              \
+    \  and (target[\"tenant_id\"] != actor.tenant_id or target[\"role\"] != \"user\"\
+    )\n            ):\n                raise AccessDeniedError(\"User is unavailable\"\
+    )\n            old = conn.execute(\n                \"SELECT * FROM identity_commands\
+    \ WHERE id=%s\", (command_id,)\n            ).fetchone()\n            if old:\n\
+    \                if old[\"actor_id\"] != actor.id or old[\"fingerprint\"] != fingerprint:\n\
+    \                    raise ValueError(\"Command identifier already used\")\n \
+    \               return cast(dict[str, Any], old[\"result\"])\n            if target[\"\
+    role\"] == \"platform_admin\" and changes.get(\"enabled\") is False:\n       \
+    \         counted = conn.execute(\n                    \"SELECT count(*) AS n\
+    \ FROM users WHERE role='platform_admin' AND enabled\"\n                ).fetchone()\n\
+    \                assert counted is not None\n                if counted[\"n\"\
+    ] <= 1:\n                    raise AccessDeniedError(\"The last platform administrator\
+    \ must remain enabled\")\n            name = changes.get(\"display_name\", target[\"\
+    display_name\"])\n            enabled = changes.get(\"enabled\", target[\"enabled\"\
+    ])\n            row = conn.execute(\n                \"UPDATE users SET display_name=%s,enabled=%s,version=version+1,\"\
+    \n                \"sync_status='pending' WHERE id=%s RETURNING id,display_name,\"\
+    \n                \"enabled,version,sync_status\",\n                (name, enabled,\
+    \ user_id),\n            ).fetchone()\n            assert row is not None\n  \
+    \          result = {**row, \"command_id\": command_id}\n            conn.execute(\n\
+    \                \"INSERT INTO identity_commands(id,actor_id,target_id,fingerprint,payload,result)\
+    \ \"\n                \"VALUES (%s,%s,%s,%s,%s,%s)\",\n                (command_id,\
+    \ actor.id, user_id, fingerprint, Jsonb(changes), Jsonb(result)),\n          \
+    \  )\n            conn.execute(\n                \"INSERT INTO audit_events(command_id,actor_id,target_id,action)\
+    \ \"\n                \"VALUES (%s,%s,%s,'update_user')\",\n                (command_id,\
+    \ actor.id, user_id),\n            )\n            return result\n"
+  projection.py: "\"\"\"Publish authoritative platform identities beside P3, without\
+    \ desktop tunnels.\"\"\"\n\nimport argparse\nimport json\nimport time\nfrom pathlib\
+    \ import Path\n\nimport httpx\nimport yaml\n\nfrom aether_platform.directory import\
+    \ Directory\n\n\ndef build_projection(tenants: list[dict], users: list[dict],\
+    \ issuer: str) -> dict:\n    value = {\n        \"revision\": 1,\n        \"tenants\"\
+    : [{\"tenant_id\": t[\"id\"], \"enabled\": t[\"enabled\"]} for t in tenants]\n\
+    \        + [{\"tenant_id\": \"aether_platform_operations\", \"enabled\": True}],\n\
+    \        \"identities\": [], \"jwt_issuers\": [],\n    }\n    mappings = []\n\
+    \    for user in users:\n        if not user[\"enabled\"] or user[\"role\"] not\
+    \ in {\"user\", \"platform_admin\"}:\n            continue\n        principal\
+    \ = {\n            \"principal_id\": user[\"id\"],\n            \"home_scope\"\
+    : {\"tenant_id\": user[\"tenant_id\"] or \"aether_platform_operations\",\n   \
+    \                        \"user_id\": user[\"id\"], \"application_id\": \"agent-platform\"\
+    , \"agent_id\": \"aether\"},\n            \"permissions\": [\"memory:read\", \"\
+    memory:write\", \"memory:correct\", \"memory:delete\", \"memory:history\"]\n \
+    \           if user[\"role\"] == \"user\" else [\"maintenance:diagnose\", \"maintenance:recover\"\
+    , \"maintenance:configure\"],\n            \"auth_epoch\": user[\"version\"],\n\
+    \        }\n        value[\"identities\"].append({\"principal\": principal})\n\
+    \        mappings.append({\"subject\": user[\"subject\"], \"principal_id\": user[\"\
+    id\"]})\n    if mappings:\n        value[\"jwt_issuers\"].append({\"issuer\":\
+    \ issuer, \"jwks_url\": \"http://127.0.0.1:19081/jwks\",\n                   \
+    \                  \"audience\": \"platform-bff\", \"subject_mappings\": mappings})\n\
+    \    return value\n\n\ndef synchronize(config: dict, target: Path) -> int:\n \
+    \   with Directory(config[\"database_dsn\"]).connection() as conn:\n        tenants\
+    \ = conn.execute(\"SELECT id,enabled FROM tenants ORDER BY id\").fetchall()\n\
+    \        users = conn.execute(\"SELECT * FROM users ORDER BY id\").fetchall()\n\
+    \    value = build_projection(tenants, users, config[\"issuer\"])\n    response\
+    \ = httpx.get(config[\"identity_connect_issuer\"] + \"/protocol/openid-connect/certs\"\
+    ,\n                         timeout=15, trust_env=False)\n    response.raise_for_status()\n\
+    \    if not response.json().get(\"keys\"):\n        raise ValueError(\"No signing\
+    \ keys\")\n    path = target / \"identities.yaml\"\n    if path.exists():\n  \
+    \      old = yaml.safe_load(path.read_text())\n        value[\"revision\"] = old[\"\
+    revision\"]\n        if old != value:\n            value[\"revision\"] += 1\n\
+    \    # Publish keys first; the identity file is the revision boundary P3 reloads.\n\
+    \    for name, content in [(\"jwks.json\", json.dumps(response.json())),\n   \
+    \                       (\"identities.yaml\", yaml.safe_dump(value, allow_unicode=True))]:\n\
+    \        path = target / name\n        if not path.exists() or path.read_text()\
+    \ != content:\n            pending = path.with_suffix(\".cloud-next\")\n     \
+    \       pending.write_text(content, encoding=\"utf-8\")\n            pending.chmod(0o600)\n\
+    \            pending.replace(path)\n    return value[\"revision\"]\n\n\ndef main()\
+    \ -> None:\n    parser = argparse.ArgumentParser()\n    parser.add_argument(\"\
+    --config\", type=Path, required=True)\n    parser.add_argument(\"--target\", type=Path,\
+    \ required=True)\n    args = parser.parse_args()\n    config = json.loads(args.config.read_text())\n\
+    \    while True:\n        try:\n            revision = synchronize(config, args.target)\n\
+    \            print(\"Cloud identity projection verified, revision\", revision,\
+    \ flush=True)\n        except Exception as error:\n            print(\"Cloud identity\
+    \ projection retry:\", type(error).__name__, flush=True)\n        time.sleep(5)\n\
+    \n\nif __name__ == \"__main__\":\n    main()\n"
+kind: ConfigMap
+metadata:
+  labels:
+    aether-owner: azure-platform-release-20261005
+  name: aether-cloud-projection
+  namespace: aether-p3-demo

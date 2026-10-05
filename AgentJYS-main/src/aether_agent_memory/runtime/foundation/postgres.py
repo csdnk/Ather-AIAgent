@@ -53,8 +53,6 @@ _PROJECTED_NAMESPACES = frozenset(
 )
 
 
-
-
 def _database_error(operation: str, error: psycopg.Error) -> FoundationError:
     # libpq errors may embed a DSN, password, host, query or user-supplied data.
     # SQLSTATE is the only driver diagnostic allowed across this boundary.
@@ -277,6 +275,25 @@ class PostgresTransaction(StorageTransaction):
         self.check()
         if kind not in {"start", "control"} or not 1 <= limit <= 1000:
             raise ValueError("invalid intent kind or batch limit")
+        if kind == "start":
+            # Hashes identify retries, not queue position. Existing task timestamps
+            # also order intents admitted before this scheduling change.
+            return self._query(
+                "SELECT key,value FROM (SELECT i.key,i.value,"
+                "CASE WHEN i.value::jsonb#>>'{intent,job,kind}'='recall.execute' "
+                "THEN 0 ELSE 1 END AS lane,"
+                "row_number() OVER (PARTITION BY "
+                "CASE WHEN i.value::jsonb#>>'{intent,job,kind}'='recall.execute' "
+                "THEN 0 ELSE 1 END ORDER BY "
+                "(t.value::jsonb->>'created_at')::timestamptz NULLS FIRST,i.key) AS position "
+                "FROM capability_records i "
+                "LEFT JOIN capability_records t ON t.namespace='p3_rf_tasks' "
+                "AND t.tenant=i.tenant AND t.key=i.value::jsonb#>>'{intent,job,job_id}' "
+                "WHERE i.namespace='p3_rf_temporal_start_intents' "
+                "AND i.document->>'state'='pending' "
+                ") scheduled ORDER BY position,lane LIMIT %s",
+                (limit,),
+            )
         return self._query(
             "SELECT key,value FROM capability_records WHERE namespace=%s "
             "AND namespace IN ('p3_rf_temporal_start_intents','p3_rf_temporal_control_intents') "
