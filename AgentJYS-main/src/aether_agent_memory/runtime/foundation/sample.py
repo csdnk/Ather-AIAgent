@@ -19,11 +19,12 @@ from aether_agent_memory.runtime.contracts.models import (
     TrustedContext,
 )
 from aether_agent_memory.runtime.contracts.ports import Transaction
+from aether_agent_memory.runtime.foundation.transactions import native
+from aether_agent_memory.runtime.storage.ports import MetadataUnitOfWork
 
 from .common import fingerprint
 from .events import Events
 from .identity import Identity
-from .storage import SQLiteUnitOfWork, native
 from .tasks import Tasks
 from .telemetry import observed
 
@@ -34,7 +35,7 @@ class Sample:
     EVENT = "engineering.saved"
 
     def __init__(
-        self, uow: SQLiteUnitOfWork, identity: Identity, tasks: Tasks, events: Events
+        self, uow: MetadataUnitOfWork, identity: Identity, tasks: Tasks, events: Events
     ) -> None:
         self.uow, self.identity, self.tasks, self.events = uow, identity, tasks, events
         tasks.register(self.KIND, "engineering", self)

@@ -1,5 +1,6 @@
 """Remember's domain phases. Large intermediate values remain in fenced P3 storage."""
 
+import asyncio
 from functools import partial
 from typing import Any, cast
 
@@ -27,9 +28,14 @@ class BackgroundStages:
     def handler(self, phase: str, *, reconcile: bool = False) -> StageHandler:
         async def call(step: StepRequest) -> StepResult:
             context = StageContext.current()
-            with self.owner.uow.transaction() as tx:
-                policy = tx.read("remember_task_policy", context.task.task_id)
-                binding = tx.read("remember_task_binding", context.task.task_id)
+
+            def read_policy() -> tuple[Any, Any]:
+                with self.owner.uow.transaction() as tx:
+                    policy = tx.read("remember_task_policy", context.task.task_id)
+                    binding = tx.read("remember_task_binding", context.task.task_id)
+                return policy, binding
+
+            policy, binding = await asyncio.to_thread(read_policy)
             if policy is None:
                 raise FoundationError(
                     ErrorCode.CONTRACT_VIOLATION, "frozen Remember policy missing"
@@ -134,19 +140,23 @@ class BackgroundStages:
         return tuple(MemorySnapshot.model_validate(i) for i in self.required("prepared")["items"])
 
     async def prepare(self, step: StepRequest, *, reconcile: bool) -> StepResult:
-        if self.load("prepared") is None:
+        if (await asyncio.to_thread(self.load, "prepared")) is None:
             context = StageContext.current()
             items = await self.owner.prepare_background(context.context, context.task)
             if isinstance(items, RunResult):
                 return self.outcome(items)
-            self.save("prepared", {"items": [i.model_dump(mode="json") for i in items]})
+            (
+                await asyncio.to_thread(
+                    self.save, "prepared", {"items": [i.model_dump(mode="json") for i in items]}
+                )
+            )
         return self.done("prepared", "generate")
 
     async def generate(self, step: StepRequest, *, reconcile: bool) -> StepResult:
-        name = self.generation()
-        if self.load(name) is None:
+        name = await asyncio.to_thread(self.generation)
+        if (await asyncio.to_thread(self.load, name)) is None:
             c = StageContext.current()
-            items, kind = self.items(), c.task.kind
+            items, kind = (await asyncio.to_thread(self.items)), c.task.kind
             value: dict[str, Any] | RunResult
             if kind in {"remember.extract", "remember.distill"}:
                 value = await self.owner.generate_extraction(c.context, c.task, items)
@@ -157,13 +167,15 @@ class BackgroundStages:
             elif kind == "remember.summarize":
                 value = await self.owner.summaries.generate(c.context, c.task, items[0])
             elif kind == "remember.cleanup":
-                value = self.owner.prepare_cleanup(c.context, c.task, items[0])
+                value = await asyncio.to_thread(
+                    self.owner.prepare_cleanup, c.context, c.task, items[0]
+                )
             else:
                 # Revalidation checks current source certificates in its commit transaction.
                 value = {}
             if isinstance(value, RunResult):
                 return self.outcome(value)
-            self.save(name, value)
+            (await asyncio.to_thread(self.save, name, value))
         return self.done(name, "publish")
 
     def texts(self, data: dict[str, Any]) -> list[str]:
@@ -185,13 +197,18 @@ class BackgroundStages:
 
     async def publish_bodies(self, data: dict[str, Any], *, reconcile: bool) -> StepResult | None:
         c, bodies = StageContext.current(), self.owner.bodies
-        scope = self.items()[0].ref.scope
+        scope = (await asyncio.to_thread(self.items))[0].ref.scope
         for text in self.texts(data):
             location = bodies.location(scope, text)
             key = fingerprint([c.task.task_id, location.object_key])
-            with self.owner.uow.transaction() as tx:
-                c.guard(tx)
-                started = tx.read("temporal_body_writes", key)
+
+            def read_body_intent(key: str) -> Any:
+                with self.owner.uow.transaction() as tx:
+                    c.guard(tx)
+                    started = tx.read("temporal_body_writes", key)
+                return started
+
+            started = await asyncio.to_thread(read_body_intent, key)
             if started or reconcile:
                 if bodies.p2:
                     raw = await bodies.p2_call("get_object", location.object_key)
@@ -217,20 +234,31 @@ class BackgroundStages:
                         )
                     if raw != text.encode("utf-8"):
                         raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "Remember body differs")
-                    confirm_body_replay(self.owner.uow, "temporal_body_writes", key)
+                    (
+                        await asyncio.to_thread(
+                            confirm_body_replay, self.owner.uow, "temporal_body_writes", key
+                        )
+                    )
                     bodies.prepared[location.object_key] = location
                 await c.blocking(partial(bodies._spool, location, text))
             else:
-                with self.owner.uow.transaction() as tx:
-                    c.guard(tx)
-                    tx.write("temporal_body_writes", key, {"object_key": location.object_key})
+
+                def reserve_body(key: str, location: Any) -> None:
+                    with self.owner.uow.transaction() as tx:
+                        c.guard(tx)
+                        tx.write("temporal_body_writes", key, {"object_key": location.object_key})
+
+                await asyncio.to_thread(reserve_body, key, location)
                 await bodies.persist(c.context, scope, text)
         return None
 
     async def publish(self, step: StepRequest, *, reconcile: bool) -> StepResult:
         c = StageContext.current()
-        name, items = self.generation(), self.items()
-        data = self.required(name)
+        name, items = (
+            (await asyncio.to_thread(self.generation)),
+            (await asyncio.to_thread(self.items)),
+        )
+        data = await asyncio.to_thread(self.required, name)
         result = None
         if c.task.kind == "remember.project":
             result = await self.owner.publish_projection(
@@ -245,24 +273,28 @@ class BackgroundStages:
         return self.outcome(result) if result is not None else self.done(name, "commit")
 
     async def commit(self, step: StepRequest, *, reconcile: bool) -> StepResult:
-        c, items = StageContext.current(), self.items()
-        data = self.required(self.generation())
+        c, items = StageContext.current(), (await asyncio.to_thread(self.items))
+        data = await asyncio.to_thread(self.required, (await asyncio.to_thread(self.generation)))
         checked = await self.publish(step, reconcile=True)
         if checked.outcome != "done":
             return checked
         kind = c.task.kind
         if kind in {"remember.extract", "remember.distill"}:
-            result = self.owner.commit_extraction(c.context, c.task, items, data)
+            result = await asyncio.to_thread(
+                self.owner.commit_extraction, c.context, c.task, items, data
+            )
             if result is None:
                 return self.done("prepared", "generate")
         elif kind == "remember.compress":
-            result = self.owner.commit_compression(c.context, c.task, items[0], data)
+            result = await asyncio.to_thread(
+                self.owner.commit_compression, c.context, c.task, items[0], data
+            )
         elif kind == "remember.project":
             result = await self.owner.commit_projection(c.context, c.task, items[0], data)
         elif kind == "remember.summarize":
             result = await self.owner.summaries.commit(c.context, c.task, items[0], data)
         elif kind == "remember.cleanup":
-            result = self.owner.commit_cleanup(c.context, c.task)
+            result = await asyncio.to_thread(self.owner.commit_cleanup, c.context, c.task)
         else:
             result = await self.owner.revalidate_sources(c.context, c.task, items[0])
         return self.outcome(result)

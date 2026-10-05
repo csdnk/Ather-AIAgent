@@ -17,17 +17,17 @@ from aether_agent_memory.runtime.contracts.models import (
     Permission,
     TrustedContext,
 )
+from aether_agent_memory.runtime.storage.ports import MetadataUnitOfWork
 
 from .common import fingerprint, later, now
 from .identity import Identity
-from .storage import SQLiteUnitOfWork
 from .telemetry import Telemetry, current_node
 
 
 class Monitoring:
     def __init__(
         self,
-        uow: SQLiteUnitOfWork,
+        uow: MetadataUnitOfWork,
         identity: Identity,
         telemetry: Telemetry,
         *,

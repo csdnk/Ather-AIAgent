@@ -81,8 +81,8 @@
   },
   {
     "retired": "tests/runtime/p3/test_foundation.py::test_cli_configure_submit_worker_trace",
-    "replacement": "tests/runtime/temporal/test_temporal_migration.py",
-    "reason": "RF polling/lease contract retired; equivalent business invariant exercised by Temporal boundary tests"
+    "replacement": "tests/runtime/flows/test_azure_initializer.py",
+    "reason": "Old migration cancelled; explicit Azure initializer and configuration preservation replace the old CLI setup assertion"
   },
   {
     "retired": "tests/runtime/p3/test_foundation.py::test_real_process_kill_and_restart",

@@ -9,7 +9,6 @@ from test_remember_lcm_complete import advance, enroll
 from test_working_summaries import configure, save_long
 
 from aether_agent_memory.remember.basic.boundary import RememberBoundary
-from aether_agent_memory.remember.basic.content import RedisBodyCache
 from aether_agent_memory.remember.basic.service import memory_ref
 from aether_agent_memory.remember.contracts.foundation import (
     CandidateQualificationTarget,
@@ -136,7 +135,7 @@ def test_generation_projection_verification_and_cleanup_cover_both_local_indexes
     _, target = projection(app, ref)
     legacy = ProjectionTarget.model_validate(target.model_dump())
     with app.foundation.uow.transaction() as tx:
-        tx.raw.delete("p3_rf_generation_vectors", "system", target.vector_id)
+        tx.raw.delete("p3_rf_" + app.vectors.projection_namespace, "system", target.vector_id)
     result = asyncio.run(app.projections.inspect(context(app), legacy, "verify"))
     assert not result.searchable
     item = app.remember.get(context(app), ref.memory_id)
@@ -147,25 +146,25 @@ def test_generation_projection_verification_and_cleanup_cover_both_local_indexes
     )
     drain(app)
     with app.foundation.uow.transaction() as tx:
-        for table in ("generation_vectors", "recall_vectors"):
-            assert not any(
-                (row.get("hit") or row.get("target"))["memory"] == ref.model_dump(mode="json")
-                for _, row in tx.rows(table)
-            )
+        assert not any(
+            row["data"]["target"]["memory"] == ref.model_dump(mode="json") and not row["deleted"]
+            for _, row in tx.rows(app.vectors.projection_namespace)
+        )
+    rows = app.vectors.client.query(
+        collection_name=app.vectors.collection,
+        filter='target["memory"]["memory_id"] == "' + ref.memory_id + '"',
+        output_fields=["target"],
+        limit=100,
+        consistency_level="Strong",
+        timeout=10,
+    )
+    assert rows == []
 
 
 def test_summary_cache_fill_racing_deletion_does_not_leave_a_readable_replica(app):
     configure(app)
 
-    async def scenario():
-        import fakeredis.aioredis
-
-        redis = fakeredis.aioredis.FakeRedis()
-        cache = RedisBodyCache(redis, app.remember.policy)
-        app.remember.bodies.cache = cache
-        return redis, cache
-
-    redis, cache = asyncio.run(scenario())
+    cache = app.remember.bodies.cache
     receipt, _, _ = save_long(app)
     put = cache.put
     touched = []
@@ -184,4 +183,3 @@ def test_summary_cache_fill_racing_deletion_does_not_leave_a_readable_replica(ap
     cache.put = concurrent_delete
     drain(app)
     assert touched and asyncio.run(cache.get(receipt.memories[0].scope, touched[0])) is None
-    asyncio.run(redis.aclose())

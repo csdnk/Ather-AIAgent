@@ -11,9 +11,9 @@ from aether_agent_memory.runtime.contracts.models import (
     ScopeSelector,
     TrustedContext,
 )
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 from .common import FoundationError, fingerprint, later
-from .storage import SQLiteTransaction
 
 
 def text_hash(text: str) -> str:
@@ -41,7 +41,7 @@ def request_key(ctx: TrustedContext, endpoint: str) -> str:
     return fingerprint([ctx.principal.principal_id, endpoint, ctx.operation_id])
 
 
-def event_context(tx: SQLiteTransaction, event: EventEnvelope, now: str) -> TrustedContext:
+def event_context(tx: MetadataTransaction, event: EventEnvelope, now: str) -> TrustedContext:
     identity = tx.read("identities", event.initiator_id)
     if (
         not identity

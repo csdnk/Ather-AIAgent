@@ -4,7 +4,20 @@ import re
 
 from pydantic import BaseModel, ConfigDict
 
+from aether_agent_memory.runtime.contracts.client_runs import ClientOperation
+
+OperationCall = ClientOperation
+
 ROUTES = (
+    ("GET", "/p3/client-runs/{run_id}/recoveries/{transfer_id}/definition"),
+    ("PUT", "/p3/client-runs/{run_id}/recoveries/{transfer_id}/definition"),
+    ("GET", "/p3/client-runs/{run_id}/recoveries/{transfer_id}/inputs/{operation_id}"),
+    ("PUT", "/p3/client-runs/{run_id}/recoveries/{transfer_id}/inputs/{operation_id}"),
+    ("GET", "/p3/client-runs/{run_id}/recoveries/{transfer_id}/states/{sequence}"),
+    ("POST", "/p3/client-runs/{run_id}/recoveries/{transfer_id}"),
+    ("GET", "/p3/client-runs/{run_id}/recoveries/{transfer_id}"),
+    ("POST", "/p3/client-runs/{run_id}/transfers/{transfer_id}"),
+    ("GET", "/p3/client-runs/{run_id}/transfers/{transfer_id}"),
     ("GET", "/p3/auth/config"),
     ("GET", "/p3/auth/me"),
     ("GET", "/p3/live"),
@@ -30,6 +43,9 @@ ROUTES = (
     ("POST", "/p3/remember"),
     ("POST", "/p3/recall"),
     ("GET", "/p3/operations/{job_id}"),
+    ("GET", "/p3/operation-requests/{operation_id}"),
+    ("GET", "/p3/mutation-receipts/{operation_id}"),
+    ("GET", "/p3/mutation-receipts/{operation_id}/result"),
     ("GET", "/p3/operations/{job_id}/result"),
     ("GET", "/p3/recalls/{recall_id}"),
     ("GET", "/p3/recalls/{recall_id}/result"),
@@ -55,6 +71,15 @@ ROUTES = (
     ("PUT", "/p3/documents/{document_id}"),
     ("GET", "/p3/memories"),
     ("GET", "/p3/operate/memories/{memory_id}"),
+    ("POST", "/p3/client-runs/{run_id}"),
+    ("GET", "/p3/client-runs/{run_id}"),
+    ("PUT", "/p3/client-runs/{run_id}"),
+    ("PUT", "/p3/client-runs/{run_id}/inputs/{operation_id}"),
+    ("GET", "/p3/client-runs/{run_id}/inputs/{operation_id}"),
+    ("PUT", "/p3/client-runs/{run_id}/definition"),
+    ("GET", "/p3/client-runs/{run_id}/definition"),
+    ("PUT", "/p3/client-runs/{run_id}/states/{sequence}"),
+    ("GET", "/p3/client-runs/{run_id}/states/{sequence}"),
 )
 _MATCHERS = [
     (method, path, re.compile("^" + re.sub(r"\{[^}]+\}", r"[^/]+", path) + "$"))

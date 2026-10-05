@@ -13,7 +13,7 @@ from aether_p4_simulator.demo.execution import StoryRun
 from aether_p4_simulator.demo.models import StartRequest
 from aether_p4_simulator.validation.client import P3ValidationClient
 
-from .support import Upstream, finish
+from .support import Upstream, finish, fixed_definition
 from .test_service import service_for
 
 pytestmark = pytest.mark.unit
@@ -134,7 +134,14 @@ def collect_metadata(variant, *, next_before=100):
             transport=httpx.MockTransport(transport),
         )
     ) as client:
-        run = StoryRun(client, "demo_diag", "library-full", None, lambda _: None)
+        run = StoryRun(
+            client,
+            "demo_diag",
+            "library-full",
+            None,
+            lambda _: None,
+            definition=fixed_definition("library-full"),
+        )
         run.scope, run.task_ids = scope, {"owned"}
         if variant == "paginated":
             run.task_ids.add("owned2")

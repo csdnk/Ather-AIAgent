@@ -1,13 +1,17 @@
 """Immutable request inputs and durable command admission before external I/O."""
 
+import json
 import os
 import secrets
+from collections.abc import Callable
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
 from pydantic import JsonValue
 
+from aether_agent_memory.runtime.contracts.client_admission import ClientOperationTargets
+from aether_agent_memory.runtime.contracts.http_evidence import HttpRequestEvidence
 from aether_agent_memory.runtime.contracts.models import (
     ErrorCode,
     Flow,
@@ -22,7 +26,10 @@ from aether_agent_memory.runtime.contracts.models import (
 )
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
 from aether_agent_memory.runtime.foundation.identity import Identity
-from aether_agent_memory.runtime.foundation.storage import SQLiteUnitOfWork
+from aether_agent_memory.runtime.storage.objects import (
+    ImmutableInputObjects as ImmutableInputObjects,
+)
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction, MetadataUnitOfWork
 
 from .ledger import ExecutionLedger
 from .models import WorkflowInput
@@ -32,11 +39,12 @@ from .registry import StageRegistry
 class InputStore:
     def __init__(
         self,
-        uow: SQLiteUnitOfWork,
+        uow: MetadataUnitOfWork,
         identity: Identity,
         root: Path,
         *,
         max_bytes: int = 64 * 1024 * 1024,
+        objects: ImmutableInputObjects | None = None,
     ) -> None:
         self.uow, self.identity, self.root, self.max_bytes = (
             uow,
@@ -44,14 +52,14 @@ class InputStore:
             root.resolve(),
             max_bytes,
         )
+        self.objects = objects
+        binding = getattr(objects, "binding", None)
+        self.object_binding = binding() if callable(binding) else None
         self.root.mkdir(parents=True, exist_ok=True)
 
-    def persist(
-        self, ctx: TrustedContext, operation: str, payload: bytes, media_type: str
-    ) -> RecordRef:
-        if not operation or not payload or len(payload) > self.max_bytes:
-            raise FoundationError(ErrorCode.INVALID_ARGUMENT, "input size or operation is invalid")
-        ref = RecordRef(
+    @staticmethod
+    def reference(ctx: TrustedContext, operation: str) -> RecordRef:
+        return RecordRef(
             owner=Flow.RUNTIME,
             object_type="command_input",
             object_id=fingerprint(
@@ -63,6 +71,13 @@ class InputStore:
             ),
             scope=ctx.principal.home_scope,
         )
+
+    def persist(
+        self, ctx: TrustedContext, operation: str, payload: bytes, media_type: str
+    ) -> RecordRef:
+        if not operation or not payload or len(payload) > self.max_bytes:
+            raise FoundationError(ErrorCode.INVALID_ARGUMENT, "input size or operation is invalid")
+        ref = self.reference(ctx, operation)
         digest = sha256(payload).hexdigest()
         value: dict[str, JsonValue] = {
             "operation_id": operation,
@@ -70,11 +85,37 @@ class InputStore:
             "bytes": len(payload),
             "media_type": media_type,
         }
+        if self.objects is not None:
+            value.update(
+                storage="objects" if self.object_binding is not None else "p2",
+                object_key=(
+                    "runtime/inputs/" + fingerprint(ref.model_dump(mode="json")) + "/" + digest
+                ),
+            )
+            if self.object_binding is not None:
+                value["object_binding"] = self.object_binding
         with self.uow.transaction() as tx:
             self.identity.authorize(tx, ctx, Permission.WRITE, ref)
             previous = tx.get(ref)
             if previous is not None and previous != value:
                 tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "operation input is immutable")
+        if self.objects is not None:
+            key = str(value["object_key"])
+            try:
+                self.objects.put_object_sync(key, payload)
+                verified = self.objects.get_object_sync(key)
+            except FoundationError:
+                raise
+            except Exception:
+                raise FoundationError(
+                    ErrorCode.DEPENDENCY_UNAVAILABLE, "durable input object service unavailable"
+                ) from None
+            if verified != payload:
+                raise FoundationError(
+                    ErrorCode.COMMIT_UNCONFIRMED, "durable input bytes were not verified"
+                )
+            self.commit_input(ctx, ref, value)
+            return ref
         target = self.root / digest
         temporary = self.root / ("pending-" + secrets.token_hex(16))
         try:
@@ -122,21 +163,73 @@ class InputStore:
             or any(c not in "0123456789abcdef" for c in digest)
         ):
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "invalid input reference")
-        try:
-            content = (self.root / digest).read_bytes()
-        except OSError:
-            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "durable input missing") from None
+        if row.get("storage") in {"p2", "objects"}:
+            if (
+                row.get("object_binding") != self.object_binding
+                or (row.get("storage") == "objects" and self.object_binding is None)
+                or (row.get("storage") == "p2" and self.object_binding is not None)
+            ):
+                raise FoundationError(
+                    ErrorCode.VERSION_CONFLICT,
+                    "input object provider changed; explicit migration required",
+                )
+            expected_key = (
+                "runtime/inputs/" + fingerprint(ref.model_dump(mode="json")) + "/" + digest
+            )
+            if row.get("object_key") != expected_key:
+                raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "invalid input object key")
+            if self.objects is None:
+                raise FoundationError(
+                    ErrorCode.DEPENDENCY_UNAVAILABLE, "input object reader missing"
+                )
+            try:
+                content = self.objects.get_object_sync(expected_key)
+            except FoundationError:
+                raise
+            except Exception:
+                raise FoundationError(
+                    ErrorCode.DEPENDENCY_UNAVAILABLE, "durable input object service unavailable"
+                ) from None
+            if not isinstance(content, bytes):
+                raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "durable input missing")
+        elif self.objects is not None:
+            raise FoundationError(
+                ErrorCode.VERSION_CONFLICT, "local input requires explicit object migration"
+            )
+        else:
+            try:
+                content = (self.root / digest).read_bytes()
+            except OSError:
+                raise FoundationError(
+                    ErrorCode.CONTRACT_VIOLATION, "durable input missing"
+                ) from None
         if sha256(content).hexdigest() != digest or len(content) != row["bytes"]:
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "durable input hash differs")
         return content
 
 
 class CommandAdmission:
-    def __init__(self, ledger: ExecutionLedger, inputs: InputStore) -> None:
+    def __init__(
+        self,
+        ledger: ExecutionLedger,
+        inputs: InputStore,
+        resolve_targets: Callable[
+            [MetadataTransaction, TrustedContext, str, JsonValue], ClientOperationTargets
+        ]
+        | None = None,
+    ) -> None:
         self.ledger, self.inputs = ledger, inputs
+        self.resolve_targets = resolve_targets
 
-    def accept(self, ctx: TrustedContext, kind: str, input_ref: RecordRef) -> WorkflowInput:
-        self.inputs.read(ctx, input_ref)
+    def accept(
+        self,
+        ctx: TrustedContext,
+        kind: str,
+        input_ref: RecordRef,
+        *,
+        http_request: HttpRequestEvidence | None = None,
+    ) -> WorkflowInput:
+        payload = self.inputs.read(ctx, input_ref)
         with self.inputs.uow.transaction() as tx:
             content = tx.get(input_ref)
             if content is None or content["operation_id"] != ctx.operation_id:
@@ -162,6 +255,10 @@ class CommandAdmission:
                     deadline_at=ctx.deadline_at,
                     max_attempts=self.ledger.tasks.max_attempts,
                 ),
+                http_request=http_request,
+                client_targets=self.resolve_targets(tx, ctx, kind, json.loads(payload))
+                if http_request is not None and self.resolve_targets is not None
+                else None,
             )
 
     def result(self, ctx: TrustedContext, job_id: str) -> dict[str, JsonValue] | None:

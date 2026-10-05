@@ -1,54 +1,38 @@
-# Production override for the P3 service.
-#
-# Usage:
-#   docker compose -f compose.yaml -f compose.production.yaml up -d
-#
-# The production profile fails startup unless a real B1 sidecar, P2 endpoint
-# and Redis are configured, and it never enables demo/mock fallbacks
-# (enforced by AppSettings.validate_for_profile()).
+# Standalone unified P3 deployment with the current Azure storage bundle.
+# Required: validated images, deployment/service.yaml with profile=production,
+# host=0.0.0.0 and data_dir=/runtime, Azure storage bundle and production Temporal.
+# Missing storage credentials fail startup; this template is not release acceptance.
+# docker compose -f compose.production.yaml up -d
 services:
-  redis:
-    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--save", "60", "1000", "--maxmemory-policy", "noeviction"]
-    volumes:
-      - redis-data:/data
-  b1-sidecar:
-    build:
-      args:
-        INSTALL_B1_SIDECAR: "true"
-        INSTALL_B1_OPENVINO: "true"
-    environment:
-      AETHER_B1_BACKEND: "openvino"
-      AETHER_B1_PRECISION: "int8"
-      AETHER_B1_FALLBACK_BACKENDS: ""
-      AETHER_B1_ALLOW_BACKEND_FALLBACK: "false"
-      AETHER_B1_FAIL_MODE: "closed"
-      AETHER_B1_DYNAMIC_BATCHING: "true"
-      AETHER_B1_DYNAMIC_MAX_BATCH_ITEMS: "64"
-      AETHER_B1_DYNAMIC_MAX_BATCH_TOKENS: "8192"
-      AETHER_B1_DYNAMIC_MAX_WAIT_MS: "2"
-      AETHER_B1_OPENVINO_ASYNC: "true"
-      AETHER_B1_OPENVINO_INFER_REQUESTS: "0"
-      AETHER_B1_OPENVINO_NUM_STREAMS: "AUTO"
-      AETHER_B1_MODEL_PATH: "${AETHER_B1_MODEL_PATH:-}"
   p3:
+    image: ${AETHER_P3_IMAGE:?Set the validated P3 image by digest}
+    command: ["python", "-m", "aether_agent_memory", "serve", "--config", "/deployment/service.yaml", "--require-profile", "production"]
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 45s
     environment:
-      AETHER_RUNTIME_PROFILE: "production"
-      AETHER_ENABLE_DEMO: "false"
-  celery-worker:
-    environment:
-      AETHER_RUNTIME_PROFILE: "production"
-  p3-session-worker:
-    environment:
-      AETHER_RUNTIME_PROFILE: "production"
-      AETHER_ENABLE_DEMO: "false"
-  p3-projection-worker:
-    environment:
-      AETHER_RUNTIME_PROFILE: "production"
-      AETHER_ENABLE_DEMO: "false"
-  p3-context-projection-worker:
-    environment:
-      AETHER_RUNTIME_PROFILE: "production"
-      AETHER_ENABLE_DEMO: "false"
-
-volumes:
-  redis-data:
+      AETHER_LLM_API_KEY: ${AETHER_LLM_API_KEY:-}
+      AETHER_POSTGRES_DSN: ${AETHER_POSTGRES_DSN:-}
+      AETHER_REDIS_PASSWORD: ${AETHER_REDIS_PASSWORD:-}
+      AETHER_MILVUS_TOKEN: ${AETHER_MILVUS_TOKEN:-}
+      AETHER_CEPH_ACCESS_KEY: ${AETHER_CEPH_ACCESS_KEY:-}
+      AETHER_CEPH_SECRET_KEY: ${AETHER_CEPH_SECRET_KEY:-}
+    volumes:
+      - ${AETHER_DEPLOYMENT_DIR:?Set an absolute deployment directory}:/deployment:ro
+      - ${AETHER_RUNTIME_DIR:?Set an absolute writable runtime directory}:/runtime
+      - ${AETHER_MODELS_DIR:?Set an absolute prepared models directory}:/models:ro
+    ports:
+      - "127.0.0.1:${AETHER_HOST_P3_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/p3/readyz', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+  web:
+    image: ${AETHER_WEB_IMAGE:?Set the validated Web image by digest}
+    restart: unless-stopped
+    depends_on:
+      p3:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${AETHER_HOST_WEB_PORT:-3000}:80"

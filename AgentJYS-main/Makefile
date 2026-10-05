@@ -1,45 +1,21 @@
-.PHONY: install proto test lint typecheck engine-test check demo demo-tui up dashboard dashboard-down dashboard-logs down clean
+.PHONY: install proto test lint typecheck engine-test check
 
 install:
-	uv sync --group dev --group demo
+	python -m pip install -e '.[embedding-onnx,resource-documents,remember-ceph]' --group dev
 
 proto:
-	uv run python scripts/generate_proto.py
+	python -B scripts/generate_proto.py
 
 test:
-	uv run pytest
+	python scripts/p3/run_aks_tests.py --environment-file "$(AETHER_TEST_ENV_FILE)" --assets-directory "$(AETHER_TEST_ASSETS)" --directory "$(AETHER_TEST_WORKSPACE)" $(AKS_TEST_ARGS) -- tests --ignore=tests/integration/test_current_p2.py --ignore=tests/integration/test_web_gateway.py
 
 lint:
-	uv run ruff check src tests scripts
+	python -B -m ruff check src tests scripts
 
 typecheck:
-	uv run mypy src
+	python -B -m mypy src
 
 engine-test:
 	cargo test --manifest-path engine/Cargo.toml --workspace
 
-check: lint typecheck test engine-test
-
-demo:
-	uv run python examples/unified_demo.py
-
-demo-tui:
-	uv run python examples/unified_demo_tui.py
-
-up:
-	docker compose up --build
-
-dashboard:
-	docker compose up --build
-
-dashboard-down:
-	docker compose down --remove-orphans
-
-dashboard-logs:
-	docker compose logs --tail=200 p3 engine
-
-down:
-	docker compose down --remove-orphans
-
-clean:
-	uv cache clean
+check: lint typecheck engine-test

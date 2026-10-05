@@ -8,7 +8,7 @@ from aether_p4_simulator.validation.client import P3ValidationClient
 from aether_p4_simulator.validation.errors import ValidationError
 
 from ..p4_validation.test_operations import Clock
-from .support import Upstream
+from .support import Upstream, fixed_definition
 
 pytestmark = pytest.mark.unit
 
@@ -20,7 +20,7 @@ def test_fixed_story_uses_real_scoped_requests_and_actual_context():
     )
     progress = []
     try:
-        run_library(client, "demo_unit", progress.append)
+        run_library(client, "demo_unit", progress.append, definition=fixed_definition())
     finally:
         client.close()
     saves = [json.loads(r.content) for r in transport.requests if r.url.path == "/p3/remember"]
@@ -66,7 +66,13 @@ def test_failure_stops_dependent_calls(variant, code, posts):
     try:
         with pytest.raises(ValidationError) as error:
             run_library(
-                client, "demo_unit", progress.append, wait_seconds=1, clock=clock, sleep=clock.sleep
+                client,
+                "demo_unit",
+                progress.append,
+                definition=fixed_definition(),
+                wait_seconds=1,
+                clock=clock,
+                sleep=clock.sleep,
             )
     finally:
         client.close()

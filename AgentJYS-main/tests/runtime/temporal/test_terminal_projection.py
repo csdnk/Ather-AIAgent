@@ -15,7 +15,6 @@ from aether_agent_memory.runtime.contracts.models import (
     RecordRef,
     TaskState,
 )
-from aether_agent_memory.runtime.flows.application import Service
 from aether_agent_memory.runtime.foundation.common import FoundationError, now
 from aether_agent_memory.runtime.temporal.activities import Activities, StageContext
 from aether_agent_memory.runtime.temporal.locking import ExecutionLimits
@@ -28,6 +27,7 @@ from aether_agent_memory.runtime.temporal.models import (
     WorkflowBinding,
 )
 from aether_agent_memory.runtime.temporal.periodic import PeriodicActivities
+from azure_component_service import Service
 
 
 @pytest.fixture

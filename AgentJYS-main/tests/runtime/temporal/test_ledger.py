@@ -17,10 +17,10 @@ from aether_agent_memory.runtime.contracts.models import (
     TaskState,
 )
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
-from aether_agent_memory.runtime.foundation.host import Foundation
 from aether_agent_memory.runtime.temporal.config import TemporalConfiguration
 from aether_agent_memory.runtime.temporal.ledger import ExecutionLedger
 from aether_agent_memory.runtime.temporal.models import ExecutionRef, StepRequest, StepResult
+from azure_test_runtime import Foundation
 
 
 @pytest.fixture

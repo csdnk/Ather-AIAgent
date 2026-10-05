@@ -1,3 +1,4 @@
+import asyncio
 from hashlib import sha256
 
 import pytest
@@ -138,15 +139,17 @@ def test_expiry_blocks_immediately_and_worker_materializes_state(app, monkeypatc
     drain(app)
     from remember_helpers import source
 
-    updated = app.remember.correct(
-        context(app),
-        ref.memory_id,
-        CorrectionRequest(
-            expected_version=1,
-            content="New evidence confirms a new experiment",
-            source=source("new_evidence"),
-            reason="renew with new evidence",
-        ),
+    updated = asyncio.run(
+        app.remember.correct_async(
+            context(app),
+            ref.memory_id,
+            CorrectionRequest(
+                expected_version=1,
+                content="New evidence confirms a new experiment",
+                source=source("new_evidence"),
+                reason="renew with new evidence",
+            ),
+        )
     )
     new = app.remember.get(context(app), ref.memory_id)
     assert updated.memories[0].version == 2 and new.status == "active"
@@ -292,6 +295,14 @@ def test_new_policy_http_contracts(app):
         assert client.post(url, json=body).status_code == 401
         first = client.post(url, headers=headers, json=body)
         assert first.status_code == 200 and first.json()["revision"] == 1
+        receipt = client.get(
+            "/p3/mutation-receipts/reflection_http",
+            params={"kind": "remember.reflection"},
+            headers=headers,
+        )
+        assert receipt.status_code == 200, receipt.text
+        assert receipt.json()["state"] == "committed"
+        assert receipt.json()["receipt"]["operation_id"] == "reflection_http"
         assert (
             client.get(url, headers=headers, params={"session_id": "session_1"}).json()["revision"]
             == 1

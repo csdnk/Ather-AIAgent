@@ -23,7 +23,7 @@ from aether_agent_memory.runtime.contracts.models import (
     Scope,
 )
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint, later, now
-from aether_agent_memory.runtime.foundation.host import Foundation
+from azure_test_runtime import Foundation
 
 
 class Clock:
@@ -260,35 +260,6 @@ def test_signal_sampling_interval_remains_enforced(app):
     assert len(app.dispositions.observe(context, target, sample(app, signal, target))) == 1
 
 
-def test_configuration_and_real_backup_restore_without_overwriting_live_data(app):
-    context, target = seed(app)
-    values = dict(
-        version="config_1",
-        deployment_id="local",
-        provider_ids=("sqlite",),
-        policy_versions=("test",),
-        secret_refs=(),
-    )
-    configuration = ConfigurationSnapshot(
-        **values, config_hash=fingerprint(values), activated_at=now()
-    )
-    app.lifecycle.activate(context, configuration, expected_version=None)
-    with pytest.raises(FoundationError):
-        app.lifecycle.backup(ctx(app, "other"), "forbidden")
-    snapshot = app.lifecycle.backup(context, "snapshot_1")
-    assert snapshot.restore_state == "untested" and snapshot.consistency_watermark > 0
-    assert app.lifecycle.backup(context, "snapshot_1") == snapshot
-    with app.uow.transaction() as tx:
-        tx.put_if_revision(target, {"healthy": True}, tx.revision(target))
-    restored = app.lifecycle.restore(context, "snapshot_1", "drill_1")
-    assert restored.restore_state == "passed" and restored.restore_evidence
-    with app.uow.transaction() as tx:
-        assert tx.get(target) == {"healthy": True}  # live database never replaced
-    with pytest.raises(FileExistsError):
-        app.lifecycle.restore(context, "snapshot_1", "drill_1")
-    app.lifecycle.path("snapshot_1").write_bytes(b"corrupt")
-    with pytest.raises(ValueError, match="hash mismatch"):
-        app.lifecycle.restore(context, "snapshot_1", "drill_2")
 
 
 def test_configuration_change_invalidates_previous_health_evidence(app):
@@ -303,7 +274,7 @@ def test_configuration_change_invalidates_previous_health_evidence(app):
     values = dict(
         version="changed",
         deployment_id="local",
-        provider_ids=("sqlite",),
+        provider_ids=("postgresql",),
         policy_versions=("v1",),
         secret_refs=(),
     )

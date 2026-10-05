@@ -7,6 +7,7 @@ distill task validates evidence, deduplicates and commits candidates normally.
 from typing import Any
 
 from aether_agent_memory.remember.contracts.models import ReflectionRequest
+from aether_agent_memory.runtime.contracts.http_evidence import HttpRequestEvidence
 from aether_agent_memory.runtime.contracts.models import (
     ErrorCode,
     Flow,
@@ -17,11 +18,13 @@ from aether_agent_memory.runtime.contracts.models import (
 )
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint, later
 from aether_agent_memory.runtime.foundation.requests import select_scope
-from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
+from .hydration import hydrate_metadata_reads
 from .service import memory_ref
 
 
+@hydrate_metadata_reads
 class Reflection:
     def __init__(self, remember: Any) -> None:
         self.remember = remember
@@ -45,10 +48,30 @@ class Reflection:
                 else {"status": "not_enrolled", "revision": 0}
             )
 
-    def configure(self, ctx: TrustedContext, request: ReflectionRequest) -> dict[str, Any]:
+    def configure(
+        self,
+        ctx: TrustedContext,
+        request: ReflectionRequest,
+        *,
+        http_request: HttpRequestEvidence | None = None,
+    ) -> dict[str, Any]:
         scope = select_scope(ctx, request.selection)
         key = fingerprint(scope.model_dump(mode="json"))
         with self.remember.uow.transaction() as tx:
+            mutation = self.remember.mutations.begin(
+                tx,
+                ctx,
+                "remember.reflection",
+                (
+                    RecordRef(
+                        owner=Flow.REMEMBER, object_type="reflection", object_id=key, scope=scope
+                    ),
+                ),
+                request.model_dump(mode="json"),
+                http_request=http_request,
+            )
+            if mutation.previous is not None:
+                return dict(mutation.previous)
             self.remember.identity.authorize(
                 tx,
                 ctx,
@@ -81,6 +104,7 @@ class Reflection:
                 op,
                 {"signature": fingerprint(request.model_dump(mode="json")), "result": result},
             )
+            mutation.finish(result)
             return result
 
     def periodic(self) -> int:
@@ -95,7 +119,7 @@ class Reflection:
                 continue
         return count
 
-    def periodic_item(self, tx: SQLiteTransaction, key: str) -> int:
+    def periodic_item(self, tx: MetadataTransaction, key: str) -> int:
         count = 0
         row = tx.read("remember_reflection_policies", key)
         policy = ReflectionRequest.model_validate(row["policy"])

@@ -7,5 +7,6 @@ RUN npm run build
 
 FROM nginx:1.28-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.p4-disabled.conf /etc/nginx/p4-location.conf
 COPY --from=build /web/dist /usr/share/nginx/html
 EXPOSE 80

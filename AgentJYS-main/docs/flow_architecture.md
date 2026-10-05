@@ -1,43 +1,53 @@
 # Recall / Remember / Operate 当前代码结构
 
-更新：2026-09-20。本页替换原受理骨架阶段的结构说明；旧运行证据仍保留在各日期报告中。
+更新：2026-10-05。P3 本机开发、AKS 开发和部署使用一套源码；后端、身份、模型和运行目录由配置选择。旧日期报告保留其当时的验证范围。
 
 ```text
 src/aether_agent_memory/
+├── __main__.py            # python -m aether_agent_memory
 ├── remember/
-│   ├── contracts/          # 记忆、来源、版本、最终资格
-│   └── basic/              # 实际文本生命周期、加工/投影/清理任务
+│   ├── contracts/         # 记忆、来源、版本、投影与最终资格
+│   ├── basic/             # 真实正文、加工、投影、生命周期与清理任务
+│   └── local.py           # 组件装配工厂；要求明确的对象和缓存 provider
 ├── recall/
-│   ├── contracts/          # Recall、Embedding、向量和ContextPack
-│   ├── basic/              # 检索、融合、重排序、token预算、Milvus适配
-│   ├── embedding/          # 原生BGE与当前P3适配p3.py
-│   └── vector_projection/  # 保留的投影机制契约
+│   ├── contracts/         # Recall、Embedding、向量与 ContextPack
+│   ├── basic/             # 发现、资格核验、融合、预算、最终提交
+│   ├── embedding/         # 原生 BGE 与 P3 适配
+│   └── vector_projection/ # 有效投影契约
 ├── operate/
-│   ├── contracts/          # 决策、动作、执行与观察
-│   └── basic/              # 事件消费、自动缓存调度、原动作对账
-├── runtime/
-│   ├── contracts/          # 可信上下文、事务、任务、事件
-│   ├── foundation/         # SQLite事务、任务/事件、日志和恢复
-│   └── flows/              # 当前Host/CLI、探针与三流程装配
-└── api/、bootstrap/、b1/等  # 有消费者的兼容路径，不能直接删除
+│   ├── contracts/         # 动作、执行、观察与恢复契约
+│   └── basic/             # 事件消费、热副本操作、原意图对账与修复
+└── runtime/
+    ├── contracts/         # 可信上下文、事务、任务、事件
+    ├── foundation/        # PostgreSQL 事务、任务/事件、身份和持久日志
+    ├── storage/           # Ceph 对象、Redis 热副本、Azure Milvus
+    ├── temporal/          # 准入、Workflow/Activity、Worker、恢复和周期计划
+    └── flows/             # CLI → application/Service → HTTP 与 Workers
 ```
 
-## 当前运行方式
+## 运行入口和数据职责
 
-正式本地入口是 `python -m aether_agent_memory.runtime.flows`，必须提供 `--db` 和 `--cache-root`；身份由部署配置提供。复现示例和参数见[三流程运行说明](p3/development/05_三个流程基础实现与联调.md)。
-
-默认真实 BGE 512 维 Embedding、SQLite 向量和实际 tokenizer。`configs/recall.rerank.local.json` 显式启用真实重排序；Milvus SDK 适配已实现但无真实服务联调证据。Remember 默认仍为 LiteralExtraction；Operate 实际操作本地缓存文件，未完成生产介质分层。
-
-## 边界与兼容
-
-B 拥有记忆资格；A 消费 B 的读取接口并提供共享 Embedding/VectorPort；C 消费两侧事件、依据当前事实执行及对账；RF 提供共同运行机制和 Host 装配。具体见[协作责任](p3/development/02_三流程接入与责任表.md)。
-
-顶层 Recall 受理/执行骨架及 `examples/recall_admission.py` 保留其消费者和回归，不是当前 runtime.flows 的装配链。旧 memory/recall 等兼容导出与旧 HTTP v1 仍需单独回归。不要把当前 basic 流程迁回旧骨架，也不要把旧路由的产品能力算作新 Host 已交付。
-
-## 开发验证
+当前入口为 `python -m aether_agent_memory`，子命令使用 `--config <service.yaml绝对路径>`。运行配置来自仓库外目录；不再使用旧 `--db` / `--cache-root` 服务入口。
 
 ```text
-python scripts/p3/validate_collaboration.py
+python -m aether_agent_memory check-config --config /absolute/deployment/service.yaml
+python -m aether_agent_memory serve --config /absolute/deployment/service.yaml --require-profile development
 ```
 
-[贡献规范](../CONTRIBUTING.md)规定契约、日志、健康和恢复接入，所有组共用。新 HTTP Host、Azure/AKS、OTel 导出及生产验收仍是后续工作。
+`check-config` 只检查结构和身份配置。`serve` 必须连接明确的 PostgreSQL、Redis、Milvus、Ceph、原生 BGE、结构化模型和独立 Temporal。数据库保存权威元数据、幂等回执、任务、身份和日志；Ceph 保存原输入和正文；Redis 保存可重建热副本；Milvus 保存版本绑定的向量。运行数据、证书、模型及密钥放仓库外。
+
+健康就绪、Worker 运行、保存/长期化/召回、原结果重取及恢复分别验证。现有 AKS 服务正在运行不代表它已部署本次源码；完整测试、正式 Temporal/HTTPS、HA 和灾备结论见[源码清理与部署就绪验收](../../交付成果/测试与验收/P3_源码清理与部署就绪验收_20261004.md)。
+
+## 业务边界与仍有效的契约
+
+Remember 拥有正文、来源、生命周期和候选资格；Recall 消费这些接口并提供共享 Embedding 和上下文；Operate 根据当前事实执行及核对原动作；RF 与 Temporal 共同保持身份、准入、事务、幂等、任务和恢复边界。`saved` 与向量 `ready` 分别取证，持久化成功不自动等于可召回。
+
+顶层 Recall 受理/执行契约与 `examples/recall_admission.py` 仍有有效消费者，属于组件示例。它使用真实 PostgreSQL 和部署方提供的可信授权快照，只推进受理与执行状态，不生成 ContextPack；不会恢复已删除的生产 mocks。当前服务装配走 `runtime.flows`，不把组件示例当作服务启动方式。
+
+旧 Python app、Sidecar、Celery、SQLite 适配和重复实现已退役。Rust P2 原型与生成协议仍属其他组件；正式 P2 adapter 和 Nginx gateway 另行联调，不能从 Ceph 测试推导 P2 已验收。
+
+## 开发者及 AI 配置
+
+完整 Azure 登录、RBAC、网络/TLS、个人数据库与存储空间、密钥注入、本机启动、AKS 测试和部署步骤见[Azure 开发环境与 AI 配置指南](../../交付成果/部署运行/P3_Azure开发环境与AI配置指南_20261004.md)。
+
+`scripts/p3/run_aks_tests.py` 将源码快照上传独有 AKS Pod，pytest 在 AKS 内连接真实四后端。环境凭据从仓库外文件注入；测试日志和原始证据放仓库外。测试有实际执行、零 failure/error/skip、源码 hash 未变并取得终态，才能报告该次通过。全量与定点测试分开记录。

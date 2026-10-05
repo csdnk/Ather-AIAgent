@@ -1,0 +1,7 @@
+{
+  "tokenizer": "o200k_base",
+  "candidate_limit": 20,
+  "max_items": 5,
+  "max_discovery": 100,
+  "rerank_policy": "disabled"
+}

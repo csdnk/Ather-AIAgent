@@ -1,1 +1,1 @@
-"""Independent Operate demo. No runtime, SQLite, Redis or web dependencies."""
+"""Shared Operate policy and models consumed by the current runtime."""

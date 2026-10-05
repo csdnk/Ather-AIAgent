@@ -1,0 +1,83 @@
+name: p3-azure-tests
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Reviewed full commit SHA to test in AKS
+        type: string
+        required: true
+      namespace:
+        description: Namespace permitted by the test kubeconfig
+        type: string
+        default: aether-p3-demo
+permissions:
+  contents: read
+jobs:
+  azure-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    environment: azure-tests
+    defaults:
+      run:
+        working-directory: AgentJYS-main
+    steps:
+      - name: Require an immutable reviewed revision
+        env:
+          REVISION: ${{ inputs.revision }}
+        working-directory: ${{ runner.temp }}
+        run: python -c 'import os,re; assert re.fullmatch("[0-9a-f]{40}", os.environ["REVISION"])'
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.revision }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: v1.35.3
+      - run: python -m pip install -e '.[embedding-onnx,resource-documents,remember-ceph]'
+      - name: Prepare external test assets
+        run: python scripts/p3/prepare_aks_test_assets.py --directory "$RUNNER_TEMP/p3-assets"
+      - name: Receive approved private environment
+        env:
+          TEST_ENV_JSON: ${{ secrets.P3_TEST_ENV_JSON }}
+          TEST_KUBECONFIG_B64: ${{ secrets.P3_TEST_KUBECONFIG_B64 }}
+          MILVUS_CA_PEM: ${{ secrets.P3_TEST_MILVUS_CA_PEM }}
+        run: |
+          python - <<'PY'
+          import base64, json, os
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP'])
+          values = json.loads(os.environ['TEST_ENV_JSON'])
+          (root / 'p3-test-env.json').write_text(json.dumps(values))
+          (root / 'p3-kubeconfig').write_bytes(base64.b64decode(os.environ['TEST_KUBECONFIG_B64']))
+          (root / 'p3-assets/milvus-ca.crt').write_text(os.environ['MILVUS_CA_PEM'])
+          for name in ('p3-test-env.json', 'p3-kubeconfig'):
+              (root / name).chmod(0o600)
+          PY
+      - name: Execute real Azure tests in an isolated AKS Pod
+        env:
+          TEST_NAMESPACE: ${{ inputs.namespace }}
+        run: |
+          python scripts/p3/run_aks_tests.py --kubeconfig "$RUNNER_TEMP/p3-kubeconfig" \
+            --namespace "$TEST_NAMESPACE" --environment-file "$RUNNER_TEMP/p3-test-env.json" \
+            --assets-directory "$RUNNER_TEMP/p3-assets" --directory "$RUNNER_TEMP/p3-evidence" \
+            --timeout-seconds 14400 -- tests --ignore=tests/integration/test_current_p2.py \
+            --ignore=tests/integration/test_web_gateway.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p3-azure-evidence
+          path: ${{ runner.temp }}/p3-evidence
+          retention-days: 14
+      - name: Remove runner-owned private inputs
+        if: always()
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP'])
+          for name in ('p3-test-env.json', 'p3-kubeconfig'):
+              (root / name).unlink(missing_ok=True)
+          PY

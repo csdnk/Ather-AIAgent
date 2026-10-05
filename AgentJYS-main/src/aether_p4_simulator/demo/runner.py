@@ -2,7 +2,6 @@
 
 import time
 from collections.abc import Callable
-from datetime import UTC, datetime
 from functools import partial
 
 from aether_agent_memory.runtime.contracts.models import Scope
@@ -16,8 +15,9 @@ from aether_p4_simulator.validation.models import (
 )
 from aether_p4_simulator.validation.operations import resolve_operation
 
+from .definition import RunDefinition
 from .models import Check, Evidence, ProjectionEvidence, StepSnapshot
-from .scenarios import LIBRARY
+from .state import ExecutionData, RecallHandle
 
 
 def _scope_matches(scope: Scope, scope_id: str) -> bool:
@@ -39,13 +39,19 @@ def run_library(
     scope_id: str,
     publish: Callable[[StepSnapshot], None],
     *,
+    definition: RunDefinition,
     wait_seconds: float = 60,
     clock: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
+    execution: ExecutionData | None = None,
+    save_state: Callable[[], None] | None = None,
 ) -> None:
-    receipts: dict[str, RememberReceipt] = {}
+    state = execution if execution is not None else ExecutionData()
+    capture = save_state or (lambda: None)
+    receipts = state.receipts
     selection = {"task_id": scope_id, "session_id": scope_id + "_session"}
-    for number, turn in enumerate(LIBRARY, 1):
+    for number, turn in enumerate(definition.library, 1):
+        state.step, state.phase = number, "step_started"
         started = clock()
         operation_id = f"{scope_id}_{number}"
         evidence = Evidence(path=f"/p3/{turn.action}", operation_id=operation_id)
@@ -58,6 +64,7 @@ def run_library(
         ) -> None:
             evidence.elapsed_ms = round((clock() - started) * 1000, 1)
             publish(step.model_copy(deep=True))
+            capture()
 
         def on_pending(
             job_id: str, evidence: Evidence = evidence, emit: Callable[[], None] = emit
@@ -72,10 +79,8 @@ def run_library(
                     "source": {
                         "kind": "conversation",
                         "external_id": operation_id,
-                        "external_version": "1",
-                        "occurred_at": datetime.now(UTC)
-                        .isoformat(timespec="milliseconds")
-                        .replace("+00:00", "Z"),
+                        "external_version": definition.text("source_version"),
+                        "occurred_at": definition.event_times[number - 1],
                     },
                     "selection": selection,
                     "content": {"kind": "text", "text": turn.user_text},
@@ -92,6 +97,8 @@ def run_library(
                 sleep=sleep,
                 on_pending=on_pending,
             )
+            state.parsed(operation_id, receipt)
+            capture()
             if receipt.operation_id != operation_id:
                 raise _scope_error(operation_id)
             if not receipt.saved or not receipt.memories:
@@ -104,6 +111,13 @@ def run_library(
                 )
             if any(not _scope_matches(ref.scope, scope_id) for ref in receipt.memories):
                 raise _scope_error(operation_id)
+            state.scope = state.scope or receipt.memories[0].scope
+            state.refs.update({ref.memory_id: ref for ref in receipt.memories})
+            state.sources[receipt.source.source_id] = receipt.source
+            state.task_ids.update(receipt.task_ids)
+            receipts[turn.target] = receipt
+            state.consume(operation_id)
+            capture()
             evidence.memories = list(receipt.memories)
             evidence.source_ids = [receipt.source.source_id]
             evidence.task_ids = list(receipt.task_ids)
@@ -159,14 +173,16 @@ def run_library(
                         operation_id=operation_id,
                         write_outcome="unconfirmed",
                     )
-            receipts[turn.target] = receipt
             step.response_text = "P3 已确认保存；Working 投影已就绪。\n" + " · ".join(
                 ref.memory_id for ref in receipt.memories
             )
             step.checks = [Check(name="保存与投影", passed=True, detail="本轮记忆 active / ready")]
         else:
             request = RecallRequest(
-                query=turn.user_text, selection=selection, sources="working", token_budget=2000
+                query=turn.user_text,
+                selection=selection,
+                sources="working",
+                token_budget=definition.number("basic_token_budget"),
             )
             pack = resolve_operation(
                 client,
@@ -179,6 +195,8 @@ def run_library(
                 sleep=sleep,
                 on_pending=on_pending,
             )
+            state.parsed(operation_id, pack)
+            capture()
             items = [item for group in pack.groups for item in group.items]
             all_refs = [ref for receipt in receipts.values() for ref in receipt.memories]
             if (
@@ -218,5 +236,10 @@ def run_library(
                 step.state = "failed"
                 emit()
                 raise ValidationError(409, "recall_check_failed", "真实召回未满足本步检查条件")
+            state.recalls["last"] = RecallHandle(recall_id=pack.recall_id, scope=pack.scope)
+            state.consume(operation_id)
+            capture()
         step.state = "passed"
+        state.completed_steps.append(number)
+        state.phase = "step_complete"
         emit()

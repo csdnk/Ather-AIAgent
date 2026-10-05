@@ -10,7 +10,7 @@ from aether_p4_simulator.demo.execution import StoryRun
 from aether_p4_simulator.validation.client import P3ValidationClient
 from aether_p4_simulator.validation.errors import ValidationError
 
-from .support import NOW
+from .support import NOW, fixed_definition
 
 pytestmark = pytest.mark.unit
 
@@ -134,7 +134,14 @@ class SummaryUpstream:
 
 def execute(upstream):
     client = P3ValidationClient("http://p3.test", "secret", transport=httpx.MockTransport(upstream))
-    run = StoryRun(client, "demo_summary", "library-full", None, lambda _: None)
+    run = StoryRun(
+        client,
+        "demo_summary",
+        "library-full",
+        None,
+        lambda _: None,
+        definition=fixed_definition("library-full"),
+    )
     document = DocumentInput(
         kind="document",
         provider_id="local",
@@ -179,3 +186,27 @@ def test_summary_rejects_unproved_versions_or_provenance_without_rewriting(varia
         execute(upstream)
     assert error.value.code == "scope_mismatch"
     assert sum(method == "POST" for method, _ in upstream.requests) == 1
+
+
+class ShortDocumentUpstream(SummaryUpstream):
+    def __call__(self, request):
+        response = super().__call__(request)
+        value = response.json()
+        if request.url.path == "/p3/remember":
+            value["task_ids"] = []
+        elif request.url.path == "/p3/remember/m1":
+            value.update(ref=self.old, supersedes=None, content="借期 30 天。")
+        elif request.url.path.endswith("/processing"):
+            value.update(memory=self.old, working_summary=None)
+        return httpx.Response(200, json=value)
+
+
+def test_short_document_without_summary_keeps_original_version_and_waits_for_projection():
+    upstream = ShortDocumentUpstream()
+    run, snapshot = execute(upstream)
+    assert snapshot.ref.version == 1
+    assert run.receipts["rules"].memories[0] == snapshot.ref
+    assert run.refs["m1"].version == 1
+    assert not any(path.startswith("/p3/tasks/") for _, path in upstream.requests)
+    assert ("GET", "/p3/remember/m1/processing") in upstream.requests
+    assert all(check.passed for check in run.current_step.checks)

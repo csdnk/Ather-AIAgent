@@ -19,6 +19,7 @@ from aether_agent_memory.runtime.contracts.foundation import (
     IncidentRecord,
     RuntimeHealthSnapshot,
 )
+from aether_agent_memory.runtime.contracts.http_evidence import HttpRequestEvidence
 from aether_agent_memory.runtime.contracts.models import (
     ErrorCode,
     ErrorResponse,
@@ -31,11 +32,13 @@ from aether_agent_memory.runtime.contracts.models import (
     TaskState,
     TrustedContext,
 )
+from aether_agent_memory.runtime.contracts.operation_lookup import HTTPCommandKind, OperationLookup
 from aether_agent_memory.runtime.foundation.common import FoundationError, now
 from aether_agent_memory.runtime.temporal.controls import ControlRequest
 
 from .config import BrowserIdentityConfiguration
 from .host import ThreeFlows
+from .http_evidence import capture_http_request
 from .jwt_auth import JWTAuthenticator
 from .observability import RequestObservability, configure_tracing
 
@@ -65,6 +68,7 @@ def create_app(
     execution: Any = None,
     jwt_auth: JWTAuthenticator | None = None,
     browser_identity: BrowserIdentityConfiguration | None = None,
+    request_timeout_seconds: float = 60,
 ) -> FastAPI:
     """Caller owns runtime lifetime. Credentials are supplied at use, never logged."""
     execution = execution or getattr(runtime, "execution", None)
@@ -115,6 +119,7 @@ def create_app(
             raise FoundationError(ErrorCode.FORBIDDEN, "tenant selector cannot expand membership")
         trusted = identity.context_for_principal(
             principal,
+            timeout_seconds=request_timeout_seconds,
             operation_id=x_operation_id,
             request_id=request.state.request_id,
             trace_id=request.state.trace_id,
@@ -124,6 +129,7 @@ def create_app(
         return trusted
 
     trusted_dependency = Depends(context)
+    http_dependency = Depends(capture_http_request)
 
     @app.exception_handler(FoundationError)
     async def foundation_error(request: Request, error: FoundationError) -> JSONResponse:
@@ -240,7 +246,7 @@ def create_app(
     @app.get("/p3/health", response_model=RuntimeHealthSnapshot)
     async def health(ctx: TrustedContext = trusted_dependency) -> RuntimeHealthSnapshot:
         await runtime.health.report(ctx)
-        return runtime.foundation.monitoring.health(ctx)
+        return await runtime.health.metadata(lambda: runtime.foundation.monitoring.health(ctx))
 
     @app.get("/p3/ready")
     async def ready(ctx: TrustedContext = trusted_dependency) -> JSONResponse:
@@ -360,21 +366,35 @@ def create_app(
 
     @app.post("/p3/remember", response_model=RememberReceipt)
     async def remember(
-        request: RememberRequest, response: Response, ctx: TrustedContext = trusted_dependency
+        request: RememberRequest,
+        response: Response,
+        ctx: TrustedContext = trusted_dependency,
+        http_request: HttpRequestEvidence = http_dependency,
     ) -> RememberReceipt:
         return RememberReceipt.model_validate(
             await execution.execute(
-                ctx, "remember.save", request.model_dump(mode="json"), response.headers
+                ctx,
+                "remember.save",
+                request.model_dump(mode="json"),
+                response.headers,
+                http_request=http_request,
             )
         )
 
     @app.post("/p3/recall", response_model=ContextPack)
     async def recall(
-        request: RecallRequest, response: Response, ctx: TrustedContext = trusted_dependency
+        request: RecallRequest,
+        response: Response,
+        ctx: TrustedContext = trusted_dependency,
+        http_request: HttpRequestEvidence = http_dependency,
     ) -> ContextPack:
         return ContextPack.model_validate(
             await execution.execute(
-                ctx, "recall.execute", request.model_dump(mode="json"), response.headers
+                ctx,
+                "recall.execute",
+                request.model_dump(mode="json"),
+                response.headers,
+                http_request=http_request,
             )
         )
 
@@ -383,6 +403,16 @@ def create_app(
         if execution is None:
             raise FoundationError(ErrorCode.DEPENDENCY_UNAVAILABLE, "Temporal not configured")
         return execution.operation(ctx, job_id)
+
+    @app.get("/p3/operation-requests/{operation_id}", response_model=OperationLookup)
+    def original_operation(
+        operation_id: Identifier,
+        kind: HTTPCommandKind,
+        ctx: TrustedContext = trusted_dependency,
+    ) -> OperationLookup:
+        if execution is None:
+            raise FoundationError(ErrorCode.DEPENDENCY_UNAVAILABLE, "Temporal not configured")
+        return OperationLookup.model_validate(execution.lookup_operation(ctx, operation_id, kind))
 
     @app.get("/p3/operations/{job_id}/result")
     def operation_result(job_id: Identifier, ctx: TrustedContext = trusted_dependency) -> Any:

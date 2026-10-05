@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from test_temporal_http import configuration
 
-from aether_agent_memory.runtime.flows.application import Service
-from aether_agent_memory.runtime.temporal.migration import KINDS
+from azure_component_service import Service
+from temporal_test_support import BUSINESS_KINDS as KINDS
 
 
 def test_registered_kind_without_workflow_blocks_start(tmp_path, monkeypatch):
@@ -30,7 +30,7 @@ def test_registered_kind_without_workflow_blocks_start(tmp_path, monkeypatch):
             asyncio.run(service.close())
 
 
-def test_catalog_migration_and_frontend_coverage_match(tmp_path):
+def test_catalog_and_frontend_coverage_match(tmp_path):
     import asyncio
 
     service = Service(configuration(tmp_path, "127.0.0.1:1"))
@@ -54,7 +54,10 @@ def test_catalog_migration_and_frontend_coverage_match(tmp_path):
 def test_acceptance_manifest_names_existing_tests_for_all_scenarios():
     base = Path(__file__).parent
     scenarios = json.loads((base / "acceptance_scenarios.json").read_text("utf-8"))
-    assert set(scenarios) == {f"T{i:02}" for i in range(1, 19)}
+    retired = json.loads((base / "retired_acceptance_scenarios.json").read_text("utf-8"))
+    assert set(scenarios) | set(retired) == {f"T{i:02}" for i in range(1, 19)}
+    assert not (set(scenarios) & set(retired))
+    assert retired["T14"]["reason"] == "old-data migration cancelled by user"
     for references in scenarios.values():
         assert references
         for reference in references:

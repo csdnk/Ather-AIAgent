@@ -119,10 +119,14 @@ def test_saved_working_without_projection_is_not_successful_empty_or_lexical(app
     assert error.value.code in {ErrorCode.REQUEST_IN_PROGRESS, ErrorCode.DEPENDENCY_UNAVAILABLE}
 
 
-def test_working_vector_dependency_failure_cannot_fall_back_to_matching_text(app):
+def test_working_vector_dependency_failure_cannot_fall_back_to_matching_text(app, monkeypatch):
     save(app)
     drain(app)
-    app.vectors.available = False
+
+    def unavailable(**kwargs):
+        raise OSError("controlled Milvus search outage")
+
+    monkeypatch.setattr(app.vectors.client, "search", unavailable)
     with pytest.raises(FoundationError) as error:
         recall(app, sources="working", selection=ScopeSelector(session_id="session_1"))
     assert error.value.code == ErrorCode.DEPENDENCY_UNAVAILABLE

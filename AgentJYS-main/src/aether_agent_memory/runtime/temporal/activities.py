@@ -21,8 +21,9 @@ from aether_agent_memory.runtime.contracts.models import (
     TrustedContext,
 )
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint, later
-from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction, business_write_guard
 from aether_agent_memory.runtime.foundation.tasks import TERMINAL
+from aether_agent_memory.runtime.foundation.transactions import business_write_guard
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 from .ledger import ExecutionLedger
 from .locking import ExecutionLimits
@@ -45,10 +46,10 @@ class StageContext:
     def current() -> "StageContext":
         return _context.get()
 
-    def guard(self, tx: SQLiteTransaction) -> TaskRecord:
+    def guard(self, tx: MetadataTransaction) -> TaskRecord:
         return self.ledger.guard(tx, self.task.task_id, self.execution)
 
-    def commit_fence(self, tx: SQLiteTransaction) -> None:
+    def commit_fence(self, tx: MetadataTransaction) -> None:
         """Protect every domain transaction, including atomic completion in a stage."""
         _, current = self.ledger.tasks.load(tx, self.task.task_id)
         if current.execution != self.execution:
@@ -79,32 +80,40 @@ class Activities:
     @activity.defn(name="p3.plan")
     async def plan(self, job: WorkflowInput) -> TaskPlan:
         try:
-            policies = self.registry.policies(job.kind)
-            with self.tasks.uow.transaction() as tx:
-                binding = self.ledger.verify_job(tx, job)
-                _, task = self.tasks.load(tx, job.job_id)
-                if job.plan_version != "1":
-                    tx.abort(ErrorCode.CONTRACT_VIOLATION, "unsupported stage plan")
-                query_deadline = binding.get("query_deadline_at", later(task.deadline_at, 60))
-                tx.write(
-                    "temporal_bindings",
-                    job.job_id,
-                    {**binding, "query_deadline_at": query_deadline},
-                )
-                return TaskPlan(
-                    first_stage=next(iter(policies)),
-                    stages=policies,
-                    deadline_at=task.deadline_at,
-                    query_deadline_at=query_deadline,
-                    retry_seconds=self.tasks.retry_seconds,
-                )
+            return await self.blocking(lambda: self.plan_in_storage(job))
         except Exception:
             raise ApplicationError(
                 "P3 plan unavailable", type="P3_PLAN_INVALID", non_retryable=True
             ) from None
 
+    async def blocking(self, function: Callable[[], T]) -> T:
+        return await asyncio.get_running_loop().run_in_executor(
+            self.executor, copy_context().run, function
+        )
+
+    def plan_in_storage(self, job: WorkflowInput) -> TaskPlan:
+        policies = self.registry.policies(job.kind)
+        with self.tasks.uow.transaction() as tx:
+            binding = self.ledger.verify_job(tx, job)
+            _, task = self.tasks.load(tx, job.job_id)
+            if job.plan_version != "1":
+                tx.abort(ErrorCode.CONTRACT_VIOLATION, "unsupported stage plan")
+            query_deadline = binding.get("query_deadline_at", later(task.deadline_at, 60))
+            tx.write(
+                "temporal_bindings",
+                job.job_id,
+                {**binding, "query_deadline_at": query_deadline},
+            )
+            return TaskPlan(
+                first_stage=next(iter(policies)),
+                stages=policies,
+                deadline_at=task.deadline_at,
+                query_deadline_at=query_deadline,
+                retry_seconds=self.tasks.retry_seconds,
+            )
+
     def authorized_context(
-        self, tx: SQLiteTransaction, task: TaskRecord, deadline: str
+        self, tx: MetadataTransaction, task: TaskRecord, deadline: str
     ) -> TrustedContext:
         row, _ = self.tasks.load(tx, task.task_id)
         ctx = TrustedContext.model_validate(row["context"]).model_copy(
@@ -128,25 +137,27 @@ class Activities:
             outcome = StepResult(
                 outcome="attention", effect_status=EffectStatus.UNKNOWN, reason_code=exc.code.value
             )
-            with self.tasks.uow.transaction() as tx:
-                _, current = self.tasks.load(tx, step.job.job_id)
-                info = activity.info()
-                owner = current.execution
-                if (
-                    owner is None
-                    or owner.run_id != info.workflow_run_id
-                    or owner.activity_id != info.activity_id
-                    or owner.delivery_attempt != info.attempt
-                ):
-                    return outcome
-                return self.close_in(tx, CloseRequest(job=step.job, result=outcome))
+            return await self.blocking(lambda: self.close_owned(step, outcome))
         except Exception:
             raise ApplicationError(
                 "P3 stage interrupted", type="P3_STAGE_INTERRUPTED", non_retryable=True
             ) from None
 
-    async def _execute(self, step: StepRequest) -> StepResult:
-        stage = self.registry.get(step.job.kind, step.stage)
+    def close_owned(self, step: StepRequest, outcome: StepResult) -> StepResult:
+        with self.tasks.uow.transaction() as tx:
+            _, current = self.tasks.load(tx, step.job.job_id)
+            info = activity.info()
+            owner = current.execution
+            if (
+                owner is None
+                or owner.run_id != info.workflow_run_id
+                or owner.activity_id != info.activity_id
+                or owner.delivery_attempt != info.attempt
+            ):
+                return outcome
+            return self.close_in(tx, CloseRequest(job=step.job, result=outcome))
+
+    def inspect_step(self, step: StepRequest) -> StepResult | tuple[TaskRecord, str, str]:
         with self.tasks.uow.transaction() as tx:
             binding = self.ledger.verify_job(tx, step.job)
             row, task = self.tasks.load(tx, step.job.job_id)
@@ -158,18 +169,89 @@ class Activities:
             if task.state in TERMINAL:
                 return self.terminal_result(task)
             execution_class = row["class"]
+        return task, deadline, execution_class
+
+    def begin_step(self, step: StepRequest, deadline: str) -> StageContext | StepResult:
+        stage = self.registry.get(step.job.kind, step.stage)
+        with self.tasks.uow.transaction() as tx:
+            row, task = self.tasks.load(tx, step.job.job_id)
+            counter = tx.read("temporal_stage_budgets", self.ledger.step_key(step)) or {
+                "executions": 0
+            }
+            exhausted = (
+                task.query_attempt >= self.tasks.query_max_attempts
+                if step.mode == "reconcile"
+                else task.attempt >= task.max_attempts and counter["executions"] > 0
+            )
+            if exhausted:
+                return self.close_in(
+                    tx,
+                    CloseRequest(
+                        job=step.job,
+                        result=StepResult(
+                            outcome="attention"
+                            if task.effect_status == EffectStatus.UNKNOWN
+                            else "failed",
+                            effect_status=task.effect_status,
+                            reason_code="BUDGET_EXHAUSTED",
+                        ),
+                    ),
+                )
+            deadline = min(deadline, later(self.tasks.clock(), stage.policy.timeout_seconds))
+            tx.write("tasks", task.task_id, {**row, "execution_deadline": deadline})
+            info = activity.info()
+            execution = self.ledger.begin(
+                tx,
+                step,
+                ExecutionRef(
+                    namespace=info.workflow_namespace,
+                    workflow_id=info.workflow_id,
+                    run_id=info.workflow_run_id,
+                    activity_id=info.activity_id,
+                    delivery_attempt=info.attempt,
+                    epoch=0,
+                ),
+            )
+            row, task = self.tasks.load(tx, task.task_id)
+            attempt = task.attempt
+            if step.mode == "execute":
+                attempt = max(1, attempt + (1 if counter["executions"] else 0))
+                counter["executions"] += 1
+                tx.write("temporal_stage_budgets", self.ledger.step_key(step), counter)
+            task = self.tasks.change(
+                tx,
+                row,
+                task,
+                attempt=attempt,
+                query_attempt=task.query_attempt + (1 if step.mode == "reconcile" else 0),
+                effect_status=EffectStatus.UNKNOWN
+                if stage.policy.effect_mode != "read"
+                else EffectStatus.NO_EFFECT,
+            )
+            ctx = self.authorized_context(tx, task, deadline)
+            self.tasks.identity.authorize(tx, ctx, stage.permission, task.subject)
+        return StageContext(self.ledger, task, ctx, execution, self.executor)
+
+    async def _execute(self, step: StepRequest) -> StepResult:
+        stage = self.registry.get(step.job.kind, step.stage)
+        inspected = await self.blocking(lambda: self.inspect_step(step))
+        if isinstance(inspected, StepResult):
+            return inspected
+        task, deadline, execution_class = inspected
         remaining = (
             datetime.fromisoformat(deadline) - datetime.fromisoformat(self.tasks.clock())
         ).total_seconds()
         if remaining <= 0:
-            return self.close(
-                CloseRequest(
-                    job=step.job,
-                    result=StepResult(
-                        outcome="attention",
-                        effect_status=EffectStatus.UNKNOWN,
-                        reason_code="DEADLINE_EXCEEDED",
-                    ),
+            return await self.blocking(
+                lambda: self.close(
+                    CloseRequest(
+                        job=step.job,
+                        result=StepResult(
+                            outcome="attention",
+                            effect_status=EffectStatus.UNKNOWN,
+                            reason_code="DEADLINE_EXCEEDED",
+                        ),
+                    )
                 )
             )
         async with (
@@ -181,70 +263,16 @@ class Activities:
                 execution_class,
             ),
         ):
-            with self.tasks.uow.transaction() as tx:
-                row, task = self.tasks.load(tx, step.job.job_id)
-                counter = tx.read("temporal_stage_budgets", self.ledger.step_key(step)) or {
-                    "executions": 0
-                }
-                exhausted = (
-                    task.query_attempt >= self.tasks.query_max_attempts
-                    if step.mode == "reconcile"
-                    else task.attempt >= task.max_attempts and counter["executions"] > 0
-                )
-                if exhausted:
-                    return self.close_in(
-                        tx,
-                        CloseRequest(
-                            job=step.job,
-                            result=StepResult(
-                                outcome="attention"
-                                if task.effect_status == EffectStatus.UNKNOWN
-                                else "failed",
-                                effect_status=task.effect_status,
-                                reason_code="BUDGET_EXHAUSTED",
-                            ),
-                        ),
-                    )
-                deadline = min(deadline, later(self.tasks.clock(), stage.policy.timeout_seconds))
-                tx.write("tasks", task.task_id, {**row, "execution_deadline": deadline})
-                info = activity.info()
-                execution = self.ledger.begin(
-                    tx,
-                    step,
-                    ExecutionRef(
-                        namespace=info.workflow_namespace,
-                        workflow_id=info.workflow_id,
-                        run_id=info.workflow_run_id,
-                        activity_id=info.activity_id,
-                        delivery_attempt=info.attempt,
-                        epoch=0,
-                    ),
-                )
-                row, task = self.tasks.load(tx, task.task_id)
-                attempt = task.attempt
-                if step.mode == "execute":
-                    attempt = max(1, attempt + (1 if counter["executions"] else 0))
-                    counter["executions"] += 1
-                    tx.write("temporal_stage_budgets", self.ledger.step_key(step), counter)
-                task = self.tasks.change(
-                    tx,
-                    row,
-                    task,
-                    attempt=attempt,
-                    query_attempt=task.query_attempt + (1 if step.mode == "reconcile" else 0),
-                    effect_status=EffectStatus.UNKNOWN
-                    if stage.policy.effect_mode != "read"
-                    else EffectStatus.NO_EFFECT,
-                )
-                ctx = self.authorized_context(tx, task, deadline)
-                self.tasks.identity.authorize(tx, ctx, stage.permission, task.subject)
-            context = StageContext(self.ledger, task, ctx, execution, self.executor)
+            context = await self.blocking(lambda: self.begin_step(step, deadline))
+            if isinstance(context, StepResult):
+                return context
+            task, ctx, execution = context.task, context.context, context.execution
             token = _context.set(context)
             fence_token = business_write_guard.set(context.commit_fence)
             try:
                 telemetry = self.tasks.uow.telemetry
                 trace = (
-                    telemetry.span(
+                    telemetry.async_span(
                         ctx,
                         "runtime.temporal.step",
                         {
@@ -257,7 +285,7 @@ class Activities:
                     if telemetry is not None
                     else nullcontext()
                 )
-                with trace as span:
+                async with trace as span:
                     try:
                         handler = stage.execute if step.mode == "execute" else stage.reconcile
                         result = await handler(step)
@@ -286,7 +314,7 @@ class Activities:
                         )
                     if span is not None:
                         span.output = result
-                    return self.record(step, context, result)
+                    return await context.blocking(lambda: self.record(step, context, result))
             finally:
                 _context.reset(token)
                 business_write_guard.reset(fence_token)
@@ -372,7 +400,7 @@ class Activities:
             )
         )
 
-    def close_in(self, tx: SQLiteTransaction, request: CloseRequest) -> StepResult:
+    def close_in(self, tx: MetadataTransaction, request: CloseRequest) -> StepResult:
         self.ledger.verify_job(tx, request.job)
         row, task = self.tasks.load(tx, request.job.job_id)
         if task.state in TERMINAL:
@@ -414,7 +442,7 @@ class Activities:
     @activity.defn(name="p3.close")
     async def finish_workflow(self, request: CloseRequest) -> StepResult:
         try:
-            return self.close(request)
+            return await self.blocking(lambda: self.close(request))
         except Exception:
             raise ApplicationError(
                 "P3 closure requires attention", type="P3_CLOSE_FAILED", non_retryable=True

@@ -1,0 +1,51 @@
+# P3 storage interfaces backed by existing Azure PG, Redis, Milvus and Ceph.
+# Replace Ceph/LLM/Temporal placeholders and supply credentials outside this file.
+# This is a configuration example, not evidence of a deployed or accepted environment.
+profile: test
+storage_mode: azure
+metadata_backend: postgresql
+host: 0.0.0.0
+port: 8080
+data_dir: transient/test
+identity_file: identities.yaml
+azure_storage:
+  namespace: p3-test
+  postgres:
+    dsn_env: AETHER_POSTGRES_DSN
+    schema_name: p3_test
+  redis:
+    host: redisp3.redis.cache.windows.net
+    port: 6380
+    password_env: AETHER_REDIS_PASSWORD
+    ca_file: certificates/azure-ca.pem
+  milvus:
+    uri: https://milvus.internal:19530
+    database: p3_test
+    collection: memories
+    token_env: AETHER_MILVUS_TOKEN
+    ca_file: certificates/milvus-ca.pem
+    server_name: milvus.internal
+  ceph:
+    endpoint: https://replace-with-verified-ceph-rgw.example
+    # Explicitly enable only when deployment accepts plaintext S3 transport.
+    allow_insecure_http: false
+    bucket: p3-test
+    access_key_env: AETHER_CEPH_ACCESS_KEY
+    secret_key_env: AETHER_CEPH_SECRET_KEY
+    region: us-east-1
+    # Add ca_file only for a private CA; public CA validation remains enabled.
+embedding_profile: native
+embedding_config: embedding.azure.example.json
+recall_config: recall.azure.json
+language_model:
+  endpoint: https://replace-with-approved-llm.example/v1
+  model: REPLACE_WITH_APPROVED_MODEL
+  api_key_env: AETHER_LLM_API_KEY
+temporal:
+  deployment_id: p3-test
+  endpoint: temporal.internal:7233
+  namespace: p3-test
+  task_queue_prefix: p3
+maintenance_principals: [bootstrap_admin]
+shutdown_seconds: 30
+http_wait_seconds: 30

@@ -11,7 +11,7 @@ from test_ledger import ledger as ledger
 
 from aether_agent_memory.runtime.contracts.models import ErrorCode
 from aether_agent_memory.runtime.foundation.common import FoundationError
-from aether_agent_memory.runtime.foundation.storage import _active
+from aether_agent_memory.runtime.foundation.transactions import _active
 from aether_agent_memory.runtime.temporal.bridge import IntentBridge
 from aether_agent_memory.runtime.temporal.gateway import TemporalGateway
 from aether_agent_memory.runtime.temporal.models import ControlIntent, StartIntent, StepRequest

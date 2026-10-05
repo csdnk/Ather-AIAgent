@@ -59,6 +59,16 @@ class StoredStages:
                 tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "Operate phase changed")
         return ref
 
+    def read(self, table: str, key: str) -> Any:
+        with self.uow.transaction() as tx:
+            StageContext.current().guard(tx)
+            return tx.read(table, key)
+
+    def write(self, table: str, key: str, value: Any) -> None:
+        with self.uow.transaction() as tx:
+            StageContext.current().guard(tx)
+            tx.write(table, key, value)
+
     def done(self, phase: str, next_stage: str | None) -> StepResult:
         return StepResult(
             outcome="done",
@@ -109,12 +119,12 @@ class OperateStages(StoredStages):
         self.owner = owner
 
     async def prepare(self, step: StepRequest) -> StepResult:
-        if self.load("prepared") is None:
-            c = StageContext.current()
+        c = StageContext.current()
+        if await c.blocking(partial(self.load, "prepared")) is None:
             result = await self.owner.prepare_evaluation(c.context, c.task)
             if isinstance(result, RunResult):
                 return self.outcome(result)
-            self.save("prepared", result)
+            await c.blocking(partial(self.save, "prepared", result))
         return self.done("prepared", "submit")
 
     def intent(self, data: dict[str, Any]) -> ActionIntent:
@@ -132,33 +142,30 @@ class OperateStages(StoredStages):
 
     async def submit(self, step: StepRequest) -> StepResult:
         c = StageContext.current()
-        data = self.required("prepared")
+        data = await c.blocking(partial(self.required, "prepared"))
         if "intent" in data:
-            self.intent(data)
+            await c.blocking(partial(self.intent, data))
         if data.get("cleanup") and data["valid"]:
-            with self.uow.transaction() as tx:
-                started = tx.read("temporal_cache_cleanup", c.task.task_id)
+            started = await c.blocking(partial(self.read, "temporal_cache_cleanup", c.task.task_id))
             if started:
                 return await self.reconcile(step)
-            with self.uow.transaction() as tx:
-                c.guard(tx)
-                tx.write("temporal_cache_cleanup", c.task.task_id, data)
+            await c.blocking(partial(self.write, "temporal_cache_cleanup", c.task.task_id, data))
         result = await self.owner.submit_evaluation(c.context, c.task, data)
         if isinstance(result, RunResult):
             return self.outcome(result)
-        self.save("evaluated", result)
+        await c.blocking(partial(self.save, "evaluated", result))
         return self.done("evaluated", "reconcile")
 
     async def reconcile(self, step: StepRequest) -> StepResult:
-        c, data = StageContext.current(), self.required("prepared")
+        c = StageContext.current()
+        data = await c.blocking(partial(self.required, "prepared"))
         if "intent" in data:
-            self.intent(data)
-        if self.load("evaluated") is not None:
+            await c.blocking(partial(self.intent, data))
+        if await c.blocking(partial(self.load, "evaluated")) is not None:
             return self.done("evaluated", "commit")
         if "intent" in data:
-            intent = self.intent(data)
-            with self.uow.transaction() as tx:
-                raw = tx.read("operate_actions", intent.action_id)
+            intent = await c.blocking(partial(self.intent, data))
+            raw = await c.blocking(partial(self.read, "operate_actions", intent.action_id))
             if raw is None:
                 return self.not_started()
             action = ActionRecord.model_validate(raw)
@@ -170,42 +177,40 @@ class OperateStages(StoredStages):
                 ActionState.CANCELLED,
             }:
                 action = await self.owner.reconcile(c.context, intent.action_id)
-            result = self.owner.evaluation_feedback(c.context, c.task, action)
+            result = await c.blocking(
+                partial(self.owner.evaluation_feedback, c.context, c.task, action)
+            )
             if isinstance(result, RunResult):
                 return self.outcome(result)
         elif data.get("cleanup") and data["valid"]:
             memory = MemoryRef.model_validate(data["memory"])
-            with self.uow.transaction() as tx:
-                started = tx.read("temporal_cache_cleanup", c.task.task_id)
+            started = await c.blocking(partial(self.read, "temporal_cache_cleanup", c.task.task_id))
             if not started:
                 return self.not_started()
-            with self.owner.executor.db() as db:
-                rows = db.execute("SELECT memory FROM copies").fetchall()
-                tombstone = db.execute(
-                    "SELECT version FROM tombstones WHERE id=?", (memory.memory_id,)
-                ).fetchone()
-            if any(
-                (ref := MemoryRef.model_validate_json(row[0])).scope == memory.scope
-                and ref.memory_id == memory.memory_id
-                and ref.version <= memory.version
-                for row in rows
-            ) or (data["permanent"] and (not tombstone or tombstone[0] < memory.version)):
+            if not await asyncio.to_thread(
+                self.owner.executor.cleanup_complete, memory, permanent=data["permanent"]
+            ):
                 return self.unknown(c.task.task_id)
             result = {"cache_cleanup": "completed"}
         else:
             result = data.get("value", {"cache_cleanup": "ineligible"})
-        self.save("evaluated", result)
+        await c.blocking(partial(self.save, "evaluated", result))
         return self.done("evaluated", "commit")
 
     async def commit(self, step: StepRequest) -> StepResult:
-        c, value = StageContext.current(), self.required("evaluated")
-        prepared = self.required("prepared")
+        c = StageContext.current()
+        value = await c.blocking(partial(self.required, "evaluated"))
+        prepared = await c.blocking(partial(self.required, "prepared"))
         if "intent" in prepared:
-            self.intent(prepared)
+            await c.blocking(partial(self.intent, prepared))
         await self.owner.before_completion(c.context, c.task, value)
-        with self.uow.transaction() as tx:
-            c.guard(tx)
-            result = self.owner.finish(tx, c.context, c.task, value)
+
+        def finish() -> RunResult:
+            with self.uow.transaction() as tx:
+                c.guard(tx)
+                return self.owner.finish(tx, c.context, c.task, value)
+
+        result = await c.blocking(finish)
         return self.outcome(result)
 
 
@@ -246,14 +251,11 @@ class RepairStages(StoredStages):
             eligible = self.owner.eligible(tx, c.context, item.ref)
         if not started:
             return self.not_started()
-        with self.owner.executor.db() as db:
-            original = db.execute(
-                "SELECT memory,content_hash FROM repairs WHERE id=?", (c.task.task_id,)
-            ).fetchone()
+        original = await asyncio.to_thread(self.owner.executor.repair_record, c.task.task_id)
         if (
             original == (item.ref.model_dump_json(), item.content_hash)
             and eligible
-            and self.owner.inspect(item.ref, item.content_hash)
+            and await asyncio.to_thread(self.owner.inspect, item.ref, item.content_hash)
         ):
             return self.done("diagnosed", "verify")
         return self.unknown(c.task.task_id)

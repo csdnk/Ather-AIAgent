@@ -8,12 +8,16 @@ source of truth.
 
 from __future__ import annotations
 
+import asyncio
 import json
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import Path
+from threading import Lock
 from typing import Any
 
-from aether_agent_memory.b1.models import EmbeddingRecord
+from aether_agent_memory.p2.models import EmbeddingRecord
 
 
 class P2UnavailableError(RuntimeError):
@@ -80,9 +84,21 @@ class P2GrpcClient:
         bucket: str = "p3-memory",
         collection: str = "p3",
         timeout_seconds: float = 10.0,
+        secure: bool = False,
+        ca_file: Path | None = None,
+        cert_file: Path | None = None,
+        key_file: Path | None = None,
+        token: str = "",
     ) -> None:
         if timeout_seconds <= 0:
             raise ValueError("P2 gRPC timeout must be positive")
+        if bool(cert_file) != bool(key_file):
+            raise ValueError("P2 certificate and private key must be configured together")
+        if (ca_file or cert_file or key_file or token) and not secure:
+            raise ValueError("P2 credentials require secure transport")
+        self.secure = secure
+        self.ca_file, self.cert_file, self.key_file = ca_file, cert_file, key_file
+        self.token = token
         self.endpoint = endpoint
         self.bucket = bucket
         self.collection = collection
@@ -90,6 +106,10 @@ class P2GrpcClient:
         self._channel: Any | None = None
         self._pb: Any | None = None
         self._grpc: Any | None = None
+        self._sync_channel: Any | None = None
+        self._sync_pb: Any | None = None
+        self._sync_grpc: Any | None = None
+        self._sync_lock = Lock()
 
     async def connect(self) -> None:
         if self._channel is not None:
@@ -107,14 +127,153 @@ class P2GrpcClient:
             raise P2UnavailableError(
                 "P2 protobuf stubs are missing. Run: python scripts/generate_proto.py"
             ) from exc
-        self._channel = grpc.aio.insecure_channel(self.endpoint)
+        self._channel = (
+            grpc.aio.secure_channel(self.endpoint, self.channel_credentials(grpc))
+            if self.secure
+            else grpc.aio.insecure_channel(self.endpoint)
+        )
         self._pb = pb
         self._grpc = pb_grpc
 
+    def connect_sync(self) -> None:
+        """Own a synchronous channel for off-loop admission and body recovery."""
+        with self._sync_lock:
+            if self._sync_channel is not None:
+                return
+            try:
+                import grpc
+
+                from aether_agent_memory.p2.generated import (
+                    aether_engine_pb2 as pb,
+                )
+                from aether_agent_memory.p2.generated import (
+                    aether_engine_pb2_grpc as pb_grpc,
+                )
+            except ImportError:
+                raise P2UnavailableError("P2 protobuf stubs are missing") from None
+            self._sync_channel = (
+                grpc.secure_channel(self.endpoint, self.channel_credentials(grpc))
+                if self.secure
+                else grpc.insecure_channel(self.endpoint)
+            )
+            self._sync_pb, self._sync_grpc = pb, pb_grpc
+
+    def put_object_sync(self, key: str, data: bytes) -> P2ObjectMeta:
+        if not isinstance(data, bytes):
+            raise TypeError("P2 object must be immutable bytes")
+        self.connect_sync()
+        assert self._sync_pb is not None and self._sync_grpc is not None
+        stub = self._sync_grpc.ObjectServiceStub(self._sync_channel)
+        stub.CreateBucket(
+            self._sync_pb.CreateBucketRequest(bucket=self.bucket), timeout=self.timeout_seconds
+        )
+        try:
+            meta = stub.PutObject(
+                self._sync_pb.PutObjectRequest(bucket=self.bucket, key=key, data=data),
+                timeout=self.timeout_seconds,
+            )
+        except Exception as error:
+            if not self._uncertain_object_write(error):
+                raise
+            # The engine may have persisted the original bytes before losing its
+            # reply (including concurrent tmp/rename failure). Never resend here.
+            deadline = time.monotonic() + self.timeout_seconds
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise error from None
+                try:
+                    reply = stub.GetObject(
+                        self._sync_pb.GetObjectRequest(bucket=self.bucket, key=key),
+                        timeout=remaining,
+                    )
+                except Exception as read_error:
+                    if not (
+                        self._uncertain_object_write(read_error) or self._is_not_found(read_error)
+                    ):
+                        raise
+                    time.sleep(min(0.02, max(0, deadline - time.monotonic())))
+                    continue
+                return self._confirmed_object_meta(reply, key, data)
+        return self._object_meta(meta)
+
+    @staticmethod
+    def _uncertain_object_write(error: Exception) -> bool:
+        import grpc
+
+        return isinstance(error, grpc.RpcError) and error.code() in {
+            grpc.StatusCode.INTERNAL,
+            grpc.StatusCode.UNKNOWN,
+            grpc.StatusCode.UNAVAILABLE,
+            grpc.StatusCode.DEADLINE_EXCEEDED,
+        }
+
+    def _confirmed_object_meta(self, reply: Any, key: str, data: bytes) -> P2ObjectMeta:
+        metadata = self._object_meta(reply.meta)
+        if (
+            bytes(reply.data) != data
+            or metadata.bucket != self.bucket
+            or metadata.key != key
+            or metadata.size != len(data)
+            or not metadata.etag
+        ):
+            raise P2UnavailableError("original P2 object write could not be confirmed")
+        return metadata
+
+    def get_object_sync(self, key: str) -> bytes | None:
+        self.connect_sync()
+        assert self._sync_pb is not None and self._sync_grpc is not None
+        try:
+            response = self._sync_grpc.ObjectServiceStub(self._sync_channel).GetObject(
+                self._sync_pb.GetObjectRequest(bucket=self.bucket, key=key),
+                timeout=self.timeout_seconds,
+            )
+        except Exception as exc:
+            if self._is_not_found(exc):
+                return None
+            raise
+        return bytes(response.data)
+
     async def close(self) -> None:
+        with self._sync_lock:
+            if self._sync_channel is not None:
+                self._sync_channel.close()
+                self._sync_channel = None
         if self._channel is not None:
             await self._channel.close()
             self._channel = None
+
+    def channel_credentials(self, grpc: Any) -> Any:
+        """Use the system CA or an explicit CA, optional mTLS, and token call credentials."""
+        try:
+            roots = Path(self.ca_file).read_bytes() if self.ca_file else None
+            certificate = Path(self.cert_file).read_bytes() if self.cert_file else None
+            key = Path(self.key_file).read_bytes() if self.key_file else None
+        except OSError:
+            raise P2UnavailableError("configured P2 TLS credential file is unavailable") from None
+        tls = grpc.ssl_channel_credentials(
+            root_certificates=roots,
+            private_key=key,
+            certificate_chain=certificate,
+        )
+        if self.token:
+            return grpc.composite_channel_credentials(
+                tls,
+                grpc.access_token_call_credentials(self.token),
+            )
+        return tls
+
+    async def delete_vectors(self, ids: Sequence[str], *, collection: str | None = None) -> None:
+        if not ids:
+            return
+        await self.connect()
+        assert self._pb is not None and self._grpc is not None
+        response = await self._grpc.VectorServiceStub(self._channel).DeleteVectors(
+            self._pb.DeleteVectorsRequest(collection=collection or self.collection, ids=list(ids)),
+            timeout=self.timeout_seconds,
+        )
+        if response.deleted != len(ids):
+            raise P2UnavailableError("P2 did not acknowledge all requested vector tombstones")
 
     async def ensure_collection(self, dimension: int, *, collection: str | None = None) -> None:
         await self.connect()
@@ -323,10 +482,32 @@ class P2GrpcClient:
         await stub.CreateBucket(
             self._pb.CreateBucketRequest(bucket=self.bucket), timeout=self.timeout_seconds
         )
-        meta = await stub.PutObject(
-            self._pb.PutObjectRequest(bucket=self.bucket, key=key, data=data),
-            timeout=self.timeout_seconds,
-        )
+        try:
+            meta = await stub.PutObject(
+                self._pb.PutObjectRequest(bucket=self.bucket, key=key, data=data),
+                timeout=self.timeout_seconds,
+            )
+        except Exception as error:
+            if not self._uncertain_object_write(error):
+                raise
+            deadline = time.monotonic() + self.timeout_seconds
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise error from None
+                try:
+                    reply = await stub.GetObject(
+                        self._pb.GetObjectRequest(bucket=self.bucket, key=key),
+                        timeout=remaining,
+                    )
+                except Exception as read_error:
+                    if not (
+                        self._uncertain_object_write(read_error) or self._is_not_found(read_error)
+                    ):
+                        raise
+                    await asyncio.sleep(min(0.02, max(0, deadline - time.monotonic())))
+                    continue
+                return self._confirmed_object_meta(reply, key, data)
         return self._object_meta(meta)
 
     async def get_object(self, key: str) -> bytes | None:

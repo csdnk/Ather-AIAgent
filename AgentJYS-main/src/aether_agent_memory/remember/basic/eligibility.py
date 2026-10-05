@@ -8,14 +8,14 @@ from aether_agent_memory.remember.contracts.models import (
     MemoryRef,
 )
 from aether_agent_memory.runtime.contracts.models import Permission, RecordRef, TrustedContext
-from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 from .service import Remember, memory_ref
 
 
 def qualify(
     owner: Remember,
-    tx: SQLiteTransaction,
+    tx: MetadataTransaction,
     ctx: TrustedContext,
     refs: tuple[MemoryRef, ...],
     purpose: str,

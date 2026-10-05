@@ -14,11 +14,11 @@ import yaml
 from fastapi.testclient import TestClient
 
 from aether_agent_memory.runtime.contracts.models import Permission
-from aether_agent_memory.runtime.flows.application import Service
-from aether_agent_memory.runtime.flows.config import ServiceConfiguration
 from aether_p4_simulator.demo.service import DemoService
 from aether_p4_simulator.server import P4Handler
 from aether_p4_simulator.validation.client import P3ValidationClient
+from azure_component_service import Service
+from component_configuration import ComponentConfiguration as ServiceConfiguration
 
 pytestmark = pytest.mark.integration
 PREFIX = "/api/v1/demo"
@@ -55,7 +55,7 @@ def configuration(tmp_path, endpoint):
     return ServiceConfiguration(
         data_dir=tmp_path / "state",
         identity_file=identity,
-        embedding_profile="lexical",
+        embedding_profile="injected",
         periodic_seconds=0.2,
         poll_seconds=0.02,
         identity_reload_seconds=0.1,
@@ -92,6 +92,7 @@ class ForwardToP3(httpx.BaseTransport):
                 {
                     "method": request.method,
                     "path": request.url.path,
+                    "response": response.json(),
                     "readiness": self.execution.ready(),
                     "worker": dict(self.execution.state),
                     "checked_age_seconds": time.monotonic() - self.execution.checked,
@@ -117,6 +118,11 @@ def until(call, condition, seconds=60):
 def real_chain(p3):
     with TestClient(p3.app()) as app:
         until(lambda: app.get("/p3/readyz").status_code, lambda value: value == 200)
+        # Each migrated fixture has its own new Milvus collection. Provision it
+        # through the real adapter before P4 asks for all dependency readiness;
+        # health probes remain read-only and do not fabricate a ready backend.
+        ctx = p3.runtime.foundation.identity.context("alice", timeout_seconds=300)
+        app.portal.call(p3.runtime.vectors.prepare, ctx)
         bridge = ForwardToP3(app, p3.execution)
         demo = DemoService(P3ValidationClient("http://testserver", "alice", transport=bridge))
         server = ThreadingHTTPServer(("127.0.0.1", 0), P4Handler)
@@ -148,6 +154,15 @@ def start(browser, run_id):
     )
 
 
+def business_writes(bridge):
+    # Registration/checkpoints are durable bookkeeping, not story commands.
+    return [
+        call
+        for call in bridge.calls
+        if call[0] in {"POST", "PUT"} and not call[1].startswith("/p3/client-runs/")
+    ]
+
+
 def final(browser, run_id):
     value = until(
         lambda: browser.get(PREFIX + "/runs/" + run_id).json(),
@@ -161,7 +176,7 @@ def final(browser, run_id):
     )
     assert len(value["steps"]) == 6
     assert all(step["state"] == "passed" for step in value["steps"])
-    assert value["mode"]["embedding"] == "lexical"
+    assert value["mode"]["embedding"] == "injected"
     assert value["mode"]["scheduling"] == "temporal_v1"
     assert "机器学习入门" in value["steps"][5]["response_text"]
     saved = {
@@ -189,10 +204,13 @@ def test_real_six_turns_duplicate_start_and_new_scope(tmp_path, temporal_server)
         first_id = str(uuid4())
         assert start(browser, first_id).status_code == 202
         first, first_memories = final(browser, first_id)
-        writes_before = [c for c in bridge.calls if c[0] == "POST"]
+        writes_before = business_writes(bridge)
         assert len(writes_before) == 6
-        assert start(browser, first_id).status_code == 200
-        assert [c for c in bridge.calls if c[0] == "POST"] == writes_before
+        repeated = start(browser, first_id)
+        assert repeated.status_code == 200
+        assert repeated.json()["operations"] == first["operations"]
+        assert repeated.json()["steps"] == first["steps"]
+        assert business_writes(bridge) == writes_before
         second_id = str(uuid4())
         assert start(browser, second_id).status_code == 202
         second, second_memories = final(browser, second_id)
@@ -241,5 +259,16 @@ def test_real_pending_job_observed_before_release_without_reposting(
         assert finished["steps"][0]["evidence"]["job_id"] == job
         assert any(path == f"/p3/operations/{job}/result" for _, path, _ in bridge.calls)
         assert sum(path == "/p3/remember" for _, path, _ in bridge.calls) == 3
-        commands = [op for method, path, op in bridge.calls if method == "POST"]
+        commands = [op for _, _, op in business_writes(bridge)]
         assert len(commands) == len(set(commands)) == 6
+        assert {item["operation_id"] for item in finished["operations"]} == set(commands)
+        assert all(
+            item["phase"] == "observed" and item["job_id"] for item in finished["operations"]
+        )
+        lookup = bridge.client.get(
+            "/p3/operation-requests/" + commands[0],
+            params={"kind": "remember.save"},
+            headers={"Authorization": "Bearer alice"},
+        )
+        assert lookup.status_code == 200, lookup.text
+        assert lookup.json()["state"] == "found" and lookup.json()["job_id"] == job

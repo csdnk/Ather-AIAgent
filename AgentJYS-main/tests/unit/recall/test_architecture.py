@@ -4,10 +4,12 @@ import ast
 import json
 import subprocess
 import sys
-from importlib import import_module
+from datetime import timedelta
 from pathlib import Path
+from uuid import uuid4
 
-import pytest
+from aether_agent_memory.runtime.contract_types import utcnow
+from azure_test_runtime import owned
 
 ROOT = Path(__file__).resolve().parents[3]
 PACKAGE = ROOT / "src" / "aether_agent_memory"
@@ -28,11 +30,13 @@ def test_recall_imports_only_canonical_modules():
             ), path
 
 
-def test_flow_runs_with_legacy_packages_blocked():
+def test_flow_runs_with_legacy_packages_blocked(tmp_path):
     # A fresh process prevents sys.modules left by other tests from hiding imports.
     script = """
 import asyncio
 import importlib.abc
+import io
+import json
 import runpy
 import sys
 
@@ -50,16 +54,18 @@ from aether_agent_memory.recall.embedding import SemanticEmbeddingService
 from aether_agent_memory.recall.embedding.native import NativeEmbeddingBackend
 from aether_agent_memory.recall.embedding.backends import create_backend
 from aether_agent_memory.recall.embedding.fastembed_client import FastEmbedClient
-from aether_agent_memory.mocks.recall import InMemoryRecallRecords
+from aether_agent_memory.runtime.foundation.postgres import PostgresCapabilityStore
 from tests.unit.recall.helpers import Backend, Inputs, runtime
 
+payload=json.loads(sys.stdin.readline())
+sys.stdin=io.StringIO(json.dumps(payload))
 runpy.run_path("examples/recall_admission.py", run_name="__main__")
 
 async def embed():
     inputs = Inputs()
     query, passage = Backend(), Backend()
     service = SemanticEmbeddingService(
-        InMemoryRecallRecords(), inputs, runtime(query), runtime(passage)
+        PostgresCapabilityStore(payload["postgres_dsn"]), inputs, runtime(query), runtime(passage)
     )
     try:
         for usage in ("Query", "Passage"):
@@ -73,9 +79,42 @@ async def embed():
 
 asyncio.run(embed())
 """
+    snapshots = []
+    tenant = "example-" + uuid4().hex
+    for name, current, working, long_term in (
+        ("combined", True, True, True),
+        ("working_only", True, True, False),
+        ("long_term_only", False, False, True),
+        ("scope_denied", True, False, False),
+        ("authority_unknown", True, None, True),
+    ):
+        snapshots.append(
+            dict(
+                scenario=name,
+                authorization=dict(
+                    scope=dict(
+                        tenant_id=tenant,
+                        project_id=None,
+                        agent_id="example-agent",
+                        session_id="example-session" if current else None,
+                        task_id=None,
+                    ),
+                    principal_ref="example-principal",
+                    evidence_ref="example-proof-" + name,
+                    scope_valid=True,
+                    working_read=working,
+                    long_term_read=long_term,
+                    valid_until=(utcnow() + timedelta(seconds=30)).isoformat(),
+                ),
+            )
+        )
+    payload = dict(
+        postgres_dsn=owned().dsn(tmp_path / "recall-example"), authorization_snapshots=snapshots
+    )
     result = subprocess.run(
         [sys.executable, "-c", script],
         cwd=ROOT,
+        input=json.dumps(payload),
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -90,28 +129,5 @@ asyncio.run(embed())
     ]
     assert all(row["state"] == "RUNNING_REQUEST_VALIDATION" for row in rows[:3])
     assert all(not row["context_produced"] for row in rows[:3])
+    assert all(row["backend"] == "postgresql" for row in rows[:3])
     assert all("rejected" in row for row in rows[3:]) and len(rows) == 5
-
-
-@pytest.mark.parametrize(
-    "old,new",
-    [
-        ("memory.recall.admission", "recall.admission"),
-        ("memory.recall.embedding_input", "recall.embedding_input"),
-        ("memory.recall.execution", "recall.execution"),
-        ("memory.recall.models", "recall.models"),
-        ("memory.recall.ports", "recall.ports"),
-        ("memory.recall.query", "recall.query"),
-        ("memory.recall.routing", "recall.routing"),
-        ("memory.recall.store", "recall.store"),
-        ("b1.semantic.models", "recall.embedding.models"),
-        ("b1.semantic.service", "recall.embedding.service"),
-        ("memory.vector_projection.models", "recall.vector_projection.models"),
-        ("memory.vector_projection.ports", "recall.vector_projection.ports"),
-    ],
-)
-def test_legacy_paths_export_canonical_implementations(old, new):
-    legacy = import_module("aether_agent_memory." + old)
-    canonical = import_module("aether_agent_memory." + new)
-    for name in legacy.__all__:
-        assert getattr(legacy, name) is getattr(canonical, name)

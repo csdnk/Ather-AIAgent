@@ -175,9 +175,12 @@ def make_embedding_request(
             for k, v in values.items()
         }
     )
+    created_at = utcnow()
+    if deadline_at <= created_at:
+        raise SemanticEmbeddingError("EMBEDDING_DEADLINE_EXCEEDED")
     return SemanticEmbeddingRequest(
         schema_version="embedding-data-0.1",
-        created_at=utcnow(),
+        created_at=created_at,
         embedding_request_id=uuid4().hex,
         caller_ref=caller_ref,
         caller_request_ref=caller_request_ref,

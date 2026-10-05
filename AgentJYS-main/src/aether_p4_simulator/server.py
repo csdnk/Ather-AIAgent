@@ -14,7 +14,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from aether_p4_simulator.client import P3ClientError, P3MemoryClient
-from aether_p4_simulator.demo.http import handle_demo
+from aether_p4_simulator.demo.http import configured_origins, handle_demo
 from aether_p4_simulator.demo.service import DemoService
 from aether_p4_simulator.models import (
     CreateAgentRequest,
@@ -58,14 +58,23 @@ def build_demo_service(bind: str) -> DemoService:
             return DemoService(None)
         # P3's default admission wait is 30s before it returns an accepted job.
         # Leave transport margin; subsequent job reads have their own <=10s cap.
-        client = P3ValidationClient(url, credential, timeout_seconds=40)
+        probe_seconds = float(os.getenv("AETHER_P4_DEMO_PROBE_TIMEOUT_SECONDS", "2"))
+        wait_seconds = float(os.getenv("AETHER_P4_DEMO_WAIT_SECONDS", "60"))
+        client = P3ValidationClient(
+            url, credential, timeout_seconds=max(40, probe_seconds),
+            probe_timeout_seconds=probe_seconds
+        )
     except (OSError, ValueError, UnicodeError):
         return DemoService(None)
-    return DemoService(client)
+    return DemoService(client, wait_seconds=wait_seconds)
 
 
 class P4HTTPServer(ThreadingHTTPServer):
     demo_service: DemoService | None = None
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self.demo_origins = configured_origins(os.getenv("AETHER_P4_DEMO_ORIGINS"))
+        super().__init__(*args, **kwargs)
 
 
 class P4Handler(BaseHTTPRequestHandler):

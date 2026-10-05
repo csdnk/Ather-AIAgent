@@ -14,8 +14,8 @@ from aether_agent_memory.runtime.flows.keycloak_directory import (
     store_snapshot,
 )
 from aether_agent_memory.runtime.foundation.common import FoundationError
-from aether_agent_memory.runtime.foundation.host import Foundation
 from aether_agent_memory.runtime.foundation.identity import jwt_issuer_policy_hash
+from azure_test_runtime import Foundation
 
 
 @pytest.fixture

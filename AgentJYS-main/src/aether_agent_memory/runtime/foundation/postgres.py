@@ -8,21 +8,18 @@ and must not perform remote I/O while holding the lock. Lock and statement waits
 are bounded. Each UOW owns one connection; independent workers own independent
 connections and PostgreSQL coordinates them across processes.
 
-Raw values remain TEXT so migration and RecordTransaction retain exact strings.
+Raw values remain TEXT so RecordTransaction retains exact strings.
 A JSONB projection accelerates queue queries without reserializing stored values.
 The inherited filesystem path is an anchor for existing local artifact APIs.
-Business transactions never use SQLite; startup may verify a retained migration
-source through an explicitly read-only SQLite snapshot.
+Business transactions use PostgreSQL with the shared atomic record contract.
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
 import secrets
-import sqlite3
 from collections.abc import Iterator
-from contextlib import closing, contextmanager
+from contextlib import contextmanager
 from pathlib import Path
 from threading import RLock
 from typing import Any
@@ -32,10 +29,11 @@ from psycopg import Connection, IsolationLevel
 from psycopg.types.json import Jsonb
 
 from aether_agent_memory.runtime.contracts.models import ErrorCode
+from aether_agent_memory.runtime.foundation.transactions import _active, business_write_guard
 
 from .common import FoundationError, encode
-from .storage import SQLiteTransaction, SQLiteUnitOfWork, _active, business_write_guard
 from .telemetry import Telemetry, current_node
+from .transactions import StorageTransaction
 
 # A stable signed bigint shared by every process using this schema contract.
 # It is database-scoped, intentionally also serializing distinct schemas in one DB.
@@ -55,41 +53,6 @@ _PROJECTED_NAMESPACES = frozenset(
 )
 
 
-def verify_sqlite_migration_source(path: Path, marker: Any) -> None:
-    """Bind an existing, retained SQLite source to the v1 offline migration proof.
-
-    No PG transaction may be held during this scan. The Service directory lock
-    owns the retained source; its exact UTF-8 digest matches the migration CLI.
-    """
-    if (
-        not isinstance(marker, dict)
-        or marker.get("version") != 1
-        or type(marker.get("record_count")) is not int
-        or marker["record_count"] < 0
-        or not isinstance(marker.get("source_hash"), str)
-    ):
-        raise ValueError("invalid PostgreSQL migration proof for SQLite source")
-    digest, count = hashlib.sha256(), 0
-    try:
-        with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as db:
-            db.execute("PRAGMA query_only=ON")
-            db.execute("BEGIN")
-            rows = db.execute(
-                "SELECT namespace,tenant,key,value FROM capability_records "
-                "ORDER BY namespace COLLATE BINARY,tenant COLLATE BINARY,key COLLATE BINARY"
-            )
-            for row in rows:
-                for value in row:
-                    if not isinstance(value, str):
-                        raise ValueError("invalid SQLite source for PostgreSQL migration")
-                    encoded = value.encode("utf-8")
-                    digest.update(len(encoded).to_bytes(8, "big"))
-                    digest.update(encoded)
-                count += 1
-    except (sqlite3.Error, UnicodeError):
-        raise ValueError("cannot verify SQLite source for PostgreSQL migration") from None
-    if (count, digest.hexdigest()) != (marker["record_count"], marker["source_hash"]):
-        raise ValueError("SQLite source does not match PostgreSQL migration proof")
 
 
 def _database_error(operation: str, error: psycopg.Error) -> FoundationError:
@@ -105,6 +68,10 @@ class _PostgresRecordTransaction:
     def __init__(self, connection: Connection[Any]) -> None:
         self.connection = connection
         self.open = True
+        # Cooperating writers hold the same advisory lock for this whole
+        # transaction. Keep exact immutable strings, never parsed domain
+        # objects; each new transaction starts with an empty read set.
+        self._reads: dict[tuple[str, str, str], str | None] = {}
 
     def check(self) -> None:
         if not self.open:
@@ -112,14 +79,22 @@ class _PostgresRecordTransaction:
 
     def get(self, namespace: str, tenant: str, key: str) -> str | None:
         self.check()
+        address = (namespace, tenant, key)
+        if address in self._reads:
+            return self._reads[address]
         row = self.connection.execute(
             "SELECT value FROM capability_records WHERE namespace=%s AND tenant=%s AND key=%s",
             (namespace, tenant, key),
         ).fetchone()
-        return None if row is None else str(row[0])
+        value = None if row is None else str(row[0])
+        self._reads[address] = value
+        return value
 
     def put(self, namespace: str, tenant: str, key: str, value: str) -> None:
         self.check()
+        # Invalidate before enqueueing SQL. The next read receives the database
+        # result, including a pending SQL error, instead of trusting the write.
+        self._reads.pop((namespace, tenant, key), None)
         document = None
         if namespace in _PROJECTED_NAMESPACES:
             try:
@@ -148,6 +123,7 @@ class _PostgresRecordTransaction:
 
     def delete(self, namespace: str, tenant: str, key: str) -> None:
         self.check()
+        self._reads.pop((namespace, tenant, key), None)
         self.connection.execute(
             "DELETE FROM capability_records WHERE namespace=%s AND tenant=%s AND key=%s",
             (namespace, tenant, key),
@@ -244,7 +220,12 @@ class PostgresCapabilityStore:
             with self._connection.transaction():
                 self._connection.execute("SELECT pg_advisory_xact_lock(%s)", (_TRANSACTION_LOCK,))
                 raw = _PostgresRecordTransaction(self._connection)
-                yield raw
+                # Acquire the shared lock before entering pipeline mode. Reads
+                # flush preceding commands; exit receives every result before
+                # the enclosing transaction may commit. Consecutive writes do
+                # not each incur a separate network round trip.
+                with self._connection.pipeline():
+                    yield raw
         except psycopg.Error as exc:
             raise _database_error("transaction", exc) from None
         finally:
@@ -265,7 +246,7 @@ class PostgresCapabilityStore:
             self._lock.release()
 
 
-class PostgresTransaction(SQLiteTransaction):
+class PostgresTransaction(StorageTransaction):
     """Shared revision/scope/guard semantics with PostgreSQL-native queue reads."""
 
     raw: _PostgresRecordTransaction
@@ -324,17 +305,15 @@ class PostgresTransaction(SQLiteTransaction):
         )
 
 
-class PostgresUnitOfWork(SQLiteUnitOfWork):
-    """Foundation-compatible UOW; the base SQLite constructor is never called."""
+class PostgresUnitOfWork:
+    """PostgreSQL metadata provider implementing the shared transaction contract."""
 
     backend = "postgresql"
 
     def __init__(self, dsn: str, local_path: str | Path) -> None:
         self.path = Path(local_path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        # The legacy superclass concretely annotates its store as SQLite. The
-        # replacement obeys the same raw protocol and owns no SQLite connection.
-        self.store = PostgresCapabilityStore(dsn)  # type: ignore[assignment]
+        self.store = PostgresCapabilityStore(dsn)
         self.telemetry: Telemetry | None = None
         try:
             with self.store.transaction() as raw:
@@ -366,7 +345,7 @@ class PostgresUnitOfWork(SQLiteUnitOfWork):
         node = current_node.get()
         try:
             with self.store.transaction() as raw:
-                tx = PostgresTransaction(raw, self.cursor_key)  # type: ignore[arg-type]
+                tx = PostgresTransaction(raw, self.cursor_key)
                 yield tx
                 tx.check()
                 execution_guard = business_write_guard.get()
@@ -402,3 +381,6 @@ class PostgresUnitOfWork(SQLiteUnitOfWork):
             "reason": "write_ok" if write else "read_ok",
             "backend": "postgresql",
         }
+
+    def close(self) -> None:
+        self.store.close()

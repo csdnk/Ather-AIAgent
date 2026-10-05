@@ -1,4 +1,0 @@
-# PR gates use protocol doubles; no CrossEncoder weights are downloaded.
--r requirements-native.txt
--r requirements-flows.txt
-pymilvus>=2.5,<3

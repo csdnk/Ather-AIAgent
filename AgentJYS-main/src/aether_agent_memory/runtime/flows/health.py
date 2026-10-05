@@ -6,12 +6,12 @@ Detection reports evidence only; it never restarts processes or retries actions.
 from __future__ import annotations
 
 import asyncio
-import sqlite3
 import time
 from collections.abc import Awaitable, Callable
+from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from datetime import datetime
-from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from aether_agent_memory.runtime.contracts.models import Permission, RecordRef, TrustedContext
 from aether_agent_memory.runtime.foundation.common import now
@@ -21,22 +21,7 @@ if TYPE_CHECKING:
     from .host import ThreeFlows
 
 Probe = Callable[[TrustedContext], Awaitable[dict[str, Any]]]
-
-
-def sqlite_probe(path: Path, *, write: bool = False) -> dict[str, Any]:
-    """Open existing database only; never create a missing dependency during a probe."""
-    db = sqlite3.connect(path.resolve().as_uri() + "?mode=rw", uri=True, timeout=0.25)
-    try:
-        db.execute("SELECT name FROM sqlite_master LIMIT 1").fetchone()
-        if write:
-            db.execute("BEGIN IMMEDIATE")
-            db.execute("CREATE TABLE IF NOT EXISTS __p3_probe(value INTEGER)")
-            db.execute("INSERT INTO __p3_probe VALUES (1)")
-            assert db.execute("SELECT value FROM __p3_probe LIMIT 1").fetchone() == (1,)
-            db.rollback()
-        return {"state": "available", "reason": "write_rollback" if write else "read_ok"}
-    finally:
-        db.close()
+T = TypeVar("T")
 
 
 @observed("health")
@@ -46,6 +31,27 @@ class Health:
         self.uow = app.foundation.uow
         self.probes: dict[str, Probe] = {}
         self.required_dependencies: tuple[str, ...] = ("database", "logs")
+        self.probe_timeout_seconds = 2.0
+        self.snapshot_ttl_seconds = 10.0
+        self.executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="p3-health-meta")
+
+    async def metadata(self, operation: Callable[[], T]) -> T:
+        return await asyncio.get_running_loop().run_in_executor(
+            self.executor, copy_context().run, operation
+        )
+
+    def close(self) -> None:
+        self.executor.shutdown(wait=True, cancel_futures=True)
+
+    def configuration_version(self, ctx: TrustedContext) -> str:
+        self.authorize(ctx)
+        with self.uow.transaction() as tx:
+            configuration = tx.read("runtime_configuration", "active")
+            return str(
+                configuration["version"]
+                if configuration
+                else self.app.foundation.monitoring.config_version
+            )
 
     def register(self, name: str, probe: Probe, *, replace: bool = False) -> None:
         if name in self.probes and not replace:
@@ -87,17 +93,13 @@ class Health:
             "elapsed_ms": round((time.monotonic() - start) * 1000, 3),
         }
 
-    async def report(self, ctx: TrustedContext, timeout_seconds: float = 2) -> dict[str, Any]:
-        if not 0 < timeout_seconds <= 10:
-            raise ValueError("probe timeout must be in (0,10]")
-        self.authorize(ctx)
-        with self.uow.transaction() as tx:
-            configuration = tx.read("runtime_configuration", "active")
-            config_version = (
-                configuration["version"]
-                if configuration
-                else self.app.foundation.monitoring.config_version
-            )
+    async def report(
+        self, ctx: TrustedContext, timeout_seconds: float | None = None
+    ) -> dict[str, Any]:
+        timeout_seconds = self.probe_timeout_seconds if timeout_seconds is None else timeout_seconds
+        if not 0 < timeout_seconds <= 60:
+            raise ValueError("probe timeout must be in (0,60]")
+        config_version = await self.metadata(lambda: self.configuration_version(ctx))
         checks = await asyncio.gather(
             *(
                 self.check_probe(ctx, name, probe, timeout_seconds)
@@ -110,7 +112,7 @@ class Health:
             dependencies["logs"]["state"] = "degraded"
             dependencies["logs"]["dropped_records_this_process"] = log.dropped
         runtime = (
-            self.runtime(ctx)
+            await self.metadata(lambda: self.runtime(ctx))
             if dependencies["database"]["state"] == "available"
             else {"state": "unknown", "reason": "database_unavailable"}
         )
@@ -139,7 +141,7 @@ class Health:
         if self.app.recall_settings.rerank_policy == "required" and not available("reranker"):
             capabilities["long_term"] = "degraded"
             capabilities["working_read"] = "degraded"
-        self.authorize(ctx)
+        await self.metadata(lambda: self.authorize(ctx))
         report = {
             "checked_at": now(),
             "config_version": config_version,
@@ -155,7 +157,11 @@ class Health:
             "production_acceptance": False,
             "interpretation": "request readiness only; inspect capability and worker states",
         }
-        snapshot = self.app.foundation.monitoring.publish(ctx, report)
+        snapshot = await self.metadata(
+            lambda: self.app.foundation.monitoring.publish(
+                ctx, report, ttl_seconds=self.snapshot_ttl_seconds
+            )
+        )
         report["contract"] = snapshot.model_dump(mode="json")
         return report
 
@@ -247,4 +253,4 @@ def storage_probe(storage: Any, *, write: bool = False) -> dict[str, object]:
     probe = getattr(storage, "probe", None)
     if callable(probe):
         return dict(probe(write=write))
-    return sqlite_probe(storage.path, write=write)
+    return {"state": "unavailable", "reason": "provider_probe_not_supplied"}

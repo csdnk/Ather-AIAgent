@@ -1,0 +1,95 @@
+name: aether-p3
+services:
+  p3-temporal:
+    image: ${AETHER_TEMPORAL_IMAGE:?Use the image reference from images.tsv}
+    pull_policy: never
+    user: "1000:1000"
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 120s
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    command: [temporal-server, --config-file, /runtime-config/production.yaml, start]
+    volumes:
+      - ${AETHER_DEPLOYMENT_DIR:?Set the protected deployment directory}/temporal:/runtime-config:ro
+      - ${AETHER_DEPLOYMENT_DIR}/temporal-tls:/tls:ro
+      - ${AETHER_DEPLOYMENT_DIR}/certificates:/azure-ca:ro
+    tmpfs: ["/tmp:uid=1000,gid=1000,mode=1770"]
+    mem_limit: 2g
+    cpus: 1.5
+    healthcheck:
+      test: [CMD, temporal, --address, "127.0.0.1:7233", --tls-ca-path, /tls/ca.crt, --tls-cert-path, /tls/server.crt, --tls-key-path, /tls/server.key, operator, cluster, health]
+      start_period: 120s
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  p3:
+    image: ${AETHER_P3_IMAGE:?Use the image reference from images.tsv}
+    pull_policy: never
+    user: "1000:1000"
+    command: [python, -m, aether_agent_memory, serve, --config, /deployment/service.yaml, --require-profile, production]
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 60s
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    env_file: ["${AETHER_DEPLOYMENT_DIR}/p3/runtime.env"]
+    environment:
+      HF_HUB_OFFLINE: "1"
+      TOKENIZERS_PARALLELISM: "false"
+      OMP_NUM_THREADS: "2"
+      TIKTOKEN_CACHE_DIR: /models/tiktoken
+    volumes:
+      - ${AETHER_DEPLOYMENT_DIR}/p3:/deployment:ro
+      - ${AETHER_MODELS_DIR:?Set the verified model directory}:/models:ro
+      - /srv/aether/runtime:/runtime
+    tmpfs: ["/tmp:uid=1000,gid=1000,mode=1770"]
+    ports: ["127.0.0.1:8080:8080"]
+    mem_limit: 8g
+    cpus: 2.5
+    depends_on:
+      p3-temporal:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/p3/readyz', timeout=4)"]
+      start_period: 180s
+      interval: 15s
+      timeout: 5s
+      retries: 8
+
+  web:
+    image: ${AETHER_WEB_IMAGE:?Use the image reference from images.tsv}
+    pull_policy: never
+    restart: unless-stopped
+    mem_limit: 256m
+    depends_on:
+      p3:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+
+  gateway:
+    image: ${AETHER_CADDY_IMAGE:?Use the image reference from images.tsv}
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      AETHER_HOSTNAME: ${AETHER_HOSTNAME:?Set the assigned Azure DNS hostname}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    ports: ["80:80", "443:443"]
+    mem_limit: 256m
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  caddy-data:
+  caddy-config:

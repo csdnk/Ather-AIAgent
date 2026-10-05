@@ -3,20 +3,19 @@
 from pathlib import Path
 from typing import Any, cast
 
-from aether_agent_memory.recall.basic.adapters import LexicalEmbedding
 from aether_agent_memory.recall.basic.tokenization import TokenCounter
 from aether_agent_memory.recall.basic.vector_search import SearchAccess
 from aether_agent_memory.recall.contracts.foundation import EmbeddingSpace
 from aether_agent_memory.runtime.flows.host import ThreeFlows
 from aether_agent_memory.runtime.foundation.common import fingerprint
+from aether_agent_memory.runtime.storage.cache import BodyCache
 
 from .basic.boundary import RememberBoundary
-from .basic.content import Bodies, RedisBodyCache
+from .basic.content import Bodies
 from .basic.pipeline import RememberPipeline
 from .basic.policy import RememberPolicy
 from .basic.reflection import Reflection
 from .basic.retention import Retention
-from .basic.sqlite_p2 import SQLiteP2
 
 
 class RememberFactory:
@@ -28,14 +27,20 @@ class RememberFactory:
         body_root: str | Path | None = None,
         p2: Any = None,
         redis: Any = None,
+        body_cache: BodyCache | None = None,
         generation_search: Any = None,
         space: EmbeddingSpace | None = None,
         **providers: Any,
     ) -> None:
         self.policy = policy or RememberPolicy()
-        self.p2 = p2 if p2 is not None else SQLiteP2(str(database) + ".p2.db")
+        if redis is not None:
+            raise ValueError("the retired redis argument is unavailable; pass explicit body_cache")
+        if p2 is None:
+            raise ValueError("Remember requires an explicit object provider")
+        self.p2 = p2
         self.root = Path(body_root) if body_root else Path(str(database) + ".bodies")
-        self.redis, self.providers = redis, providers
+        self.providers = providers
+        self.body_cache = body_cache
         self.generation_search, self.space = generation_search, space
 
     def __call__(self, *args: Any, tokenizer: TokenCounter) -> RememberPipeline:
@@ -43,15 +48,25 @@ class RememberFactory:
             self.root,
             self.policy,
             p2=self.p2,
-            cache=RedisBodyCache(self.redis, self.policy) if self.redis is not None else None,
+            cache=self.body_cache,
         )
+        bodies.remote_only = self.p2 is not None
+        bodies.require_prepared = bodies.remote_only
         binding = {
             "provider": "p2",
             "endpoint": fingerprint(
                 [getattr(self.p2, "endpoint", None), getattr(self.p2, "bucket", None)]
             ),
-            "replica_root": str(self.root.resolve()),
+            "binding_version": 2,
+            "authority": "p2",
         }
+        object_binding = getattr(self.p2, "binding", None)
+        if callable(object_binding):
+            binding = {
+                **object_binding(),
+                "binding_version": 3,
+                "authority": "objects",
+            }
         with args[0].transaction() as tx:
             prior = tx.read("settings", "remember_body_binding")
             if prior is not None and prior != binding:
@@ -82,19 +97,8 @@ class RememberFactory:
             remember.embedding_tokenizer_id = space.tokenizer_id
             if self.policy.projection_chunk_tokens > backend.max_input_tokens:
                 raise ValueError("Remember chunks exceed the passage model budget")
-        elif space is None and isinstance(host.embedding, LexicalEmbedding):
-            space = EmbeddingSpace(
-                model_space=host.model_space,
-                model_id="local_lexical",
-                model_revision="v1",
-                dimensions=256,
-                tokenizer_id=host.recall.tokenizer.identifier,
-                query_prefix="",
-                passage_prefix="",
-                normalization="unit",
-                metric="inner_product",
-                max_input_tokens=self.policy.projection_chunk_tokens,
-            )
+        elif space is None:
+            space = getattr(host.embedding, "space", None)
         if space is None:
             raise ValueError("injected embedding needs an explicit EmbeddingSpace")
         remember.embedding_tokenizer_id = space.tokenizer_id
@@ -116,6 +120,7 @@ def create_runtime(
     body_root: str | Path | None = None,
     p2: Any = None,
     redis: Any = None,
+    body_cache: BodyCache | None = None,
     comparison: Any = None,
     equivalence_verifier: Any = None,
     support_verifier: Any = None,
@@ -127,7 +132,7 @@ def create_runtime(
     space: EmbeddingSpace | None = None,
     **host_options: Any,
 ) -> ThreeFlows:
-    """Opt-in factory. The default ThreeFlows constructor remains unchanged in behavior."""
+    """Compose Remember, Recall and Operate with explicit providers."""
     return ThreeFlows(
         database,
         cache_root,
@@ -137,6 +142,7 @@ def create_runtime(
             body_root=body_root,
             p2=p2,
             redis=redis,
+            body_cache=body_cache,
             comparison=comparison,
             equivalence_verifier=equivalence_verifier,
             support_verifier=support_verifier,

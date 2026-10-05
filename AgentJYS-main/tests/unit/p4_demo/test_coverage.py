@@ -14,13 +14,9 @@ from .test_service import request, service_for
 def test_call_without_http_response_cannot_be_counted_as_passed(earlier_response):
     coverage = Coverage()
     if earlier_response:
-        coverage.observe(
-            ApiCall(method="GET", path="/p3/health", status_code=200, elapsed_ms=1), 0
-        )
+        coverage.observe(ApiCall(method="GET", path="/p3/health", status_code=200, elapsed_ms=1), 0)
         coverage.mark("GET", "/p3/health", "passed")
-    coverage.observe(
-        ApiCall(method="GET", path="/p3/health", status_code=None, elapsed_ms=1), 1
-    )
+    coverage.observe(ApiCall(method="GET", path="/p3/health", status_code=None, elapsed_ms=1), 1)
     coverage.finish(1, "passed")
     row = next(row for row in coverage.snapshot() if row.path == "/p3/health")
     assert row.state == "blocked"

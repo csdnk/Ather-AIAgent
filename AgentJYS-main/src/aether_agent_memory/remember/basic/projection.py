@@ -2,7 +2,7 @@
 
 import json
 import math
-from typing import Literal
+from typing import Any, Literal, cast
 
 from aether_agent_memory.remember.contracts.models import (
     MemoryRef,
@@ -13,84 +13,7 @@ from aether_agent_memory.remember.contracts.models import (
 from aether_agent_memory.remember.contracts.ports import ProjectionPort
 from aether_agent_memory.runtime.contracts.models import ErrorCode, Permission, TrustedContext
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
-from aether_agent_memory.runtime.vector_backend import SPACE, MilvusConnection, SQLiteVectorStore
-
-
-class SQLiteProjection(SQLiteVectorStore):
-    async def project(self, ctx: TrustedContext, request: ProjectionRequest) -> ProjectionResult:
-        self.check(ctx)
-        if (
-            request.deadline_at > ctx.deadline_at
-            or request.target.model_space != self.model_space
-            or len(request.vector) != self.dimensions
-            or not all(math.isfinite(v) for v in request.vector)
-        ):
-            raise FoundationError(ErrorCode.INVALID_ARGUMENT, "invalid projection binding")
-        with self.uow.transaction() as tx:
-            self.identity.authorize(tx, ctx, Permission.READ, self.ref(request.target))
-            if tx.read("projection_tombstones", request.target.vector_id):
-                tx.abort(ErrorCode.MEMORY_GONE, "projection was deleted")
-            data = {
-                "target": request.target.model_dump(mode="json"),
-                "vector": list(request.vector),
-            }
-            existing = tx.read("recall_vectors", request.target.vector_id)
-            if existing and (
-                ProjectionTarget.model_validate(existing["target"]) != request.target
-                or existing["vector"] != data["vector"]
-            ):
-                tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "vector ID content changed")
-            tx.write("recall_vectors", request.target.vector_id, data)
-            if request.target.generation and request.target.body_hash:
-                # Local P2 projection also publishes the existing generation-search format.
-                # Both representations share this transaction and immutable vector identity.
-                tx.write(
-                    "generation_vectors",
-                    request.target.vector_id,
-                    {
-                        "hit": {**request.target.model_dump(mode="json"), "rank": 1, "score": 0.0},
-                        "vector": list(request.vector),
-                    },
-                )
-        return await self.inspect(ctx, request.target, request.operation_id)
-
-    async def inspect(
-        self, ctx: TrustedContext, target: ProjectionTarget, operation_id: str
-    ) -> ProjectionResult:
-        self.check(ctx)
-        with self.uow.transaction() as tx:
-            self.identity.authorize(tx, ctx, Permission.READ, self.ref(target))
-            stored = tx.read("recall_vectors", target.vector_id)
-            chunk = tx.read("generation_vectors", target.vector_id) if target.generation else None
-        exact = stored is not None and ProjectionTarget.model_validate(stored["target"]) == target
-        if target.generation:
-            exact = bool(
-                exact
-                and chunk
-                and stored
-                and {"memory_source": "long_term", **chunk["hit"]}
-                == {**target.model_dump(mode="json"), "rank": 1, "score": 0.0}
-                and chunk["vector"] == stored["vector"]
-            )
-        return ProjectionResult(
-            operation_id=operation_id,
-            target=target,
-            state="verified" if exact else "absent",
-            payload_matches=exact,
-            searchable=exact,
-            observed_at=self.identity.clock(),
-        )
-
-    async def delete(
-        self, ctx: TrustedContext, target: ProjectionTarget, operation_id: str
-    ) -> ProjectionResult:
-        self.check(ctx)
-        with self.uow.transaction() as tx:
-            self.identity.authorize(tx, ctx, Permission.DELETE, self.ref(target))
-            tx.write("projection_tombstones", target.vector_id, True)
-            tx.raw.delete("p3_rf_recall_vectors", "system", target.vector_id)
-            tx.raw.delete("p3_rf_generation_vectors", "system", target.vector_id)
-        return await self.inspect(ctx, target, operation_id)
+from aether_agent_memory.runtime.vector_backend import MilvusConnection, projection_ref
 
 
 class MilvusProjection(MilvusConnection):
@@ -107,10 +30,10 @@ class MilvusProjection(MilvusConnection):
         if target != expected or target.model_space != self.model_space:
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "invalid projection identity")
         with self.uow.transaction() as tx:
-            self.identity.authorize(tx, ctx, permission, SQLiteVectorStore.ref(target))
+            self.identity.authorize(tx, ctx, permission, projection_ref(target))
 
     async def project(self, ctx: TrustedContext, request: ProjectionRequest) -> ProjectionResult:
-        self.guard(ctx, request.target, Permission.READ)
+        await self.metadata(lambda: self.guard(ctx, request.target, Permission.READ))
         if (
             len(request.vector) != self.dimensions
             or not all(math.isfinite(v) for v in request.vector)
@@ -119,15 +42,20 @@ class MilvusProjection(MilvusConnection):
             raise FoundationError(ErrorCode.INVALID_ARGUMENT, "invalid projection vector")
         data = {"target": request.target.model_dump(mode="json"), "vector": list(request.vector)}
         key = request.target.vector_id
-        with self.uow.transaction() as tx:
-            prior = tx.read("milvus_projections", key)
-            if prior and (
-                ProjectionTarget.model_validate(prior["data"]["target"]) != request.target
-                or prior["data"].get("vector") != data["vector"]
-                or prior["deleted"]
-            ):
-                tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "projection changed or deleted")
-            tx.write("milvus_projections", key, {"data": data, "deleted": False})
+
+        def reserve() -> None:
+            with self.uow.transaction() as tx:
+                self.identity.authorize(tx, ctx, Permission.READ, projection_ref(request.target))
+                prior = tx.read(self.projection_namespace, key)
+                if prior and (
+                    ProjectionTarget.model_validate(prior["data"]["target"]) != request.target
+                    or prior["data"].get("vector") != data["vector"]
+                    or prior["deleted"]
+                ):
+                    tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "projection changed or deleted")
+                tx.write(self.projection_namespace, key, {"data": data, "deleted": False})
+
+        await self.metadata(reserve)
         await self.prepare(ctx)
         row = {
             "vector_id": key,
@@ -140,7 +68,7 @@ class MilvusProjection(MilvusConnection):
         def before_upsert() -> None:
             self.guard(ctx, request.target, Permission.READ)
             with self.uow.transaction() as tx:
-                current = tx.read("milvus_projections", key)
+                current = tx.read(self.projection_namespace, key)
                 if (
                     not current
                     or current["deleted"]
@@ -175,7 +103,7 @@ class MilvusProjection(MilvusConnection):
         target: ProjectionTarget,
         operation_id: str,
     ) -> ProjectionResult:
-        self.guard(ctx, target, Permission.READ)
+        await self.metadata(lambda: self.guard(ctx, target, Permission.READ))
         await self.prepare(ctx)
         rows = await self.call(
             ctx,
@@ -187,8 +115,15 @@ class MilvusProjection(MilvusConnection):
         )
         if not rows:
             return self.result(target, operation_id, "absent")
-        with self.uow.transaction() as tx:
-            intent = tx.read("milvus_projections", target.vector_id)
+
+        def read_intent() -> dict[str, Any] | None:
+            with self.uow.transaction() as tx:
+                self.identity.authorize(tx, ctx, Permission.READ, projection_ref(target))
+                return cast(
+                    dict[str, Any] | None, tx.read(self.projection_namespace, target.vector_id)
+                )
+
+        intent = await self.metadata(read_intent)
         if (
             not intent
             or "vector" not in intent["data"]
@@ -226,17 +161,22 @@ class MilvusProjection(MilvusConnection):
         target: ProjectionTarget,
         operation_id: str,
     ) -> ProjectionResult:
-        self.guard(ctx, target, Permission.DELETE)
-        with self.uow.transaction() as tx:
-            row = tx.read("milvus_projections", target.vector_id)
-            tx.write(
-                "milvus_projections",
-                target.vector_id,
-                {
-                    "data": row["data"] if row else {"target": target.model_dump(mode="json")},
-                    "deleted": True,
-                },
-            )
+        await self.metadata(lambda: self.guard(ctx, target, Permission.DELETE))
+
+        def reserve_delete() -> None:
+            with self.uow.transaction() as tx:
+                self.identity.authorize(tx, ctx, Permission.DELETE, projection_ref(target))
+                row = tx.read(self.projection_namespace, target.vector_id)
+                tx.write(
+                    self.projection_namespace,
+                    target.vector_id,
+                    {
+                        "data": row["data"] if row else {"target": target.model_dump(mode="json")},
+                        "deleted": True,
+                    },
+                )
+
+        await self.metadata(reserve_delete)
         await self.prepare(ctx)
         await self.call(
             ctx,
@@ -250,7 +190,7 @@ class MilvusProjection(MilvusConnection):
 def projection_target(
     memory: MemoryRef,
     content_hash: str,
-    model_space: str = SPACE,
+    model_space: str,
     *,
     chunk_index: int = 0,
     generation: str | None = None,

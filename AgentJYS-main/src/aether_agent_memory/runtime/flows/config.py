@@ -1,13 +1,12 @@
 """Explicit, versioned deployment configuration for the complete P3 runtime."""
 
-import json
 from pathlib import Path
 from typing import Literal, Self
+from urllib.parse import urlsplit
 
 import yaml
 from pydantic import AnyHttpUrl, Field, model_validator
 
-from aether_agent_memory.remember.basic.ceph_p2 import CephP2Config
 from aether_agent_memory.remember.basic.policy import RememberPolicy
 from aether_agent_memory.runtime.contracts.models import (
     AuthorizationGrant,
@@ -17,6 +16,7 @@ from aether_agent_memory.runtime.contracts.models import (
     Permission,
     Principal,
 )
+from aether_agent_memory.runtime.storage.configuration import AzureStorageConfiguration
 from aether_agent_memory.runtime.temporal.config import TemporalConfiguration
 
 
@@ -204,24 +204,30 @@ class BrowserIdentityConfiguration(ContractModel):
 class ServiceConfiguration(ContractModel):
     temporal: TemporalConfiguration
     http_wait_seconds: float = Field(default=30, gt=0, le=300)
-    profile: Literal["local", "production"] = "local"
+    request_timeout_seconds: float = Field(default=60, gt=0, le=3600, allow_inf_nan=False)
+    health_probe_timeout_seconds: float = Field(default=2, gt=0, le=60, allow_inf_nan=False)
+    health_snapshot_ttl_seconds: float = Field(default=10, gt=0, le=60, allow_inf_nan=False)
+    profile: Literal["development", "test", "staging", "production"] = "development"
     data_dir: Path
     identity_file: Path
-    metadata_backend: Literal["sqlite", "postgresql"] = "sqlite"
-    postgres_dsn_env: str = Field(
-        default="AETHER_POSTGRES_DSN", pattern=r"^[A-Za-z_][A-Za-z0-9_]*$"
-    )
+    storage_mode: Literal["current_p2", "production_p2", "azure"] = "azure"
+    metadata_backend: Literal["p2", "postgresql"] = "postgresql"
+    azure_storage: AzureStorageConfiguration | None = None
     host: str = "127.0.0.1"
     port: int = Field(default=8080, ge=1, le=65535)
-    embedding_profile: Literal["native", "lexical"] = "native"
+    embedding_profile: Literal["native"] = "native"
     embedding_config: Path | None = None
     recall_config: Path | None = None
     language_model: LanguageModel | None = None
     verifier_model: LanguageModel | None = None
     p2_endpoint: str | None = None
-    p2_bucket: str = "p3-memory"
-    ceph: CephP2Config | None = None
-    redis_url_env: str | None = None
+    p2_bucket: str = Field(default="p3-memory", min_length=1, max_length=128)
+    p2_collection: str = Field(default="p3", min_length=1, max_length=128)
+    p2_secure: bool = False
+    p2_ca_file: Path | None = None
+    p2_cert_file: Path | None = None
+    p2_key_file: Path | None = None
+    p2_token_env: str | None = Field(default=None, pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")
     maintenance_principals: tuple[str, ...] = ()
     automatic_cache_repair: bool = True
     remember: RememberPolicy = Field(default_factory=RememberPolicy)
@@ -241,22 +247,66 @@ class ServiceConfiguration(ContractModel):
 
     @model_validator(mode="after")
     def production_dependencies(self) -> Self:
-        if self.p2_endpoint is not None and self.ceph is not None:
-            raise ValueError("configure exactly one object storage authority: Ceph or P2 gRPC")
-        if self.profile == "production" and (
-            self.embedding_profile != "native"
-            or self.language_model is None
-            or (self.p2_endpoint is None and self.ceph is None)
+        if self.storage_mode == "azure":
+            if self.azure_storage is None or self.metadata_backend != "postgresql":
+                raise ValueError(
+                    "Azure requires the complete storage bundle and PostgreSQL metadata"
+                )
+            if (
+                self.p2_endpoint
+                or self.p2_secure
+                or self.p2_token_env
+                or any((self.p2_ca_file, self.p2_cert_file, self.p2_key_file))
+            ):
+                raise ValueError("Azure storage cannot be mixed with P2 connection settings")
+            return self.model_dependencies(azure=True)
+        if self.azure_storage is not None:
+            raise ValueError("Azure storage configuration requires storage_mode=azure")
+        if not self.p2_endpoint or self.p2_endpoint != self.p2_endpoint.strip():
+            raise ValueError("an explicit P2 host:port endpoint is required")
+        endpoint = urlsplit("//" + self.p2_endpoint)
+        if (
+            not endpoint.hostname
+            or not endpoint.port
+            or endpoint.path
+            or endpoint.username
+            or endpoint.password
+            or endpoint.query
+            or endpoint.fragment
         ):
-            raise ValueError("production requires native embedding, a language model and real P2")
-        if self.profile == "production":
-            if self.recall_config is None:
-                raise ValueError("production requires an explicit Milvus configuration")
-            vectors = json.loads(self.recall_config.read_text(encoding="utf-8"))
-            if not isinstance(vectors, dict) or not vectors.get("milvus_uri"):
-                raise ValueError("production requires Milvus; SQLite vectors are not allowed")
-            if self.metadata_backend != "postgresql":
-                raise ValueError("production Remember requires PostgreSQL transaction metadata")
+            raise ValueError("P2 endpoint must be host:port without credentials or URI paths")
+        if self.storage_mode == "current_p2":
+            raise ValueError(
+                "current P2 reference metadata is retired; use Azure storage "
+                "or explicit P2 protocol tests"
+            )
+        else:
+            if self.metadata_backend != "p2":
+                raise ValueError("production P2 requires P2 transaction metadata")
+            if not self.p2_secure:
+                raise ValueError("production P2 requires authenticated TLS transport")
+        if (self.p2_ca_file or self.p2_cert_file or self.p2_key_file) and not self.p2_secure:
+            raise ValueError("P2 certificate settings require secure transport")
+        if bool(self.p2_cert_file) != bool(self.p2_key_file):
+            raise ValueError("P2 client certificate and key must be configured together")
+        if self.p2_token_env and not self.p2_secure:
+            raise ValueError("P2 tokens require secure transport")
+        return self.model_dependencies()
+
+    def model_dependencies(self, *, azure: bool = False) -> Self:
+        if self.embedding_profile != "native" or self.embedding_config is None:
+            raise ValueError("configured native embedding is required")
+        if self.language_model is None or self.recall_config is None:
+            raise ValueError("an explicit language model and Recall policy are required")
+        from aether_agent_memory.recall.basic.config import RecallSettings
+
+        recall = RecallSettings.model_validate_json(self.recall_config.read_text(encoding="utf-8"))
+        if recall.milvus_uri:
+            if azure:
+                raise ValueError("Azure vectors must use the single azure_storage Milvus binding")
+            raise ValueError(
+                "vector access must go through P2; direct Milvus configuration is retired"
+            )
         return self
 
     @classmethod
@@ -265,7 +315,15 @@ class ServiceConfiguration(ContractModel):
         raw = yaml.safe_load(resolved.read_text(encoding="utf-8"))
         if not isinstance(raw, dict):
             raise ValueError("service configuration must be an object")
-        for key in ("data_dir", "identity_file", "embedding_config", "recall_config"):
+        for key in (
+            "data_dir",
+            "identity_file",
+            "embedding_config",
+            "recall_config",
+            "p2_ca_file",
+            "p2_cert_file",
+            "p2_key_file",
+        ):
             if raw.get(key):
                 value = Path(raw[key])
                 raw[key] = value if value.is_absolute() else resolved.parent / value
@@ -274,4 +332,10 @@ class ServiceConfiguration(ContractModel):
                 if raw["temporal"].get(key):
                     value = Path(raw["temporal"][key])
                     raw["temporal"][key] = value if value.is_absolute() else resolved.parent / value
+        if isinstance(raw.get("azure_storage"), dict):
+            for component in ("redis", "milvus", "ceph"):
+                section = raw["azure_storage"].get(component)
+                if isinstance(section, dict) and section.get("ca_file"):
+                    value = Path(section["ca_file"])
+                    section["ca_file"] = value if value.is_absolute() else resolved.parent / value
         return cls.model_validate(raw)

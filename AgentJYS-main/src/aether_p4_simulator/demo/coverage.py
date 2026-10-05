@@ -22,7 +22,16 @@ class Coverage:
             key: CoverageEntry(
                 method=key[0],
                 path=key[1],
-                detail="仅限隔离运维验收，普通故事不执行"
+                detail="运行登记内部通信不计入故事业务覆盖；见恢复专项验收"
+                if key[1].startswith("/p3/client-runs/")
+                else "原操作回查；仅在恢复专项验证，不代表原业务重新执行"
+                if key[1]
+                in {
+                    "/p3/operation-requests/{operation_id}",
+                    "/p3/mutation-receipts/{operation_id}",
+                    "/p3/mutation-receipts/{operation_id}/result",
+                }
+                else "仅限隔离运维验收，普通故事不执行"
                 if key in _ISOLATED
                 else "已退役；不代表维护执行成功"
                 if key[1] == "/p3/maintenance/cycle"

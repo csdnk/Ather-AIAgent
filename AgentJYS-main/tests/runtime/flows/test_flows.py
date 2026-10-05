@@ -3,8 +3,7 @@ from hashlib import sha256
 
 import pytest
 
-from aether_agent_memory.operate.basic.executor import LocalCacheExecutor
-from aether_agent_memory.operate.contracts.models import ActionRecord, ActionState, Tier
+from aether_agent_memory.operate.contracts.models import ActionState, Tier
 from aether_agent_memory.recall.contracts.models import RecallRequest
 from aether_agent_memory.remember.contracts.models import (
     CorrectionRequest,
@@ -16,8 +15,9 @@ from aether_agent_memory.remember.contracts.models import (
     TextInput,
 )
 from aether_agent_memory.runtime.contracts.models import Permission, Principal, Scope, ScopeSelector
-from aether_agent_memory.runtime.flows.host import ThreeFlows
 from aether_agent_memory.runtime.foundation.common import FoundationError, now
+from aether_agent_memory.runtime.storage.redis_executor import RedisExecutor
+from azure_test_runtime import ThreeFlows, provider_options
 
 
 def context(app, user="alice", operation=None):
@@ -32,7 +32,7 @@ def source(name="input"):
 
 @pytest.fixture
 def app(tmp_path, temporal_server):
-    host = ThreeFlows(tmp_path / "p3.db", tmp_path / "cache", embedding_profile="lexical")
+    host = ThreeFlows(tmp_path / "p3.db", tmp_path / "cache", embedding_profile="injected")
     people = [
         Principal(
             principal_id=user,
@@ -101,25 +101,51 @@ def recall(
     )
 
 
+def unsupported_intent(app, memory):
+    from aether_agent_memory.operate.contracts.models import ActionIntent, PlacementDecision
+    from aether_agent_memory.runtime.foundation.common import fingerprint
+
+    action_id = fingerprint([memory.model_dump(mode="json"), "unsupported-transition"])
+    observation = asyncio.run(app.executor.observe(context(app), memory, "original"))
+    return ActionIntent(
+        action_id=action_id,
+        decision=PlacementDecision(
+            decision_id=action_id,
+            memory=memory,
+            outcome="demote",
+            current_tier="hot",
+            target_tier="warm",
+            reason="explicit unsupported transition",
+            policy_version="test",
+            storage_watermark=1,
+            access_watermark=1,
+        ),
+        representation_id="original",
+        content_hash=observation.content_hash,
+        provider_id=app.executor.provider_id,
+        provider_instance_id=app.executor.instance_id,
+        expected_epoch=observation.epoch,
+        provider_mode="real",
+        created_at=now(),
+    )
+
+
 def test_write_recall_and_automatic_real_cache(app):
     receipt = save(app)
     drain(app)
     memory = facts(app, receipt)[0]
     assert app.remember.get(context(app), memory.memory_id).projection_state == "ready"
     warm = asyncio.run(app.executor.observe(context(app), memory, "original"))
-    assert warm.tier == Tier.WARM
+    assert warm.tier == Tier.HOT
     pack = recall(app)
     assert pack.outcome == "available"
     assert pack.groups[0].items[0].memory == memory
     drain(app)
     observation = asyncio.run(app.executor.observe(context(app), memory, "original"))
     assert observation.tier == Tier.HOT and observation.readable
-    assert app.executor.path(memory, Tier.HOT).read_text(encoding="utf-8") == "我喜欢无糖咖啡"
-    with app.foundation.uow.transaction() as tx:
-        actions = [ActionRecord.model_validate(row) for _, row in tx.rows("operate_actions")]
-    assert all(
-        a.state == ActionState.SUCCEEDED and a.intent.provider_mode == "real" for a in actions
-    )
+    assert app.executor.read_cached(memory.scope, warm.content_hash) == "我喜欢无糖咖啡"
+    assert app.executor.probe()["receipt_backend"] == "postgresql"
+    assert (asyncio.run(app.executor.resources(context(app)))).supported_moves == ()
 
 
 def test_correct_filters_old_vectors_and_invalidates_old_pack(app):
@@ -144,8 +170,9 @@ def test_correct_filters_old_vectors_and_invalidates_old_pack(app):
     with pytest.raises(FoundationError) as failure:
         app.recall.result(context(app), old.recall_id)
     assert failure.value.code == "RESULT_INVALIDATED"
+    assert all(item.memory.version == 2 for group in pack.groups for item in group.items)
     with app.foundation.uow.transaction() as tx:
-        assert any(row["target"]["memory"]["version"] == 1 for _, row in tx.rows("recall_vectors"))
+        assert not tx.rows("recall_vectors")
     working = recall(app, sources="working", selection=ScopeSelector(session_id="session_1"))
     assert working.outcome == "empty"
 
@@ -170,9 +197,10 @@ def test_delete_blocks_old_pack_and_cleans_cache(app):
     )
     with pytest.raises(FoundationError):
         app.recall.result(context(app), old.recall_id)
-    assert not any(app.executor.path(memory, tier).exists() for tier in Tier)
-    with pytest.raises(ValueError):
-        app.executor.ensure(current)
+    assert app.executor.cleanup_complete(memory, permanent=True)
+    assert not app.executor.copies()
+    with pytest.raises(FoundationError):
+        app.executor.ensure(current, context(app))
 
 
 @pytest.mark.parametrize("user", ["bob", "carol", "david"])
@@ -186,16 +214,22 @@ def test_scope_isolation_across_all_flows(app, user):
         app.remember.get(context(app, user), memory.memory_id)
     with pytest.raises(FoundationError):
         app.recall.result(context(app, user), pack.recall_id)
-    with app.foundation.uow.transaction() as tx:
-        action_id = tx.rows("operate_actions")[0][0]
+    intent = unsupported_intent(app, memory)
+    action = asyncio.run(app.operate.execute(context(app), intent))
+    assert action.state == ActionState.FAILED
+    action_id = intent.action_id
     with pytest.raises(FoundationError):
         asyncio.run(app.operate.reconcile(context(app, user), action_id))
 
 
-def test_vector_outage_is_degraded_or_failed_not_fake_empty(app):
+def test_vector_outage_is_degraded_or_failed_not_fake_empty(app, monkeypatch):
     save(app)
     drain(app)
-    app.vectors.available = False
+
+    def unavailable(*args, **kwargs):
+        raise ConnectionError("controlled loss around actual Milvus SDK")
+
+    monkeypatch.setattr(app.vectors.client, "search", unavailable)
     with pytest.raises(FoundationError) as failure:
         recall(app, sources="both", selection=ScopeSelector(session_id="session_1"))
     assert failure.value.code == "DEPENDENCY_UNAVAILABLE"
@@ -227,18 +261,28 @@ def test_duplicate_read_events_do_not_double_heat(app):
         assert sum(v["successful_reads"] for v in views) == 1
 
 
-def test_lost_execution_response_queries_original_action(app):
-    app.executor.drop_next_response = True
-    save(app)
+def test_lost_execution_response_queries_original_action(app, monkeypatch):
+    receipt = save(app)
     drain(app)
+    memory = facts(app, receipt)[0]
+    intent = unsupported_intent(app, memory)
+    original = app.executor.submit
+    submissions = []
+
+    async def lose_reply(ctx, supplied):
+        submissions.append(supplied.action_id)
+        await original(ctx, supplied)
+        raise ConnectionError("lost receipt after actual PG commit")
+
+    monkeypatch.setattr(app.executor, "submit", lose_reply)
+    before = asyncio.run(app.operate.execute(context(app), intent))
+    assert before.state == ActionState.UNKNOWN
+    after = asyncio.run(app.operate.reconcile(context(app), intent.action_id))
+    assert after.state == ActionState.FAILED
+    assert after.feedback.provider_operation_id == intent.action_id
+    assert submissions == [intent.action_id]
     with app.foundation.uow.transaction() as tx:
-        actions = [ActionRecord.model_validate(row) for _, row in tx.rows("operate_actions")]
-        assert len(actions) == 1 and actions[0].state == ActionState.SUCCEEDED
-        bound = [r for _, r in tx.rows("tasks") if r["record"]["kind"] == "operate.evaluate"]
-        assert any(r.get("original_operation_id") == actions[0].intent.action_id for r in bound)
-        assert any(r["record"]["query_attempt"] > 0 for r in bound)
-    with app.executor.db() as db:
-        assert db.execute("SELECT count(*) FROM actions").fetchone()[0] == 1
+        assert len(tx.rows(app.executor.table("actions"))) == 1
 
 
 def test_archive_and_reactivate(app):
@@ -321,10 +365,10 @@ def test_read_only_user_can_recall_and_feed_internal_operate(app):
     assert pack.outcome == "available"
     drain(app)
     with app.foundation.uow.transaction() as tx:
-        assert any(
-            row["state"] == "succeeded" and row["intent"]["decision"]["target_tier"] == "hot"
-            for _, row in tx.rows("operate_actions")
-        )
+        assert sum(row["successful_reads"] for _, row in tx.rows("operate_views")) == 1
+        assert any(row["record"]["kind"] == "operate.evaluate"
+                   and row["record"]["state"] == "succeeded" for _, row in tx.rows("tasks"))
+    assert app.executor.copies() and all(copy.tier == Tier.HOT for copy in app.executor.copies())
     with pytest.raises(FoundationError):
         save(app, "unauthorized write")
 
@@ -353,39 +397,40 @@ def test_restart_preserves_context_and_executor_evidence(app, temporal_server):
     drain(app)
     pack = recall(app)
     drain(app)
-    restarted = ThreeFlows(app.foundation.uow.path, app.executor.root, embedding_profile="lexical")
+    before = app.executor.copies()
+    restarted = ThreeFlows(app.foundation.uow.path, app.foundation.uow.path.parent / "cache")
     from temporal_test_support import seed_driver
 
     seed_driver(restarted, temporal_server)
     try:
         assert restarted.recall.result(context(restarted), pack.recall_id) == pack
         assert facts(restarted, receipt)
-        before = sorted(path.name for path in (app.executor.root / "receipts").glob("*.json"))
-        drain(restarted)
-        assert before == sorted(
-            path.name for path in (app.executor.root / "receipts").glob("*.json")
-        )
+        assert restarted.executor.copies() == before
+        assert restarted.executor.instance_id == app.executor.instance_id
     finally:
         restarted.close()
 
 
 def test_lost_executor_history_stays_unknown(app, tmp_path, monkeypatch):
-    app.executor.drop_next_response = True
-    app.foundation.tasks.query_max_attempts = 2
-    original = app.executor.submit
-
-    async def lose_history(ctx, intent):
-        try:
-            return await original(ctx, intent)
-        finally:
-            app.operate.executor = LocalCacheExecutor(tmp_path / "new_empty_executor")
-
-    monkeypatch.setattr(app.executor, "submit", lose_history)
-    save(app)
+    receipt = save(app)
     drain(app)
-    with app.foundation.uow.transaction() as tx:
-        assert any(raw["state"] == "unknown" for _, raw in tx.rows("operate_actions"))
-        assert any(row["record"]["state"] == "attention_required" for _, row in tx.rows("tasks"))
+    memory = facts(app, receipt)[0]
+    intent = unsupported_intent(app, memory)
+
+    async def missing_reply(ctx, supplied):
+        raise ConnectionError("provider result not observed")
+
+    monkeypatch.setattr(app.executor, "submit", missing_reply)
+    before = asyncio.run(app.operate.execute(context(app), intent))
+    assert before.state == ActionState.UNKNOWN
+    cache = provider_options(tmp_path / "new_empty_executor")["body_cache"]
+    app.operate.executor = RedisExecutor(
+        app.foundation.uow, app.foundation.identity, app.remember, cache
+    )
+    after = asyncio.run(app.operate.reconcile(context(app), intent.action_id))
+    assert after.state == ActionState.UNKNOWN
+    assert after.intent.action_id == intent.action_id
+    assert after.feedback.state == "not_found"
 
 
 def test_tampered_embedding_never_marks_projection_ready(app):
@@ -434,33 +479,35 @@ def test_cache_verification_preserves_exact_crlf_bytes(app):
     memory = facts(app, receipt)[0]
     observed = asyncio.run(app.executor.observe(context(app), memory, "original"))
     assert observed.readable
-    assert app.executor.path(memory, observed.tier).read_bytes() == "第一行\r\n第二行".encode()
+    assert (
+        app.executor.cache.raw_sync(memory.scope, observed.content_hash)
+        == "第一行\r\n第二行".encode()
+    )
 
 
 def test_cli_requires_explicit_temporal_configuration(tmp_path):
+    import json
     import subprocess
     import sys
 
+    import yaml
+    from test_azure_storage_configuration import azure_settings
+
+    value = azure_settings(tmp_path)
+    value["identity_file"].write_text("revision: 1\ntenants: []\nidentities: []\n", "utf-8")
+    template = tmp_path / "template.yaml"
+    template.write_text(yaml.safe_dump(json.loads(json.dumps(value, default=str))), "utf-8")
     command = [sys.executable, "-m", "aether_agent_memory.runtime.flows"]
     created = subprocess.run(
         command
-        + [
-            "init",
-            "--directory",
-            str(tmp_path / "deployment"),
-            "--embedding-profile",
-            "lexical",
-            "--temporal-endpoint",
-            "localhost:7233",
-        ],
+        + ["init", "--directory", str(tmp_path / "deployment"), "--template", str(template)],
         capture_output=True,
         text=True,
-        encoding="utf-8",
         timeout=15,
     )
     assert created.returncode == 0, created.stderr
     checked = subprocess.run(
-        command + ["check-config", "--config", str(tmp_path / "deployment" / "service.yaml")],
+        command + ["check-config", "--config", str(tmp_path / "deployment/service.yaml")],
         capture_output=True,
         timeout=15,
     )
@@ -477,7 +524,7 @@ def test_component_directories_do_not_join_each_others_workflows(app, tmp_path, 
     first = save(app, operation="same-operation")
     drain(app)
     second = ThreeFlows(
-        tmp_path / "second" / "p3.db", tmp_path / "second" / "cache", embedding_profile="lexical"
+        tmp_path / "second" / "p3.db", tmp_path / "second" / "cache", embedding_profile="injected"
     )
     second.foundation.identity.provision([(sha256(b"alice").hexdigest(), context(app).principal)])
     seed_driver(second, temporal_server)

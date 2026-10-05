@@ -30,8 +30,8 @@ from aether_agent_memory.runtime.foundation.common import FoundationError, finge
 from aether_agent_memory.runtime.foundation.events import Events
 from aether_agent_memory.runtime.foundation.identity import Identity
 from aether_agent_memory.runtime.foundation.requests import request_key, select_scope
-from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction, SQLiteUnitOfWork
 from aether_agent_memory.runtime.foundation.telemetry import observed
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction, MetadataUnitOfWork
 
 from .components import RankedMemory, assemble, fuse
 from .config import RecallSettings
@@ -44,7 +44,7 @@ from .tokenization import ModelTokenizer, TokenCounter
 class Recall:
     def __init__(
         self,
-        uow: SQLiteUnitOfWork,
+        uow: MetadataUnitOfWork,
         identity: Identity,
         events: Events,
         memories: MemoryReadPort,
@@ -139,7 +139,7 @@ class Recall:
 
     def access(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         ctx: TrustedContext,
         recall_id: str,
         memory: MemoryRef,
@@ -184,7 +184,7 @@ class Recall:
         )
 
     def accept_in(
-        self, tx: SQLiteTransaction, ctx: TrustedContext, request: RecallRequest
+        self, tx: MetadataTransaction, ctx: TrustedContext, request: RecallRequest
     ) -> tuple[RecallRecord, bool]:
         scope = select_scope(ctx, request.selection)
         recall_id = request_key(ctx, "recall")
@@ -465,7 +465,7 @@ class Recall:
 
     def commit_prepared(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         ctx: TrustedContext,
         request: RecallRequest,
         recall_id: str,
@@ -518,7 +518,7 @@ class Recall:
         return pack
 
     def guard_generations(
-        self, tx: SQLiteTransaction, ctx: TrustedContext, expected: ContextGuardRequest
+        self, tx: MetadataTransaction, ctx: TrustedContext, expected: ContextGuardRequest
     ) -> None:
         if not expected.expected:
             return

@@ -8,7 +8,7 @@ from aether_p4_simulator.validation.client import P3ValidationClient
 from aether_p4_simulator.validation.errors import ValidationError
 from aether_p4_simulator.validation.models import ContextPack
 
-from .support import NOW
+from .support import NOW, fixed_definition
 
 pytestmark = pytest.mark.unit
 
@@ -56,10 +56,18 @@ def test_other_errors_cannot_pass_the_story_old_result_check(status, content, wa
         "secret",
         transport=httpx.MockTransport(lambda _: httpx.Response(status, content=content)),
     )
-    run = StoryRun(client, "owned_run", "preference-update", None, lambda _: None)
+    run = StoryRun(
+        client,
+        "owned_run",
+        "preference-update",
+        None,
+        lambda _: None,
+        definition=fixed_definition("preference-update"),
+    )
     try:
-        with pytest.raises(ValidationError) as error, run.step(
-            5, "/p3/recalls/{recall_id}/result", method="GET"
+        with (
+            pytest.raises(ValidationError) as error,
+            run.step(5, "/p3/recalls/{recall_id}/result", method="GET"),
         ):
             run.old_result_invalid(old_pack())
         assert error.value.code == want
@@ -78,7 +86,14 @@ def test_exact_result_invalidation_passes_and_keeps_the_owned_recall_id():
             lambda _: httpx.Response(410, json={"code": "RESULT_INVALIDATED"})
         ),
     )
-    run = StoryRun(client, "owned_run", "preference-update", None, lambda _: None)
+    run = StoryRun(
+        client,
+        "owned_run",
+        "preference-update",
+        None,
+        lambda _: None,
+        definition=fixed_definition("preference-update"),
+    )
     try:
         with run.step(5, "/p3/recalls/{recall_id}/result", method="GET"):
             run.old_result_invalid(old_pack())

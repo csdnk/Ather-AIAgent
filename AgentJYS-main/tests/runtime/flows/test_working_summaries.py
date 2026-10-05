@@ -1,4 +1,4 @@
-"""Real Remember/P2 pipeline, deterministic model providers and isolated Redis double."""
+"""Real Azure stores and isolated resources, with deterministic model fault fixtures."""
 
 import asyncio
 
@@ -6,7 +6,6 @@ import pytest
 from remember_helpers import app as app
 from remember_helpers import context, drain, recall, source
 
-from aether_agent_memory.remember.basic.content import RedisBodyCache
 from aether_agent_memory.remember.basic.service import memory_ref
 from aether_agent_memory.remember.basic.sources import PreparedDocument
 from aether_agent_memory.remember.basic.summaries import ExtractiveSummary
@@ -229,7 +228,6 @@ def test_source_read_scope_version_budget_and_revoke_during_read(app, monkeypatc
 
 def test_correction_while_summary_runs_cannot_overwrite_new_source(app):
     configure(app)
-    receipt, _, _ = save_long(app)
     new_text = "Updated architecture.\n" * 40 + "Refund timeout is 60 seconds."
 
     class CorrectDuringModel:
@@ -252,6 +250,7 @@ def test_correction_while_summary_runs_cannot_overwrite_new_source(app):
             return (text[: min(80, max_chars)],)
 
     app.remember.summaries.provider = CorrectDuringModel()
+    receipt, _, _ = save_long(app)
     drain(app)
     item = app.remember.get(context(app), receipt.memories[0].memory_id)
     assert item.ref.version == 3  # correction v2, its own summary v3
@@ -264,7 +263,6 @@ def test_correction_while_summary_runs_cannot_overwrite_new_source(app):
 
 def test_delete_during_summary_prevents_publication(app):
     configure(app)
-    receipt, _, _ = save_long(app)
 
     class DeleteDuringModel:
         deleted = False
@@ -281,6 +279,7 @@ def test_delete_during_summary_prevents_publication(app):
             return (text[:80],)
 
     app.remember.summaries.provider = DeleteDuringModel()
+    receipt, _, _ = save_long(app)
     drain(app)
     with app.foundation.uow.transaction() as tx:
         row = tx.get(memory_ref(receipt.memories[0], versioned=True))
@@ -292,10 +291,6 @@ def test_summary_redis_eviction_and_working_archive_do_not_erase_source_or_es(ap
     configure(app)
 
     async def scenario():
-        import fakeredis.aioredis
-
-        redis = fakeredis.aioredis.FakeRedis()
-        app.remember.bodies.cache = RedisBodyCache(redis, app.remember.policy)
         request = RememberRequest(
             source=source(),
             selection=ScopeSelector(session_id="s"),
@@ -319,7 +314,7 @@ def test_summary_redis_eviction_and_working_archive_do_not_erase_source_or_es(ap
         assert (
             await app.remember.bodies.cache.get(item.ref.scope, item.content_hash) == item.content
         )
-        await redis.flushdb()
+        await app.remember.bodies.cache.delete(item.ref.scope, item.content_hash)
         loaded = await app.remember.load_async(context(app), (item.ref,))
         assert loaded.items[0].content == item.content
         app.remember.lifecycle(
@@ -330,7 +325,6 @@ def test_summary_redis_eviction_and_working_archive_do_not_erase_source_or_es(ap
         assert (await app.remember.read_source(context(app), receipt.source))[
             "content"
         ] == request.content.text
-        await redis.aclose()
 
     asyncio.run(scenario())
     assert len(durable(app)) == 1 and recall(app, query="refund timeout").outcome == "available"

@@ -11,9 +11,9 @@ from aether_agent_memory.remember.contracts.models import (
     SourceInput,
     TextInput,
 )
-from aether_agent_memory.remember.local import create_runtime
 from aether_agent_memory.runtime.contracts.models import Permission, Principal, Scope, ScopeSelector
 from aether_agent_memory.runtime.foundation.common import now
+from azure_test_runtime import create_runtime
 
 
 def context(app, user="alice", operation=None):
@@ -31,7 +31,7 @@ def app(tmp_path, temporal_server):
     host = create_runtime(
         tmp_path / "p3.db",
         tmp_path / "cache",
-        embedding_profile="lexical",
+        embedding_profile="injected",
         operate_factory=ContinuousOperate,
     )
     people = [

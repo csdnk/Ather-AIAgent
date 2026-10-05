@@ -8,6 +8,8 @@ from typing import Any
 
 import yaml
 
+from aether_agent_memory.runtime.storage.ports import MetadataUnitOfWork
+
 from .diagnostics import Diagnostics
 from .disposition import Dispositions
 from .events import Events
@@ -15,7 +17,6 @@ from .identity import Identity
 from .lifecycle import RuntimeLifecycle
 from .monitoring import Monitoring
 from .sample import Sample
-from .storage import SQLiteUnitOfWork
 from .tasks import Tasks
 from .telemetry import Telemetry
 
@@ -33,41 +34,41 @@ class Foundation:
         backup_root: str | Path | None = None,
         engineering_profile: bool = False,
         postgres_dsn: str | None = None,
+        uow: MetadataUnitOfWork | None = None,
+        telemetry: Telemetry | None = None,
     ) -> None:
+        if (uow is None) != (telemetry is None):
+            raise ValueError("external metadata and telemetry must be supplied together")
+        if uow is not None and (postgres_dsn is not None or log_path is not None):
+            raise ValueError(
+                "external providers cannot be mixed with database constructor settings"
+            )
+        self.uow: MetadataUnitOfWork
         options: dict[str, Any] = {}
         if profile is not None:
             options = yaml.safe_load(Path(profile).read_text(encoding="utf-8"))["tasks"]
-        if postgres_dsn is None:
-            self.uow = SQLiteUnitOfWork(database)
+        if uow is not None:
+            self.uow = uow
+        elif postgres_dsn is None:
+            raise ValueError(
+                "Foundation requires explicit PostgreSQL metadata "
+                "or injected metadata and telemetry"
+            )
         else:
-            from .postgres import PostgresUnitOfWork, verify_sqlite_migration_source
+            from .postgres import PostgresUnitOfWork
 
             self.uow = PostgresUnitOfWork(postgres_dsn, database)
-            try:
-                if Path(database).is_file():
-                    with self.uow.transaction() as tx:
-                        marker = tx.read("meta", "postgres_migration")
-                        if marker is None:
-                            raise ValueError(
-                                "existing SQLite requires explicit offline PostgreSQL migration"
-                            )
-                    verify_sqlite_migration_source(Path(database), marker)
-            except BaseException:
-                self.uow.close()
-                raise
         if log_path and Path(log_path).resolve() == Path(database).resolve():
             self.uow.close()
             raise ValueError("business database and log database must be separate")
         try:
-            if postgres_dsn is None:
-                self.telemetry = Telemetry(
-                    log_path or Path(database).with_suffix(".logs.db"),
-                    retention_days=log_retention_days,
-                    max_records=log_max_records,
-                )
+            if telemetry is not None:
+                self.telemetry = telemetry
             else:
                 from .postgres_telemetry import PostgresTelemetry
 
+                if postgres_dsn is None:
+                    raise ValueError("injected metadata also requires explicit telemetry")
                 self.telemetry = PostgresTelemetry(
                     postgres_dsn,
                     log_path or Path(database).with_suffix(".logs.db"),
@@ -77,37 +78,41 @@ class Foundation:
         except BaseException:
             self.uow.close()
             raise
-        self.uow.telemetry = self.telemetry
-        self.identity = Identity(self.uow)
-        self.tasks = Tasks(
-            self.uow,
-            self.identity,
-            lease_seconds=options.get("lease_seconds", 30),
-            retry_seconds=options.get("retry_seconds", 1),
-            max_attempts=options.get("max_attempts", 3),
-            query_max_attempts=options.get("query_max_attempts", 6),
-            pending_limit=options.get("pending_limit_per_scope", 100),
-            class_limits=options.get("class_limits"),
-            per_scope_running=options.get("running_limit_per_scope", 1),
-            pending_limit_per_tenant=options.get("pending_limit_per_tenant", 300),
-            per_tenant_running=options.get("running_limit_per_tenant_class", 1),
-        )
-        self.events = Events(self.uow, self.identity, lease_seconds=self.tasks.lease_seconds)
-        self.diagnostics = Diagnostics(self.uow, self.identity)
-        self.monitoring = Monitoring(self.uow, self.identity, self.telemetry)
-        self.diagnostics.monitoring = self.monitoring
-        self.lifecycle = RuntimeLifecycle(
-            self.uow,
-            self.identity,
-            Path(backup_root) if backup_root else Path(database).parent / "backups",
-            operators=maintenance_principals,
-        )
-        self.dispositions = Dispositions(self.tasks)
-        self._sample = (
-            Sample(self.uow, self.identity, self.tasks, self.events)
-            if engineering_profile
-            else None
-        )
+        try:
+            self.uow.telemetry = self.telemetry
+            self.identity = Identity(self.uow)
+            self.tasks = Tasks(
+                self.uow,
+                self.identity,
+                lease_seconds=options.get("lease_seconds", 30),
+                retry_seconds=options.get("retry_seconds", 1),
+                max_attempts=options.get("max_attempts", 3),
+                query_max_attempts=options.get("query_max_attempts", 6),
+                pending_limit=options.get("pending_limit_per_scope", 100),
+                class_limits=options.get("class_limits"),
+                per_scope_running=options.get("running_limit_per_scope", 1),
+                pending_limit_per_tenant=options.get("pending_limit_per_tenant", 300),
+                per_tenant_running=options.get("running_limit_per_tenant_class", 1),
+            )
+            self.events = Events(self.uow, self.identity, lease_seconds=self.tasks.lease_seconds)
+            self.diagnostics = Diagnostics(self.uow, self.identity)
+            self.monitoring = Monitoring(self.uow, self.identity, self.telemetry)
+            self.diagnostics.monitoring = self.monitoring
+            self.lifecycle = RuntimeLifecycle(
+                self.uow,
+                self.identity,
+                Path(backup_root) if backup_root else Path(database).parent / "backups",
+                operators=maintenance_principals,
+            )
+            self.dispositions = Dispositions(self.tasks)
+            self._sample = (
+                Sample(self.uow, self.identity, self.tasks, self.events)
+                if engineering_profile
+                else None
+            )
+        except BaseException:
+            self.close()
+            raise
 
     @property
     def sample(self) -> Sample:

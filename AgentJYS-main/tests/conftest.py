@@ -15,6 +15,22 @@ from aether_agent_memory.runtime.temporal.gateway import connect_client
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "tests"))
+
+
+@pytest.fixture(autouse=True)
+def owned_azure_resources():
+    from azure_test_runtime import OwnedResources, _resources
+
+    resources = OwnedResources()
+    token = _resources.set(resources)
+    try:
+        yield resources
+    finally:
+        try:
+            resources.close()
+        finally:
+            _resources.reset(token)
 
 
 class PersistentTemporal:

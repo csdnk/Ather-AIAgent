@@ -10,7 +10,6 @@ import pytest
 from pydantic import ValidationError
 from tests.unit.recall.helpers import Authority, policy, recall_input, scope
 
-from aether_agent_memory.mocks.recall import InMemoryRecallRecords
 from aether_agent_memory.recall.admission import (
     RecallAdmissionService,
     RecallError,
@@ -29,6 +28,7 @@ from aether_agent_memory.recall.ports import (
 )
 from aether_agent_memory.recall.store import RecordRecallExecutionStore
 from aether_agent_memory.runtime.contract_types import Stage, TerminalState, hash_json, utcnow
+from recall_records import InMemoryRecallRecords
 
 
 def setup(*, authority=None, settings=None, store=None, gate=None):

@@ -53,8 +53,9 @@ from aether_agent_memory.runtime.contracts.models import (
 from aether_agent_memory.runtime.contracts.ports import Transaction
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
 from aether_agent_memory.runtime.foundation.requests import select_scope, text_hash
-from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction, native
 from aether_agent_memory.runtime.foundation.telemetry import observed
+from aether_agent_memory.runtime.foundation.transactions import native
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 from .candidates import seconds_left
 from .service import Recall
@@ -97,7 +98,7 @@ class ContextAssembly:
 
     def revalidate(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         ctx: TrustedContext,
         expected: ContextGuardRequest,
         deadline: str,
@@ -142,7 +143,7 @@ class ContextAssembly:
     async def plan(self, ctx: TrustedContext, request: RecallPlanRequest) -> ContextAssemblyPlan:
         # 校验组包策略和期限后生成可持久化计划；此时尚未发布最终 Recall 结果。
         request = RecallPlanRequest.model_validate_json(request.model_dump_json())
-        self.check(ctx, request)
+        await asyncio.to_thread(self.check, ctx, request)
         if (
             request.deadline_at > ctx.deadline_at
             or request.context_tokenizer != self.base.tokenizer.identifier
@@ -173,13 +174,13 @@ class ContextAssembly:
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "assembly policy binding mismatch")
 
     async def discover(self, ctx: TrustedContext, request: RecallPlanRequest) -> dict[str, Any]:
-        self.check_plan_policy(ctx, request)
+        await asyncio.to_thread(self.check_plan_policy, ctx, request)
         return cast(dict[str, Any], await self._build_phase(ctx, request, None))
 
     async def assemble_discovered(
         self, ctx: TrustedContext, request: RecallPlanRequest, discovered: dict[str, Any]
     ) -> ContextAssemblyPlan:
-        self.check_plan_policy(ctx, request)
+        await asyncio.to_thread(self.check_plan_policy, ctx, request)
         return cast(ContextAssemblyPlan, await self._build_phase(ctx, request, discovered))
 
     async def _build_phase(
@@ -312,7 +313,7 @@ class ContextAssembly:
                         )
                     found = await self.candidates.search(ctx, search)
                     found = MemorySearchResult.model_validate_json(found.model_dump_json())
-                    self.check(ctx, request)
+                    await asyncio.to_thread(self.check, ctx, request)
                     if found.request != search or found.scope != scope:
                         raise FoundationError(
                             ErrorCode.CONTRACT_VIOLATION, "candidate result mismatch"
@@ -334,8 +335,9 @@ class ContextAssembly:
                         manifests[key], candidate_guards[key] = candidate.manifest, candidate.guard
                     if found.candidates:
                         refs = tuple(c.memory for c in found.candidates)
-                        accept_batch(
-                            self.base.memories.load(ctx, refs), {r.model_dump_json() for r in refs}
+                        batch = await asyncio.to_thread(self.base.memories.load, ctx, refs)
+                        await asyncio.to_thread(
+                            accept_batch, batch, {r.model_dump_json() for r in refs}
                         )
                 except FoundationError as exc:
                     if exc.code != ErrorCode.DEPENDENCY_UNAVAILABLE:
@@ -394,14 +396,17 @@ class ContextAssembly:
             queried.update(missing)
             saved_relation = (snapshots.copy(), conflicts.copy(), relation_guards.copy())
             try:
-                accept_batch(self.base.memories.load(ctx, tuple(missing.values())), set(missing))
+                batch = await asyncio.to_thread(
+                    self.base.memories.load, ctx, tuple(missing.values())
+                )
+                await asyncio.to_thread(accept_batch, batch, set(missing))
             except FoundationError as exc:
                 if exc.code != ErrorCode.DEPENDENCY_UNAVAILABLE:
                     raise
                 snapshots, conflicts, relation_guards = saved_relation
                 reasons.add("relation_dependency")
                 break
-            self.check(ctx, request)
+            await asyncio.to_thread(self.check, ctx, request)
             await asyncio.sleep(0)
         else:
             reasons.add("relation_limit")
@@ -411,7 +416,7 @@ class ContextAssembly:
         bodies: dict[str, FullBodyReadResult] = {}
         if refs:
             response = await self.bodies.load_bodies(ctx, refs)
-            self.check(ctx, request)
+            await asyncio.to_thread(self.check, ctx, request)
             results = tuple(
                 FullBodyReadResult.model_validate_json(r.model_dump_json()) for r in response
             )
@@ -450,7 +455,7 @@ class ContextAssembly:
                     reasons.add("body_stale")
                     continue
                 bodies[key] = body
-                self.read_fact(ctx, request.recall_id, body.memory)
+                await asyncio.to_thread(self.read_fact, ctx, request.recall_id, body.memory)
 
         # 阶段五：先建立成员到冲突组的映射，再按完整组形成不可拆分的入包单元。
         by_member: dict[str, list[ConflictGroup]] = {}
@@ -511,8 +516,12 @@ class ContextAssembly:
         # 显式启用重排序时，必须在正文交给重排序器之前复核资格，防止越权泄露。
         if units and self.base.settings.rerank_policy != "disabled":
             expected = self.expectations(units, manifests)
-            with self.uow.transaction() as tx:
-                self.revalidate(tx, ctx, expected, request.deadline_at)
+
+            def validate_rerank() -> None:
+                with self.uow.transaction() as tx:
+                    self.revalidate(tx, ctx, expected, request.deadline_at)
+
+            await asyncio.to_thread(validate_rerank)
             if self.base.reranker is None:
                 raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "missing reranker")
             try:
@@ -522,7 +531,7 @@ class ContextAssembly:
                         request.query,
                         tuple("\n".join(b.content or "" for b in u.bodies) for u in units),
                     )
-                self.check(ctx, request)
+                await asyncio.to_thread(self.check, ctx, request)
                 if len(ranked) != len(units) or not all(math.isfinite(s) for s in ranked):
                     raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "invalid rerank scores")
                 units = [
@@ -592,25 +601,31 @@ class ContextAssembly:
             rank_evidence=evidence,
             degradation_reasons=tuple(sorted(reasons)),
         )
-        self.check(ctx, request)
-        with self.uow.transaction() as tx:
-            self.identity.revalidate(tx, ctx)
-            prior = tx.read("recall_assembly", request.recall_id)
-            if prior is not None:
-                tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "assembly ID already bound")
-            # 保存计划、原身份、B 凭据和内容签名，供 commit 防篡改及结果重取时使用。
-            tx.write(
-                "recall_assembly",
-                request.recall_id,
-                {
-                    "plan": plan.model_dump(mode="json"),
-                    "context": ctx.model_dump(mode="json"),
-                    "expectations": self.expectations(selected, manifests).model_dump(mode="json"),
-                    "coverage": coverage,
-                    "signature": fingerprint(plan.model_dump(mode="json")),
-                },
-            )
-            tx.before_commit.append(lambda: self.identity.revalidate(tx, ctx))
+
+        def persist_plan() -> None:
+            self.check(ctx, request)
+            with self.uow.transaction() as tx:
+                self.identity.revalidate(tx, ctx)
+                prior = tx.read("recall_assembly", request.recall_id)
+                if prior is not None:
+                    tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "assembly ID already bound")
+                # 保存计划、原身份、B 凭据和内容签名，供 commit 防篡改及结果重取时使用。
+                tx.write(
+                    "recall_assembly",
+                    request.recall_id,
+                    {
+                        "plan": plan.model_dump(mode="json"),
+                        "context": ctx.model_dump(mode="json"),
+                        "expectations": self.expectations(selected, manifests).model_dump(
+                            mode="json"
+                        ),
+                        "coverage": coverage,
+                        "signature": fingerprint(plan.model_dump(mode="json")),
+                    },
+                )
+                tx.before_commit.append(lambda: self.identity.revalidate(tx, ctx))
+
+        await asyncio.to_thread(persist_plan)
         return plan
 
     @staticmethod

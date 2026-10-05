@@ -1,12 +1,9 @@
-"""Immutable complete bodies; P2 authority and optional bounded Redis replicas.
-
-SQLite/local deployments use the same hash-checked address protocol. The local
-body spool is a durable replica, never a field inside MemoryRecord.
-"""
+"""Immutable complete bodies; explicit object authority and bounded Redis replicas."""
 
 import asyncio
 import os
 import secrets
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
@@ -18,70 +15,9 @@ from aether_agent_memory.runtime.contracts.models import (
 )
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
 from aether_agent_memory.runtime.foundation.requests import text_hash
+from aether_agent_memory.runtime.storage.cache import BodyCache
 
 from .policy import RememberPolicy
-
-
-class RedisBodyCache:
-    """Admission and per-scope byte accounting are atomic with TTL eviction."""
-
-    _ADMIT = """
-local expired = redis.call('ZRANGEBYSCORE', KEYS[2], '-inf', ARGV[1])
-for _, k in ipairs(expired) do
-  redis.call('HDEL', KEYS[3], k)
-  redis.call('ZREM', KEYS[2], k)
-end
-local total = 0
-for _, n in ipairs(redis.call('HVALS', KEYS[3])) do total = total + tonumber(n) end
-local old = tonumber(redis.call('HGET', KEYS[3], KEYS[1]) or '0')
-if total - old + tonumber(ARGV[3]) > tonumber(ARGV[4]) then return 0 end
-redis.call('SET', KEYS[1], ARGV[5], 'EX', ARGV[2])
-redis.call('HSET', KEYS[3], KEYS[1], ARGV[3])
-redis.call('ZADD', KEYS[2], tonumber(ARGV[1]) + tonumber(ARGV[2]), KEYS[1])
-redis.call('EXPIRE', KEYS[2], ARGV[2])
-redis.call('EXPIRE', KEYS[3], ARGV[2])
-return 1
-"""
-
-    def __init__(self, client: Any, policy: RememberPolicy) -> None:
-        self.client, self.policy = client, policy
-
-    @staticmethod
-    def keys(scope: Scope, digest: str) -> tuple[str, str, str]:
-        prefix = "remember:body:{" + fingerprint(scope.model_dump(mode="json")) + "}:"
-        return prefix + digest, prefix + "expiry", prefix + "sizes"
-
-    async def get(self, scope: Scope, digest: str) -> str | None:
-        raw = await self.client.get(self.keys(scope, digest)[0])
-        if raw is None:
-            return None
-        value = raw.decode("utf-8") if isinstance(raw, bytes) else str(raw)
-        return value if text_hash(value) == digest else None
-
-    async def put(self, scope: Scope, text: str) -> bool:
-        import time
-
-        size = len(text.encode("utf-8"))
-        if size > self.policy.cache_max_body_bytes:
-            return False
-        return bool(
-            await self.client.eval(
-                self._ADMIT,
-                3,
-                *self.keys(scope, text_hash(text)),
-                int(time.time()),
-                self.policy.cache_ttl_seconds,
-                size,
-                self.policy.cache_scope_bytes,
-                text,
-            )
-        )
-
-    async def delete(self, scope: Scope, digest: str) -> None:
-        key, expiry, sizes = self.keys(scope, digest)
-        async with self.client.pipeline(transaction=True) as pipe:
-            pipe.delete(key).zrem(expiry, key).hdel(sizes, key)
-            await pipe.execute()
 
 
 class Bodies:
@@ -91,20 +27,55 @@ class Bodies:
         policy: RememberPolicy,
         *,
         p2: Any = None,
-        cache: RedisBodyCache | None = None,
+        cache: BodyCache | None = None,
     ) -> None:
         self.root, self.policy, self.p2, self.cache = root, policy, p2, cache
+        binding = getattr(p2, "binding", None)
+        self.object_binding = binding() if callable(binding) else None
+        self.provider_id = (
+            str(self.object_binding["provider"])
+            if self.object_binding
+            else ("p2" if p2 is not None else "local")
+        )
+        self.provider_instance_id = (
+            fingerprint(self.object_binding) if self.object_binding else "remember"
+        )
         self.root.mkdir(parents=True, exist_ok=True)
         self.prepared: dict[str, ResourceLocation] = {}
         self.require_prepared = False
+        self.remote_only = False
+        self.verified: OrderedDict[str, str] = OrderedDict()
+        self.verified_bytes = 0
+        self.verified_limit = max(policy.max_input_bytes * 2, 128 * 1024 * 1024)
+
+    def remember_verified(self, location: ResourceLocation, text: str) -> None:
+        self.check_binding(location)
+        if text_hash(text) != location.content_hash:
+            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "body verification differs")
+        key = location.object_key
+        prior = self.verified.pop(key, None)
+        if prior is not None:
+            self.verified_bytes -= len(prior.encode("utf-8"))
+        self.verified[key] = text
+        self.verified_bytes += len(text.encode("utf-8"))
+        while self.verified_bytes > self.verified_limit and len(self.verified) > 1:
+            _, removed = self.verified.popitem(last=False)
+            self.verified_bytes -= len(removed.encode("utf-8"))
+
+    def verified_text(self, location: ResourceLocation) -> str | None:
+        self.check_binding(location)
+        value = self.verified.get(location.object_key)
+        if value is not None:
+            self.verified.move_to_end(location.object_key)
+        return value
 
     def location(self, scope: Scope, text: str, kind: str = "body") -> ResourceLocation:
         digest = text_hash(text)
         key = fingerprint([scope.model_dump(mode="json"), digest])
         return ResourceLocation(
             kind=kind,
-            provider_id="p2" if self.p2 else "local",
-            provider_instance_id="remember",
+            provider_id=self.provider_id,
+            provider_instance_id=self.provider_instance_id,
             namespace="remember_bodies",
             object_key="remember/bodies/" + key,
             generation=digest,
@@ -122,13 +93,20 @@ class Bodies:
             raise FoundationError(ErrorCode.COMMIT_UNCONFIRMED, "P2 body needs stage verification")
         if self.p2 and hasattr(self.p2, "put_object_sync") and key not in self.prepared:
             self.p2.put_object_sync(key, text.encode("utf-8"))
+            if self.p2.get_object_sync(key) != text.encode("utf-8"):
+                raise FoundationError(ErrorCode.COMMIT_UNCONFIRMED, "P2 body readback differs")
             self.prepared[key] = location
         if self.p2 and key not in self.prepared:
             raise FoundationError(ErrorCode.COMMIT_UNCONFIRMED, "P2 body not verified")
-        self._spool(location, text)
+        self.remember_verified(location, text)
+        if not self.remote_only:
+            self._spool(location, text)
         return location
 
     def _spool(self, location: ResourceLocation, text: str) -> None:
+        self.remember_verified(location, text)
+        if self.remote_only:
+            return
         path = self.path(location)
         if path.exists():
             try:
@@ -165,7 +143,9 @@ class Bodies:
             if raw != text.encode("utf-8"):
                 raise FoundationError(ErrorCode.COMMIT_UNCONFIRMED, "P2 exact body not readable")
         self.prepared[location.object_key] = location
-        await asyncio.to_thread(self._spool, location, text)
+        self.remember_verified(location, text)
+        if not self.remote_only:
+            await asyncio.to_thread(self._spool, location, text)
         return location
 
     async def p2_call(self, method: str, *args: Any) -> Any:
@@ -179,32 +159,42 @@ class Bodies:
             ) from exc
 
     def read_local(self, location: ResourceLocation) -> str:
+        self.check_binding(location)
         try:
-            if not self.path(location).exists() and hasattr(self.p2, "get_object_sync"):
+            if location.provider_id != "local":
+                if self.p2 is None or not hasattr(self.p2, "get_object_sync"):
+                    raise OSError("P2 body reader missing")
                 raw = self.p2.get_object_sync(location.object_key)
                 if raw is None:
                     raise OSError("P2 body missing")
                 text = bytes(raw).decode("utf-8")
             else:
                 text = self.path(location).read_bytes().decode("utf-8")
-        except (OSError, UnicodeError) as exc:
+        except FoundationError:
+            raise
+        except Exception:
             raise FoundationError(
-                ErrorCode.DEPENDENCY_UNAVAILABLE, "body replica unavailable"
-            ) from exc
+                ErrorCode.DEPENDENCY_UNAVAILABLE, "body authority unavailable"
+            ) from None
         if text_hash(text) != location.content_hash:
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "body hash mismatch")
         return text
 
     async def read(self, scope: Scope, location: ResourceLocation) -> tuple[str, str]:
+        self.check_binding(location)
         if self.cache:
             try:
                 value = await self.cache.get(scope, location.content_hash)
                 if value is not None:
-                    await asyncio.to_thread(self._spool, location, value)
+                    if text_hash(value) != location.content_hash:
+                        raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "cache hash differs")
+                    self.remember_verified(location, value)
+                    if not self.remote_only:
+                        await asyncio.to_thread(self._spool, location, value)
                     return value, "cache"
             except Exception:
                 pass  # Cache loss cannot erase a durably saved source.
-        if location.provider_id == "p2":
+        if location.provider_id != "local":
             if self.p2 is None:
                 raise FoundationError(ErrorCode.DEPENDENCY_UNAVAILABLE, "P2 body reader missing")
             raw = await self.p2_call("get_object", location.object_key)
@@ -213,9 +203,22 @@ class Bodies:
             value = raw.decode("utf-8")
             if text_hash(value) != location.content_hash:
                 raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "P2 body hash mismatch")
-            await asyncio.to_thread(self._spool, location, value)
-            return value, "p2"
+            self.remember_verified(location, value)
+            if not self.remote_only:
+                await asyncio.to_thread(self._spool, location, value)
+            return value, "p2" if location.provider_id == "p2" else "authority"
         return await asyncio.to_thread(self.read_local, location), "authority"
+
+    def check_binding(self, location: ResourceLocation) -> None:
+        if self.object_binding is not None and (
+            location.provider_id != self.provider_id
+            or location.provider_instance_id != self.provider_instance_id
+        ):
+            raise FoundationError(
+                ErrorCode.VERSION_CONFLICT, "body provider changed; explicit migration required"
+            )
+        if self.object_binding is None and location.provider_id not in {"local", "p2"}:
+            raise FoundationError(ErrorCode.VERSION_CONFLICT, "body provider is not configured")
 
     async def admit(self, scope: Scope, text: str) -> str:
         if not self.cache:

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRightOutlined, BookOutlined, BulbOutlined, CloudOutlined, DeleteOutlined, EditOutlined } from "@ant-design/icons";
 import { DemoApiError, getRun, listScenarios, startRun } from "./api";
+import { observationMilliseconds } from "./budgets";
 import CoveragePanel from "./CoveragePanel";
 import type { RunSnapshot, RunState, ScenarioId, Scenarios, StepSnapshot, StepState } from "./types";
 import "./demo.css";
@@ -93,7 +94,7 @@ export default function DemoPage() {
     stop();
     const entry: Observation = { controller: new AbortController() };
     observation.current = entry;
-    const deadline = Date.now() + 600_000;
+    const deadline = Date.now() + observationMilliseconds;
     const apply = (value: RunSnapshot) => {
       setRun(value);
       setSelectedId(value.scenario_id);

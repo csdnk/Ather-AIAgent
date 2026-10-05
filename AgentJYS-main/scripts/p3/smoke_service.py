@@ -11,6 +11,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import httpx
+from http_operation import confirmed_request
 
 
 def main() -> int:
@@ -29,8 +30,11 @@ def main() -> int:
         },
     ) as client:
         client.get("/p3/live").raise_for_status()
-        saved = client.post(
+        confirmed_request(
+            client,
+            "POST",
             "/p3/remember",
+            timeout=args.timeout,
             headers={"X-Operation-ID": operation},
             json={
                 "source": {
@@ -45,13 +49,19 @@ def main() -> int:
                 "content": {"kind": "text", "text": content},
             },
         )
-        saved.raise_for_status()
         # Explicitly close this smoke batch rather than changing deployment policy.
-        client.post("/p3/remember/consolidate", json={"session_id": operation}).raise_for_status()
+        confirmed_request(
+            client, "POST", "/p3/remember/consolidate", timeout=args.timeout,
+            headers={"X-Operation-ID": operation + "_consolidate"},
+            json={"session_id": operation},
+        )
         until = time.monotonic() + args.timeout
         while time.monotonic() < until:
-            recalled = client.post(
+            recalled = confirmed_request(
+                client,
+                "POST",
                 "/p3/recall",
+                timeout=args.timeout,
                 json={
                     "query": content,
                     "selection": {"session_id": operation},
@@ -59,9 +69,8 @@ def main() -> int:
                     "token_budget": 1000,
                 },
             )
-            recalled.raise_for_status()
-            if operation in recalled.json()["rendered_context"]:
-                rid = recalled.json()["recall_id"]
+            if operation in recalled["rendered_context"]:
+                rid = recalled["recall_id"]
                 client.get(f"/p3/recalls/{rid}/result").raise_for_status()
                 print(json.dumps({"passed": True, "operation_id": operation, "recall_id": rid}))
                 return 0

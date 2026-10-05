@@ -6,6 +6,7 @@ from aether_agent_memory.remember.contracts.models import (
     MemoryRef,
     MemorySnapshot,
 )
+from aether_agent_memory.runtime.contracts.http_evidence import HttpRequestEvidence
 from aether_agent_memory.runtime.contracts.models import (
     ErrorCode,
     Flow,
@@ -29,12 +30,34 @@ class Revalidation(Remember):
         return fingerprint(ref.model_dump(mode="json"))
 
     def revoke_source(
-        self, ctx: TrustedContext, source_id: str, request: DeleteRequest
+        self,
+        ctx: TrustedContext,
+        source_id: str,
+        request: DeleteRequest,
+        *,
+        http_request: HttpRequestEvidence | None = None,
     ) -> DeleteReceipt:
         with self.uow.transaction() as tx:
             row = tx.read("remember_sources", source_id)
             if row is None:
                 raise FoundationError(ErrorCode.NOT_FOUND, "source not found")
+            mutation = self.mutations.begin(
+                tx,
+                ctx,
+                "source.revoke",
+                (
+                    RecordRef(
+                        owner=Flow.REMEMBER,
+                        object_type="source",
+                        object_id=source_id,
+                        scope=Scope.model_validate(row["scope"]),
+                    ),
+                ),
+                request.model_dump(mode="json"),
+                http_request=http_request,
+            )
+            if mutation.previous is not None:
+                return DeleteReceipt.model_validate(mutation.previous)
             self.identity.authorize(
                 tx,
                 ctx,
@@ -100,9 +123,15 @@ class Revalidation(Remember):
                 remaining_targets=("evidence_revalidation",),
             )
             self.remember_result(tx, key, request, receipt)
+            mutation.finish(receipt.model_dump(mode="json"), task_ids=receipt.task_ids)
             return receipt
 
     async def revalidate_sources(
+        self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot
+    ) -> RunResult:
+        return self.revalidate_source_metadata(ctx, task, item)
+
+    def revalidate_source_metadata(
         self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot
     ) -> RunResult:
         with self.uow.transaction() as tx:

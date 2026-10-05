@@ -30,6 +30,33 @@ LIBRARY = (
 
 RULES = "演示图书馆规则：每次最多借 5 本，借期 30 天，周末 9 点到 17 点开放，计算机类在二楼。"
 
+# Captured once into each immutable run definition before registration.
+STORY_INPUTS: dict[str, str | int] = {
+    "library_quote": "借期 30 天",
+    "library_noise": "我今天整理了书桌，把水杯放到左边。",
+    "library_loan_query": "再确认一下，我借的是哪一本书？",
+    "weather_backup_query": "我之前为雨天定的备用安排是什么？",
+    "weather_park_query": "我原来的户外计划是什么？",
+    "preference_correction": "我喜欢无糖红茶，阅读时希望安静。",
+    "correction_reason": "本轮虚构偏好更正",
+    "lifecycle_reason": "本轮虚构安排生命周期检查",
+    "retention_reason": "本轮只验证策略设置与回读，不等待实际过期",
+    "retention_hours": 168,
+    "reflection_reason": "本轮学习记录反思设置检查",
+    "reflection_min_episodes": 3,
+    "reflection_period_hours": 24,
+    "booking_delete_reason": "本轮虚构预约取消",
+    "booking_query": "我的测试预约编号是多少？",
+    "second_source": "独立测试资料二：纸质活动票 DEMO-SOURCE-028。",
+    "third_source": "独立测试资料三：演示取件码 DEMO-SOURCE-039。",
+    "source_delete_reason": "仅本轮独立虚构资料",
+    "deleted_source_range_end": 8,
+    "forgotten_query": "测试预约、活动票与取件码还有记录吗？",
+    "source_version": "1",
+    "basic_token_budget": 2000,
+    "story_token_budget": 3000,
+}
+
 STORY_TEXTS = {
     "library-full": (
         "请上传并保存这份虚构图书馆规则文档。",
@@ -82,6 +109,7 @@ STORY_TEXTS = {
         "分别核对三份资料是否还会被召回，并展示实际清理状态。",
     ),
 }
+
 
 class ScenarioSummary(TypedDict):
     id: ScenarioID

@@ -10,11 +10,11 @@ from aether_agent_memory.recall.embedding.service import (
     SemanticEmbeddingService,
     TransientEmbeddingError,
 )
-from aether_agent_memory.runtime.capability_store import SQLiteCapabilityStore
+from azure_test_runtime import AzureRecords
 
 
 async def test_query_passage_are_pure_and_distinct_with_completed_cache(tmp_path):
-    store = SQLiteCapabilityStore(tmp_path / "state.db")
+    store = AzureRecords(tmp_path / "state.db")
     inputs = Inputs()
     query = Backend()
     passage = Backend()
@@ -39,7 +39,7 @@ async def test_query_passage_are_pure_and_distinct_with_completed_cache(tmp_path
 
 
 async def test_cancellation_does_not_cancel_shared_inference(tmp_path):
-    store = SQLiteCapabilityStore(tmp_path / "state.db")
+    store = AzureRecords(tmp_path / "state.db")
     inputs = Inputs()
     gate = asyncio.Event()
     query = Backend(gate=gate)
@@ -60,7 +60,7 @@ async def test_cancellation_does_not_cancel_shared_inference(tmp_path):
 
 async def test_completed_result_reopens_and_reauthorizes(tmp_path):
     path = tmp_path / "state.db"
-    store = SQLiteCapabilityStore(path)
+    store = AzureRecords(path)
     inputs = Inputs()
     q = Backend()
     svc = SemanticEmbeddingService(store, inputs, runtime(q), runtime(Backend()))
@@ -68,7 +68,7 @@ async def test_completed_result_reopens_and_reauthorizes(tmp_path):
     first = await svc.embed(request)
     await svc.close()
     store.close()
-    store = SQLiteCapabilityStore(path)
+    store = AzureRecords(path)
     q = Backend()
     svc = SemanticEmbeddingService(store, inputs, runtime(q), runtime(Backend()))
     assert await svc.embed(inputs.request()) == first
@@ -84,7 +84,7 @@ async def test_completed_result_reopens_and_reauthorizes(tmp_path):
     "vector", [[0.0, 0.0, 0.0], [1.0, 2.0], [float("nan"), 1, 2], [True, 1, 2], [1e50, 1, 2]]
 )
 async def test_invalid_vectors_never_produce_result(tmp_path, vector):
-    store = SQLiteCapabilityStore(tmp_path / "state.db")
+    store = AzureRecords(tmp_path / "state.db")
     inputs = Inputs()
     q = Backend(vector=vector)
     svc = SemanticEmbeddingService(store, inputs, runtime(q), runtime(Backend()))
@@ -98,7 +98,7 @@ async def test_invalid_vectors_never_produce_result(tmp_path, vector):
 
 
 async def test_wrong_binding_and_same_caller_changed_input_are_rejected(tmp_path):
-    store = SQLiteCapabilityStore(tmp_path / "state.db")
+    store = AzureRecords(tmp_path / "state.db")
     inputs = Inputs()
     q = Backend(wrong_binding=True)
     svc = SemanticEmbeddingService(store, inputs, runtime(q), runtime(Backend()))
@@ -112,7 +112,7 @@ async def test_wrong_binding_and_same_caller_changed_input_are_rejected(tmp_path
 
 
 async def test_passage_cannot_take_query_capacity(tmp_path):
-    store = SQLiteCapabilityStore(tmp_path / "state.db")
+    store = AzureRecords(tmp_path / "state.db")
     inputs = Inputs()
     gate = asyncio.Event()
     p = Backend(gate=gate)
@@ -135,7 +135,7 @@ async def test_failed_execution_replay_does_not_reset_attempts(tmp_path):
             self.calls += 1
             raise TransientEmbeddingError()
 
-    store = SQLiteCapabilityStore(tmp_path / "state.db")
+    store = AzureRecords(tmp_path / "state.db")
     inputs = Inputs()
     q = Failing()
     svc = SemanticEmbeddingService(store, inputs, runtime(q), runtime(Backend()))
@@ -148,7 +148,7 @@ async def test_failed_execution_replay_does_not_reset_attempts(tmp_path):
 
 
 async def test_corrupt_cached_vector_is_not_reused_for_another_call(tmp_path):
-    store = SQLiteCapabilityStore(tmp_path / "state.db")
+    store = AzureRecords(tmp_path / "state.db")
     inputs = Inputs()
     q = Backend()
     svc = SemanticEmbeddingService(store, inputs, runtime(q), runtime(Backend()))

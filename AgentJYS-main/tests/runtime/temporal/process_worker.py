@@ -11,11 +11,11 @@ from pathlib import Path
 import yaml
 
 from aether_agent_memory.runtime.contracts.models import EffectStatus, Permission, Principal, Scope
-from aether_agent_memory.runtime.flows.application import Service
-from aether_agent_memory.runtime.flows.config import ServiceConfiguration
 from aether_agent_memory.runtime.foundation.common import FoundationError, encode, fingerprint, now
 from aether_agent_memory.runtime.temporal.activities import Activities, StageContext
 from aether_agent_memory.runtime.temporal.models import StepResult
+from azure_component_service import Service
+from component_configuration import ComponentConfiguration as ServiceConfiguration
 
 
 def write(path, value):
@@ -86,7 +86,7 @@ async def domain(args):
     config = ServiceConfiguration(
         data_dir=directory / "state",
         identity_file=identity,
-        embedding_profile="lexical",
+        embedding_profile="injected",
         temporal={"deployment_id": fingerprint(str(directory))[:32], "endpoint": args.endpoint},
         poll_seconds=0.02,
         periodic_seconds=2,
@@ -275,7 +275,6 @@ async def domain(args):
 
 async def stale(args):
     """A real SDK timeout leaves a provider thread alive; its fenced write loses."""
-    from aether_agent_memory.runtime.foundation.host import Foundation
     from aether_agent_memory.runtime.temporal.bridge import IntentBridge
     from aether_agent_memory.runtime.temporal.config import (
         TemporalConfiguration,
@@ -286,6 +285,7 @@ async def stale(args):
     from aether_agent_memory.runtime.temporal.locking import DirectoryLock
     from aether_agent_memory.runtime.temporal.registry import StageRegistry
     from aether_agent_memory.runtime.temporal.worker import WorkerHost
+    from azure_test_runtime import Foundation
 
     lock = DirectoryLock()
     lock.acquire(args.directory / "state")
@@ -379,8 +379,16 @@ async def main():
     parser.add_argument("--endpoint", required=True)
     parser.add_argument("--scenario", required=True)
     parser.add_argument("--phase", choices=["interrupt", "resume"], required=True)
+    parser.add_argument("--azure-resources", type=Path, required=True)
     args = parser.parse_args()
-    await (stale(args) if args.scenario == "T07" else domain(args))
+    from azure_test_runtime import OwnedResources, _resources
+
+    token = _resources.set(OwnedResources(json.loads(args.azure_resources.read_text("utf-8"))))
+    try:
+        await (stale(args) if args.scenario == "T07" else domain(args))
+    finally:
+        # Parent owns schema/prefix/collection cleanup across both child runs.
+        _resources.reset(token)
 
 
 if __name__ == "__main__":
