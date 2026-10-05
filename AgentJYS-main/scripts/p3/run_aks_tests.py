@@ -167,7 +167,7 @@ def source_archive(root, assets):
             "examples",
             "deploy",
             "engine/proto",
-            "web",
+            "platform-web",
         ):
             paths.extend((root / directory).rglob("*"))
         paths.extend(

@@ -73,11 +73,39 @@ class StorageTransaction:
         self.check()
         if kind not in {"start", "control"} or not 1 <= limit <= 1000:
             raise ValueError("invalid intent kind or batch limit")
-        return sorted(
+        rows = [
             (key, row)
             for key, row in self.rows(f"temporal_{kind}_intents")
             if row.get("state") == "pending"
-        )[:limit]
+        ]
+        if kind == "start":
+            from datetime import datetime
+
+            created = {key: row.get("created_at") for key, row in self.rows("tasks")}
+
+            def order(item: tuple[str, Any]) -> tuple[float, str]:
+                stamp = created.get(item[1]["intent"]["job"]["job_id"])
+                return (
+                    datetime.fromisoformat(stamp).timestamp() if stamp else float("-inf"),
+                    item[0],
+                )
+
+            ordered = sorted(rows, key=order)
+            recall = [
+                item for item in ordered if item[1]["intent"]["job"].get("kind") == "recall.execute"
+            ]
+            background = [
+                item for item in ordered if item[1]["intent"]["job"].get("kind") != "recall.execute"
+            ]
+            from itertools import zip_longest
+
+            return [
+                item
+                for pair in zip_longest(recall, background)
+                for item in pair
+                if item is not None
+            ][:limit]
+        return sorted(rows)[:limit]
 
     def active_task_rows(self, *, include_attention: bool = False) -> list[tuple[str, Any]]:
         states = {"pending", "running", "retry_wait", "recovery_wait"}

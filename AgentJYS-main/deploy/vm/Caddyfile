@@ -7,5 +7,21 @@
 	header Strict-Transport-Security "max-age=31536000"
 	@private path /p3/maintenance* /p3/configuration* /p3/backups* /p3/restore-drills* /p3/metrics* /p4-api* /docs* /redoc* /openapi.json
 	respond @private 404
-	reverse_proxy web:80
+	header X-Content-Type-Options nosniff
+	header Referrer-Policy no-referrer
+	header X-Frame-Options DENY
+	header >Cache-Control no-store
+	handle /p3/* {
+		request_body {
+			max_size 64MB
+		}
+		reverse_proxy p3:8080 {
+			transport http {
+				response_header_timeout 360s
+			}
+		}
+	}
+	handle {
+		respond 404
+	}
 }

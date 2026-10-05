@@ -17,6 +17,9 @@ from aether_agent_memory.runtime.contracts.http_evidence import HttpRequestEvide
 from aether_agent_memory.runtime.contracts.models import (
     ErrorCode,
     Identifier,
+    Permission,
+    RecordRef,
+    Scope,
     ScopeSelector,
     TrustedContext,
 )
@@ -118,6 +121,31 @@ def attach_routes(
         ctx: TrustedContext = trusted_dependency,
     ) -> Any:
         return await remember.read_source(ctx, ref, start, end)
+
+    @app.get("/p3/sources/{source_id}")
+    def source_metadata(
+        source_id: Identifier, ctx: TrustedContext = trusted_dependency
+    ) -> dict[str, Any]:
+        with remember.uow.transaction() as tx:
+            row = tx.read("remember_sources", source_id)
+            if row is None:
+                raise FoundationError(ErrorCode.NOT_FOUND, "source not found")
+            remember.identity.authorize(
+                tx,
+                ctx,
+                Permission.READ,
+                RecordRef(
+                    owner="remember",
+                    object_type="source",
+                    object_id=source_id,
+                    scope=Scope.model_validate(row["scope"]),
+                ),
+            )
+            return {
+                "source_id": source_id,
+                "revision": row["revision"],
+                "valid": row.get("valid", True),
+            }
 
     @app.post("/p3/remember/{memory_id}/correct")
     async def correct(

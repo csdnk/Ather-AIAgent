@@ -204,7 +204,10 @@ class TaskProgress:
     def read(self, ctx: TrustedContext, task_id: str) -> dict[str, object]:
         with self.tasks.uow.transaction() as tx:
             _, task = self.tasks.load(tx, task_id)
-            self.tasks.identity.authorize(tx, ctx, Permission.DIAGNOSE, task.subject)
+            if not self.tasks.identity.permits_task_maintenance(
+                tx, ctx, Permission.DIAGNOSE, task, self.tasks.maintenance_principals
+            ):
+                tx.abort(ErrorCode.FORBIDDEN, "task metadata access denied")
             wait = tx.read("task_waits", task_id)
             lease = tx.read("task_wait_leases", task_id)
             owned = lease and (

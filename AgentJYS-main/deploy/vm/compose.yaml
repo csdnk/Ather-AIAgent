@@ -60,20 +60,6 @@ services:
       timeout: 5s
       retries: 8
 
-  web:
-    image: ${AETHER_WEB_IMAGE:?Use the image reference from images.tsv}
-    pull_policy: never
-    restart: unless-stopped
-    mem_limit: 256m
-    depends_on:
-      p3:
-        condition: service_healthy
-    healthcheck:
-      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1/"]
-      interval: 15s
-      timeout: 3s
-      retries: 5
-
   gateway:
     image: ${AETHER_CADDY_IMAGE:?Use the image reference from images.tsv}
     pull_policy: never
@@ -87,7 +73,7 @@ services:
     ports: ["80:80", "443:443"]
     mem_limit: 256m
     depends_on:
-      web:
+      p3:
         condition: service_healthy
 
 volumes:

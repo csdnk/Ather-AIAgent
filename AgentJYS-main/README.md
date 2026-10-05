@@ -62,144 +62,13 @@ Linux/macOS 在第二个终端重新设置前述变量，再执行：
 
 脚本会写入一条带唯一标识的测试记忆、主动结束批次、等待长期索引、查询并再次获取结果。成功输出含 `"passed": true`、`operation_id` 和 `recall_id`；不会输出凭据。测试记忆会保留在部署数据中。
 
-若要在 Web 中观察三流程运行，将命令中的 `scripts/p3/smoke_service.py` 换为 `scripts/p3/monitor_demo.py`。它额外验证 Working 召回、连续读取触发 Operate 自动 hot 放置、放置后的召回和三流程诊断记录，输出可在监控页查询的任务 ID 与 Trace ID。详见 [边测试边监测](web/README.md#一边运行三流程用例一边查看真实轨迹)。
+三流程运行可通过 `scripts/p3/monitor_demo.py` 验证，通过新版 Agent 的 P3 运维入口查看授权范围内的任务与诊断。
 
-## 预设对话 Web 演示
+## Agent 与管理后台
 
-默认 Web 入口提供 **五个固定故事**。选择场景后点击“开始演示”，由 P4 按预设步骤调用真实 P3；页面显示实际回复、进度、任务和可折叠证据。不是自由聊天模型，不需要在浏览器填写凭据。“监测控制台”入口保留，可直接打开 `http://127.0.0.1:5173/?view=monitor`。Keycloak 登录返回后自动进入监测台；在两页间切换会保留本次页面会话中选中的组织。
+旧 P4 故事页面与监测 Web 已于 2026-10-05 退役。使用 [Agent 平台](http://localhost:19010/)；登录后进入“我的记忆”，平台管理员可进入“P3 运维控制台”。账号与租户管理使用 [Budibase](http://localhost:19000/app/default%20workspace/aether-admin)。
 
-**身份边界：**监测控制台使用当前登录人的组织与权限；预设场景使用 P4 服务端配置的演示凭据，切换监测台组织不会改变演示凭据对应的租户。此入口仅用于本地演示，不能据此宣称外部 P4 已接入组织身份。
-
-| 场景 ID | 步骤 | 验证内容 |
-|---|---:|---|
-| `library-full` | 9 | 文档上传、摘要发布、规则与个人记录召回、正文及原文片段、干扰后查询 |
-| `weather-weekend` | 8 | 虚构天气设定、周末安排、长期化、仅共享本轮 task 范围的新会话召回 |
-| `preference-update` | 8 | 版本更正、旧结果失效、归档/恢复、保留规则、重新处理 |
-| `learning-review` | 8 | 学习记录长期化、反思设置、提炼任务与实际生成结果 |
-| `forget-sources` | 7 | 本轮记忆删除、两个独立来源的删除/撤销、读屏障与清理状态 |
-
-旧 `library-basic` 仅保留 API 兼容，不再列在新场景选择器。当前公开 Azure 服务使用 native BGE 和获批的结构化 LLM。组件测试中的固定模型只用于确定性故障断言；未配置提炼能力时，页面在实际任务和 `provider_unavailable` 证据确认后显示**条件不足**，不填入虚构总结。
-
-覆盖面板列出当前源码的 **64 个方法＋路径组合**，分别统计“已调用”和“检查通过”。其中 11 项 `/p3/client-runs/…` 登记、定义、原输入、执行状态与执行权转移接口不计入故事业务覆盖，原操作与变更回执/原结果查询也单独验证恢复行为。每次只统计当前运行，不把一次故事或 HTTP 200 当作全接口验收。诊断只抽样本轮可关联元数据；运维写操作留给专用隔离环境，不随演示修改共享服务配置或执行恢复。
-
-先按上文启动**独立 Temporal + P3**，确认 `/p3/readyz` 返回 200。在第二个 PowerShell 终端进入 `AgentJYS-main`，设置同一部署的 `$P3Python` 和 `$P3Deploy` 后启动 P4：
-
-```powershell
-$env:AETHER_P4_DEMO_ENABLED = '1'
-$env:AETHER_P4_DEMO_P3_URL = 'http://127.0.0.1:8080'
-$env:AETHER_P4_DEMO_CREDENTIAL_FILE = (Resolve-Path (Join-Path $P3Deploy 'credential')).Path
-$env:AETHER_P4_BIND = '127.0.0.1'
-$env:AETHER_P4_PORT = '8090'
-& $P3Python -m aether_p4_simulator.server
-```
-
-第三个终端进入 `AgentJYS-main/web`，已安装依赖则无需重复 `npm ci`：
-
-```powershell
-$env:VITE_P4_PROXY_TARGET = 'http://127.0.0.1:8090'
-$env:VITE_AETHER_PROXY_TARGET = 'http://127.0.0.1:8080'
-npm run dev -- --strictPort
-```
-
-浏览器打开 `http://127.0.0.1:5173`，点击“开始演示”。演示凭据只从 **P4 服务端文件**读取，不填写到页面或 `VITE_` 变量。默认仅允许本机 5173 的 Origin。修改 Web 端口时，可用 `AETHER_P4_DEMO_ORIGINS` 配置精确 loopback Origin 的 JSON 数组；外部域名、通配符、路径和用户信息会在监听前拒绝。
-
-本地容器联调可在已经初始化的 **development/test 专用部署**上使用 [compose.p4-demo.yaml](compose.p4-demo.yaml)：
-
-```powershell
-docker compose -f compose.p3.yaml -f compose.p4-demo.yaml up -d --build
-```
-
-Web 默认访问 `http://127.0.0.1:3000`，`AETHER_HOST_WEB_PORT` 同时调整发布端口和 P4 Origin。P4 与 Web 共享网络命名空间，仍只监听 `127.0.0.1:8090`；服务端凭据只读挂载，Nginx 仅代理演示接口。此覆盖文件只用于本机联调。默认 Web 镜像及生产 Compose 显示“演示未启用”；正式身份和 P4 持久运行尚未验收。Nginx/P4/P3/Temporal/当前 P2 的本机 socket 测试通过不等于 Docker 镜像或 AKS 发布通过。
-
-同一调用方同时只运行一轮，完成后手动新开独立范围。HTTP 400 `REQUEST_IN_PROGRESS` 只观察原 job，不重发原 POST；观察超时/结果未知会停住依赖步骤。“重新查询”只 GET。P4 通过受认证的 P3 `POST/GET/PUT /p3/client-runs/{run_id}` 保存原 UUID、场景、固定 scope、所有者和进度；步骤操作先保存意图，再保存原 operation/job 回执。P3 消费事务与身份接口；新 Azure 配置使用 PG 元数据与 Ceph 原始输入，P2 接管适配和完整 P4 恢复仍需验收。
-
-新版本登记的已完成运行经过实际 P4 进程重启后，可以读取原步骤、记忆和任务结果；同 UUID 再次开始返回原登记，不执行业务。进度 CAS 或依赖异常会停止后续动作。中断运行保留占用，新 P4 所有者不会自动接管；原所有者超过 120 秒未更新时显示 `unconfirmed`，需要核对原操作，不能以新 UUID、清库或重启解除。每个调用方持久保留最多 10 轮，重启不会重置上限；尚未提供清退或人工恢复入口。
-
-升级前未登记的旧 UUID 仍缺少 UUID→scope 迁移证明，404 **不证明旧写入未执行**，不得重新提交。原版本进程重启后重复生成 3 条记忆的失败证据保留。中断安全续跑、旧记录迁移、正式身份和正式 P2 灾备仍是上线未完成项。
-
-原 HTTP 响应丢失而只有 operation ID 时，可调用受认证的 `GET /p3/operation-requests/{operation_id}?kind=remember.save` 找回原 job。`kind` 支持 `remember.save`、`recall.execute`、`remember.correct`、`remember.document`。返回 `found` 时包含原 job、任务状态、持久输入描述的 hash 和 workflow ID，再通过原 `/p3/operations/{job_id}` 与 `/result` 核对；`found` 不等同业务成功。返回 `unconfirmed` 不证明没有写入，不允许据此重发。接口不重新准入、不修改登记、不扫描全部任务，也不释放 P4 的 active 占用。
-
-其余 Remember/Source 写入口使用 `GET /p3/mutation-receipts/{operation_id}?kind=remember.delete` 查询原事务回执。支持 `remember.consolidate`、`remember.distill`、`remember.reprocess`、`remember.reindex`、`remember.lifecycle`、`remember.retention`、`remember.reflection`、`remember.delete`、`source.delete`、`source.revoke`。`committed` 表示同步变更和原任务准入已提交；后台投影、清理或提炼结果仍通过返回的原 task IDs 核对。缺少回执返回 `unconfirmed`，包括缺少身份来源信息的旧操作记录，不能将它解释为未执行。
-
-同类写操作的 operation ID 固定绑定调用方、home scope、auth epoch、目标和规范化请求摘要；复用 ID 改变目标或请求返回冲突。空整合结果也持久化，重复请求不会处理后来到达的输入。查询仅返回引用和摘要，不泄露历史正文。生命周期回执的 `result_basis=metadata_without_content`，hash 对应去掉 `content` 的响应元数据（保留原 `content_hash`）；其他类型为完整响应 JSON 的规范化 hash。新的生命周期回执不存正文副本，也不再写入旧操作表；POST 重放通过 P2 读取并验证原版本正文。P4 已提供原结果查询、整轮只读核对和恢复占用转移；转移后的恢复执行及安全续跑仍未完成。
-
-`GET /p3/mutation-receipts/{operation_id}/result?kind=…` 返回上述十类同步变更的原 `receipt` 和原 `response`，P3/P4 校验 RFC 8785 JSON 摘要及原 operation/kind；GET 不触发业务重放。读取要求当前身份、原 auth epoch 和每个原目标的现行 READ 权限。生命周期返回原来去掉正文的元数据，即使后来恢复 active，也不会把原 archived 结果替换为今天的状态；空合并也保留原空结果。缺少可验证原结果返回 `COMMIT_UNCONFIRMED`，不能推断未执行。成功响应设置 no-store。
-
-P4 的 prepared 操作现在包含 `binding`：版本 1、实际编码路径和查询串、Content-Type，以及方法/模板/operation ID/正文 SHA256/目标/内容类型的规范化摘要。登记发生在网络发送前，取得响应时保持绑定不变。P3 拒绝新增无绑定操作和改写原绑定；旧无绑定记录仍可读取，中断记录不能补造目标或据此解锁。日志不保存正文或凭据请求头。该绑定证明 P4 准备发送的请求，尚不等同 P3 已接纳，也不授权重发或运行接管。
-
-P4 的发送顺序为：保存 prepared 意图 → 保存并核对原始 HTTP 字节 → 发送业务请求 → 保存 observed 回执。原始字节通过 `PUT /p3/client-runs/{run_id}/inputs/{operation_id}` 交给 P3，再经现有 P2 对象接口保存；请求必须携带 `X-P3-Run-Owner` 和正整数 `X-P3-Run-Revision`。元数据先记录 pending，事务外写入并读回 P2 字节，再检查当前身份、原 owner、revision 和 active 占用，最后确认 ready。原始 JSON、二进制文档和空正文均保持原样，正文不进入浏览器 snapshot。
-
-`GET` 同一路径在当前身份下读取 ready 的原始字节，并返回 `X-P3-Request-Hash` 和 `Cache-Control: no-store`。P3/P4 都核对原字节摘要；缺失、损坏、pending 或无历史绑定均明确失败。保存回执丢失时，P4 保留原 prepared 操作并停止业务发送；ready 回执重试仍须读取 P2 验证内容及当前 owner，不会修补缺失对象。本能力保存已构造的请求；固定的后续输入另由下述运行定义保存，动态结果及执行权恢复仍未完成。
-
-新 prepared 操作随 checkpoint 原子登记“调用方＋operation ID → 原运行＋请求绑定”索引。该操作进入四类 Temporal 命令或十类同步变更时，必须携带 `X-P3-Run-ID`、`X-P3-Run-Owner`、`X-P3-Run-Revision`；P3 在业务事务中核对当前身份、owner/revision、running/active、prepared 和已确认原字节及请求目标。省略这些请求头不能绕过已登记操作的校验。P4 在原输入保存确认后读取当前登记修订号并发送；命令输入暂存前还有前置校验，P2 IO 后仍须通过最终事务检查。
-
-原操作查询的 `http_request.client_run` 保存首次准入所验证的执行者声明；普通调用和历史证据为 `null`。已接纳的原 Temporal 任务继续使用原 job/workflow ID 与执行 fence；登记变化不取消原任务，已 observed 或旧 owner 的请求应通过 GET 查询原结果。升级前的旧 checkpoint 不自动补造索引，也不因此取得本项隔离保证；旧 P4 在新 P3 上新增登记的操作会建立索引，后续若缺少执行者声明则被拒绝，应配套升级同一版本 P3/P4。不提供自动接管或安全续跑，也不取代正式身份和 P2 事务验收。
-
-新版 P4 登记要求 `scope_policy=p4_task_v1`。P3 在登记事务内分配并保留 `p4r_<32位小写十六进制>` 命名空间，关联原 run 引用；task 等于该标识，session 为空或该标识加 `_session`。该保留语法同时用于文档 ID 本身及其下划线后缀，普通请求不能抢占未登记的保留名称。P3 根据实际记忆、来源、明确选择的 scope 或 document ID 检查目标，换一个未登记 operation ID、去掉运行请求头或只保留 session 也不能写入保护范围。托管声明也不能访问另一运行的写入目标。
-
-普通授权读取及其他范围的写入保持既有权限规则；未指定任务的 Recall 可以按原规则查询，明确查询托管 task/session 的 Recall 需通过原运行准入。合并和反思策略继续按完整 scope 精确匹配。任务绑定的 home scope 不能登记此策略。保护保留到运行结束之后，历史数据不会自动获得本项保证；终止运行的数据清退、容量、显式迁移和转移后的恢复执行仍待实现。P4 可 GET 读取旧记录，但不会接受旧策略用于新执行或 checkpoint。
-
-新 P4 运行在首次登记中绑定不可替换的定义摘要、大小和格式。`PUT/GET /p3/client-runs/{run_id}/definition` 经 P2 保存和读取版本化定义；保存要求相同 owner/revision、运行仍 queued 且占有 active，P2 写入前后均鉴权。带定义绑定的运行在定义 ready 前不能进入 running 或登记业务操作。GET 返回原字节、`X-P3-Definition-Hash` 和 no-store；旧无定义运行保持可读，不补造定义。
-
-定义保存固定步骤文本、上传原文、额外业务文本、策略参数和每步事件时间。当前六个固定演示使用定义生成时的 UTC 基点加步骤毫秒序号，恢复时不重新取事件时钟。P4 读回并核对定义后才执行；实际 HTTP 字节仍按逐次请求保存。定义还绑定执行及请求契约代码、序列化库的摘要；版本不兼容时须保留旧执行版本或明确迁移，不能自动使用当前代码续跑。仅记录了摘要但尚未完成定义存储的运行保持未确认，不从当前场景还原正文。
-
-P3 新增可选的 `state_policy=p4_state_v1`，首次登记必须同时绑定 `p4_task_v1` 和原定义；旧登记不能补写策略。`PUT/GET /p3/client-runs/{run_id}/states/{sequence}` 保存与读取原 JSON 字节，序号从 1 连续增长至 1024，每份不超过 256 KiB 且受配置的对象输入上限约束。请求包含原 run/scenario/scope、definition hash、父 hash、完整原操作列表和调用方数据；操作列表必须与当前登记一致，已有操作顺序不得重排。凭据、请求头、重复 JSON 键及过深结构被拒绝。
-
-保存使用与原输入相同的 owner/revision 请求头，先保留 pending，P2 写入并读回验证后，在同一事务内确认 ready、发布 head 并将 run revision 加一。P2 IO 前后检查当前身份、owner、revision 和 active；错父链、同序号换内容和过期执行者均拒绝。只有相同原字节、原 writer/revision、相同当前 head 且尚无后续修订时，PUT 才确认丢失的保存回执；历史状态通过 GET 读取。已 ready 的对象丢失或损坏不会由重试重建。GET 在读取前后检查权限与发布绑定，返回 `X-P3-State-Hash` 和 no-store，终态也可读取历史状态。
-
-新版 P4 的六个场景首次登记时请求并核对 `state_policy=p4_state_v1`。每次业务调用前先保存原输入和执行状态，再使用状态保存返回的新 run revision 发送请求；ready head 的操作摘要必须与当前 prepared 日志一致。日志新增或更新后，旧 head 不足以支持下一次业务请求。状态保存失败或回执丢失时停止后续效果，保留原登记和不确定性。
-
-`demo/state.py` 保存记忆/来源引用、原 Remember 回执、episode 分组、轻量 Recall 标识、上传文档元数据、提炼前目录基线、原任务标识及清理任务列表。阶段明确区分调用前、HTTP 已观察、结果已解析、结果已消费和步骤完成；消费回执不等于异步任务或投影完成。状态不保存 Recall 正文或完整 ContextPack。`parsed_hash` 是解析后模型表示的摘要，生命周期去除正文；它与服务端原变更回执的权威 `result_hash` 含义不同。
-
-`DemoService.restore_execution(run_id)` 经 GET 读取原登记、定义和状态，核对代码版本、字节/父链绑定、原引用与操作前缀，并在读取后再次核对登记没有变化。它只复原数据，不申请所有权或启动故事。状态落后于当前日志时返回 `journal_matches=False`，保留尚未消费的操作尾部；缺失、损坏或不兼容状态明确拒绝，不从当前目录或场景文本补造。
-
-`DemoService.reconcile_execution(run_id, timeout_seconds=60)` 在复原后按当前完整日志顺序读取原输入、原 HTTP 准入、原 job 和原结果，覆盖四类 Temporal 命令及十类同步变更。报告保留原操作/查询证据、身份与请求匹配结论、任务状态、原结果描述及与已保存解析摘要的比较；不会保存新读取的输入或结果正文，也不会改写日志、消费标记、head 或 active。生命周期只核对原提交的 `metadata_without_content`，不构造带正文的快照；后台任务创建成功和任务完成仍分别表示。未找到原准入、任务处理中/失败/效果未知、旧 Recall 失效以及摘要不一致都有明确结果。
-
-核对中的所有 HTTP 调用均为 GET，共享一个剩余时间预算；每次网络读取和返回报告时检查预算，超时或最终原登记变化会拒绝整份报告。网络使用 HTTPX 分阶段超时，不能据此声称底层网络调用在绝对时间点被强制取消。有所有权历史时，原准入 owner 必须匹配其准入 revision 所属区间，且不能超过当前修订；无历史记录继续严格比较当前 owner。报告只证明读取时的逐项证据，不授予继续执行权限。
-
-`POST /p3/client-runs/{run_id}/transfers/{transfer_id}` 原子取得恢复占用：请求固定原 owner、revision、完整记录的 RFC 8785 SHA256 和新 owner；P3 在原事务中检查当前身份、RECOVER 权限及 active，更新 owner/revision/所有权历史，并保存不可变的转移前后回执。`GET` 同路径查询原回执；丢回执保持 unconfirmed，必须用原 transfer ID 核对。相同 ID/意图返回原结果；不同意图、旧记录、无所有权历史或重复 owner 均拒绝。历史最多 16 个 owner 区间，达到上限仍可查询和确认原转移，不能再增加新区间。
-
-转移后 `recovery_transfer_id` 标记运行处于待恢复状态，原 snapshot、错误、日志、定义和执行状态 head 保留，active 不释放。旧执行者不能继续写入，新 owner 的普通业务、进度和状态/输入/定义写入也被拒绝；已 ready 的原输入和定义可以核对原字节后返回原回执。未开始的初始化另有显式原定义确认接口，见下文。已经准入的 Temporal 任务仍按原 job/workflow ID 和 fence 执行。`DemoService.transfer_execution(report, transfer_id)` 只取得该占用，不创建本地运行或启动故事。
-
-`POST/GET /p3/client-runs/{run_id}/recoveries/{transfer_id}` 实现显式激活及原结果查询。激活固定当前 owner/revision/完整记录摘要，先经 P2 保存新状态，再原子提交状态 head、解除 hold 和原回执；原 snapshot 只改 state，错误、日志和已受理任务保持原样。未开始的 queued 运行可以继续原定义初始化；running 恢复必须保存完整原日志并引用已确认父状态。
-
-状态的 `stream_id`/`parent_stream_id` 在接管后使用 transfer ID，旧状态链及 pending 预约保留；初始空标识不改变旧 key 或哈希。P4 的 `activate_execution(report)` 和客户端已支持该契约，激活丢响应后用 `lookup_client_recovery` 查原结果，当前 head 的读写会携带状态链标识。P3/P4 需要同步使用此契约版本。
-
-单独激活不会启动本地故事工作线程。P4 已支持未进入业务的初始化恢复；已有业务日志或已发布状态的逐效果续跑、历史迁移和容量清退仍未完成。不能通过普通 checkpoint 把 unconfirmed 改回 running；已有激活与接管能力不代表已完成安全续跑或上线验收。
-
-同一所有者原样重试已提交的旧 checkpoint 时，当前身份校验通过后返回原记录，保留原 revision 和 active 占用；该确认不补造绑定或改写回执。P4 的实际 HTTP 字节摘要、P3 任务输入描述摘要和业务意图摘要含义不同，不能直接互相比对；请求核对使用下面的独立 HTTP 证据，安全续跑仍待完成。
-
-现有原操作/变更回执查询新增可选的 `http_request`：由 P3 在 HTTP 入口独立计算请求字节摘要、业务路径/有效查询参数和内容类型，与首次任务准入或同步变更同事务保存。重复请求保留原证据，旧任务/回执不补写此字段。P4 当前客户端的 `confirm_operation(original_operation)` 返回 `matched / mismatch / unconfirmed` 并保留原查询结果；它只发 GET，不修改日志或接管运行。`matched` 表示请求与原准入/事务相符，原任务仍可能失败；后台完成、原输入可恢复性和安全续跑需要分别核对。P3 与 P4 应使用包含该可选响应字段的同一版本契约。
-
-调用方日志可能保留被 HTTP 校验拒绝的请求。文档请求缺少 `version` 时，如果查到带版本的原服务端证据，核对返回 `mismatch`；缺少任一端证据时仍为 `unconfirmed`。核对不根据服务端记录补写调用方版本，也不重新提交原请求。
-
-关闭顺序：Web、P4、P3 各自终端 `Ctrl+C`，最后用 `scripts/p3/temporal_dev.py stop --directory <原专属Temporal目录>` 停止本轮拥有的 Temporal；保留部署数据，不删除数据库、不停止共享实例。测试与当前环境限制应与代码一同评审，不以一次页面通过代替全项目验收。
-
-演示回归在业务目录执行：
-
-```powershell
-python -m pytest tests/unit/p4_validation tests/unit/p4_demo tests/integration/test_p4_demo_stories.py tests/integration/test_p4_demo_temporal.py tests/integration/test_p4_demo_handoff.py -q
-npm --prefix web test
-npm --prefix web run build
-npm --prefix web run lint
-```
-
-真实 Temporal 集成需要已安装的固定版本 CLI（按测试约定设置 `P3_TEMPORAL_CLI`），开发依赖按 `python -m pip install -e . --group dev` 安装。上述 Python 业务测试需完整 Azure 测试配置；推荐通过开发者指南的 `run_aks_tests.py` 在 AKS 执行相同文件。
-
-**接口专项验收**另有可复现入口，复用五故事、恢复契约及已有隔离运维测试，不向正在演示的服务发送请求；以该次生成报告的 total_routes、verified_routes、status 和失败项为准，不能仅凭调用过脚本认定全部验收。以下沿用前文的 `$P3Home` 和 `$P3Python`，每次使用新的仓库外目录：
-
-```powershell
-$P3Evidence = Join-Path $P3Home ('checks/demo-' + [guid]::NewGuid().ToString('N'))
-& $P3Python scripts/p3/validate_demo_interfaces.py --directory $P3Evidence
-```
-
-默认执行全接口所需的测试；追加 `--full-suite` 可同时运行全仓 `pytest`。不支持 `pytest-xdist` 并行归因。报告 `report.json` 按方法＋实际注册的路径模板记录完整 HTTP 响应状态和对应通过的测试；仅枚举接口、Mock、跳过/失败的测试及单纯收集用例不会计入通过。测试还会对照实际路由注册集合，防止清单漏增或漏删。
-
-激活阶段的默认选择包含六个原故事日志核对、转移和激活回执测试。新增激活后的 42 项定向验证通过；组合回归为 750 通过/3 次就绪门禁 503，带诊断复查 3 项通过但原根因仍开放。默认入口首次 36 通过/1 失败，暴露提炼测试忽略周期反思先完成的竞态；按原任务和目录基线纠正测试并增加确定性复用场景后，最终实际默认入口 **38 项通过、66/66 条接口有通过证据**。该证据覆盖 P3 ASGI、测试 Temporal 和配置后的当前 P2 对象调用，元数据/缓存及部分模型仍为测试参考组件。不同批次不累计，最终接口通过不抵销组合回归的启动稳定性问题、P2 同键并发输入写入失败和全仓 Docker/跳过项，不能当作整体上线验收。
-
-两个身份接口由登录/身份测试验证，在未调用它们的故事覆盖面板中保持“未执行”。五场景与只读诊断最多涉及 40 项；另 8 项任务/周期控制、配置、备份、恢复演练及退役维护契约在独立临时数据和 test-owned Temporal 中验证。3 项运行登记接口随故事真实调用，但其持久、幂等、所有权和回执丢失语义另见 `tests/integration/test_client_run_registry.py`、`test_p4_demo_recovery.py`、`test_p4_demo_reply_loss.py`。退役维护接口的 410 只代表正确拒绝，普通权限不足的 403 不代表正常功能通过。提炼成功路径使用确定性测试 provider 检查原任务产物引用；默认 S4 的 `provider_unavailable` 仍是条件不足。
-
-这些证据的边界是 **P3 真实 ASGI 路由与测试专属 Temporal，五故事还经过 P4 TCP**，不是所有接口均经过 Native TCP 的验收，也不证明 Docker、真实 P2、真实 Embedding/Milvus 或真实模型质量。全仓测试的失败和跳过仍需单独记录，不因接口有调用记录就忽略。
+新版实现位于既有 agent-platform 工作树的 `platform-web/` 与 `src/aether_platform/`，启动方式见交付成果中的 Agent 平台测试包。主工作区不自动复制该工作树的未提交实现。P4 Python 模拟器及其契约测试保留用于 P3 回归，不再提供旧 Web。
 
 ## 调用业务接口
 
@@ -253,19 +122,6 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8080/p3/recall -Headers $P3
 | `GET /p3/recalls/{id}`、`.../result` | 查询进度、再次取结果；仍按当前版本和权限复核 |
 
 字段、版本条件和错误响应以当前运行服务的 `/docs` 为准。TXT 可直接解析；PDF/DOCX 需安装 `resource-documents` 扩展。旧 `/api/v1/...` 文档对应兼容栈。
-
-## 打开真实监测 Web
-
-后端启动后，在另一个终端进入 `AgentJYS-main/web`，使用 Node.js 22 执行：
-
-```sh
-npm ci
-npm run dev
-```
-
-打开 [http://127.0.0.1:5173](http://127.0.0.1:5173)，点击“配置连接”，输入部署目录 `credential` 文件内容。页面通过同源 `/p3` 代理读取真实的健康、Worker、任务、异常与 Trace；后台地址默认是 `127.0.0.1:8080`。权限、端口修改、容器部署及限制见 [Web 使用指南](web/README.md)。
-
-监测界面提供运行总览、依赖探测、任务分页与详情、业务链路筛选、Trace 瀑布图和异常记录。趋势仅来自连接后的实际采样；凭据只保留在页面内存。统一 Compose 同时启动 Web，默认访问 `http://127.0.0.1:3000`。
 
 ## 接入真实模型与存储
 
@@ -321,7 +177,7 @@ docker build -f Dockerfile.p3 -t aether-p3:azure-candidate .
 
 [compose.p3.yaml](compose.p3.yaml) 可用于配置好网络的本机联调。先设置仓库外的 `AETHER_DEPLOYMENT_DIR`、`AETHER_RUNTIME_DIR`、`AETHER_MODELS_DIR`，分别挂载为 `/deployment`、`/runtime`、`/models`，配置使用对应的容器路径。Temporal endpoint 必须从容器实际可达；宿主 loopback 的开发 CLI 不会自动成为容器可访问的服务。可选 `p2` profile 仅保留 Rust P2 提供方的独立联调，不参与 Azure Service 装配。
 
-[compose.production.yaml](compose.production.yaml) 使用指定摘要的 P3/Web 镜像，强制 `--require-profile production`。设置 `AETHER_P3_IMAGE`、`AETHER_WEB_IMAGE`、只读 `AETHER_DEPLOYMENT_DIR`、可写 `AETHER_RUNTIME_DIR` 和只读 `AETHER_MODELS_DIR`。容器配置使用 `host: 0.0.0.0`、`port: 8080`、`data_dir: /runtime`；模型权重位于 `/models`，模型缓存指向 `/runtime` 的可写目录。
+[compose.production.yaml](compose.production.yaml) 使用指定摘要的 P3 镜像，强制 `--require-profile production`。设置 `AETHER_P3_IMAGE`、只读 `AETHER_DEPLOYMENT_DIR`、可写 `AETHER_RUNTIME_DIR` 和只读 `AETHER_MODELS_DIR`。容器配置使用 `host: 0.0.0.0`、`port: 8080`、`data_dir: /runtime`；模型权重位于 `/models`，模型缓存指向 `/runtime` 的可写目录。
 
 Compose 传递上述四后端与模型的默认密钥变量名；若配置使用其他名字，应同步修改环境注入。容器必须实际可达私网 PG/Redis/Milvus 及 Ceph HTTPS，并具备授权 namespace/数据库/bucket。模板、镜像构建和 Pod Ready 都不能单独证明已达到上线标准。
 
@@ -387,7 +243,7 @@ Compose 传递上述四后端与模型的默认密钥变量名；若配置使用
 - [2026-09-26 部署历史记录](../交付成果/部署运行/P3_统一服务运行指南_20260926.md)
 - [PRD V1.3 基线](contracts/p3/prd-baseline.yaml) / [总体架构与流程](../交付成果/架构设计/总体架构与流程.md)
 - [项目与交付成果入口](../README.md)
-- [真实监测 Web](web/README.md)
+- [Agent 平台](http://localhost:19010/) / [管理后台](http://localhost:19000/app/default%20workspace/aether-admin)
 - 旧兼容栈参考：[Runtime 架构](docs/p3_runtime_architecture.md)、[旧 Northbound API v1](docs/P3_NORTHBOUND_API_V1.md)、[旧 ADR](docs/adr/README.md)、[历史服务器回归](docs/SERVER_REGRESSION_20260825.md)。这些文档保留原日期及背景，不作为统一宿主的默认启动说明。
 
 旧 `python -m aether_agent_memory.app`、旧 `compose.yaml`、B1/B2/B3 演示和 `/api/v1/...` 仅保留 demo/integration 组件兼容用途；旧 production 明确拒绝启动。新用户从本 README 的统一入口开始；可运行 Mock 是独立产品演示，不代表已经连接此服务。

@@ -1,0 +1,1 @@
+{"name":"aether-agent-platform-web","private":true,"version":"0.1.0","type":"module","scripts":{"build":"node ../scripts/platform/build_web.mjs"},"dependencies":{"react":"^19.2.0","react-dom":"^19.2.0"},"devDependencies":{"esbuild":"^0.28.0"}}

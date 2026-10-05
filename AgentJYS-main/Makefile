@@ -7,7 +7,7 @@ proto:
 	python -B scripts/generate_proto.py
 
 test:
-	python scripts/p3/run_aks_tests.py --environment-file "$(AETHER_TEST_ENV_FILE)" --assets-directory "$(AETHER_TEST_ASSETS)" --directory "$(AETHER_TEST_WORKSPACE)" $(AKS_TEST_ARGS) -- tests --ignore=tests/integration/test_current_p2.py --ignore=tests/integration/test_web_gateway.py
+	python scripts/p3/run_aks_tests.py --environment-file "$(AETHER_TEST_ENV_FILE)" --assets-directory "$(AETHER_TEST_ASSETS)" --directory "$(AETHER_TEST_WORKSPACE)" $(AKS_TEST_ARGS) -- tests --ignore=tests/integration/test_current_p2.py
 
 lint:
 	python -B -m ruff check src tests scripts

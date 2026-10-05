@@ -1,0 +1,18 @@
+import {createRequire} from 'node:module';
+import {fileURLToPath} from 'node:url';
+import path from 'node:path';
+import fs from 'node:fs/promises';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
+const deps=process.env.AETHER_WEB_DEPENDENCIES;
+const require=createRequire(deps?path.join(deps,'package.json'):path.join(root,'platform-web/package.json'));
+const {build}=require('esbuild');
+const output=process.env.AETHER_WEB_DIST;
+if(!output)throw new Error('Set AETHER_WEB_DIST to an external build directory');
+await fs.mkdir(path.join(output,'assets'),{recursive:true});
+await build({entryPoints:[path.join(root,'platform-web/src/App.jsx')],bundle:true,minify:true,format:'esm',target:'es2022',outfile:path.join(output,'assets/app.js'),nodePaths:deps?[path.join(deps,'node_modules')]:[],loader:{'.jsx':'jsx'},define:{'process.env.NODE_ENV':'"production"'}});
+const prefix=process.env.AETHER_PUBLIC_PATH||'';
+if(prefix&&!/^\/[a-z][a-z0-9-]*$/.test(prefix))throw new Error('Invalid AETHER_PUBLIC_PATH');
+let html=await fs.readFile(path.join(root,'platform-web/index.html'),'utf8');
+html=html.replace('<head>','<head><meta name="aether-base" content="'+prefix+'">').replaceAll('"/assets/','"'+prefix+'/assets/');
+await fs.writeFile(path.join(output,'index.html'),html);
+console.log('Agent UI built successfully');

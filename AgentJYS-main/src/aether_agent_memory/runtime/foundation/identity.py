@@ -14,6 +14,7 @@ from aether_agent_memory.runtime.contracts.models import (
     Principal,
     RecordRef,
     ScopeSelector,
+    TaskRecord,
     TrustedContext,
 )
 from aether_agent_memory.runtime.contracts.ports import Transaction
@@ -256,9 +257,10 @@ class Identity:
             allowed = [
                 p for p in matches if tenants is None or tenants.get(p.home_scope.tenant_id, False)
             ]
+            if len(allowed) > 1:
+                raise FoundationError(ErrorCode.FORBIDDEN, "identity membership is ambiguous")
             if allowed:
-                # The default is explicit in /auth/me; switching always reauthorizes membership.
-                return sorted(allowed, key=lambda p: p.home_scope.tenant_id)[0]
+                return allowed[0]
             if matches or tenant_id:
                 raise FoundationError(ErrorCode.FORBIDDEN, "organization membership unavailable")
         raise FoundationError(ErrorCode.UNAUTHENTICATED, "identity is not mapped")
@@ -372,6 +374,28 @@ class Identity:
         # Memory grants cover the logical memory; a version is still checked by B.
         logical = target.model_copy(update={"version": None})
         return self.permits(tx, ctx, Permission.READ, logical)
+
+    def permits_task_maintenance(
+        self,
+        tx: Transaction,
+        ctx: TrustedContext,
+        permission: Permission,
+        task: TaskRecord,
+        operators: tuple[str, ...],
+    ) -> bool:
+        """Only loaded task metadata/control may use deployment maintenance authority.
+
+        This must never authorize memory bodies, traces, arbitrary object reads,
+        or request-supplied references. Callers load the actual task first.
+        """
+        self.revalidate(tx, ctx)
+        if (
+            ctx.principal.principal_id in operators
+            and permission in {Permission.DIAGNOSE, Permission.RECOVER}
+            and permission in ctx.principal.permissions
+        ):
+            return True
+        return self.permits(tx, ctx, permission, task.subject)
 
     def permits(
         self, tx: Transaction, ctx: TrustedContext, permission: Permission, target: RecordRef

@@ -96,12 +96,12 @@ def test_source_archive_excludes_private_environment_files(tmp_path):
     import tarfile
 
     root, assets = tmp_path / "repository", tmp_path / "assets"
-    (root / "web").mkdir(parents=True)
+    (root / "platform-web").mkdir(parents=True)
     assets.mkdir()
-    (root / "web/.env").write_text("PRIVATE=test-secret")
-    (root / "web/.env.local").write_text("PRIVATE=test-secret")
-    (root / "web/.env.example").write_text("PUBLIC=value")
-    (root / "web/a.ts").write_text("export const a = 1")
+    (root / "platform-web/.env").write_text("PRIVATE=test-secret")
+    (root / "platform-web/.env.local").write_text("PRIVATE=test-secret")
+    (root / "platform-web/.env.example").write_text("PUBLIC=value")
+    (root / "platform-web/a.ts").write_text("export const a = 1")
     archive, _ = runner().source_archive(root, assets)
     with tarfile.open(fileobj=io.BytesIO(archive)) as package:
         names = package.getnames()

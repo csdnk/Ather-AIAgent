@@ -93,9 +93,12 @@ class Foundation:
                 per_scope_running=options.get("running_limit_per_scope", 1),
                 pending_limit_per_tenant=options.get("pending_limit_per_tenant", 300),
                 per_tenant_running=options.get("running_limit_per_tenant_class", 1),
+                maintenance_principals=maintenance_principals,
             )
             self.events = Events(self.uow, self.identity, lease_seconds=self.tasks.lease_seconds)
-            self.diagnostics = Diagnostics(self.uow, self.identity)
+            self.diagnostics = Diagnostics(
+                self.uow, self.identity, maintenance_principals=maintenance_principals
+            )
             self.monitoring = Monitoring(self.uow, self.identity, self.telemetry)
             self.diagnostics.monitoring = self.monitoring
             self.lifecycle = RuntimeLifecycle(

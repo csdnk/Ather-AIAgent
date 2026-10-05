@@ -108,9 +108,28 @@ def test_same_account_roles_are_scoped_to_selected_organization(host, issuer):
     a, b = auth(host, issuer, "tenant_a"), auth(host, issuer, "tenant_b")
     assert Permission.DELETE in a.permissions and Permission.DELETE not in b.permissions
     assert a.principal_id != b.principal_id
-    assert auth(host, issuer).home_scope.tenant_id == "tenant_a"
+    with pytest.raises(FoundationError) as ambiguous:
+        auth(host, issuer)
+    assert ambiguous.value.code == ErrorCode.FORBIDDEN
     assert len(host.identity.directory_details(a)["organizations"]) == 2
     assert host.identity.authenticate("static").principal_id == "local_admin"
+
+
+def test_ambiguous_organization_never_selects_default_from_snapshot_order(host, issuer):
+    host, _ = host
+    for records in ([record(), record("tenant_b")], [record("tenant_b"), record()]):
+        snapshot(host, issuer, records)
+        with pytest.raises(FoundationError) as error:
+            auth(host, issuer)
+        assert error.value.code == ErrorCode.FORBIDDEN
+
+
+def test_disabled_second_tenant_does_not_make_active_identity_ambiguous(host, issuer):
+    host, _ = host
+    snapshot(host, issuer, [record(), record("tenant_b")])
+    with host.uow.transaction() as tx:
+        tx.write("settings", "business_tenants", {"tenant_a": True, "tenant_b": False})
+    assert auth(host, issuer).home_scope.tenant_id == "tenant_a"
 
 
 def test_selector_does_not_grant_membership(host, issuer):

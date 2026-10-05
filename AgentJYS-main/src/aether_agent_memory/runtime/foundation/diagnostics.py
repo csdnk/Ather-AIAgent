@@ -33,9 +33,15 @@ from .tasks import Tasks
 
 class Diagnostics:
     def __init__(
-        self, uow: MetadataUnitOfWork, identity: Identity, clock: Callable[[], str] = now
+        self,
+        uow: MetadataUnitOfWork,
+        identity: Identity,
+        clock: Callable[[], str] = now,
+        *,
+        maintenance_principals: tuple[str, ...] = (),
     ) -> None:
         self.uow, self.identity, self.clock = uow, identity, clock
+        self.maintenance_principals = maintenance_principals
         self.monitoring: Monitoring | None = None
 
     def authorize(self, ctx: TrustedContext) -> None:
@@ -147,7 +153,9 @@ class Diagnostics:
                 task = TaskRecord.model_validate(row["record"])
                 if state is not None and task.state != state:
                     continue
-                if not self.identity.permits(tx, ctx, Permission.DIAGNOSE, task.subject):
+                if not self.identity.permits_task_maintenance(
+                    tx, ctx, Permission.DIAGNOSE, task, self.maintenance_principals
+                ):
                     continue
                 created = row["created_at"]
                 # Stable reverse chronological key for signed, identity-bound cursors.
@@ -189,7 +197,10 @@ class Diagnostics:
     def task(self, ctx: TrustedContext, task_id: str) -> TaskRecord:
         with self.uow.transaction() as tx:
             _, task = Tasks.load(tx, task_id)
-            self.identity.authorize(tx, ctx, Permission.DIAGNOSE, task.subject)
+            if not self.identity.permits_task_maintenance(
+                tx, ctx, Permission.DIAGNOSE, task, self.maintenance_principals
+            ):
+                tx.abort(ErrorCode.FORBIDDEN, "task metadata access denied")
             return task
 
     def operation(self, ctx: TrustedContext, operation_id: str) -> OperationRecord:

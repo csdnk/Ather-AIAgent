@@ -1,0 +1,21 @@
+{
+  "database_dsn": "postgresql://postgres:REPLACE_PRIVATE_PASSWORD@aether-platform-db:5432/aether_platform_lab",
+  "issuer": "https://aether-p3-demo-c50c3827.southeastasia.cloudapp.azure.com/identity/realms/aether-lab",
+  "identity_lab_directory": "/identity-config",
+  "llm": {
+    "endpoint": "https://YOUR_PROVIDER/v1",
+    "model": "YOUR_MODEL",
+    "api_key": "REPLACE_PRIVATE_API_KEY"
+  },
+  "web_dist": "/release/app/web",
+  "management_url": "https://aether-p3-demo-c50c3827.southeastasia.cloudapp.azure.com/app/default%20workspace/aether-admin",
+  "p3": {
+    "base_url": "http://aether-agent-p3.aether-p3-demo.svc.cluster.local:8080",
+    "internal_http_host": "aether-agent-p3.aether-p3-demo.svc.cluster.local"
+  },
+  "mode": "cloud",
+  "public_origin": "https://aether-p3-demo-c50c3827.southeastasia.cloudapp.azure.com",
+  "path_prefix": "/agent",
+  "identity_connect_issuer": "http://aether-keycloak:8080/identity/realms/aether-lab",
+  "budibase_internal_url": "http://aether-budibase"
+}

@@ -8,7 +8,7 @@ Keycloak 26.8.0 原生 Organizations 管组织、Membership 管成员关系、�
 
 P3 保留两项服务端策略：组织 UUID 到 tenant/application/agent 的绑定，以及客户端角色到 P3 permissions 的绑定。P3 不接收浏览器自报的成员身份，也不直接使用 JWT 中的角色/租户声明授权。同一账号在不同组织生成不同 principal，组权限只在对应组织内合并。
 
-浏览器继续使用 keycloak-js 授权码 + PKCE，P3 继续用 PyJWT 验签并校验 issuer/audience/expiration。通过 GET /p3/auth/me 返回当前身份、组织选项和角色；X-P3-Tenant 仅选择已获授权的组织。未指定时按 tenant_id 排序选取默认组织，页面随即固定返回值。
+现有组织演示浏览器使用 keycloak-js 授权码 + PKCE，P3 使用 PyJWT 验签并校验 issuer/audience/expiration。通过 GET /p3/auth/me 返回当前身份、组织选项和角色；X-P3-Tenant 仅选择已获授权的组织。未指定时必须恰好匹配一个有效身份；多个有效身份返回 FORBIDDEN，不再按 tenant_id 排序选择。已有多组织调用方须显式传入已授权的组织选择。新 Agent 平台由后端业务目录强制普通用户唯一租户，租户对用户不可见；该产品入口将在替换验证后接替组织演示页。
 
 
 默认 realm: p3-demo；业务 client: p3-monitor；只读目录 client: p3-directory。

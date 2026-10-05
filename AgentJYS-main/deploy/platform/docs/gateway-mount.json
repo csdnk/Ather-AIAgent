@@ -1,0 +1,28 @@
+{
+  "spec": {
+    "template": {
+      "spec": {
+        "containers": [
+          {
+            "name": "caddy",
+            "volumeMounts": [
+              {
+                "name": "p3-docs",
+                "mountPath": "/srv/p3-docs",
+                "readOnly": true
+              }
+            ]
+          }
+        ],
+        "volumes": [
+          {
+            "name": "p3-docs",
+            "configMap": {
+              "name": "aether-p3-documentation"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
