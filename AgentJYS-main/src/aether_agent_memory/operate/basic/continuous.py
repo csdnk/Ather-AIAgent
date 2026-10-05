@@ -1,9 +1,10 @@
 """Persisted integration of the independent heat policy with RF tasks and actions.
 
-The standalone controller remains a reference harness. Runtime scheduling has
+Shared policy and models provide the heat calculation. Runtime scheduling has
 one owner: Foundation. Every due time, input and action survives process exit.
 """
 
+import asyncio
 from dataclasses import asdict
 from datetime import datetime
 from typing import Any
@@ -30,7 +31,8 @@ from aether_agent_memory.runtime.contracts.models import (
 from aether_agent_memory.runtime.contracts.ports import Transaction
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint, later
 from aether_agent_memory.runtime.foundation.requests import event_context
-from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction, native
+from aether_agent_memory.runtime.foundation.transactions import native
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 from .service import Operate
 
@@ -163,7 +165,7 @@ class ContinuousOperate(Operate):
         )
 
     def pending(
-        self, tx: SQLiteTransaction, memory: MemoryRef, exclude_task_id: str | None = None
+        self, tx: MetadataTransaction, memory: MemoryRef, exclude_task_id: str | None = None
     ) -> bool:
         for _, row in tx.rows("tasks"):
             task = row["record"]
@@ -233,8 +235,11 @@ class ContinuousOperate(Operate):
                 != "allowed"
             ):
                 return
-            # Only an optional verified local cache is reclaimed; Remember/P2 authority remains.
-            self.executor.purge(memory, permanent=False)
+        await asyncio.to_thread(self.executor.purge, memory, permanent=False, ctx=ctx)
+        with self.uow.transaction() as tx:
+            self.identity.revalidate(tx, ctx)
+            if tx.read("operate_views", key) != view or tx.read("operate_heat", key) != heat:
+                return
             # Keep the durable storage/authority watermark for the next read event.
             # Only heat and optional bytes are disposable, not scheduling provenance.
             view["dormant"] = True
@@ -244,7 +249,7 @@ class ContinuousOperate(Operate):
 
     def enqueue(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         ctx: TrustedContext,
         memory: MemoryRef,
         trigger: str,
@@ -268,7 +273,7 @@ class ContinuousOperate(Operate):
                 continue
         return count
 
-    def periodic_item(self, tx: SQLiteTransaction, key: str, tick_id: str) -> int:
+    def periodic_item(self, tx: MetadataTransaction, key: str, tick_id: str) -> int:
         count = 0
         now = self.identity.clock()
         view = tx.read("operate_views", key)

@@ -1,13 +1,10 @@
-import json
 from datetime import timedelta
 from types import SimpleNamespace
 
-import httpx
 import pytest
 from pydantic import ValidationError
-from tests.unit.recall.helpers import Inputs, binding, scope
+from tests.unit.recall.helpers import binding, scope
 
-from aether_agent_memory.b1.semantic.sidecar import BoundSidecarBackend
 from aether_agent_memory.p2.client import P2GrpcClient
 from aether_agent_memory.p2.contracts import (
     P2CallContext,
@@ -21,7 +18,6 @@ from aether_agent_memory.p2.contracts import (
 )
 from aether_agent_memory.p2.simulator import StatefulVectorSimulator
 from aether_agent_memory.recall.vector_projection.models import ProviderResult
-from aether_agent_memory.runtime.capability_store import SQLiteCapabilityStore
 from aether_agent_memory.runtime.contract_types import (
     ByteRange,
     ProjectionIdentity,
@@ -31,6 +27,7 @@ from aether_agent_memory.runtime.contract_types import (
     utcnow,
     vector_bytes,
 )
+from azure_test_runtime import AzureRecords
 
 
 def payload():
@@ -80,7 +77,7 @@ def context():
 
 async def test_simulator_lost_ack_query_visibility_and_delete_barrier(tmp_path):
     path = tmp_path / "state.db"
-    store = SQLiteCapabilityStore(path)
+    store = AzureRecords(path)
     sim = StatefulVectorSimulator(store)
     request = P2UpsertInput(
         target=target(),
@@ -93,7 +90,7 @@ async def test_simulator_lost_ack_query_visibility_and_delete_barrier(tmp_path):
     with pytest.raises(TimeoutError):
         await sim.upsert(context(), request)
     store.close()
-    store = SQLiteCapabilityStore(path)
+    store = AzureRecords(path)
     sim = StatefulVectorSimulator(store)
     _, operation = await sim.query_operation(
         context(),
@@ -174,67 +171,6 @@ def test_provider_result_cannot_map_ack_to_ready():
         ProviderResult(**values)
 
 
-@pytest.mark.parametrize("wrong_hash", [False, True])
-async def test_sidecar_adapter_binds_actual_response_and_preserves_input(tmp_path, wrong_hash):
-    store = SQLiteCapabilityStore(tmp_path / "state.db")
-    inputs = Inputs()
-    request = inputs.request(text="  固定输入  ")
-    calls = []
-
-    async def handle(http_request):
-        item = json.loads(http_request.content)["items"][0]
-        calls.append(item)
-        return httpx.Response(
-            200,
-            json={
-                "results": [
-                    {
-                        "request_id": item["request_id"],
-                        "tenant_id": item["tenant_id"],
-                        "source_id": item["source_id"],
-                        "status": "success",
-                        "embedding_model": "test-model",
-                        "model_hash": "wrong" if wrong_hash else "pinned-sha",
-                        "embedding_dim": 3,
-                        "schema_version": "1.1",
-                        "input_type": item["input_type"],
-                        "fallback_used": False,
-                        "chunks": [
-                            {
-                                "chunk_text": item["chunk_text"],
-                                "start_char": 0,
-                                "end_char": len(item["chunk_text"]),
-                                "chunk_id": item["chunk_id"],
-                                "vector": [1, 2, 3],
-                            }
-                        ],
-                    }
-                ]
-            },
-        )
-
-    async with httpx.AsyncClient(
-        base_url="http://test-sidecar", transport=httpx.MockTransport(handle)
-    ) as client:
-        backend = BoundSidecarBackend(
-            client,
-            store,
-            binding(),
-            expected_model_hash="pinned-sha",
-            response_schema_version="1.1",
-            deployment_contract_ref="deployment-v1",
-            max_input_chars=128,
-        )
-        if wrong_hash:
-            with pytest.raises(Exception, match="EMBEDDING_BINDING_MISMATCH"):
-                await backend.compute(request, "  固定输入  ")
-        else:
-            result = await backend.compute(request, "  固定输入  ")
-            assert result.usage == "Query"
-            with store.transaction() as tx:
-                assert tx.get("semantic-provider-evidence", "tenant", result.evidence_ref)
-    assert calls[0]["preserve_input"] is True and calls[0]["input_type"] == "query"
-    store.close()
 
 
 def test_python_metadata_retains_proto_optional_presence():

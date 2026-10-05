@@ -171,6 +171,7 @@ def test_explicit_host_opt_in_and_unknown_dependency_probe(app):
         bodies=body,
         guards=body,
         space=assembly.candidates.spaces.resolve("test_space"),
+        search=assembly.candidates.vectors,
     )
     pack = asyncio.run(app.recall.recall(ctx, request()))
     assert pack.groups
@@ -185,6 +186,10 @@ def test_concurrent_duplicate_and_cancel_are_not_success(app):
     ctx, recall, body = service(app)
 
     async def scenario():
+        # Prepare the real Azure collection before timing the body rendezvous.
+        plan = recall.plan_request(ctx, request(), "prepare-index")
+        warmed = await recall.assembly.candidates.search(ctx, plan.long_term_search)
+        assert warmed.candidates
         entered = asyncio.Event()
         release = asyncio.Event()
         original = body.load_bodies
@@ -221,12 +226,12 @@ def test_same_operation_different_query_conflicts(app):
 
 
 def test_default_host_cannot_downgrade_generation_result_guard(app, tmp_path):
-    from aether_agent_memory.runtime.flows.host import ThreeFlows
+    from azure_test_runtime import ThreeFlows
 
     ctx, recall, body = service(app)
     pack = asyncio.run(recall.recall(ctx, request()))
     restarted = ThreeFlows(
-        app.foundation.uow.path, tmp_path / "restart", embedding_profile="lexical"
+        app.foundation.uow.path, tmp_path / "restart", embedding_profile="injected"
     )
     try:
         fresh = context(restarted)

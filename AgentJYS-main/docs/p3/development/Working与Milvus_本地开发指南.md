@@ -1,5 +1,7 @@
 # Working 向量化与本地 Milvus 开发指南
 
+2026-10-04 退役说明：下文保留 2026-10-01 的开发与验收背景，旧 Milvus Lite 启动器、测试脚本和配置已删除，命令不再作为当前入口。新环境从 [当前 Azure 开发入口](../../../README.md#快速启动) 阅读完整 AI 配置指南，在 AKS 连接真实 Azure Milvus；历史报告结论不改写。
+
 日期：2026-10-01。适用：统一 P3 服务、Python 3.13、原生 BGE 与官方 Milvus Lite。本指南中的路径均为可替换示例；命令在 `AgentJYS-main` 执行，环境、模型、数据库和验证记录放 Git 仓库之外。
 
 Working 现已接入与长期记忆一致的模型空间和向量投影机制。真实 BGE + 官方 Lite 的五项必选功能验证均通过，详见[验收报告](Working与Milvus_验收报告.md)。这覆盖本地数据库的真实写入、搜索及进程重启，不代表生产 Milvus 集群验收。
@@ -98,11 +100,11 @@ py -3.13 -m venv "$P3Work/venv"
   --directory "$P3Work/milvus/data" --port 19530
 ```
 
-同一个物理目录只允许一个数据库写入服务。启动器固定 `127.0.0.1` 和 `max-workers=1`；P3 配套 [recall.milvus-lite.json](../../../configs/recall.milvus-lite.json) 固定 `milvus_serialize_writes=true`，避免 Lite 集合并发写入风险。按 Ctrl+C 停止，再用相同目录和端口启动即可复用持久数据。
+当时同一个物理目录只允许一个数据库写入服务。旧启动器固定 `127.0.0.1` 和 `max-workers=1`；旧 `recall.milvus-lite.json` 配置固定 `milvus_serialize_writes=true`，避免 Lite 集合并发写入风险。该配置现已退役，当前开发入口见顶部 Azure 指南。
 
 Windows Unicode 路径通过 `GetShortPathNameW` 取得别名后，仍须通过 ASCII 和同目录身份检查。短名并非总存在，纯中文末级短名也可能不是 ASCII；遇到报错应明确选用有可用别名或 ASCII 的外部数据路径。启动器不会悄悄搬库、修改第三方包或创建盘符映射。
 
-独立 Temporal 和 P3 的基础初始化、身份凭据及 HTTP 使用见[业务 README](../../../README.md#快速启动)。创建新的外部部署目录，使用 native 模式；将该部署的 `embedding.json` 配成上述实际模型配置，并将 [Lite Recall 配置](../../../configs/recall.milvus-lite.json) 复制到部署目录，在 `service.yaml` 加入 `recall_config: recall.milvus-lite.json`。`embedding_config` 和 `recall_config` 相对路径以 `service.yaml` 所在目录为基准。运行：
+独立 Temporal 和 P3 的当前初始化、身份凭据及 HTTP 使用见[业务 README](../../../README.md#快速启动)。以下是旧 Lite 环境当时的配置背景：native 模式、外部模型配置与旧 `recall.milvus-lite.json`。该文件已退役，请按顶部 Azure 指南创建新的 PostgreSQL/Milvus 数据范围；相对配置路径仍以 `service.yaml` 所在目录为基准。历史运行命令：
 
 ```powershell
 & $P3Python -B -m aether_agent_memory check-config --config "$P3Work/deploy/service.yaml"

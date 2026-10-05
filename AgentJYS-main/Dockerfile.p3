@@ -1,12 +1,26 @@
-FROM python:3.13-slim
+FROM python:3.13-slim@sha256:bb2988715db2cf7ace7b53f38f3cffbef7c7046a656bee66245eb0ed386e2e81
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
+# Resolve optional production dependencies before copying frequently changed source.
 COPY pyproject.toml README.md ./
+RUN python - <<'PY'
+import pathlib
+import tomllib
+project = tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']
+requirements = list(project['dependencies'])
+for extra in ('embedding-onnx', 'resource-documents', 'recall-rerank', 'remember-ceph'):
+    requirements.extend(project['optional-dependencies'][extra])
+pathlib.Path('/tmp/p3-requirements.txt').write_text('\n'.join(requirements) + '\n')
+PY
+# AKS uses CPU nodes. Keep reranking support without CUDA runtime packages.
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu 'torch==2.14.1+cpu'
+RUN pip install --no-cache-dir -r /tmp/p3-requirements.txt \
+    && pip check \
+    && python -c "import torch; assert torch.version.cuda is None"
 COPY src ./src
 COPY scripts/generate_proto.py ./scripts/generate_proto.py
 COPY engine/proto ./engine/proto
-RUN pip install --no-cache-dir '.[embedding-onnx,resource-documents]' \
-    && python scripts/generate_proto.py \
+RUN python scripts/generate_proto.py \
     && pip install --no-cache-dir --no-deps .
 RUN python -c "import importlib.metadata; assert importlib.metadata.version('temporalio') == '1.33.0'"
 EXPOSE 8080

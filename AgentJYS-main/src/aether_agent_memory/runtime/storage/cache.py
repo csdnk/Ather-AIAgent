@@ -1,0 +1,13 @@
+"""Disposable full-body cache; errors must remain distinguishable from misses."""
+
+from typing import Protocol
+
+from aether_agent_memory.remember.contracts.models import MemoryRef
+from aether_agent_memory.runtime.contracts.models import Scope
+
+
+class BodyCache(Protocol):
+    async def get(self, scope: Scope, digest: str) -> str | None: ...
+    async def put(self, scope: Scope, text: str) -> bool: ...
+    async def delete(self, scope: Scope, digest: str) -> None: ...
+    async def cleanup_complete(self, memory: MemoryRef, digest: str) -> bool: ...

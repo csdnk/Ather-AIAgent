@@ -15,7 +15,7 @@ from aether_agent_memory.runtime.contracts.models import (
 )
 from aether_agent_memory.runtime.foundation.common import fingerprint, later
 from aether_agent_memory.runtime.foundation.events import Events
-from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 from .activities import StageContext
 from .ingress import WorkflowOnlyHandler
@@ -43,12 +43,12 @@ class EventAdmission:
         events.on_delivery = self.on_delivery
 
     def on_delivery(
-        self, tx: SQLiteTransaction, ctx: TrustedContext, event: EventEnvelope, consumer_id: str
+        self, tx: MetadataTransaction, ctx: TrustedContext, event: EventEnvelope, consumer_id: str
     ) -> None:
         self.admit(tx, ctx, event, consumer_id)
 
     def admit(
-        self, tx: SQLiteTransaction, ctx: TrustedContext, event: EventEnvelope, consumer_id: str
+        self, tx: MetadataTransaction, ctx: TrustedContext, event: EventEnvelope, consumer_id: str
     ) -> WorkflowInput:
         key = fingerprint([consumer_id, event.event_id])
         subject = RecordRef(
@@ -115,7 +115,7 @@ class EventStages:
     def __init__(self, events: Events) -> None:
         self.events = events
 
-    def checked(self, tx: SQLiteTransaction) -> tuple[str, dict[str, Any], EventEnvelope, str]:
+    def checked(self, tx: MetadataTransaction) -> tuple[str, dict[str, Any], EventEnvelope, str]:
         c = StageContext.current()
         c.guard(tx)
         value = tx.get(c.task.input_ref)
@@ -142,7 +142,7 @@ class EventStages:
         return key, row, event, consumer_id
 
     def receipt(
-        self, tx: SQLiteTransaction, key: str, event: EventEnvelope, consumer_id: str
+        self, tx: MetadataTransaction, key: str, event: EventEnvelope, consumer_id: str
     ) -> RecordRef:
         value = tx.read("inbox", key)
         if not value or value["signature"] != fingerprint(event.model_dump(mode="json")):

@@ -23,10 +23,11 @@ from aether_agent_memory.runtime.contracts.models import (
 )
 from aether_agent_memory.runtime.contracts.ports import TaskHandler, Transaction
 from aether_agent_memory.runtime.contracts.rules import TASK_TRANSITIONS
+from aether_agent_memory.runtime.foundation.transactions import native
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction, MetadataUnitOfWork
 
 from .common import FoundationError, fingerprint, later, now
 from .identity import Identity
-from .storage import SQLiteTransaction, SQLiteUnitOfWork, native
 from .telemetry import Telemetry, observed
 
 TERMINAL = {TaskState.SUCCEEDED, TaskState.FAILED, TaskState.CANCELLED, TaskState.ATTENTION}
@@ -36,7 +37,7 @@ TERMINAL = {TaskState.SUCCEEDED, TaskState.FAILED, TaskState.CANCELLED, TaskStat
 class Tasks:
     def __init__(
         self,
-        uow: SQLiteUnitOfWork,
+        uow: MetadataUnitOfWork,
         identity: Identity,
         *,
         clock: Callable[[], str] = now,
@@ -81,10 +82,10 @@ class Tasks:
         self.handlers: dict[str, tuple[str, TaskHandler]] = {}
         self.permissions: dict[str, Permission] = {}
         self.on_recovery: (
-            Callable[[SQLiteTransaction, TrustedContext, RecoveryRequest], OperationRecord] | None
+            Callable[[MetadataTransaction, TrustedContext, RecoveryRequest], OperationRecord] | None
         ) = None
-        self.on_admitted: Callable[[SQLiteTransaction, TaskRecord], None] | None = None
-        self.on_terminal: Callable[[SQLiteTransaction, TaskRecord], None] | None = None
+        self.on_admitted: Callable[[MetadataTransaction, TaskRecord], None] | None = None
+        self.on_terminal: Callable[[MetadataTransaction, TaskRecord], None] | None = None
         from .task_progress import TaskProgress
 
         self.progress = TaskProgress(self, secrets.token_hex(8))
@@ -103,7 +104,7 @@ class Tasks:
         self.permissions[kind] = permission
 
     @staticmethod
-    def load(tx: SQLiteTransaction, task_id: str) -> tuple[dict[str, Any], TaskRecord]:
+    def load(tx: MetadataTransaction, task_id: str) -> tuple[dict[str, Any], TaskRecord]:
         row = tx.read("tasks", task_id)
         if row is None:
             raise FoundationError(ErrorCode.NOT_FOUND, "task not found")
@@ -111,7 +112,7 @@ class Tasks:
 
     def note(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         task: TaskRecord,
         ctx: TrustedContext,
         stage: str,
@@ -138,7 +139,7 @@ class Tasks:
         tx.write("diagnostics", record.record_id, record.model_dump(mode="json"))
 
     def change(
-        self, tx: SQLiteTransaction, row: dict[str, Any], task: TaskRecord, **changes: Any
+        self, tx: MetadataTransaction, row: dict[str, Any], task: TaskRecord, **changes: Any
     ) -> TaskRecord:
         state = changes.get("state", task.state)
         if state != task.state and state not in TASK_TRANSITIONS[task.state]:
@@ -150,7 +151,7 @@ class Tasks:
         self.project_terminal(tx, updated)
         return updated
 
-    def project_terminal(self, tx: SQLiteTransaction, task: TaskRecord) -> None:
+    def project_terminal(self, tx: MetadataTransaction, task: TaskRecord) -> None:
         if task.state not in TERMINAL:
             return
         self.close_recovery_operations(
@@ -263,7 +264,7 @@ class Tasks:
         # The public parameter is advisory; lease decisions use the server clock.
         raise RuntimeError("RF scheduling is retired; use the configured Temporal service")
 
-    def guard(self, tx: SQLiteTransaction, task: TaskRecord) -> tuple[dict[str, Any], TaskRecord]:
+    def guard(self, tx: MetadataTransaction, task: TaskRecord) -> tuple[dict[str, Any], TaskRecord]:
         row, current = self.load(tx, task.task_id)
         if current.execution is not None or task.execution is not None:
             if (
@@ -322,7 +323,7 @@ class Tasks:
 
     def finish_attempt(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         task: TaskRecord,
         effect: EffectStatus,
         error: ErrorCode | None = None,
@@ -404,7 +405,7 @@ class Tasks:
         return self.on_recovery(sql, ctx, request)
 
     def close_recovery_operations(
-        self, tx: SQLiteTransaction, task: TaskRecord, state: str
+        self, tx: MetadataTransaction, task: TaskRecord, state: str
     ) -> None:
         for key, row in tx.rows("operations"):
             operation = OperationRecord.model_validate(row["record"])

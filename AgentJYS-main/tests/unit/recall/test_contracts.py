@@ -6,7 +6,6 @@ import pytest
 from pydantic import ValidationError
 from tests.unit.recall.helpers import Inputs, binding, scope
 
-from aether_agent_memory.application.scope import require_agent_scope
 from aether_agent_memory.p2.contracts import P2SearchInput, P2SearchResult
 from aether_agent_memory.recall.embedding.models import SemanticEmbeddingRequest
 from aether_agent_memory.recall.vector_projection.models import (
@@ -14,7 +13,6 @@ from aether_agent_memory.recall.vector_projection.models import (
     ProjectionPayload,
 )
 from aether_agent_memory.runtime.contract_types import ByteRange, Scope, hash_json
-from aether_agent_memory.runtime.request_context import RequestContext
 
 
 def test_first_batch_field_manifest_matches_static_models():
@@ -38,15 +36,10 @@ def test_required_nullable_scope_and_project_roundtrip():
     data.pop("project_id")
     with pytest.raises(ValidationError):
         Scope.model_validate(data)
-    context = RequestContext.from_mapping(
-        {"tenant_id": "tenant", "user_id": "user", "agent_id": "agent", "project_id": "project"}
-    )
-    assert context.scope.project_id == "project"
-    assert RequestContext.from_mapping(context.as_dict()).project_id == "project"
-    assert context.child().project_id == "project"
-    # Legacy queries must not silently drop a project restriction they cannot enforce.
-    with pytest.raises(Exception, match="project-aware"):
-        require_agent_scope(context)
+    configured = scope().model_copy(update={"project_id": "project"})
+    assert Scope.model_validate(configured.model_dump()).project_id == "project"
+    assert Scope.model_validate_json(configured.model_dump_json()).project_id == "project"
+
 
 
 @pytest.mark.parametrize("start,end", [(True, 3), (-1, 4), (2, 2), (0, 9007199254740992), (0, "3")])

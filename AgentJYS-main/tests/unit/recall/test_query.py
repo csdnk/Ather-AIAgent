@@ -16,8 +16,8 @@ from aether_agent_memory.recall.embedding.service import SemanticEmbeddingServic
 from aether_agent_memory.recall.embedding_input import RecallQueryInputAdapter
 from aether_agent_memory.recall.models import RecallCheckpoint
 from aether_agent_memory.recall.query import RecallQueryService
-from aether_agent_memory.runtime.capability_store import SQLiteCapabilityStore
 from aether_agent_memory.runtime.contract_types import hash_json
+from azure_test_runtime import AzureRecords
 
 
 @pytest.mark.parametrize(
@@ -35,7 +35,7 @@ from aether_agent_memory.runtime.contract_types import hash_json
 async def test_each_source_prepares_vector_search_without_context_claim(
     tmp_path, types, current_scope, working_read, long_term_read, expected
 ):
-    store = SQLiteCapabilityStore(tmp_path / "state.db")
+    store = AzureRecords(tmp_path / "state.db")
     authority = Authority()
     authority.working, authority.long_term = working_read, long_term_read
     admission = RecallAdmissionService(store, authority, policy())
@@ -73,7 +73,7 @@ async def test_each_source_prepares_vector_search_without_context_claim(
 
 
 async def test_replay_rejects_legacy_prepared_query_with_unauthorized_types(tmp_path):
-    store = SQLiteCapabilityStore(tmp_path / "state.db")
+    store = AzureRecords(tmp_path / "state.db")
     authority = Authority()
     authority.working = False
     admission = RecallAdmissionService(store, authority, policy())

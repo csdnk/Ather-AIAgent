@@ -7,9 +7,9 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from aether_agent_memory.runtime.contracts.foundation import ConfigurationSnapshot
-from aether_agent_memory.runtime.flows.application import Service
 from aether_agent_memory.runtime.foundation.common import fingerprint, now
 from aether_p4_simulator.validation.calls import ROUTES
+from azure_component_service import Service
 from integration.test_p4_demo_temporal import configuration, until
 
 pytestmark = pytest.mark.integration
@@ -35,7 +35,7 @@ def snapshot(version):
     values = dict(
         version=version,
         deployment_id="handoff",
-        provider_ids=("sqlite",),
+        provider_ids=("postgresql", "redis", "milvus", "ceph"),
         policy_versions=("test",),
         secret_refs=(),
     )
@@ -45,7 +45,7 @@ def snapshot(version):
 
 
 def test_operational_http_restore_is_isolated_and_version_checked(tmp_path, temporal_server):
-    """Catch stale configuration writes, missing operator checks and live-DB replacement."""
+    """PostgreSQL online restore is refused while authorization and CAS remain intact."""
     config = configuration(tmp_path, temporal_server.endpoint).model_copy(
         update={"maintenance_principals": ("alice",)}
     )
@@ -63,12 +63,8 @@ def test_operational_http_restore_is_isolated_and_version_checked(tmp_path, temp
         backup_request = {"backup_id": "handoff_snapshot"}
         assert client.post("/p3/backups", json=backup_request, headers=other).status_code == 403
         response = client.post("/p3/backups", json=backup_request, headers=operator)
-        assert response.status_code == 200
-        backup = response.json()
-        assert backup["config_version"] == "handoff_1"
-        assert backup["restore_state"] == "untested"
-        assert backup["consistency_watermark"] > 0
-        assert client.post("/p3/backups", json=backup_request, headers=operator).json() == backup
+        assert response.status_code == 400, response.text
+        assert response.json()["code"] == "CONTRACT_VIOLATION"
 
         second = {"snapshot": snapshot("handoff_2"), "expected_version": None}
         assert client.put("/p3/configuration", json=second, headers=operator).status_code == 409
@@ -83,21 +79,11 @@ def test_operational_http_restore_is_isolated_and_version_checked(tmp_path, temp
             == 403
         )
         response = client.post("/p3/restore-drills", json=restore_request, headers=operator)
-        assert response.status_code == 200
-        restored = response.json()
-        assert restored["restore_state"] == "passed"
-        assert restored["config_version"] == "handoff_1"
-        assert len(restored["restore_evidence"]) == 1
-        assert restored["restore_evidence"][0]["object_id"] == "handoff_drill"
+        assert response.status_code == 400, response.text
+        assert response.json()["code"] == "CONTRACT_VIOLATION"
 
         foundation = service.runtime.foundation
         context = foundation.identity.context("alice", timeout_seconds=30)
         lifecycle = foundation.lifecycle
-        # The pre-restore live version must survive; restored state is a separate file.
+        # A rejected restore must preserve the exact current configuration and DB.
         assert lifecycle.configuration(context).version == "handoff_2"
-        source = lifecycle.path("handoff_snapshot")
-        target = lifecycle.path("handoff_drill", restore=True)
-        assert source.is_relative_to(tmp_path)
-        assert target.is_relative_to(tmp_path)
-        assert target != foundation.uow.path.resolve()
-        assert lifecycle.inspect(source) == lifecycle.inspect(target)

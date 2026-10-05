@@ -1,7 +1,7 @@
-"""Explicit opt-in acceptance: native BGE, official Lite gRPC, public P3 HTTP.
+"""Native BGE, real Azure persistence and public P3 HTTP with isolated data.
 
-Fault doubles only lose/delay a response around a real SDK/embedding operation.
-SQLite still owns P3 metadata and bodies; every vector assertion uses real Lite.
+Fault fixtures lose/delay responses around real SDK operations. Shared Milvus
+is never restarted; persistence is checked through fresh SDK and service clients.
 """
 
 import asyncio
@@ -16,20 +16,15 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from tests.integration.milvus_support import PersistentMilvus, evidence
 from tests.integration.test_continuous_service import configuration as configuration
 from tests.integration.test_continuous_service import eventually, headers, provision
 
 from aether_agent_memory.recall.contracts.models import VectorSearchRequest
 from aether_agent_memory.remember.contracts.models import ProjectionRequest, ProjectionTarget
 from aether_agent_memory.runtime.contracts.models import ScopeSelector
-from aether_agent_memory.runtime.flows.application import Service
-from aether_agent_memory.runtime.flows.vector_adapters import MilvusVectors
-
-pytestmark = pytest.mark.skipif(
-    os.environ.get("P3_TEST_MILVUS_LITE") != "1",
-    reason="explicit P3_TEST_MILVUS_LITE=1 required; use scripts/p3/validate_working_milvus.py",
-)
+from aether_agent_memory.runtime.storage.vectors import AzureVectors
+from azure_component_service import Service
+from azure_test_runtime import owned
 
 TOPICS = (
     ("用户喝咖啡时不加糖。", "早上的咖啡需要放蔗糖吗？"),
@@ -39,23 +34,13 @@ TOPICS = (
 
 
 @pytest.fixture
-def milvus(tmp_path):
-    server = PersistentMilvus(tmp_path / "milvus")
-    try:
-        server.start()
-        yield server
-    finally:
-        server.stop()
-
-
-@pytest.fixture
-def real_config(configuration, milvus, tmp_path):
+def real_config(configuration, tmp_path):
     native = os.environ.get("P3_TEST_NATIVE_CONFIG")
     assert native and Path(native).is_file(), "real native BGE configuration is mandatory"
     profile = json.loads(
-        (Path(__file__).resolve().parents[2] / "configs/recall.milvus-lite.json").read_text()
+        (Path(__file__).resolve().parents[2] / "configs/recall.azure.json").read_text()
     )
-    profile.update(milvus_uri=milvus.uri, max_items=1, candidate_limit=3)
+    profile.update(max_items=1, candidate_limit=3)
     recall = tmp_path / "recall.json"
     recall.write_text(json.dumps(profile), "utf-8")
     return configuration.model_copy(
@@ -65,6 +50,14 @@ def real_config(configuration, milvus, tmp_path):
             "recall_config": recall,
         }
     )
+
+
+def evidence(name, value):
+    directory = os.environ.get("P3_MILVUS_EVIDENCE")
+    if directory:
+        (Path(directory) / f"{name}.json").write_text(
+            json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
 
 def source(operation):
@@ -122,6 +115,52 @@ def recall(client, query, *, session="s1", user="alice", sources="working"):
             "token_budget": 1000,
         },
     )
+    if response.status_code != 200:
+        directory = os.environ.get("P3_DIAGNOSTIC_ROOT")
+        if directory:
+            service = client.app.state.service
+            rf = service.runtime.foundation
+            job_id = response.headers.get("x-p3-job-id")
+            with rf.uow.transaction() as tx:
+                tables = {
+                    name: tx.rows(name)
+                    for name in (
+                        "recall_requests",
+                        "recall_stages",
+                        "tasks",
+                        "temporal_bindings",
+                        "temporal_diagnostics",
+                        "temporal_steps",
+                    )
+                }
+            rows = []
+            for name, records in tables.items():
+                for key, row in records:
+                    if job_id is None or job_id in json.dumps(row):
+                        rows.append(dict(table=name, key=key, record=row))
+            logs = []
+            with service.runtime.foundation.telemetry.reader() as connection:
+                logs = [
+                    row[0]
+                    for row in connection.execute(
+                        "SELECT data FROM node_logs WHERE data LIKE %s ORDER BY sequence",
+                        ("%" + (job_id or "__no_job__") + "%",),
+                    ).fetchall()
+                ]
+            tag = os.environ.get("P3_DIAGNOSTIC_TAG", "working")
+            (Path(directory) / (tag + "-working-diagnostic.json")).write_text(
+                json.dumps(
+                    dict(
+                        job_id=job_id,
+                        response=response.json(),
+                        records=rows,
+                        node_logs=logs,
+                        supervisor=service.execution.state,
+                    ),
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
     assert response.status_code == 200, response.text
     return response.json()
 
@@ -237,15 +276,20 @@ def test_real_working_semantics_scope_and_source_topk(real_config):
 
         rail = eventually(rail_fact)
         backend = service.runtime.vectors
-        vectors = MilvusVectors(
+        vectors = AzureVectors(
             backend.uow,
             backend.identity,
             backend.model_space,
             backend.dimensions,
-            uri=json.loads(real_config.recall_config.read_text())["milvus_uri"],
+            namespace=owned().namespace,
+            uri=os.environ["P3_TEST_MILVUS_URI"],
+            token=os.environ["P3_TEST_MILVUS_TOKEN"],
+            database=os.environ["P3_TEST_MILVUS_DATABASE"],
+            ca_file=os.environ["P3_TEST_MILVUS_CA_FILE"],
+            server_name=os.environ["P3_TEST_MILVUS_SERVER_NAME"],
             collection="source_topk",
-            serialize_writes=True,
         )
+        owned().clients.append(vectors)
         try:
             for row in [rows[0], rail]:
                 ctx = backend.identity.context("alice", timeout_seconds=30)
@@ -303,24 +347,29 @@ def source_topk(vectors, coffee, rail):
     return topk
 
 
-def test_real_working_database_and_service_restart(real_config, milvus):
+def test_real_working_connection_and_service_restart(real_config):
     service = Service(real_config)
     with TestClient(service.app()) as client:
         mid = save(client, TOPICS[0][0], "persistent")
         row = current_vector(service, ready(client, mid))
         old = recall(client, TOPICS[0][1])
         assert contents(old) == [TOPICS[0][0]]
-    first_pid = milvus.process.pid
-    milvus.stop()
-    milvus.start()
-    assert first_pid != milvus.process.pid
     from pymilvus import MilvusClient
 
-    fresh = MilvusClient(uri=milvus.uri, timeout=10)
+    backend = service.runtime.vectors
+    fresh = MilvusClient(
+        uri=os.environ["P3_TEST_MILVUS_URI"],
+        token=os.environ["P3_TEST_MILVUS_TOKEN"],
+        db_name=backend.database,
+        secure=True,
+        server_pem_path=os.environ["P3_TEST_MILVUS_CA_FILE"],
+        server_name=os.environ["P3_TEST_MILVUS_SERVER_NAME"],
+        timeout=10,
+    )
     try:
-        fresh.load_collection("p3_memories", timeout=10)
+        fresh.load_collection(backend.collection, timeout=10)
         reopened = fresh.get(
-            collection_name="p3_memories", ids=[row["vector_id"]], output_fields=["*"]
+            collection_name=backend.collection, ids=[row["vector_id"]], output_fields=["*"]
         )
         assert len(reopened) == 1
         assert reopened[0]["target"] == row["target"]
@@ -341,7 +390,7 @@ def test_real_working_database_and_service_restart(real_config, milvus):
             client.get(f"/p3/recalls/{old['recall_id']}/result", headers=headers()).status_code
             == 410
         )
-    evidence("persistence", {"processes": milvus.history, "reopened": reopened})
+    evidence("persistence", {"fresh_verified_tls_connection": True, "reopened": reopened})
 
 
 def test_real_working_share_correct_delete_and_expiry(real_config):
@@ -391,7 +440,7 @@ def test_real_working_share_correct_delete_and_expiry(real_config):
         expiry_mid = save(client, TOPICS[2][0], "expiry", session="ttl")
         expiring = ready(client, expiry_mid)
         expiry = (
-            (datetime.now(UTC) + timedelta(seconds=2))
+            (datetime.now(UTC) + timedelta(seconds=15))
             .isoformat(timespec="milliseconds")
             .replace("+00:00", "Z")
         )

@@ -1,0 +1,72 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: p3-temporal-schema-upgrade-1-32-0
+  namespace: aether-p3-production
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app: p3-temporal-schema
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: schema
+          image: temporalio/admin-tools@sha256:8bb84e24db4336de48031a66dbda25a7477d300736fe825893e467042135da1f
+          command: [/bin/sh, /scripts/initialize-temporal.sh]
+          envFrom:
+            - secretRef:
+                name: p3-temporal-database
+          env:
+            - name: P3_SCHEMA_MODE
+              value: upgrade
+            - name: SQL_DATABASE
+              value: agent
+            - name: SQL_PLUGIN
+              value: postgres12
+            - name: SQL_PORT
+              value: "5432"
+            - name: SQL_TLS
+              value: "true"
+            - name: SQL_TLS_CA_FILE
+              value: /azure-ca/ca.pem
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: azure-ca
+              mountPath: /azure-ca
+              readOnly: true
+            - name: temporary
+              mountPath: /tmp
+      volumes:
+        - name: scripts
+          configMap:
+            name: p3-temporal-initialization
+        - name: azure-ca
+          configMap:
+            name: p3-azure-ca
+        - name: temporary
+          emptyDir: {}

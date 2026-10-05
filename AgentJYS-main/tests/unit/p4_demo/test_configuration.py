@@ -15,6 +15,22 @@ from .support import Upstream
 pytestmark = pytest.mark.unit
 
 
+def test_local_deployment_can_wait_thirty_minutes(monkeypatch, tmp_path):
+    credential = tmp_path / "credential"
+    credential.write_text("test-secret", encoding="utf-8")
+    monkeypatch.setenv("AETHER_P4_DEMO_ENABLED", "1")
+    monkeypatch.setenv("AETHER_P4_DEMO_P3_URL", "http://127.0.0.1:8080")
+    monkeypatch.setenv("AETHER_P4_DEMO_CREDENTIAL_FILE", str(credential))
+    monkeypatch.setenv("AETHER_P4_DEMO_WAIT_SECONDS", "1800")
+    monkeypatch.setenv("AETHER_P4_DEMO_PROBE_TIMEOUT_SECONDS", "40")
+    service = build_demo_service("127.0.0.1")
+    try:
+        assert service.wait_seconds == 1800
+        assert service._client._probe_timeout == 40
+    finally:
+        service.close()
+
+
 @pytest.mark.parametrize("bind", ["0.0.0.0", "192.168.1.2"])
 def test_enabled_demo_refuses_public_bind(monkeypatch, bind):
     monkeypatch.setenv("AETHER_P4_DEMO_ENABLED", "1")
@@ -73,14 +89,20 @@ def test_configured_client_waits_for_slow_admission_over_real_socket(monkeypatch
                 time.sleep(31)
             response = upstream(request)
             self.send_response(response.status_code)
-            self.send_header("Content-Type", "application/json")
+            self.send_header(
+                "Content-Type", response.headers.get("Content-Type", "application/octet-stream")
+            )
             self.send_header("Content-Length", str(len(response.content)))
+            for name in ("X-P3-Definition-Hash", "X-P3-Request-Hash", "X-P3-Job-ID"):
+                if name in response.headers:
+                    self.send_header(name, response.headers[name])
             self.end_headers()
             with suppress(BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
                 self.wfile.write(response.content)
 
         do_GET = handle_call  # noqa: N815
         do_POST = handle_call  # noqa: N815
+        do_PUT = handle_call  # noqa: N815
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)

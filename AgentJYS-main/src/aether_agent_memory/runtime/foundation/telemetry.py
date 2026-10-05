@@ -1,29 +1,19 @@
-"""Local structured node logs and spans, independent of business transactions.
-
-No sampling. No body/credential logging. SQLite is the canonical local log store;
-authorized queries can be exported as JSONL. The composition root can attach an
-optional OpenTelemetry tracer.
-"""
+"""Structured spans and redaction shared by explicit telemetry backends."""
 
 from __future__ import annotations
 
 import asyncio
 import inspect
-import json
 import os
 import re
 import secrets
-import sqlite3
-import sys
 import time
 import traceback
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from collections.abc import AsyncIterator, Callable, Iterator
+from contextlib import asynccontextmanager, contextmanager
 from contextvars import ContextVar
-from datetime import UTC, datetime, timedelta
 from functools import wraps
 from pathlib import Path
-from threading import RLock
 from typing import Any, TypeVar
 
 from opentelemetry import trace
@@ -148,82 +138,19 @@ current_node: ContextVar[Node | None] = ContextVar("p3_trace_node", default=None
 
 
 class Telemetry:
-    def __init__(
-        self, path: str | Path, *, retention_days: int = 14, max_records: int = 200_000
-    ) -> None:
-        if retention_days < 1 or max_records < 100:
-            raise ValueError("invalid log retention")
-        self.path = Path(path)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.retention_days, self.max_records = retention_days, max_records
-        self.instance_id = secrets.token_hex(8)
-        self.dropped = 0
-        self.last_error: str | None = None
-        self._writes = 0
-        self.tracer: Tracer | None = None
-        self._lock = RLock()
-        self._db = sqlite3.connect(self.path, timeout=0.25, check_same_thread=False)
-        self._db.execute("PRAGMA journal_mode=WAL")
-        self._db.execute("PRAGMA synchronous=FULL")
-        self._db.execute("PRAGMA journal_size_limit=4194304")
-        with self.connect() as db:
-            db.executescript(
-                "CREATE TABLE IF NOT EXISTS node_logs ("
-                "sequence INTEGER PRIMARY KEY AUTOINCREMENT, occurred_at TEXT NOT NULL, "
-                "trace_id TEXT NOT NULL, principal_id TEXT NOT NULL, scope TEXT NOT NULL, "
-                "span_id TEXT NOT NULL, phase TEXT NOT NULL, data TEXT NOT NULL);"
-                "CREATE INDEX IF NOT EXISTS logs_trace ON node_logs"
-                "(trace_id,principal_id,scope,sequence);"
-                "CREATE INDEX IF NOT EXISTS logs_age ON node_logs(occurred_at);"
-                "CREATE INDEX IF NOT EXISTS logs_sequence ON node_logs(sequence);"
-                "CREATE INDEX IF NOT EXISTS logs_catalog ON node_logs"
-                "(principal_id,scope,trace_id,sequence,occurred_at,span_id,phase,"
-                "json_extract(data,'$.contract.flow'));"
-                "CREATE TABLE IF NOT EXISTS log_meta(key TEXT PRIMARY KEY,value TEXT);"
-            )
-        self.prune()
+    instance_id: str
+    dropped: int
+    last_error: str | None
+    tracer: Tracer | None
 
-    @contextmanager
-    def connect(self) -> Iterator[sqlite3.Connection]:
-        with self._lock, self._db:
-            yield self._db
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        raise TypeError("Telemetry requires an explicit persistence backend")
 
     def close(self) -> None:
-        with self._lock:
-            self._db.close()
+        raise NotImplementedError
 
-    @contextmanager
-    def reader(self) -> Iterator[sqlite3.Connection]:
-        # A dashboard query must never hold the writer's Python lock: emitting
-        # a span on the asyncio thread would otherwise stall the entire server.
-        db = sqlite3.connect(self.path.resolve().as_uri() + "?mode=ro", uri=True, timeout=0.25)
-        try:
-            db.execute("BEGIN")
-            yield db
-        finally:
-            db.close()
-
-    def retained_bounds(self, db: sqlite3.Connection) -> tuple[int, str]:
-        # Enforce retention in the read snapshot, without DELETEs or the write
-        # lock. Physical cleanup still runs on startup and every 100 writes.
-        row = db.execute(
-            "SELECT sequence FROM node_logs ORDER BY sequence DESC LIMIT 1 OFFSET ?",
-            (self.max_records,),
-        ).fetchone()
-        cutoff = (datetime.now(UTC) - timedelta(days=self.retention_days)).isoformat()
-        return (row[0] if row else 0), cutoff
-
-    def prune(self) -> None:
-        cutoff = (datetime.now(UTC) - timedelta(days=self.retention_days)).isoformat()
-        with self.connect() as db:
-            deleted = db.execute("DELETE FROM node_logs WHERE occurred_at < ?", (cutoff,)).rowcount
-            deleted += db.execute(
-                "DELETE FROM node_logs WHERE sequence <= "
-                "(SELECT sequence FROM node_logs ORDER BY sequence DESC LIMIT 1 OFFSET ?)",
-                (self.max_records,),
-            ).rowcount
-            if deleted:
-                db.execute("INSERT OR REPLACE INTO log_meta VALUES ('last_pruned_at', ?)", (now(),))
+    def reader(self) -> Any:
+        raise NotImplementedError
 
     @staticmethod
     def producer_context(ctx: TrustedContext) -> TrustedContext:
@@ -305,38 +232,7 @@ class Telemetry:
         self._write(ctx, {**data, "contract": data})
 
     def _write(self, ctx: TrustedContext, data: dict[str, Any]) -> None:
-        try:
-            encoded = json.dumps(data, ensure_ascii=False, allow_nan=False)
-            if len(encoded.encode("utf-8")) > 32_768:
-                data.pop("input", None)
-                data.pop("output", None)
-                data["detail_truncated"] = True
-                encoded = json.dumps(data, ensure_ascii=False, allow_nan=False)
-            with self.connect() as db:
-                db.execute(
-                    "INSERT INTO node_logs(occurred_at,trace_id,principal_id,scope,"
-                    "span_id,phase,data) VALUES (?,?,?,?,?,?,?)",
-                    (
-                        data["occurred_at"],
-                        ctx.trace_id,
-                        ctx.principal.principal_id,
-                        ctx.principal.home_scope.model_dump_json(),
-                        data["span_id"],
-                        data["phase"],
-                        encoded,
-                    ),
-                )
-            self._writes += 1
-            if self._writes % 100 == 0:
-                self.prune()
-            self.last_error = None
-        except (OSError, sqlite3.Error, ValueError, TypeError) as exc:
-            # Never turn a committed external effect into a business retry because
-            # logging failed. Health explicitly reports the loss until restart.
-            self.dropped += 1
-            self.last_error = type(exc).__name__
-            if self.dropped == 1:
-                print('{"level":"ERROR","code":"P3_LOG_WRITE_FAILED"}', file=sys.stderr)
+        raise NotImplementedError
 
     def set_tracer(self, tracer: Tracer) -> None:
         self.tracer = tracer
@@ -344,10 +240,15 @@ class Telemetry:
     @contextmanager
     def span(self, ctx: TrustedContext, name: str, inputs: Any = None) -> Iterator[Node]:
         node = Node(self, ctx, name)
+        with self._trace_span(node), self._local_span(node, inputs):
+            yield node
+
+    @contextmanager
+    def _trace_span(self, node: Node) -> Iterator[None]:
         if self.tracer is None:
-            with self._local_span(node, inputs):
-                yield node
+            yield
             return
+        ctx, name = node.ctx, node.name
         active = trace.get_current_span().get_span_context()
         if (active.trace_id, active.span_id) == (int(ctx.trace_id, 16), int(node.parent_id, 16)):
             parent_context = None
@@ -373,12 +274,60 @@ class Telemetry:
         ) as span:
             node.span_id = format(span.get_span_context().span_id, "016x")
             try:
-                with self._local_span(node, inputs):
-                    yield node
+                yield
             except BaseException as exc:
                 span.set_status(Status(StatusCode.ERROR))
                 span.set_attribute("error.type", type(exc).__name__)
                 raise
+
+    @asynccontextmanager
+    async def async_span(
+        self, ctx: TrustedContext, name: str, inputs: Any = None
+    ) -> AsyncIterator[Node]:
+        """Keep task-local tracing while moving synchronous log I/O off the loop."""
+        node = Node(self, ctx, name)
+        with self._trace_span(node):
+            token = current_node.set(node)
+            start = time.monotonic()
+            try:
+                await self._async_emit(node, "started", input=summary(inputs))
+                yield node
+            except BaseException as exc:
+                await self._async_emit(
+                    node,
+                    "cancelled" if isinstance(exc, asyncio.CancelledError) else "failed",
+                    elapsed_ms=round((time.monotonic() - start) * 1000, 3),
+                    error_code=exc.code.value
+                    if isinstance(exc, FoundationError)
+                    else "DEADLINE_EXCEEDED"
+                    if isinstance(exc, TimeoutError)
+                    else "NODE_EXCEPTION",
+                    error_type=type(exc).__name__,
+                    stack=[
+                        {"file": Path(f.filename).name, "function": f.name, "line": f.lineno}
+                        for f in traceback.extract_tb(exc.__traceback__)[-12:]
+                    ],
+                )
+                raise
+            else:
+                await self._async_emit(
+                    node,
+                    "returned",
+                    output=summary(node.output),
+                    elapsed_ms=round((time.monotonic() - start) * 1000, 3),
+                )
+            finally:
+                current_node.reset(token)
+
+    async def _async_emit(self, node: Node, phase: str, **fields: Any) -> None:
+        pending = asyncio.create_task(asyncio.to_thread(self.emit, node, phase, **fields))
+        try:
+            await asyncio.shield(pending)
+        except asyncio.CancelledError:
+            # Finish the bounded write before emitting cancellation or closing
+            # the store, preserving per-span order without blocking heartbeats.
+            await asyncio.shield(pending)
+            raise
 
     @contextmanager
     def _local_span(self, node: Node, inputs: Any) -> Iterator[Node]:
@@ -423,116 +372,17 @@ class Telemetry:
         limit: int = 50,
         flow: str | None = None,
     ) -> dict[str, Any]:
-        """Retained trace metadata only; caller must authorize before and after reading.
-
-        Order by first retained sequence, not changing activity time. Keyset paging
-        excludes newly arriving traces from subsequent pages. Retention can still
-        remove records; this catalog never claims completeness or business success.
-        """
-        if not 1 <= limit <= 100 or (before is not None and before < 1):
-            raise ValueError("invalid trace page")
-        if flow not in {None, "business", "remember", "recall", "operate", "runtime"}:
-            raise ValueError("invalid trace flow")
-        with self.reader() as db:
-            floor, cutoff = self.retained_bounds(db)
-            rows = db.execute(
-                "SELECT trace_id, MIN(sequence), MIN(occurred_at), MAX(occurred_at), "
-                "COUNT(*), COUNT(DISTINCT span_id), "
-                "COUNT(DISTINCT CASE WHEN phase='failed' THEN span_id END) "
-                "FROM node_logs WHERE principal_id=? AND scope=? "
-                "AND sequence>? AND occurred_at>=? "
-                "GROUP BY trace_id HAVING (? IS NULL OR MIN(sequence) < ?) "
-                "AND (? IS NULL OR MAX(CASE WHEN "
-                "json_extract(data,'$.contract.flow') = ? OR "
-                "(?='business' AND json_extract(data,'$.contract.flow') "
-                "IN ('remember','recall','operate')) THEN 1 ELSE 0 END)=1) "
-                "ORDER BY MIN(sequence) DESC LIMIT ?",
-                (
-                    ctx.principal.principal_id,
-                    ctx.principal.home_scope.model_dump_json(),
-                    floor,
-                    cutoff,
-                    before,
-                    before,
-                    flow,
-                    flow,
-                    flow,
-                    limit + 1,
-                ),
-            ).fetchall()
-            items = []
-            for trace_id, first, started, last, records, spans, failed in rows[:limit]:
-                raw = db.execute("SELECT data FROM node_logs WHERE sequence=?", (first,)).fetchone()
-                contract = json.loads(raw[0]).get("contract", {})
-                items.append(
-                    {
-                        "trace_id": trace_id,
-                        "first_sequence": first,
-                        "started_at": started,
-                        "last_seen": last,
-                        "record_count": records,
-                        "span_count": spans,
-                        "failed_span_count": failed,
-                        "entry_node": contract.get("node", "unknown"),
-                        "flow": contract.get("flow", "runtime"),
-                    }
-                )
-        return {
-            "items": items,
-            "next_before": rows[limit - 1][1] if len(rows) > limit else None,
-            "coverage": "retained_records_only",
-        }
+        raise NotImplementedError
 
     def page(
-        self, ctx: TrustedContext, trace_id: str, *, after: int = 0, limit: int = 100
+        self,
+        ctx: TrustedContext,
+        trace_id: str,
+        *,
+        after: int = 0,
+        limit: int = 200,
     ) -> dict[str, Any]:
-        """Internal query: caller MUST revalidate DIAGNOSE before and after reading."""
-        if not 1 <= limit <= 500 or after < 0:
-            raise ValueError("invalid log page")
-        with self.reader() as db:
-            floor, cutoff = self.retained_bounds(db)
-            rows = db.execute(
-                "SELECT sequence,data FROM node_logs WHERE trace_id=? AND principal_id=? "
-                "AND scope=? AND sequence>? AND occurred_at>=? ORDER BY sequence LIMIT ?",
-                (
-                    trace_id,
-                    ctx.principal.principal_id,
-                    ctx.principal.home_scope.model_dump_json(),
-                    max(after, floor),
-                    cutoff,
-                    limit + 1,
-                ),
-            ).fetchall()
-            pruned = db.execute("SELECT value FROM log_meta WHERE key='last_pruned_at'").fetchone()
-            states = db.execute(
-                "SELECT span_id, MAX(phase='started'), MAX(phase='returned'), "
-                "MAX(phase='failed'), MAX(phase='cancelled') FROM node_logs "
-                "WHERE trace_id=? AND principal_id=? AND scope=? "
-                "AND sequence>? AND occurred_at>=? GROUP BY span_id",
-                (
-                    trace_id,
-                    ctx.principal.principal_id,
-                    ctx.principal.home_scope.model_dump_json(),
-                    floor,
-                    cutoff,
-                ),
-            ).fetchall()
-        open_spans = [s[0] for s in states if s[1] and not any(s[2:])]
-        return {
-            "trace_id": trace_id,
-            "records": [{"sequence": seq, **json.loads(raw)} for seq, raw in rows[:limit]],
-            "next_after": rows[limit - 1][0] if len(rows) > limit else None,
-            "coverage": "retained_records_only",
-            "last_pruned_at": pruned[0] if pruned else None,
-            "local_dropped_records": self.dropped,
-            "overview": {
-                "span_count": len(states),
-                "failed_span_count": sum(bool(s[3]) for s in states),
-                "open_span_count": len(open_spans),
-                "open_span_ids": open_spans[:100],
-                "open_meaning": "running_or_interrupted; inspect durable task state",
-            },
-        }
+        raise NotImplementedError
 
 
 T = TypeVar("T", bound=type[Any])
@@ -576,7 +426,7 @@ def _wrap(function: Any, name: str) -> Any:
             telemetry, ctx, inputs = context(args, kwargs)
             if telemetry is None:
                 return await function(*args, **kwargs)
-            with telemetry.span(ctx, name, inputs) as node:
+            async with telemetry.async_span(ctx, name, inputs) as node:
                 node.output = await function(*args, **kwargs)
                 return node.output
 

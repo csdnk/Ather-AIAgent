@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from aether_p4_simulator.validation.calls import ApiCall
+from aether_p4_simulator.validation.calls import ApiCall, OperationCall
 from aether_p4_simulator.validation.models import ContextPack, MemoryRef
 
 ScenarioID = Literal[
@@ -114,6 +114,7 @@ class SafeError(Model):
 
 
 class RunSnapshot(Model):
+    operations: list[OperationCall] = Field(default_factory=list, max_length=256)
     run_id: str
     scenario_id: ScenarioID = "library-basic"
     state: RunState = "queued"

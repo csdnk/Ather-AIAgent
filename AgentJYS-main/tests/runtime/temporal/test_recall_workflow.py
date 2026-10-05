@@ -19,14 +19,14 @@ from aether_agent_memory.runtime.temporal.worker import WorkerHost
 
 @pytest.fixture(params=["basic", "generation"])
 def runtime(request, tmp_path, temporal_server):
-    from aether_agent_memory.remember.local import create_runtime
+    from azure_test_runtime import create_runtime
 
     generated_runtime = request.getfixturevalue("generation_runtime")
     if request.param == "generation":
         yield generated_runtime
         return
     app = create_runtime(
-        tmp_path / "basic.db", tmp_path / "basic-cache", embedding_profile="lexical"
+        tmp_path / "basic.db", tmp_path / "basic-cache", embedding_profile="injected"
     )
     principal = generated_runtime.foundation.identity.context("alice").principal
     app.foundation.identity.provision([(sha256(b"alice").hexdigest(), principal)])

@@ -1,5 +1,5 @@
-"""Real A + RF/SQLite, strict B double. Does not implement B publication."""
-# 候选消费者测试：真实 A/RF/SQLite，编码及 B 资格使用严格替身。
+"""Real A + Azure PostgreSQL/Milvus, strict B double. Does not implement B publication."""
+# 候选消费者测试：真实 A 与 Azure PostgreSQL/Milvus，编码及 B 资格使用严格替身。
 # 故意注入高分排除、证据错配和预算耗尽，验证 A 不会把不可信命中变成可读记忆。
 
 import asyncio
@@ -12,7 +12,6 @@ from test_flows import app as app
 from test_flows import context
 
 from aether_agent_memory.recall.basic.candidates import MemoryCandidates
-from aether_agent_memory.recall.basic.generation_search import SQLiteGenerationSearch
 from aether_agent_memory.recall.contracts.foundation import EmbeddingSpace, MemorySearchRequest
 from aether_agent_memory.recall.contracts.models import EmbeddingItem, EmbeddingResult
 from aether_agent_memory.recall.embedding.spaces import EmbeddingSpaces
@@ -20,6 +19,7 @@ from aether_agent_memory.remember.contracts.foundation import CandidateQualifica
 from aether_agent_memory.runtime.contracts.models import ScopeSelector
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
 from aether_agent_memory.runtime.foundation.requests import text_hash
+from azure_candidate_support import AzureCandidateSearch
 
 
 def example(name):
@@ -150,7 +150,7 @@ def setup(app, memories=(("m1", (0.95, 0.9)), ("m2", (0.8,)), ("m3", (0.7,))), m
         app.foundation.uow,
         app.foundation.identity,
         encoder,
-        SQLiteGenerationSearch(app.foundation.uow, app.foundation.identity),
+        AzureCandidateSearch(app.foundation.uow, app.foundation.identity),
         authority,
         EmbeddingSpaces((space,)),
     )
@@ -169,11 +169,11 @@ def setup(app, memories=(("m1", (0.95, 0.9)), ("m2", (0.8,)), ("m3", (0.7,))), m
     return ctx, search, authority, request
 
 
-def test_unique_memory_top_k_and_real_sqlite_paging(app):
+def test_unique_memory_top_k_and_real_milvus_paging(app):
     ctx, search, authority, request = setup(app)
     result = asyncio.run(search.search(ctx, request))
     assert [c.memory.memory_id for c in result.candidates] == ["m1", "m2"]
-    assert result.candidates[0].best_score == 0.95
+    assert result.candidates[0].best_score == pytest.approx(0.95, abs=1e-6)
     assert len(result.candidates[0].hits) == 2
     assert result.rounds_used == 2 and result.examined_chunk_hits == 4
     assert len(authority.calls) == 2
@@ -241,7 +241,10 @@ def test_corrupt_vector_rejected(app):
         key, row = tx.rows("generation_vectors")[0]
         row["vector"] = [1.0]
         tx.write("generation_vectors", key, row)
-    with pytest.raises(FoundationError, match="corrupt"):
+    from pymilvus.exceptions import MilvusException
+
+    # Real Milvus rejects malformed float-vector dimensions at the write boundary.
+    with pytest.raises((FoundationError, MilvusException)):
         asyncio.run(search.search(ctx, request))
 
 
@@ -382,5 +385,5 @@ def test_retry_converges_without_excluded_high_score(app):
     authority.qualify = converge
     result = asyncio.run(search.search(ctx, request))
     assert result.candidates[0].memory.memory_id == "m1"
-    assert result.candidates[0].best_score == 0.9
+    assert result.candidates[0].best_score == pytest.approx(0.9, abs=1e-6)
     assert len(result.candidates[0].hits) == 1

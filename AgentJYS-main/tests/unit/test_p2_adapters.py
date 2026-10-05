@@ -1,9 +1,9 @@
 import pytest
 
-from aether_agent_memory.b1.models import EmbeddingRecord
 from aether_agent_memory.core.enums import StorageTier
 from aether_agent_memory.p2.adapters import P2StorageClient, P2VectorSink
 from aether_agent_memory.p2.client import P2ObjectMeta
+from aether_agent_memory.p2.models import EmbeddingRecord
 
 
 class FakeP2Client:

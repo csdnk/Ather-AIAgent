@@ -3,6 +3,8 @@
 from functools import partial
 from typing import Any
 
+from aether_agent_memory.runtime.contracts.client_admission import ClientOperationTargets
+from aether_agent_memory.runtime.contracts.http_evidence import HttpRequestEvidence
 from aether_agent_memory.runtime.contracts.models import (
     ErrorCode,
     RecordRef,
@@ -11,9 +13,11 @@ from aether_agent_memory.runtime.contracts.models import (
     TaskState,
     TrustedContext,
 )
+from aether_agent_memory.runtime.foundation.client_admission import ClientAdmissions
+from aether_agent_memory.runtime.foundation.client_runs import ClientRuns
 from aether_agent_memory.runtime.foundation.common import fingerprint
-from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction
 from aether_agent_memory.runtime.foundation.tasks import TERMINAL, Tasks
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 from .config import TemporalConfiguration
 from .models import ExecutionRef, StartIntent, StepRequest, StepResult, WorkflowInput
@@ -24,14 +28,34 @@ class ExecutionLedger:
         from .projections import project_terminal
 
         self.tasks, self.config = tasks, config
+        self.clients = ClientAdmissions(ClientRuns(tasks.uow, tasks.identity))
         self.periodic_operators: tuple[str, ...] = ()
         tasks.on_terminal = partial(project_terminal, tasks)
 
-    def admit(self, tx: SQLiteTransaction, ctx: TrustedContext, spec: TaskSpec) -> WorkflowInput:
+    def admit(
+        self,
+        tx: MetadataTransaction,
+        ctx: TrustedContext,
+        spec: TaskSpec,
+        *,
+        http_request: HttpRequestEvidence | None = None,
+        client_targets: ClientOperationTargets | None = None,
+    ) -> WorkflowInput:
+        if http_request is not None:
+            self.clients.require(tx, ctx, http_request, spec.kind, targets=client_targets)
+        fresh_http = http_request is not None and tx.read("tasks", spec.task_id) is None
         task = self.tasks.enqueue(tx, ctx, spec)
-        return self.bind_admitted(tx, task)
+        job = self.bind_admitted(tx, task)
+        if http_request is not None and fresh_http and task.task_id == spec.task_id:
+            if not http_request.matches_kind(spec.kind):
+                tx.abort(ErrorCode.CONTRACT_VIOLATION, "HTTP evidence kind differs from admission")
+            row, _ = self.tasks.load(tx, task.task_id)
+            tx.write(
+                "tasks", task.task_id, {**row, "http_request": http_request.model_dump(mode="json")}
+            )
+        return job
 
-    def bind_admitted(self, tx: SQLiteTransaction, task: TaskRecord) -> WorkflowInput:
+    def bind_admitted(self, tx: MetadataTransaction, task: TaskRecord) -> WorkflowInput:
         prior = tx.read("temporal_bindings", task.task_id)
         if prior:
             job = WorkflowInput.model_validate(prior["job"])
@@ -74,7 +98,7 @@ class ExecutionLedger:
         )
         return job
 
-    def verify_job(self, tx: SQLiteTransaction, job: WorkflowInput) -> dict[str, Any]:
+    def verify_job(self, tx: MetadataTransaction, job: WorkflowInput) -> dict[str, Any]:
         if job.plan_version != "1":
             tx.abort(ErrorCode.CONTRACT_VIOLATION, "unsupported Temporal plan version")
         binding: dict[str, Any] | None = tx.read("temporal_bindings", job.job_id)
@@ -83,7 +107,7 @@ class ExecutionLedger:
         return binding
 
     def begin(
-        self, tx: SQLiteTransaction, step: StepRequest, execution: ExecutionRef
+        self, tx: MetadataTransaction, step: StepRequest, execution: ExecutionRef
     ) -> ExecutionRef:
         binding = self.verify_job(tx, step.job)
         if (
@@ -151,7 +175,7 @@ class ExecutionLedger:
         self.tasks.guard(tx, updated)
         return fenced
 
-    def guard(self, tx: SQLiteTransaction, job_id: str, execution: ExecutionRef) -> TaskRecord:
+    def guard(self, tx: MetadataTransaction, job_id: str, execution: ExecutionRef) -> TaskRecord:
         _, current = self.tasks.load(tx, job_id)
         return self.tasks.guard(tx, current.model_copy(update={"execution": execution}))[1]
 
@@ -159,7 +183,7 @@ class ExecutionLedger:
     def step_key(step: StepRequest) -> str:
         return f"{step.job.job_id}:{step.ordinal}"
 
-    def load_step(self, tx: SQLiteTransaction, step: StepRequest) -> StepResult | None:
+    def load_step(self, tx: MetadataTransaction, step: StepRequest) -> StepResult | None:
         self.verify_job(tx, step.job)
         row = tx.read("temporal_steps", self.step_key(step))
         if row is None:
@@ -179,7 +203,11 @@ class ExecutionLedger:
         return result
 
     def save_step(
-        self, tx: SQLiteTransaction, step: StepRequest, execution: ExecutionRef, result: StepResult
+        self,
+        tx: MetadataTransaction,
+        step: StepRequest,
+        execution: ExecutionRef,
+        result: StepResult,
     ) -> None:
         task = self.guard(tx, step.job.job_id, execution)
         self.verify_job(tx, step.job)
@@ -205,7 +233,7 @@ class ExecutionLedger:
         )
 
     def complete(
-        self, tx: SQLiteTransaction, job_id: str, execution: ExecutionRef, result: RecordRef
+        self, tx: MetadataTransaction, job_id: str, execution: ExecutionRef, result: RecordRef
     ) -> TaskRecord:
         task = self.guard(tx, job_id, execution)
         row, _ = self.tasks.load(tx, job_id)

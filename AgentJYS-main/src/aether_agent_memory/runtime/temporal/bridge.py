@@ -3,7 +3,7 @@
 import asyncio
 import time
 from collections import deque
-from typing import Protocol
+from typing import Any, Protocol
 
 from temporalio.service import RPCError
 
@@ -36,13 +36,21 @@ class IntentBridge:
 
     async def _flush(self, limit: int) -> int:
         uow = self.ledger.tasks.uow
-        with uow.transaction() as tx:
-            starts = [
-                ("start", key, row) for key, row in tx.pending_intent_rows("start", limit=limit)
-            ]
-            controls = [
-                ("control", key, row) for key, row in tx.pending_intent_rows("control", limit=limit)
-            ]
+
+        def pending() -> tuple[list[tuple[str, str, Any]], list[tuple[str, str, Any]]]:
+            with uow.transaction() as tx:
+                return (
+                    [
+                        ("start", key, row)
+                        for key, row in tx.pending_intent_rows("start", limit=limit)
+                    ],
+                    [
+                        ("control", key, row)
+                        for key, row in tx.pending_intent_rows("control", limit=limit)
+                    ],
+                )
+
+        starts, controls = await asyncio.to_thread(pending)
         count = 0
         # A long document can atomically create hundreds of projection/signal
         # intents. Yield between RPCs so the coordinator refreshes readiness and
@@ -80,52 +88,80 @@ class IntentBridge:
                 binding = None
                 if kind == "start":
                     start = StartIntent.model_validate(row["intent"])
-                    with uow.transaction() as tx:
-                        _, task = self.ledger.tasks.load(tx, start.job.job_id)
-                        terminal = task.state in TERMINAL
+
+                    def terminal_task(start: StartIntent) -> bool:
+                        with uow.transaction() as tx:
+                            _, task = self.ledger.tasks.load(tx, start.job.job_id)
+                            terminal = task.state in TERMINAL
+                        return terminal
+
+                    terminal = await asyncio.to_thread(terminal_task, start)
                     if not terminal:
                         binding = await self.gateway.start(start)
-                        with uow.transaction() as tx:
-                            stored = self.ledger.verify_job(tx, start.job)
-                            if (
-                                binding.namespace != stored["namespace"]
-                                or binding.workflow_id != stored["workflow_id"]
-                                or binding.input_hash != start.job.input_hash
-                                or binding.plan_version != start.job.plan_version
-                                or (
-                                    stored.get("observed_run_id")
-                                    and stored["observed_run_id"] != binding.current_run_id
+
+                        def bind_start(binding: WorkflowBinding | None, start: StartIntent) -> None:
+                            assert binding is not None
+                            with uow.transaction() as tx:
+                                stored = self.ledger.verify_job(tx, start.job)
+                                if (
+                                    binding.namespace != stored["namespace"]
+                                    or binding.workflow_id != stored["workflow_id"]
+                                    or binding.input_hash != start.job.input_hash
+                                    or binding.plan_version != start.job.plan_version
+                                    or (
+                                        stored.get("observed_run_id")
+                                        and stored["observed_run_id"] != binding.current_run_id
+                                    )
+                                    or (
+                                        stored["binding"]
+                                        and stored["binding"] != binding.model_dump(mode="json")
+                                    )
+                                ):
+                                    tx.abort(
+                                        ErrorCode.IDEMPOTENCY_CONFLICT,
+                                        "start acknowledgement differs",
+                                    )
+                                tx.write(
+                                    "temporal_bindings",
+                                    start.job.job_id,
+                                    {**stored, "binding": binding.model_dump(mode="json")},
                                 )
-                                or (
-                                    stored["binding"]
-                                    and stored["binding"] != binding.model_dump(mode="json")
-                                )
-                            ):
-                                tx.abort(
-                                    ErrorCode.IDEMPOTENCY_CONFLICT, "start acknowledgement differs"
-                                )
-                            tx.write(
-                                "temporal_bindings",
-                                start.job.job_id,
-                                {**stored, "binding": binding.model_dump(mode="json")},
-                            )
+
+                        await asyncio.to_thread(bind_start, binding, start)
                 else:
                     await self.gateway.send_control(ControlIntent.model_validate(row["intent"]))
-                with uow.transaction() as tx:
-                    tx.write(table, key, {**row, "state": "acknowledged"})
-                    if kind == "control":
-                        settle_control(tx, row)
+
+                def acknowledge(table: str, key: str, row: Any, kind: str) -> None:
+                    with uow.transaction() as tx:
+                        tx.write(table, key, {**row, "state": "acknowledged"})
+                        if kind == "control":
+                            settle_control(tx, row)
+
+                await asyncio.to_thread(acknowledge, table, key, row, kind)
                 self._backoff.pop(key, None)
                 count += 1
             except FoundationError as exc:
-                with uow.transaction() as tx:
-                    tx.write(
-                        table, key, {**row, "state": "attention_required", "error_code": exc.code}
-                    )
-                    if kind == "control":
-                        settle_control(tx, row, error=exc.code.value)
+                error_code = exc.code
+
+                def attention(
+                    table: str, key: str, row: Any, error_code: ErrorCode, kind: str
+                ) -> None:
+                    with uow.transaction() as tx:
+                        tx.write(
+                            table,
+                            key,
+                            {**row, "state": "attention_required", "error_code": error_code},
+                        )
+                        if kind == "control":
+                            settle_control(tx, row, error=error_code.value)
+
+                await asyncio.to_thread(attention, table, key, row, error_code, kind)
             except (RPCError, TimeoutError, ConnectionError):
                 self._backoff[key] = (tries + 1, time.monotonic() + min(30, 2 ** min(tries, 5)))
-                with uow.transaction() as tx:
-                    tx.write(table, key, {**row, "error_code": "TEMPORAL_UNAVAILABLE"})
+
+                def unavailable(table: str, key: str, row: Any) -> None:
+                    with uow.transaction() as tx:
+                        tx.write(table, key, {**row, "error_code": "TEMPORAL_UNAVAILABLE"})
+
+                await asyncio.to_thread(unavailable, table, key, row)
         return count

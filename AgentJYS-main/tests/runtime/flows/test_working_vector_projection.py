@@ -1,6 +1,7 @@
 """Working projection shares the verified generation pipeline, never index placeholders."""
 
 import asyncio
+import json
 
 import pytest
 from remember_helpers import app as app
@@ -10,7 +11,6 @@ from test_remember_boundary import projection
 from test_working_summaries import configure, save_long
 
 from aether_agent_memory.remember.basic.boundary import RememberBoundary
-from aether_agent_memory.remember.basic.projection import MilvusProjection
 from aether_agent_memory.remember.contracts.models import (
     CorrectionRequest,
     DeleteRequest,
@@ -72,11 +72,20 @@ def test_saved_working_is_readable_before_async_projection_and_published_after(a
     assert qualified.decision == "allowed" and qualified.manifest == manifest
     with app.foundation.uow.transaction() as tx:
         rows = [
-            r
-            for _, r in tx.rows("generation_vectors")
-            if r["hit"]["memory"] == ref.model_dump(mode="json")
+            r["data"]
+            for _, r in tx.rows(app.vectors.projection_namespace)
+            if not r["deleted"] and r["data"]["target"]["memory"] == ref.model_dump(mode="json")
         ]
-    assert rows and all(r["hit"]["memory_source"] == "working" for r in rows)
+    assert rows and all(r["target"]["memory_source"] == "working" for r in rows)
+    actual = app.vectors.client.query(
+        collection_name=app.vectors.collection,
+        filter='target["memory"]["memory_id"] == ' + json.dumps(ref.memory_id),
+        output_fields=["target", "vector"],
+        limit=100,
+        consistency_level="Strong",
+        timeout=10,
+    )
+    assert actual and all(row["target"]["memory_source"] == "working" for row in actual)
 
 
 def test_working_projection_does_not_wait_for_consolidation_threshold(app):
@@ -126,11 +135,11 @@ def test_summary_publishes_only_new_actual_summary_version(app):
     assert item.ref.version == 2 and item.projection_state == "ready"
     with app.foundation.uow.transaction() as tx:
         rows = [
-            r
-            for _, r in tx.rows("generation_vectors")
-            if r["hit"]["memory"]["memory_id"] == item.ref.memory_id
+            r["data"]
+            for _, r in tx.rows(app.vectors.projection_namespace)
+            if not r["deleted"] and r["data"]["target"]["memory"]["memory_id"] == item.ref.memory_id
         ]
-    assert rows and all(r["hit"]["memory"]["version"] == 2 for r in rows)
+    assert rows and all(r["target"]["memory"]["version"] == 2 for r in rows)
 
 
 def test_failed_summary_never_projects_descriptor_and_readiness_reports_failure(app):
@@ -149,9 +158,9 @@ def test_failed_summary_never_projects_descriptor_and_readiness_reports_failure(
     assert item.projection_state != "ready"
     with app.foundation.uow.transaction() as tx:
         assert not [
-            r
-            for _, r in tx.rows("generation_vectors")
-            if r["hit"]["memory"]["memory_id"] == item.ref.memory_id
+            r["data"]
+            for _, r in tx.rows(app.vectors.projection_namespace)
+            if not r["deleted"] and r["data"]["target"]["memory"]["memory_id"] == item.ref.memory_id
         ]
 
 
@@ -261,12 +270,21 @@ def test_legacy_long_term_projection_without_source_keeps_identity_and_replay(ap
     _, candidate = projection(app, facts(app, receipt)[0])
     target = ProjectionTarget.model_validate(candidate.model_dump())
     with app.foundation.uow.transaction() as tx:
-        row = tx.read("recall_vectors", target.vector_id)
-        row["target"].pop("memory_source")
-        tx.write("recall_vectors", target.vector_id, row)
-        chunk = tx.read("generation_vectors", target.vector_id)
-        chunk["hit"].pop("memory_source")
-        tx.write("generation_vectors", target.vector_id, chunk)
+        intent = tx.read(app.vectors.projection_namespace, target.vector_id)
+        intent["data"]["target"].pop("memory_source")
+        row = intent["data"]
+        tx.write(app.vectors.projection_namespace, target.vector_id, intent)
+    actual = app.vectors.client.query(
+        collection_name=app.vectors.collection,
+        filter="vector_id == " + json.dumps(target.vector_id),
+        output_fields=["*"],
+        limit=1,
+        consistency_level="Strong",
+        timeout=10,
+    )
+    assert len(actual) == 1
+    actual[0]["target"].pop("memory_source")
+    app.vectors.client.upsert(collection_name=app.vectors.collection, data=actual, timeout=10)
     ctx = context(app)
     assert asyncio.run(app.projections.inspect(ctx, target, "legacy")).state == "verified"
     request = ProjectionRequest(
@@ -284,47 +302,30 @@ def test_milvus_legacy_source_default_is_normalized_for_inspect_and_replay(app):
     _, candidate = projection(app, facts(app, receipt)[0])
     target = ProjectionTarget.model_validate(candidate.model_dump())
     with app.foundation.uow.transaction() as tx:
-        row = tx.read("recall_vectors", target.vector_id)
-        row["target"].pop("memory_source")
-        tx.write("milvus_projections", target.vector_id, {"data": row, "deleted": False})
-
-    class HistoricalClient:
-        def __init__(self):
-            self.row = row
-
-        def query(self, **kwargs):
-            return [self.row]
-
-        def search(self, **kwargs):
-            return [[{"entity": {"target": {"memory_source": "long_term", **self.row["target"]}}}]]
-
-        def upsert(self, **kwargs):
-            self.row = kwargs["data"][0]
-
-        def close(self):
-            pass
-
-    provider = MilvusProjection(
-        app.foundation.uow,
-        app.foundation.identity,
-        app.model_space,
-        len(row["vector"]),
-        uri="test://isolated",
-        client=HistoricalClient(),
+        intent = tx.read(app.vectors.projection_namespace, target.vector_id)
+        intent["data"]["target"].pop("memory_source")
+        row = intent["data"]
+        tx.write(app.vectors.projection_namespace, target.vector_id, intent)
+    actual = app.vectors.client.query(
+        collection_name=app.vectors.collection,
+        filter="vector_id == " + json.dumps(target.vector_id),
+        output_fields=["*"],
+        limit=1,
+        consistency_level="Strong",
+        timeout=10,
     )
-    provider.prepared = True
+    assert len(actual) == 1
+    # Legacy intent omitted the source; actual historical row may already have its default.
+    assert actual[0]["target"]["memory_source"] == "long_term"
     ctx = context(app)
-    try:
-        assert asyncio.run(provider.inspect(ctx, target, "legacy")).state == "verified"
-        request = ProjectionRequest(
-            operation_id="legacy",
-            target=target,
-            vector=tuple(row["vector"]),
-            deadline_at=ctx.deadline_at,
-        )
-        assert asyncio.run(provider.project(ctx, request)).state == "verified"
-    finally:
-        provider.close()
+    assert asyncio.run(app.projections.inspect(ctx, target, "legacy")).state == "verified"
+    request = ProjectionRequest(
+        operation_id="legacy",
+        target=target,
+        vector=tuple(row["vector"]),
+        deadline_at=ctx.deadline_at,
+    )
+    assert asyncio.run(app.projections.project(ctx, request)).state == "verified"
 
 
 def test_projection_failure_is_reported_and_explicit_reindex_recovers(app, monkeypatch):

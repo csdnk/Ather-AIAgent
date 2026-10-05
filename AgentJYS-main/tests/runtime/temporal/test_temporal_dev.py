@@ -57,3 +57,33 @@ def test_wrong_cli_is_rejected_before_launch(tmp_path):
     manager = launcher()
     with pytest.raises(ValueError, match="CLI"):
         manager.start(tmp_path, Path(os.__file__))
+
+
+def test_stop_waits_for_owner_to_release_server_lock(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from concurrent.futures import TimeoutError as FutureTimeout
+    from threading import Event
+
+    from aether_agent_memory.runtime.temporal.locking import DirectoryLock
+
+    manager = launcher()
+    lock = DirectoryLock()
+    lock.acquire(tmp_path / "server-lock")
+    observed = Event()
+
+    def request(directory, command):
+        if command == "stop":
+            return {"state": "running", "ready": True}
+        observed.set()
+        return None
+
+    monkeypatch.setattr(manager, "request", request)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(manager.stop, tmp_path)
+        try:
+            assert observed.wait(2)
+            with pytest.raises(FutureTimeout):
+                future.result(timeout=0.05)
+        finally:
+            lock.release()
+        assert future.result(timeout=3)["state"] == "stopped"

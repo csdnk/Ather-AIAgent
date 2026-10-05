@@ -13,6 +13,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import httpx
+from http_operation import confirmed_request
 
 
 def run(client, *, timeout=120.0, step_delay=1.0):
@@ -25,9 +26,10 @@ def run(client, *, timeout=120.0, step_delay=1.0):
     def request(method, path, **kwargs):
         operation = run_id + "_" + str(len(operations) + 1)
         operations.add(operation)
-        response = client.request(method, path, headers={"X-Operation-ID": operation}, **kwargs)
-        response.raise_for_status()
-        return response.json()
+        return confirmed_request(
+            client, method, path, timeout=timeout,
+            headers={"X-Operation-ID": operation}, **kwargs,
+        )
 
     def passed(label):
         print(f"PASS {label}", flush=True)

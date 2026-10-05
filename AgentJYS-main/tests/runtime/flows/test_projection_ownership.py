@@ -6,7 +6,7 @@ import inspect
 from test_flows import app as app
 from test_flows import context, drain, facts, save
 
-from aether_agent_memory.recall.basic.vector_search import MilvusVectorSearch, SQLiteVectorSearch
+from aether_agent_memory.recall.basic.vector_search import MilvusVectorSearch
 from aether_agent_memory.recall.contracts.foundation import (
     ChunkProjectionRequest as LegacyChunkRequest,
 )
@@ -15,7 +15,7 @@ from aether_agent_memory.recall.contracts.models import (
 )
 from aether_agent_memory.recall.contracts.models import RecallRequest
 from aether_agent_memory.recall.contracts.ports import GenerationSearchPort, VectorSearchPort
-from aether_agent_memory.remember.basic.projection import MilvusProjection, SQLiteProjection
+from aether_agent_memory.remember.basic.projection import MilvusProjection
 from aether_agent_memory.remember.contracts.foundation import ChunkProjectionRequest
 from aether_agent_memory.remember.contracts.models import DeleteRequest, ProjectionTarget
 from aether_agent_memory.remember.contracts.ports import GenerationProjectionPort, ProjectionPort
@@ -79,9 +79,8 @@ def test_projection_types_have_one_canonical_owner_and_legacy_aliases():
             assert not hasattr(read, method)
 
 
-def test_sqlite_and_milvus_implementations_are_split_by_business_owner():
+def test_milvus_implementations_are_split_by_business_owner():
     for writer, reader in (
-        (SQLiteProjection, SQLiteVectorSearch),
         (MilvusProjection, MilvusVectorSearch),
     ):
         assert not hasattr(writer, "search")

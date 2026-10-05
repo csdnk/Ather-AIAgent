@@ -4,11 +4,10 @@ import pytest
 from test_flows import app as app
 from test_generation_assembly import assembly_setup
 
-from aether_agent_memory.recall.basic.adapters import SPACE
-from aether_agent_memory.recall.basic.milvus import MilvusVectors
-from aether_agent_memory.remember.local import create_runtime
 from aether_agent_memory.runtime.contracts.models import ScopeSelector
-from aether_agent_memory.runtime.foundation.host import Foundation
+from aether_agent_memory.runtime.flows.vector_adapters import MilvusVectors
+from azure_test_runtime import Foundation, create_runtime
+from controlled_embedding import TEST_SPACE as SPACE
 
 
 def test_generation_bootstrap_requires_index_readiness_provider(app):
@@ -68,7 +67,7 @@ def test_injected_milvus_working_projection_and_recall_use_same_backend(tmp_path
     host = None
     try:
         host = create_runtime(
-            database, tmp_path / "cache", vectors=vectors, embedding_profile="lexical"
+            database, tmp_path / "cache", vectors=vectors, embedding_profile="injected"
         )
         principal = Principal(
             principal_id="alice",

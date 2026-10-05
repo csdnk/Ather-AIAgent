@@ -10,7 +10,6 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from aether_agent_memory.mocks.recall import InMemoryRecallRecords
 from aether_agent_memory.recall.embedding import native
 from aether_agent_memory.recall.embedding.backends import (
     BackendConfig,
@@ -23,6 +22,7 @@ from aether_agent_memory.recall.embedding.service import (
     make_embedding_request,
 )
 from aether_agent_memory.runtime.contract_types import hash_json, hash_text, utcnow
+from recall_records import InMemoryRecallRecords
 
 
 class TokenizerDouble:
@@ -102,6 +102,24 @@ def request_for(binding, text="input", usage="Query"):
         deadline_at=utcnow() + timedelta(seconds=5),
         execution_policy_ref="embedding-policy-0.1",
     )
+
+
+def test_request_expired_before_creation_reports_deadline(model, monkeypatch):
+    backend = native.NativeEmbeddingBackend(native.NativeEmbeddingSettings(backend="openvino"))
+    try:
+        binding = binding_for(backend)
+        # The deadline was valid when admitted, but preprocessing/metadata work
+        # consumed it before the compute request was created. No inference may run.
+        monkeypatch.setattr(
+            "aether_agent_memory.recall.embedding.service.utcnow",
+            lambda: utcnow() + timedelta(seconds=60),
+        )
+        with pytest.raises(SemanticEmbeddingError) as error:
+            request_for(binding)
+        assert error.value.code == "EMBEDDING_DEADLINE_EXCEEDED"
+        assert model[1] == []
+    finally:
+        backend.shutdown()
 
 
 async def test_native_formats_usage_normalizes_and_saves_evidence(model):
@@ -284,10 +302,3 @@ def test_loading_requires_actual_dimension_and_weight_digest(model, field, value
                 backend="openvino",
             )
         )
-
-
-def test_legacy_backend_module_is_the_canonical_implementation():
-    import aether_agent_memory.b1.backends as legacy
-    import aether_agent_memory.recall.embedding.backends as canonical
-
-    assert legacy is canonical

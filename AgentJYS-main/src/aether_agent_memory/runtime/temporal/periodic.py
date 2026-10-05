@@ -18,15 +18,15 @@ from aether_agent_memory.runtime.contracts.models import (
     TrustedContext,
 )
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint, later
-from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction
 from aether_agent_memory.runtime.foundation.tasks import TERMINAL
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 from .gateway import TemporalGateway
 from .ledger import ExecutionLedger
 from .models import ExecutionStatus, PeriodicState, WorkflowBinding
 from .periodic_workflow import P3PeriodicWorkflow as P3PeriodicWorkflow
 
-Commit = Callable[[SQLiteTransaction, str, int, Any], Any]
+Commit = Callable[[MetadataTransaction, str, int, Any], Any]
 Prepare = Callable[[str], Awaitable[Any]]
 _TERMINAL_STATUS_RECHECK_SECONDS = 900
 _TERMINAL_STATUS_REFRESH_BUDGET = 16
@@ -40,6 +40,7 @@ class PeriodicActivities:
     def __init__(self, ledger: ExecutionLedger, gateway: TemporalGateway | None) -> None:
         self.ledger, self.gateway = ledger, gateway
         self.routes: dict[str, tuple[Commit, Prepare | None]] = {}
+        self.max_batch_seconds = 10.0
 
     def register(self, table: str, commit: Commit, prepare: Prepare | None = None) -> None:
         if table in self.routes:
@@ -67,7 +68,7 @@ class PeriodicActivities:
             [binding.model_dump(mode="json"), task.model_dump(mode="json"), diagnostic]
         )
 
-    async def prepare_status(self, key: str, *, tick: int | None = None) -> Any:
+    def status_request(self, key: str, tick: int | None) -> tuple[WorkflowBinding, Any] | None:
         refresh = None
         with self.ledger.tasks.uow.transaction() as tx:
             row = tx.read("temporal_bindings", key)
@@ -108,11 +109,18 @@ class PeriodicActivities:
                 if key <= budget["cursor"] or budget["used"] >= _TERMINAL_STATUS_REFRESH_BUDGET:
                     return None
                 refresh = {"cursor": key, "tick": tick, "used": budget["used"] + 1}
+        return binding, refresh
+
+    async def prepare_status(self, key: str, *, tick: int | None = None) -> Any:
+        request = await asyncio.to_thread(self.status_request, key, tick)
+        if request is None:
+            return None
+        binding, refresh = request
         if self.gateway is None:
             raise ConnectionError("Temporal status unavailable")
         return binding, await self.gateway.describe(binding), refresh
 
-    def _finish_status_sweep(self, tx: SQLiteTransaction, tick: int) -> None:
+    def _finish_status_sweep(self, tx: MetadataTransaction, tick: int) -> None:
         deployment = self.ledger.config.deployment_id
         budget = tx.read("temporal_status_refresh", deployment)
         # Rewind only after the tail has been inspected without exhausting the
@@ -137,24 +145,32 @@ class PeriodicActivities:
         if state.deployment_id != self.ledger.config.deployment_id or state.last_tick < 0:
             raise ValueError("periodic deployment or tick differs")
         uow = self.ledger.tasks.uow
+        stop_at = asyncio.get_running_loop().time() + self.max_batch_seconds
         tick_key = fingerprint([state.deployment_id, state.last_tick])
         route_names = list(self.routes)
-        with uow.transaction() as tx:
-            prior = tx.read("temporal_ticks", tick_key)
-            if prior:
-                if (
-                    prior["routes"] != route_names
-                    or prior["interval_seconds"] != state.interval_seconds
-                ):
-                    tx.abort(ErrorCode.VERSION_CONFLICT, "periodic plan changed mid-batch")
-                state = state.model_copy(update={"cursor": prior["cursor"]})
-                if state.cursor is None:
-                    return state
-            epoch = (tx.read("temporal_periodic_epoch", state.deployment_id) or 0) + 1
-            tx.write("temporal_periodic_epoch", state.deployment_id, epoch)
+
+        def begin(state: PeriodicState) -> tuple[PeriodicState, int | None]:
+            with uow.transaction() as tx:
+                prior = tx.read("temporal_ticks", tick_key)
+                if prior:
+                    if (
+                        prior["routes"] != route_names
+                        or prior["interval_seconds"] != state.interval_seconds
+                    ):
+                        tx.abort(ErrorCode.VERSION_CONFLICT, "periodic plan changed mid-batch")
+                    state = state.model_copy(update={"cursor": prior["cursor"]})
+                    if state.cursor is None:
+                        return state, None
+                epoch = (tx.read("temporal_periodic_epoch", state.deployment_id) or 0) + 1
+                tx.write("temporal_periodic_epoch", state.deployment_id, epoch)
+            return state, epoch
+
+        state, epoch = await asyncio.to_thread(begin, state)
+        if epoch is None:
+            return state
         route_index, cursor = json.loads(state.cursor) if state.cursor else (0, "")
 
-        def save(tx: SQLiteTransaction, next_cursor: str | None) -> None:
+        def save(tx: MetadataTransaction, next_cursor: str | None) -> None:
             if tx.read("temporal_periodic_epoch", state.deployment_id) != epoch:
                 tx.abort(ErrorCode.VERSION_CONFLICT, "periodic batch superseded")
             tx.write(
@@ -171,8 +187,13 @@ class PeriodicActivities:
         while route_index < len(route_names):
             table = route_names[route_index]
             commit, prepare = self.routes[table]
-            with uow.transaction() as tx:
-                rows = tx.rows_after(table, cursor, limit=remaining)
+
+            def page(table: str, cursor: str, remaining: int) -> list[tuple[str, Any]]:
+                with uow.transaction() as tx:
+                    rows = tx.rows_after(table, cursor, limit=remaining)
+                return rows
+
+            rows = await asyncio.to_thread(page, table, cursor, remaining)
             for key, _ in rows:
                 next_cursor = json.dumps([route_index, key])
                 try:
@@ -183,11 +204,17 @@ class PeriodicActivities:
                         if prepare
                         else None
                     )
-                    with uow.transaction() as tx:
-                        save(tx, next_cursor)
-                        # Cursor and local facts share a transaction; exceptions roll both back.
-                        if tx.read(table, key) is not None:
-                            commit(tx, key, state.last_tick, prepared)
+
+                    def commit_item(
+                        next_cursor: str, table: str, key: str, commit: Commit, prepared: Any
+                    ) -> None:
+                        with uow.transaction() as tx:
+                            save(tx, next_cursor)
+                            # Cursor and local facts share a transaction; exceptions roll both back.
+                            if tx.read(table, key) is not None:
+                                commit(tx, key, state.last_tick, prepared)
+
+                    await asyncio.to_thread(commit_item, next_cursor, table, key, commit, prepared)
                 except FoundationError as exc:
                     if exc.code not in {
                         ErrorCode.FORBIDDEN,
@@ -195,32 +222,49 @@ class PeriodicActivities:
                         ErrorCode.NOT_FOUND,
                     }:
                         raise
-                    with uow.transaction() as tx:
-                        save(tx, next_cursor)
-                        tx.write(
-                            "temporal_periodic_attention",
-                            fingerprint([table, key]),
-                            {"reason_code": exc.code.value, "tick": state.last_tick},
-                        )
+                    error_code = exc.code.value
+
+                    def record_attention(
+                        next_cursor: str, table: str, key: str, error_code: str
+                    ) -> None:
+                        with uow.transaction() as tx:
+                            save(tx, next_cursor)
+                            tx.write(
+                                "temporal_periodic_attention",
+                                fingerprint([table, key]),
+                                {"reason_code": error_code, "tick": state.last_tick},
+                            )
+
+                    await asyncio.to_thread(record_attention, next_cursor, table, key, error_code)
                 cursor, remaining = key, remaining - 1
                 # Local routes and status-cache hits may never suspend. Yield
                 # only after item facts and cursor commit, so activity heartbeats
                 # and other work can run without an open transaction.
                 await asyncio.sleep(0)
-                if remaining == 0:
+                if remaining == 0 or asyncio.get_running_loop().time() >= stop_at:
                     return state.model_copy(update={"cursor": next_cursor})
             route_index, cursor = route_index + 1, ""
+
+            def advance_route(route_index: int, cursor: str, prepare: Prepare | None) -> None:
+                with uow.transaction() as tx:
+                    save(tx, json.dumps([route_index, cursor]))
+                    if prepare == self.prepare_status:
+                        self._finish_status_sweep(tx, state.last_tick)
+
+            await asyncio.to_thread(advance_route, route_index, cursor, prepare)
+            if route_index < len(route_names) and asyncio.get_running_loop().time() >= stop_at:
+                return state.model_copy(update={"cursor": json.dumps([route_index, cursor])})
+
+        def finish() -> None:
             with uow.transaction() as tx:
-                save(tx, json.dumps([route_index, cursor]))
-                if prepare == self.prepare_status:
-                    self._finish_status_sweep(tx, state.last_tick)
-        with uow.transaction() as tx:
-            save(tx, None)
+                save(tx, None)
+
+        await asyncio.to_thread(finish)
         return state.model_copy(update={"cursor": None})
 
     def diagnose(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         binding: WorkflowBinding,
         status: ExecutionStatus,
         refresh: dict[str, Any] | None = None,
@@ -307,8 +351,12 @@ class PeriodicActivities:
             if self.gateway is None:
                 raise RuntimeError("Temporal status gateway unavailable")
             status = await self.gateway.describe(binding)
-            with self.ledger.tasks.uow.transaction() as tx:
-                self.diagnose(tx, binding, status)
+
+            def record_status() -> None:
+                with self.ledger.tasks.uow.transaction() as tx:
+                    self.diagnose(tx, binding, status)
+
+            await asyncio.to_thread(record_status)
             return status
         except Exception:
             if not activity.in_activity():
@@ -333,20 +381,77 @@ def register_p3_periodic(
     ):
         raise ValueError("periodic P3 requires the full domain implementations")
     remember, operate = host.remember, host.operate
-    runner.register("remember_pending", lambda tx, key, tick, _: remember.periodic_pending(tx, key))
+
+    from aether_agent_memory.remember.basic.hydration import BodyReadRequiredError, hydrate_missing
+
+    def probe_route(table: str, key: str) -> tuple[TrustedContext, BodyReadRequiredError] | None:
+        try:
+            with host.foundation.uow.transaction() as tx:
+                row = tx.read(table, key)
+                if not row:
+                    return None
+                raw_context = row.get("context")
+                if raw_context is None and row.get("principal"):
+                    raw_context = row["principal"]
+                if raw_context is None:
+                    return None
+                ctx = TrustedContext.model_validate(raw_context).model_copy(
+                    update={"deadline_at": later(host.foundation.identity.clock(), 30)}
+                )
+                host.foundation.identity.revalidate(tx, ctx)
+                if table == "remember_pending":
+                    remember.periodic_pending(tx, key)
+                elif table == "remember_retention_enrollment":
+                    remember.retention.periodic_item(tx, key)
+                else:
+                    remember.reflection.periodic_item(tx, key)
+                # Preparation may only inspect. Roll back scheduling effects.
+                raise ProbeRollbackError()
+        except BodyReadRequiredError as missing:
+            return ctx, missing
+        except ProbeRollbackError:
+            return None
+
+    async def hydrate_route(table: str, key: str) -> None:
+        if not remember.bodies.remote_only:
+            return
+        seen: set[str] = set()
+        while True:
+            needed = await asyncio.to_thread(probe_route, table, key)
+            if needed is None:
+                return
+            ctx, missing = needed
+            body_key = missing.location.object_key
+            if body_key in seen or len(seen) >= 1000:
+                raise FoundationError(
+                    ErrorCode.CAPACITY_EXCEEDED, "periodic body hydration budget exceeded"
+                ) from None
+            seen.add(body_key)
+            await asyncio.to_thread(hydrate_missing, remember, ctx, missing)
+
+    class ProbeRollbackError(Exception):
+        pass
+
+    runner.register(
+        "remember_pending",
+        lambda tx, key, tick, _: remember.periodic_pending(tx, key),
+        lambda key: hydrate_route("remember_pending", key),
+    )
     runner.register(
         "remember_retention_enrollment",
         lambda tx, key, tick, _: remember.retention.periodic_item(tx, key),
+        lambda key: hydrate_route("remember_retention_enrollment", key),
     )
     runner.register(
         "remember_reflection_policies",
         lambda tx, key, tick, _: remember.reflection.periodic_item(tx, key),
+        lambda key: hydrate_route("remember_reflection_policies", key),
     )
     runner.register(
         "operate_views", lambda tx, key, tick, _: operate.periodic_item(tx, key, str(tick))
     )
 
-    async def sample(key: str) -> Any:
+    def sample_context(key: str) -> TrustedContext:
         with host.foundation.uow.transaction() as tx:
             row = tx.read("identities", key)
             if key not in principal_ids or not row or not row["enabled"]:
@@ -361,12 +466,29 @@ def register_p3_periodic(
                 deadline_at=later(host.foundation.tasks.clock(), 30),
             )
             host.foundation.identity.revalidate(tx, ctx)
+        return ctx
+
+    async def sample(key: str) -> Any:
+        ctx = await asyncio.to_thread(sample_context, key)
         return ctx, await maintenance.sample_batch(ctx)
 
-    def observed(tx: SQLiteTransaction, key: str, tick: int, prepared: Any) -> None:
+    def observed(tx: MetadataTransaction, key: str, tick: int, prepared: Any) -> None:
         ctx, (observations, cursor_key, cursor) = prepared
         host.foundation.identity.revalidate(tx, ctx)
         for subject, observation in observations:
+            subject_key = fingerprint(subject.model_dump(mode="json"))
+            label_key = fingerprint(
+                [
+                    observation.signal.signal_id,
+                    subject.scope.model_dump(mode="json"),
+                    observation.labels,
+                ]
+            )
+            prior = tx.read("signal_samples", fingerprint([subject_key, label_key]))
+            if prior and prior["observation"]["observed_at"] < observation.observed_at < later(
+                prior["observation"]["observed_at"], observation.signal.sample_interval_ms / 1000
+            ):
+                continue
             host.foundation.dispositions.observe_in(tx, ctx, subject, observation)
         tx.write("cache_sample_cursors", cursor_key, cursor)
 
@@ -375,7 +497,7 @@ def register_p3_periodic(
             tx.write("temporal_maintenance_principals", principal_id, {"enabled": True})
     runner.register("temporal_maintenance_principals", observed, sample)
 
-    def diagnostic(tx: SQLiteTransaction, key: str, tick: int, prepared: Any) -> None:
+    def diagnostic(tx: MetadataTransaction, key: str, tick: int, prepared: Any) -> None:
         if prepared is not None:
             runner.diagnose(tx, *prepared)
 
@@ -397,13 +519,18 @@ class PeriodicController:
         digest = fingerprint(plan)
         workflow_id = f"p3/{deployment}/periodic"
         queue = f"{self.ledger.config.task_queue_prefix}.periodic"
-        with self.ledger.tasks.uow.transaction() as tx:
-            stored = tx.read("temporal_periodic_binding", deployment)
-            if stored and stored["plan"] != plan:
-                tx.abort(ErrorCode.VERSION_CONFLICT, "running periodic plan changed")
-            if stored is None:
-                stored = {"plan": plan, "binding": None}
-                tx.write("temporal_periodic_binding", deployment, stored)
+
+        def load_plan() -> Any:
+            with self.ledger.tasks.uow.transaction() as tx:
+                stored = tx.read("temporal_periodic_binding", deployment)
+                if stored and stored["plan"] != plan:
+                    tx.abort(ErrorCode.VERSION_CONFLICT, "running periodic plan changed")
+                if stored is None:
+                    stored = {"plan": plan, "binding": None}
+                    tx.write("temporal_periodic_binding", deployment, stored)
+            return stored
+
+        stored = await asyncio.to_thread(load_plan)
         if stored["binding"]:
             binding = WorkflowBinding.model_validate(stored["binding"])
         else:
@@ -448,11 +575,15 @@ class PeriodicController:
                 ErrorCode.INVALID_ARGUMENT, "periodic execution is closed or its history is missing"
             )
         binding = binding.model_copy(update={"current_run_id": status.run_id})
-        with self.ledger.tasks.uow.transaction() as tx:
-            latest = tx.read("temporal_periodic_binding", deployment) or {}
-            tx.write(
-                "temporal_periodic_binding",
-                deployment,
-                {**latest, "plan": plan, "binding": binding.model_dump(mode="json")},
-            )
+
+        def record_binding() -> None:
+            with self.ledger.tasks.uow.transaction() as tx:
+                latest = tx.read("temporal_periodic_binding", deployment) or {}
+                tx.write(
+                    "temporal_periodic_binding",
+                    deployment,
+                    {**latest, "plan": plan, "binding": binding.model_dump(mode="json")},
+                )
+
+        await asyncio.to_thread(record_binding)
         return binding

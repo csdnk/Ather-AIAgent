@@ -2,6 +2,7 @@
 
 import asyncio
 from datetime import timedelta
+from typing import Any
 
 from temporalio.client import Client, WorkflowExecutionStatus
 from temporalio.common import WorkflowIDConflictPolicy, WorkflowIDReusePolicy
@@ -11,8 +12,8 @@ from temporalio.service import RPCError, RPCStatusCode, TLSConfig
 
 from aether_agent_memory.runtime.contracts.models import ErrorCode
 from aether_agent_memory.runtime.foundation.common import FoundationError
-from aether_agent_memory.runtime.foundation.storage import _active
 from aether_agent_memory.runtime.foundation.tasks import TERMINAL
+from aether_agent_memory.runtime.foundation.transactions import _active
 
 from .config import TemporalConfiguration
 from .ledger import ExecutionLedger
@@ -54,14 +55,24 @@ class TemporalGateway:
         from .workflows import workflow_name
 
         self.outside_transaction()
-        with self.ledger.tasks.uow.transaction() as tx:
-            row = self.ledger.verify_job(tx, intent.job)
-            task_row, task = self.ledger.tasks.load(tx, intent.job.job_id)
-            if task.state in TERMINAL:
-                tx.abort(ErrorCode.CONTRACT_VIOLATION, "terminal business work cannot restart")
-            if intent.task_queue != f"{self.ledger.config.task_queue_prefix}.{task_row['class']}":
-                tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "workflow task queue changed")
-            expected = WorkflowBinding.model_validate(row["binding"]) if row["binding"] else None
+
+        def load_start() -> tuple[Any, WorkflowBinding | None]:
+            with self.ledger.tasks.uow.transaction() as tx:
+                row = self.ledger.verify_job(tx, intent.job)
+                task_row, task = self.ledger.tasks.load(tx, intent.job.job_id)
+                if task.state in TERMINAL:
+                    tx.abort(ErrorCode.CONTRACT_VIOLATION, "terminal business work cannot restart")
+                if (
+                    intent.task_queue
+                    != f"{self.ledger.config.task_queue_prefix}.{task_row['class']}"
+                ):
+                    tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "workflow task queue changed")
+                expected = (
+                    WorkflowBinding.model_validate(row["binding"]) if row["binding"] else None
+                )
+            return row, expected
+
+        row, expected = await asyncio.to_thread(load_start)
         workflow_id = row["workflow_id"]
         run_id = expected.current_run_id if expected else row.get("observed_run_id")
         if not run_id:
@@ -118,26 +129,31 @@ class TemporalGateway:
         from .controls import authorize_delivery
 
         self.outside_transaction()
-        with self.ledger.tasks.uow.transaction() as tx:
-            control = tx.read("temporal_control_intents", intent.control_id)
-            periodic = bool(control and control.get("target") == "periodic")
-            if control and "context" in control:
-                if control["intent"] != intent.model_dump(mode="json"):
-                    tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "control changed")
-                authorize_delivery(self.ledger, tx, control)
-            row = tx.read(
-                "temporal_periodic_binding" if periodic else "temporal_bindings", intent.job_id
-            )
-            if not row or not row["binding"]:
-                raise ConnectionError("start acknowledgement pending")
-            binding = WorkflowBinding.model_validate(row["binding"])
-            if control and "binding" in control:
-                original = WorkflowBinding.model_validate(control["binding"])
-                if (
-                    original.model_copy(update={"current_run_id": binding.current_run_id})
-                    != binding
-                ):
-                    tx.abort(ErrorCode.VERSION_CONFLICT, "control original chain changed")
+
+        def load_control() -> tuple[bool, WorkflowBinding]:
+            with self.ledger.tasks.uow.transaction() as tx:
+                control = tx.read("temporal_control_intents", intent.control_id)
+                periodic = bool(control and control.get("target") == "periodic")
+                if control and "context" in control:
+                    if control["intent"] != intent.model_dump(mode="json"):
+                        tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "control changed")
+                    authorize_delivery(self.ledger, tx, control)
+                row = tx.read(
+                    "temporal_periodic_binding" if periodic else "temporal_bindings", intent.job_id
+                )
+                if not row or not row["binding"]:
+                    raise ConnectionError("start acknowledgement pending")
+                binding = WorkflowBinding.model_validate(row["binding"])
+                if control and "binding" in control:
+                    original = WorkflowBinding.model_validate(control["binding"])
+                    if (
+                        original.model_copy(update={"current_run_id": binding.current_run_id})
+                        != binding
+                    ):
+                        tx.abort(ErrorCode.VERSION_CONFLICT, "control original chain changed")
+            return periodic, binding
+
+        periodic, binding = await asyncio.to_thread(load_control)
         status = await self.describe_periodic(binding) if periodic else await self.describe(binding)
         if status.state != "running":
             raise FoundationError(

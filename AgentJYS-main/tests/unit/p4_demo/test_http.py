@@ -2,14 +2,13 @@ import json
 import socket
 import threading
 from contextlib import contextmanager
-from http.server import ThreadingHTTPServer
 from uuid import uuid4
 
 import httpx
 import pytest
 
 from aether_p4_simulator.demo.service import DemoService
-from aether_p4_simulator.server import P4Handler
+from aether_p4_simulator.server import P4Handler, P4HTTPServer
 
 from .support import Upstream, finish
 from .test_service import service_for
@@ -20,7 +19,7 @@ ORIGIN = "http://127.0.0.1:5173"
 
 @contextmanager
 def serve(service):
-    server = ThreadingHTTPServer(("127.0.0.1", 0), P4Handler)
+    server = P4HTTPServer(("127.0.0.1", 0), P4Handler)
     server.demo_service = service
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -60,6 +59,60 @@ def test_three_demo_routes_preserve_legacy_and_no_secret():
         assert "secret" not in result.text
         assert sum(r.url.path == "/p3/remember" for r in upstream.requests) == 3
         assert http.get("/api/v1/demo/runs/" + str(uuid4())).status_code == 404
+
+
+def test_configured_loopback_web_origin_is_accepted_exactly(monkeypatch):
+    origin = "http://127.0.0.1:3000"
+    monkeypatch.setenv("AETHER_P4_DEMO_ORIGINS", json.dumps([origin]))
+    upstream = Upstream()
+    with serve(service_for(upstream)) as base, httpx.Client(base_url=base, trust_env=False) as http:
+        response = http.get("/api/v1/demo/scenarios", headers={"Origin": origin})
+        assert response.status_code == 200, response.text
+        assert response.headers["access-control-allow-origin"] == origin
+        denied = http.post("/api/v1/demo/runs", json=payload(), headers={"Origin": ORIGIN})
+        assert denied.status_code == 403
+        assert denied.json()["error"]["code"] == "invalid_origin"
+        assert upstream.requests == []
+
+
+def test_rejected_origin_returns_json_for_each_complete_post_body():
+    upstream = Upstream()
+    with serve(service_for(upstream)) as base, httpx.Client(base_url=base, trust_env=False) as http:
+        for _ in range(30):
+            response = http.post(
+                "/api/v1/demo/runs", json=payload(), headers={"Origin": "https://outside.invalid"}
+            )
+            assert response.status_code == 403
+            assert response.json()["error"]["code"] == "invalid_origin"
+        assert upstream.requests == []
+
+
+@pytest.mark.parametrize(
+    "origins",
+    [
+        ["https://outside.invalid"],
+        ["http://0.0.0.0:3000"],
+        ["null"],
+        ["*"],
+        ["http://user:secret@localhost:3000"],
+        ["http://localhost:3000/path"],
+        ["http://localhost:3000?query=1"],
+        ["http://localhost:70000"],
+        [],
+        "localhost",
+        ["http://@localhost:3000"],
+        ["http://localhost:3000?"],
+        ["http://localhost:3000#"],
+        ["http://localhost:"],
+    ],
+)
+def test_demo_origin_configuration_rejects_unsafe_or_ambiguous_values(monkeypatch, origins):
+    monkeypatch.setenv("AETHER_P4_DEMO_ORIGINS", json.dumps(origins))
+    with (
+        pytest.raises(ValueError, match="loopback origin"),
+        P4HTTPServer(("127.0.0.1", 0), P4Handler),
+    ):
+        pass
 
 
 @pytest.mark.parametrize(

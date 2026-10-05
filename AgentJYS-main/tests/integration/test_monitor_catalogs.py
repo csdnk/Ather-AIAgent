@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from tests.integration.test_continuous_service import configuration as configuration
 from tests.integration.test_continuous_service import eventually, headers, save
 
-from aether_agent_memory.runtime.flows.application import Service
+from azure_component_service import Service
 
 
 def test_monitor_catalogs_page_and_filter_without_exposing_bodies(configuration):

@@ -143,7 +143,7 @@ it("retains the real monitoring entry without auto starting a demo", async () =>
   expect(posts).toHaveLength(0);
 });
 
-it("stops observation at ten minutes, without claiming backend cancellation", async () => {
+it("keeps observing after ten minutes and stops at two hours without cancelling work", async () => {
   vi.useFakeTimers();
   sessionStorage.setItem("p3-demo-run-id", id);
   vi.stubGlobal("fetch", async (url: string) => {
@@ -151,7 +151,13 @@ it("stops observation at ten minutes, without claiming backend cancellation", as
     reads.push(url); return reply(snapshot());
   });
   render(<DemoPage />);
-  await act(async () => { await vi.advanceTimersByTimeAsync(600_500); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  const started = Date.now();
+  vi.setSystemTime(started + 600_000);
+  await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+  expect(screen.queryByText(/观察已超时/)).not.toBeInTheDocument();
+  vi.setSystemTime(started + 7_200_000);
+  await act(async () => { await vi.advanceTimersByTimeAsync(500); });
   expect(screen.getByText(/观察已超时.*未取消后台任务/)).toBeInTheDocument();
   const count = reads.length;
   await act(async () => { await vi.advanceTimersByTimeAsync(5000); });

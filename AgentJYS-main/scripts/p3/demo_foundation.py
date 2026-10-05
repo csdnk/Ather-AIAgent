@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import secrets
 import sys
 from hashlib import sha256
@@ -21,7 +22,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Create an isolated P3 foundation example")
     parser.add_argument("--directory", type=Path, required=True)
     parser.add_argument("--temporal-endpoint", default="127.0.0.1:7233")
+    parser.add_argument("--postgres-dsn-env", default="AETHER_POSTGRES_DSN")
     args = parser.parse_args()
+    dsn = os.environ.get(args.postgres_dsn_env)
+    if not dsn:
+        parser.error("set --postgres-dsn-env to the name of a PostgreSQL credential variable")
     directory = args.directory.resolve()
     directory.mkdir(parents=True, exist_ok=True)
     credential_path = directory / "demo-credentials.json"
@@ -33,7 +38,8 @@ def main() -> int:
         json.dump(credentials, file)
     credential_path.chmod(0o600)
     app = Foundation(
-        database, ROOT / "contracts/p3/profiles/foundation.yaml", engineering_profile=True
+        database, ROOT / "contracts/p3/profiles/foundation.yaml", engineering_profile=True,
+        postgres_dsn=dsn,
     )
     try:
         principals = [

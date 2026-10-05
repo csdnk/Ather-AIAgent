@@ -15,7 +15,7 @@ from aether_p4_simulator.validation.errors import ValidationError
 from aether_p4_simulator.validation.models import CapabilitiesData
 
 from ..p4_validation.test_operations import Clock
-from .support import NOW, Upstream
+from .support import NOW, Upstream, fixed_definition
 
 pytestmark = pytest.mark.unit
 
@@ -229,7 +229,14 @@ class LearningUpstream(Upstream):
 def story(variant):
     upstream = LearningUpstream(variant)
     client = P3ValidationClient("http://p3.test", "secret", transport=httpx.MockTransport(upstream))
-    run = StoryRun(client, "demo_learning", "learning-review", None, lambda _: None)
+    run = StoryRun(
+        client,
+        "demo_learning",
+        "learning-review",
+        None,
+        lambda _: None,
+        definition=fixed_definition("learning-review"),
+    )
     try:
         yield run, upstream
     finally:
@@ -355,7 +362,13 @@ def failed_story(monkeypatch, *, wait_seconds, available_after, **kwargs):
         operations=("remember", "recall"),
     )
     run = StoryRun(
-        client, "demo_learning", "learning-review", mode, lambda _: None, wait_seconds=wait_seconds
+        client,
+        "demo_learning",
+        "learning-review",
+        mode,
+        lambda _: None,
+        definition=fixed_definition("learning-review"),
+        wait_seconds=wait_seconds,
     )
     try:
         yield run, upstream, clock

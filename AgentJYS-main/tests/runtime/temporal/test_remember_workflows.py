@@ -10,7 +10,7 @@ from test_ingress import runtime as runtime
 
 from aether_agent_memory.remember.contracts.models import RememberRequest, SourceInput, TextInput
 from aether_agent_memory.runtime.contracts.models import ScopeSelector
-from aether_agent_memory.runtime.foundation.common import now
+from aether_agent_memory.runtime.foundation.common import FoundationError, now
 from aether_agent_memory.runtime.temporal.bridge import IntentBridge
 from aether_agent_memory.runtime.temporal.config import TemporalConfiguration
 from aether_agent_memory.runtime.temporal.gateway import TemporalGateway
@@ -110,19 +110,21 @@ async def test_checkpoint_reuse_after_activity_ack_loss(runtime, workflow_client
 async def test_model_output_without_checkpoint_consumes_remaining_budget(
     runtime, workflow_client, monkeypatch
 ):
-    from aether_agent_memory.runtime.foundation.storage import SQLiteTransaction
+    from aether_agent_memory.runtime.foundation.postgres import (
+        PostgresTransaction as PostgresTransaction,
+    )
 
     runtime.remember.policy = runtime.remember.policy.model_copy(update={"max_model_calls": 2})
     registry = routes(runtime)
     ledger, job, _ = await job_for(runtime, "compress")
-    write = SQLiteTransaction.write
+    write = PostgresTransaction.write
 
     def interrupt_checkpoint(tx, table, key, value):
         if table == "remember_compression_parts":
             raise RuntimeError("crash after model output, before checkpoint commit")
         return write(tx, table, key, value)
 
-    monkeypatch.setattr(SQLiteTransaction, "write", interrupt_checkpoint)
+    monkeypatch.setattr(PostgresTransaction, "write", interrupt_checkpoint)
     host = WorkerHost(workflow_client, ledger, registry)
     await host.start()
     try:
@@ -305,6 +307,26 @@ async def test_cleanup_of_absent_target_still_installs_tombstone(runtime, workfl
             workflow_client.get_workflow_handle(f"p3/test/{job.kind}/{job.job_id}").result(), 60
         )
         with runtime.foundation.uow.transaction() as tx:
-            assert tx.read("projection_tombstones", target.vector_id) is True
+            intent = tx.read(runtime.vectors.projection_namespace, target.vector_id)
+            assert intent["deleted"] is True
+        assert (
+            await runtime.projections.inspect(
+                runtime.foundation.identity.context("alice"), target, "absent"
+            )
+        ).state == "absent"
+        from aether_agent_memory.remember.contracts.models import ProjectionRequest
+
+        ctx = runtime.foundation.identity.context("alice")
+        with pytest.raises(FoundationError) as error:
+            await runtime.projections.project(
+                ctx,
+                ProjectionRequest(
+                    operation_id="late",
+                    target=target,
+                    vector=(1.0,) * runtime.vectors.dimensions,
+                    deadline_at=ctx.deadline_at,
+                ),
+            )
+        assert error.value.code == "IDEMPOTENCY_CONFLICT"
     finally:
         await host.stop()

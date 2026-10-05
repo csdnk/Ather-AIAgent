@@ -1,0 +1,129 @@
+# Copy outside the repository, replace reviewed image/PVC/namespace, and apply
+# only to the assigned environment. Config and Secret names are documented in
+# 交付成果/部署运行/P3_Azure开发环境与AI配置指南_20261004.md.
+apiVersion: v1
+kind: Service
+metadata:
+  name: p3
+  namespace: aether-p3-development
+spec:
+  type: ClusterIP
+  selector:
+    app: p3
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: p3
+  namespace: aether-p3-development
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: p3
+  template:
+    metadata:
+      labels:
+        app: p3
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: p3
+          image: REPLACE_WITH_REVIEWED_ACR_IMAGE_DIGEST
+          command: [python, -m, aether_agent_memory, serve, --config, /deployment/service.yaml, --require-profile, development]
+          envFrom:
+            - secretRef:
+                name: p3-runtime
+          env:
+            - name: HF_HUB_OFFLINE
+              value: "1"
+            - name: TIKTOKEN_CACHE_DIR
+              value: /models/tiktoken
+            - name: TOKENIZERS_PARALLELISM
+              value: "false"
+            - name: OMP_NUM_THREADS
+              value: "2"
+          ports:
+            - name: http
+              containerPort: 8080
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 6Gi
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          startupProbe:
+            httpGet:
+              path: /p3/readyz
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /p3/readyz
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /p3/live
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: configuration
+              mountPath: /deployment
+              readOnly: true
+            - name: certificates
+              mountPath: /certificates
+              readOnly: true
+            - name: temporal-client
+              mountPath: /temporal-tls
+              readOnly: true
+            - name: models
+              mountPath: /models
+              readOnly: true
+            - name: runtime
+              mountPath: /runtime
+            - name: temporary
+              mountPath: /tmp
+      volumes:
+        - name: configuration
+          configMap:
+            name: p3-configuration
+        - name: certificates
+          configMap:
+            name: p3-public-certificates
+        - name: temporal-client
+          secret:
+            secretName: p3-temporal-client
+            defaultMode: 0440
+        - name: models
+          persistentVolumeClaim:
+            claimName: p3-models
+        - name: runtime
+          persistentVolumeClaim:
+            claimName: p3-runtime
+        - name: temporary
+          emptyDir: {}

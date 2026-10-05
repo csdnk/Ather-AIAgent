@@ -14,6 +14,11 @@ from aether_agent_memory.operate.basic.maintenance import CacheMaintenance
 from aether_agent_memory.recall.contracts.models import RecallRequest
 from aether_agent_memory.remember.basic.pipeline import RememberPipeline
 from aether_agent_memory.remember.contracts.models import CorrectionRequest, RememberRequest
+from aether_agent_memory.runtime.contracts.client_admission import (
+    ClientDocumentTarget,
+    ClientOperationTargets,
+)
+from aether_agent_memory.runtime.contracts.http_evidence import HttpRequestEvidence
 from aether_agent_memory.runtime.contracts.models import (
     ErrorCode,
     Permission,
@@ -21,10 +26,13 @@ from aether_agent_memory.runtime.contracts.models import (
     TaskState,
     TrustedContext,
 )
+from aether_agent_memory.runtime.contracts.operation_lookup import HTTPCommandKind, OperationLookup
 from aether_agent_memory.runtime.flows.config import ServiceConfiguration
 from aether_agent_memory.runtime.flows.host import ThreeFlows
 from aether_agent_memory.runtime.foundation.common import FoundationError, encode, fingerprint, now
+from aether_agent_memory.runtime.foundation.requests import select_scope
 from aether_agent_memory.runtime.foundation.tasks import TERMINAL
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 from .bridge import IntentBridge
 from .config import deployment_configuration
@@ -69,6 +77,7 @@ class TemporalService:
             runtime.foundation.identity,
             config.data_dir / "inputs",
             max_bytes=remember.policy.max_input_bytes,
+            objects=remember.bodies.p2,
         )
         self.registry = StageRegistry()
         register_ingress(self.registry, self.ledger, self.inputs, remember)
@@ -78,7 +87,7 @@ class TemporalService:
         register_operate(self.registry, runtime.operate, maintenance)
         self.events = register_events(self.registry, self.ledger, runtime.foundation.events)
         self.registry.validate_catalog(set(runtime.foundation.tasks.handlers))
-        self.commands = CommandAdmission(self.ledger, self.inputs)
+        self.commands = CommandAdmission(self.ledger, self.inputs, self.client_targets)
         self.maintenance = maintenance
         runtime.foundation.tasks.on_admitted = self.on_admitted
         runtime.execution = self
@@ -103,6 +112,7 @@ class TemporalService:
         self.accepting = False
         self.checked = 0.0
         self.identity_checked = 0.0
+        self._refresh_lock = asyncio.Lock()
         self.state: dict[str, Any] = {
             "worker": "starting",
             "identity": "starting",
@@ -141,7 +151,8 @@ class TemporalService:
         self.gateway = TemporalGateway(self.client, self.ledger)
         self.bridge = IntentBridge(self.ledger, self.gateway)
         periodic = PeriodicActivities(self.ledger, self.gateway)
-        register_p3_periodic(
+        await asyncio.to_thread(
+            register_p3_periodic,
             periodic,
             self.runtime,
             self.maintenance,
@@ -171,9 +182,13 @@ class TemporalService:
             raise
 
     async def refresh(self) -> None:
+        async with self._refresh_lock:
+            await self._refresh()
+
+    async def _refresh(self) -> None:
         try:
             if time.monotonic() - self.identity_checked >= self.config.identity_reload_seconds:
-                self.reload_identity()
+                await asyncio.to_thread(self.reload_identity)
                 self.identity_checked = time.monotonic()
             self.state["identity"] = "ready"
         except Exception:
@@ -184,6 +199,23 @@ class TemporalService:
             self.checked = time.monotonic()
             return
         try:
+            if self.workers is not None and (
+                not self.workers.runners or any(runner.done() for runner in self.workers.runners)
+            ):
+                self.accepting = False
+                self.state.update(worker="restarting", reason_code="WORKER_RESTARTING")
+                for runner in self.workers.runners:
+                    if runner.done() and not runner.cancelled():
+                        error = runner.exception()
+                        if error is not None:
+                            self.state["last_worker_error_type"] = type(error).__name__
+                await self.workers.stop()
+                self.workers = None
+                self.client = None
+                self.gateway = None
+                self.bridge = None
+                self.periodic = None
+                self.state["worker_restarts"] = self.state.get("worker_restarts", 0) + 1
             if self.client is None:
                 await self.connect()
             assert self.client is not None and self.bridge is not None and self.workers is not None
@@ -202,21 +234,7 @@ class TemporalService:
                 reason_code="READY",
                 lanes={name: "running" for name in self.ledger.tasks.class_limits},
             )
-            with self.runtime.foundation.uow.transaction() as tx:
-                for name in self.ledger.tasks.class_limits:
-                    worker_id = f"temporal_{self.config.temporal.deployment_id}_{name}"
-                    self.ledger.tasks.progress.heartbeat(tx, worker_id, name)
-                    tx.write(
-                        "workers",
-                        worker_id,
-                        {
-                            "state": "polling",
-                            "worker_id": worker_id,
-                            "execution_class": name,
-                            "last_seen": now(),
-                            "backend": "temporal",
-                        },
-                    )
+            await asyncio.to_thread(self.publish_worker_heartbeats)
             self.accepting = not self.stopped.is_set()
         except Exception as exc:
             self.accepting = False
@@ -227,6 +245,23 @@ class TemporalService:
                 error_type=type(exc).__name__,
             )
         self.checked = time.monotonic()
+
+    def publish_worker_heartbeats(self) -> None:
+        with self.runtime.foundation.uow.transaction() as tx:
+            for name in self.ledger.tasks.class_limits:
+                worker_id = f"temporal_{self.config.temporal.deployment_id}_{name}"
+                self.ledger.tasks.progress.heartbeat(tx, worker_id, name)
+                tx.write(
+                    "workers",
+                    worker_id,
+                    {
+                        "state": "polling",
+                        "worker_id": worker_id,
+                        "execution_class": name,
+                        "last_seen": now(),
+                        "backend": "temporal",
+                    },
+                )
 
     async def start(self) -> None:
         if self.runner is not None:
@@ -256,6 +291,9 @@ class TemporalService:
             self.workers = None
         self.client = None
         self.state.update(worker="stopped", reason_code="STOPPED")
+        await asyncio.to_thread(self.publish_workers_stopped)
+
+    def publish_workers_stopped(self) -> None:
         with self.runtime.foundation.uow.transaction() as tx:
             for name in self.ledger.tasks.class_limits:
                 key = f"temporal_{self.config.temporal.deployment_id}_{name}"
@@ -275,19 +313,66 @@ class TemporalService:
                 while quiet < 3:
                     assert self.bridge is not None
                     await self.bridge.flush()
-                    with self.runtime.foundation.uow.transaction() as tx:
-                        active = tx.active_task_rows()
-                        pending = tx.pending_delivery_rows()
-                    quiet = 0 if active or pending else quiet + 1
+
+                    def busy() -> bool:
+                        with self.runtime.foundation.uow.transaction() as tx:
+                            return bool(tx.active_task_rows() or tx.pending_delivery_rows())
+
+                    quiet = 0 if await asyncio.to_thread(busy) else quiet + 1
                     await asyncio.sleep(0.05)
         finally:
             if started_here:
                 await self.stop()
 
-    def accept(self, ctx: TrustedContext, kind: str, payload: JsonValue) -> WorkflowInput:
+    def client_targets(
+        self, tx: MetadataTransaction, ctx: TrustedContext, kind: str, payload: JsonValue
+    ) -> ClientOperationTargets:
+        if kind == "remember.save":
+            request = RememberRequest.model_validate(payload)
+            return ClientOperationTargets(scopes=(select_scope(ctx, request.selection),))
+        if kind == "remember.correct":
+            memory_id = payload.get("memory_id") if isinstance(payload, dict) else None
+            if not isinstance(payload, dict) or not isinstance(memory_id, str):
+                raise FoundationError(ErrorCode.INVALID_ARGUMENT, "correction input invalid")
+            CorrectionRequest.model_validate(payload.get("request"))
+            ref = self.runtime.remember.current_ref(tx, ctx, memory_id)
+            return ClientOperationTargets(scopes=(ref.scope,))
+        if kind == "remember.document" and isinstance(payload, dict):
+            target = ClientDocumentTarget.model_validate(
+                {"scope": ctx.principal.home_scope, "document_id": payload.get("document_id")}
+            )
+            return ClientOperationTargets(documents=(target,))
+        raise FoundationError(ErrorCode.INVALID_ARGUMENT, "unsupported HTTP command target")
+
+    def check_client_admission(
+        self,
+        ctx: TrustedContext,
+        kind: str,
+        http_request: HttpRequestEvidence | None,
+        payload: JsonValue,
+    ) -> None:
+        # Reject stale/changed inputs before immutable P2 staging can occupy their ID.
+        # The accepting ledger transaction must check again after external I/O.
+        if http_request is not None:
+            with self.runtime.foundation.uow.transaction() as tx:
+                self.ledger.clients.require(
+                    tx, ctx, http_request, kind, targets=self.client_targets(tx, ctx, kind, payload)
+                )
+
+    def accept(
+        self,
+        ctx: TrustedContext,
+        kind: str,
+        payload: JsonValue,
+        *,
+        http_request: HttpRequestEvidence | None = None,
+    ) -> WorkflowInput:
         self.require_ready()
         if kind == "recall.execute":
-            return self.recall.accept(ctx, RecallRequest.model_validate(payload))
+            return self.recall.accept(
+                ctx, RecallRequest.model_validate(payload), http_request=http_request
+            )
+        self.check_client_admission(ctx, kind, http_request, payload)
         if kind == "remember.save":
             RememberRequest.model_validate(payload)
         elif kind == "remember.correct":
@@ -299,13 +384,20 @@ class TemporalService:
         ref = self.inputs.persist(
             ctx, ctx.operation_id, encode(payload).encode("utf-8"), "application/json"
         )
-        return self.commands.accept(ctx, kind, ref)
+        return self.commands.accept(ctx, kind, ref, http_request=http_request)
 
     def status(self, ctx: TrustedContext, job_id: str) -> TaskRecord:
         with self.runtime.foundation.uow.transaction() as tx:
             _, task = self.ledger.tasks.load(tx, job_id)
             self.runtime.foundation.identity.authorize(tx, ctx, Permission.READ, task.subject)
             return task
+
+    def lookup_operation(
+        self, ctx: TrustedContext, operation_id: str, kind: HTTPCommandKind
+    ) -> OperationLookup:
+        from .operation_lookup import lookup_operation
+
+        return lookup_operation(self.ledger, self.inputs, ctx, operation_id, kind)
 
     def operation(self, ctx: TrustedContext, job_id: str) -> dict[str, Any]:
         task = self.status(ctx, job_id)
@@ -372,7 +464,7 @@ class TemporalService:
             async with asyncio.timeout(timeout_seconds):
                 while True:
                     try:
-                        return self.result(ctx, job_id)
+                        return await asyncio.to_thread(self.result, ctx, job_id)
                     except PendingOperationError:
                         await asyncio.sleep(0.025)
         except TimeoutError:
@@ -384,8 +476,10 @@ class TemporalService:
         kind: str,
         payload: JsonValue,
         headers: MutableMapping[str, str] | None = None,
+        *,
+        http_request: HttpRequestEvidence | None = None,
     ) -> JsonValue:
-        job = self.accept(ctx, kind, payload)
+        job = await asyncio.to_thread(self.accept, ctx, kind, payload, http_request=http_request)
         if headers is not None:
             headers["Location"] = f"/p3/operations/{job.job_id}"
             headers["X-P3-Job-ID"] = job.job_id
@@ -399,9 +493,20 @@ class TemporalService:
         data: bytes,
         media_type: str,
         headers: MutableMapping[str, str] | None = None,
+        *,
+        http_request: HttpRequestEvidence | None = None,
     ) -> JsonValue:
         self.require_ready()
-        blob = self.inputs.persist(ctx, ctx.operation_id + ":blob", data, media_type)
+        await asyncio.to_thread(
+            self.check_client_admission,
+            ctx,
+            "remember.document",
+            http_request,
+            {"document_id": document_id},
+        )
+        blob = await asyncio.to_thread(
+            self.inputs.persist, ctx, ctx.operation_id + ":blob", data, media_type
+        )
         return await self.execute(
             ctx,
             "remember.document",
@@ -412,4 +517,5 @@ class TemporalService:
                 "blob_ref": blob.model_dump(mode="json"),
             },
             headers,
+            http_request=http_request,
         )

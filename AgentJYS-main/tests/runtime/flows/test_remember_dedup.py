@@ -7,14 +7,16 @@ from remember_helpers import app as app
 from remember_helpers import context, drain, facts, save, source
 
 from aether_agent_memory.remember.basic.comparison import ComparisonDecision
+from aether_agent_memory.remember.basic.content import Bodies
 from aether_agent_memory.remember.basic.dedup import canonical_text
+from aether_agent_memory.remember.basic.policy import RememberPolicy
 from aether_agent_memory.remember.contracts.models import (
     CandidateFact,
     ExtractionResult,
     RememberRequest,
     TextInput,
 )
-from aether_agent_memory.runtime.contracts.models import ScopeSelector
+from aether_agent_memory.runtime.contracts.models import Scope, ScopeSelector
 from aether_agent_memory.runtime.foundation.common import FoundationError, later
 
 
@@ -23,11 +25,12 @@ class AlwaysCreate:
         return ComparisonDecision(outcome="create", reason="adversarial_create")
 
 
-def test_concurrent_spool_winner_requires_exact_bytes_and_removes_temporary(app, monkeypatch):
+def test_concurrent_spool_winner_requires_exact_bytes_and_removes_temporary(tmp_path, monkeypatch):
     import os
 
-    bodies = app.remember.bodies
-    scope = context(app).principal.home_scope
+    # This tests local publication itself; the P2-backed runtime never spools authority.
+    bodies = Bodies(tmp_path / "local-spool", RememberPolicy())
+    scope = Scope(tenant_id="test", application_id="app", user_id="alice", agent_id="agent")
     location = bodies.location(scope, "same immutable text")
 
     def race(temporary, target):

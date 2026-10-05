@@ -1,4 +1,5 @@
 import { scenarioIds, type RunSnapshot, type ScenarioId, type Scenarios } from "./types";
+import { requestMilliseconds } from "./budgets";
 
 const base = "/p4-api/api/v1/demo";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -94,7 +95,7 @@ async function request(path: string, method: "GET" | "POST", signal?: AbortSigna
   const abort = () => controller.abort();
   signal?.addEventListener("abort", abort, { once: true });
   if (signal?.aborted) abort();
-  const timer = window.setTimeout(abort, 5000);
+  const timer = window.setTimeout(abort, requestMilliseconds);
   try {
     const response = await fetch(base + path, {
       method, credentials: "omit", cache: "no-store", signal: controller.signal,

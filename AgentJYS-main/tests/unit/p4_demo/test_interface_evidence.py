@@ -39,7 +39,7 @@ def test_gate_only_credits_real_responses_from_fully_passed_tests(tmp_path):
             import httpx
             import pytest
             from fastapi.testclient import TestClient
-            from aether_agent_memory.runtime.flows.application import Service
+            from azure_component_service import Service
             from integration.test_p4_demo_temporal import configuration
 
             @pytest.fixture
@@ -107,6 +107,10 @@ def test_gate_only_credits_real_responses_from_fully_passed_tests(tmp_path):
         from pathlib import Path
         import pytest
         from validate_demo_interfaces import Evidence
+        from azure_test_runtime import OwnedResources, _resources
+
+        resources = OwnedResources()
+        token = _resources.set(resources)
 
         names = (
             "real", "unauthorized_is_not_normal_success", "mock",
@@ -121,6 +125,8 @@ def test_gate_only_credits_real_responses_from_fully_passed_tests(tmp_path):
         Path("evidence.json").write_text(
             json.dumps(evidence.summary(int(result))), encoding="utf-8"
         )
+        resources.close()
+        _resources.reset(token)
         """
     )
     result = subprocess.run(
@@ -129,7 +135,8 @@ def test_gate_only_credits_real_responses_from_fully_passed_tests(tmp_path):
         env={
             **os.environ,
             "PYTHONPATH": os.pathsep.join(
-                (str(ROOT / "scripts/p3"), str(ROOT / "tests"), str(ROOT / "src"))
+                (str(ROOT / "scripts/p3"), str(ROOT / "tests"), str(ROOT / "src"),
+                 os.environ.get("PYTHONPATH", ""))
             ),
             "PYTHONUTF8": "1",
         },

@@ -1,0 +1,5 @@
+FROM temporalio/admin-tools@sha256:8bb84e24db4336de48031a66dbda25a7477d300736fe825893e467042135da1f AS tools
+FROM temporalio/server@sha256:ca47d4de249b9cc28137628dba77ae5e75e8b313ebb5c801c64615c1c99cbb09
+# The server image does not include the CLI required for an mTLS health check.
+COPY --from=tools /usr/local/bin/temporal /usr/local/bin/temporal
+USER 1000:1000

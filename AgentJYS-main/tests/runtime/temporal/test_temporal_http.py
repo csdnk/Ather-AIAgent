@@ -9,8 +9,8 @@ import yaml
 from fastapi.testclient import TestClient
 
 from aether_agent_memory.runtime.contracts.models import Permission
-from aether_agent_memory.runtime.flows.application import Service
-from aether_agent_memory.runtime.flows.config import ServiceConfiguration
+from azure_component_service import Service
+from component_configuration import ComponentConfiguration as ServiceConfiguration
 
 
 def configuration(tmp_path, endpoint):
@@ -47,7 +47,7 @@ def configuration(tmp_path, endpoint):
     return ServiceConfiguration(
         data_dir=tmp_path / "state",
         identity_file=identity,
-        embedding_profile="lexical",
+        embedding_profile="injected",
         periodic_seconds=0.2,
         poll_seconds=0.02,
         identity_reload_seconds=0.1,
@@ -63,6 +63,25 @@ def configuration(tmp_path, endpoint):
 
 def headers(user="alice"):
     return {"Authorization": "Bearer " + user, "X-Operation-ID": "same-command"}
+
+
+def test_capability_catalog_reports_current_p2_without_direct_store_fields(
+    tmp_path, temporal_server
+):
+    config = configuration(tmp_path, temporal_server.endpoint)
+    # No legacy Ceph field exists on the consumer's deployment configuration.
+    assert not hasattr(config, "ceph")
+    service = Service(config)
+    with TestClient(service.app(), raise_server_exceptions=False) as client:
+        response = client.get("/p3/capabilities", headers=headers())
+        assert response.status_code == 200, response.text
+        capabilities = response.json()
+        assert capabilities["storage_mode"] == "component"
+        assert capabilities["metadata_storage"] == "postgresql"
+        assert capabilities["telemetry_storage"] == "postgresql"
+        assert capabilities["executor"] == "redis_hot_cache"
+        assert capabilities["production_ready"] is False
+        assert capabilities["object_storage"] == "ceph"
 
 
 def request():
@@ -133,8 +152,16 @@ def test_http_wait_timeout_preserves_workflow(tmp_path, temporal_server, monkeyp
         result = wait_result(client, location)
         assert result.status_code == 200, result.text
         repeated = client.post("/p3/remember", json=request(), headers=headers())
+        assert repeated.headers["x-p3-job-id"] == response.headers["x-p3-job-id"]
+        assert repeated.headers["location"] == location
+        if repeated.status_code == 400:
+            assert repeated.json()["code"] == "REQUEST_IN_PROGRESS", repeated.text
+            repeated = wait_result(client, location)
         assert repeated.status_code == 200, repeated.text
         assert repeated.json() == result.json()
+        with service.runtime.foundation.uow.transaction() as tx:
+            saves = [row for _, row in tx.rows("tasks") if row["record"]["kind"] == "remember.save"]
+            assert len(saves) == 1
         assert workflow_cancel_count == 0
         assert client.get("/p3/readyz").status_code == 200
         assert client.get("/p3/runtime", headers=headers()).json()["worker_state"] == "available"

@@ -20,14 +20,23 @@ from aether_p4_simulator.validation.calls import ROUTES
 
 ROOT = Path(__file__).resolve().parents[2]
 TESTS = (
+    "tests/integration/test_client_recovery_inputs.py"
+    "::test_confirm_original_input_preserves_writer_bytes_journal_and_hold",
+    "tests/integration/test_p4_initialization_recovery.py"
+    "::test_original_initialization_runs_to_completion_without_recapturing_definition",
+    "tests/integration/test_p4_initialization_process.py"
+    "::test_new_process_resumes_original_initialization_after_old_process_is_killed",
+    "tests/integration/test_client_initialization.py"
+    "::test_confirmation_preserves_hold_binding_writer_and_run",
+    "tests/integration/test_client_recovery_reads.py"
+    "::test_recovery_read_preserves_original_pending_or_ready_object",
     "tests/runtime/flows/test_tenant_observability.py"
     "::test_browser_login_disabled_keeps_static_identity_available",
     "tests/runtime/flows/test_tenant_observability.py"
     "::test_browser_configuration_exposes_only_public_client_fields",
     "tests/runtime/flows/test_tenant_observability.py"
     "::test_current_identity_ignores_client_tenant_and_permission_claims",
-    "tests/integration/test_p4_demo_handoff.py"
-    "::test_inventory_matches_registered_p3_method_paths",
+    "tests/integration/test_p4_demo_handoff.py::test_inventory_matches_registered_p3_method_paths",
     "tests/integration/test_p4_demo_handoff.py"
     "::test_operational_http_restore_is_isolated_and_version_checked",
     "tests/integration/test_p4_demo_stories.py::test_fixed_story_real_results",
@@ -60,8 +69,13 @@ TESTS = (
     "::test_monitor_catalogs_page_and_filter_without_exposing_bodies",
     "tests/integration/test_monitor_catalogs.py"
     "::test_monitor_catalogs_enforce_auth_scope_and_cursor_binding",
-    "tests/integration/test_rf_completion.py"
-    "::test_automatic_cache_repair_and_independent_readback",
+    "tests/integration/test_rf_completion.py::test_automatic_cache_repair_and_independent_readback",
+    "tests/integration/test_p4_reconciliation.py"
+    "::test_all_six_original_story_journals_are_read_without_replaying",
+    "tests/integration/test_client_transfers.py"
+    "::test_transfer_receipt_preserves_original_snapshot_head_and_survives_restart",
+    "tests/integration/test_client_recovery_safety.py"
+    "::test_original_activation_receipt_survives_restart_and_cannot_rewind_later_owner",
 )
 
 
@@ -83,9 +97,7 @@ class Evidence:
 
     def pytest_collection_modifyitems(self, items):
         self.collected = {
-            item.nodeid
-            for item in items
-            if item.nodeid.split("[", 1)[0] in self.tests
+            item.nodeid for item in items if item.nodeid.split("[", 1)[0] in self.tests
         }
 
     def pytest_runtest_logstart(self, nodeid, location):
@@ -175,21 +187,18 @@ class Evidence:
                 }
             )
         missing = [
-            {"method": row["method"], "path": row["path"]}
-            for row in rows
-            if not row["verified"]
+            {"method": row["method"], "path": row["path"]} for row in rows if not row["verified"]
         ]
         incomplete = sorted(self.collected - passed)
-        not_collected = sorted(
-            self.tests - {case.split("[", 1)[0] for case in self.collected}
-        )
+        not_collected = sorted(self.tests - {case.split("[", 1)[0] for case in self.collected})
         return {
             "status": "passed"
             if not (exit_code or missing or incomplete or not_collected)
             else "incomplete",
             "boundary": "P3 ASGI routes + test-owned Temporal; P4 story tests also use TCP",
             "limitations": [
-                "Lexical/local providers are not real P2, vector/Milvus or model acceptance.",
+                "Current P2 calls require its configured endpoint; reference metadata/cache "
+                "and model helpers do not certify formal P2 storage or production acceptance.",
                 "S4 provider_unavailable is an expected blocked outcome, not model success.",
                 "The successful distill-result test uses a deterministic test-only provider.",
                 "A 410 on the retired maintenance route is rejection, not executed maintenance.",

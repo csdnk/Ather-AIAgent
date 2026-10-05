@@ -19,9 +19,9 @@ from aether_agent_memory.runtime.contracts.models import (
     TaskRecord,
     TrustedContext,
 )
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 from .common import fingerprint, later
-from .storage import SQLiteTransaction
 
 if TYPE_CHECKING:
     from .tasks import Tasks
@@ -33,7 +33,7 @@ class TaskProgress:
 
     def part(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         ctx: TrustedContext,
         task: TaskRecord,
         stage: str,
@@ -102,7 +102,7 @@ class TaskProgress:
 
     def defer(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         ctx: TrustedContext,
         task: TaskRecord,
         dependency: str,
@@ -135,7 +135,11 @@ class TaskProgress:
         )
 
     def checkpoint(
-        self, tx: SQLiteTransaction, ctx: TrustedContext, task: TaskRecord, record: CheckpointRecord
+        self,
+        tx: MetadataTransaction,
+        ctx: TrustedContext,
+        task: TaskRecord,
+        record: CheckpointRecord,
     ) -> None:
         _, current = self.tasks.guard(tx, task)
         self.tasks.identity.authorize(
@@ -164,7 +168,7 @@ class TaskProgress:
         tx.before_commit.append(lambda: self.tasks.identity.revalidate(tx, ctx))
 
     def wait(
-        self, tx: SQLiteTransaction, ctx: TrustedContext, task: TaskRecord, record: TaskWaitRecord
+        self, tx: MetadataTransaction, ctx: TrustedContext, task: TaskRecord, record: TaskWaitRecord
     ) -> None:
         row, current = self.tasks.guard(tx, task)
         self.tasks.identity.authorize(
@@ -222,7 +226,7 @@ class TaskProgress:
 
     def heartbeat(
         self,
-        tx: SQLiteTransaction,
+        tx: MetadataTransaction,
         worker_id: str,
         execution_class: str,
         *,
