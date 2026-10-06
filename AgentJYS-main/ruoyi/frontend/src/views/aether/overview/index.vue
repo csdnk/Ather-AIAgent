@@ -1,7 +1,9 @@
 <template>
   <ContentWrap>
     <div class="header"
-      ><div><h1>Aether 运行总览</h1><p>请求、记忆与基础服务的当前运行情况</p></div
+      ><div
+        ><h1>Aether 运行总览</h1
+        ><p>先看服务是否可用，再看需要处理的请求和告警。统计范围为最近 24 小时。</p></div
       ><el-button :loading="loading" @click="load">刷新数据</el-button></div
     >
     <el-alert v-if="error" :title="error" type="error" :closable="false" class="mb-4" />
@@ -13,9 +15,15 @@
     />
     <template v-else>
       <div class="stamp"
-        >采集时间 {{ data.observed_at || '未知' }} · {{ data.status || '未知' }} · 统计窗口 24
-        小时</div
+        >最近更新 {{ formatTime(data.observed_at) }} · {{ statusText(data.status) }}</div
       >
+      <el-alert
+        :title="attention"
+        :type="needsAttention ? 'warning' : 'info'"
+        :closable="false"
+        show-icon
+        class="mb-4"
+      />
       <div class="metrics"
         ><el-card v-for="card in cards" :key="card.key" shadow="never"
           ><div class="caption">{{ card.label }}</div
@@ -24,33 +32,62 @@
       >
       <div class="panels"
         ><el-card shadow="never"
-          ><template #header>基础服务</template
-          ><el-descriptions :column="1" border
-            ><el-descriptions-item
-              v-for="(value, key) in data.p3 || { status: '当前权限未提供基础服务数据' }"
-              :key="key"
-              :label="String(key)"
-              >{{ displayValue(value) }}</el-descriptions-item
-            ></el-descriptions
-          ></el-card
-        >
+          ><template #header>服务可用性</template>
+          <p>业务接入：{{ statusText(data.p3?.readiness) }}。检查结果只反映采集时刻。</p>
+          <div v-for="(item, index) in healthItems(data.p3)" :key="index" class="service-row">
+            <div
+              ><strong>{{ item.label }}</strong
+              ><p>{{ item.note }}</p></div
+            >
+            <el-tag :type="item.text === '可用' ? 'success' : 'info'">{{ item.text }}</el-tag>
+          </div>
+          <el-collapse
+            ><el-collapse-item title="查看服务技术详情" name="raw">
+              <pre>{{ JSON.stringify(data.p3, null, 2) }}</pre>
+            </el-collapse-item></el-collapse
+          >
+        </el-card>
         <el-card shadow="never"
-          ><template #header>最近告警</template
-          ><el-table :data="data.alerts || []" empty-text="当前无告警记录"
-            ><el-table-column prop="metric" label="指标" /><el-table-column
-              prop="state"
-              label="状态" /><el-table-column prop="value" label="当前值" /><el-table-column
-              prop="last_seen"
-              label="最近触发"
-              min-width="180" /></el-table></el-card
-      ></div>
+          ><template #header>最近告警与处理建议</template>
+          <el-table :data="data.alerts || []" empty-text="当前没有告警记录">
+            <el-table-column label="异常项目" min-width="150"
+              ><template #default="scope">{{
+                readable(scope.row.metric)
+              }}</template></el-table-column
+            >
+            <el-table-column label="处理状态" min-width="110"
+              ><template #default="scope">{{
+                statusText(scope.row.state)
+              }}</template></el-table-column
+            >
+            <el-table-column label="情况说明" min-width="260"
+              ><template #default="scope">{{
+                explainRow('incidents', scope.row)
+              }}</template></el-table-column
+            >
+            <el-table-column label="最近触发" min-width="180"
+              ><template #default="scope">{{
+                formatTime(scope.row.last_seen)
+              }}</template></el-table-column
+            >
+          </el-table>
+          <p class="stamp">已恢复的告警保留供追溯；失败请求数包含统计窗口内的历史失败。</p>
+        </el-card>
+      </div>
     </template>
   </ContentWrap>
 </template>
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { getIdentity, getOperations } from '@/api/aether'
-import { displayValue } from '../operations.mjs'
+import {
+  explainRow,
+  formatTime,
+  healthItems,
+  metricTotal,
+  readable,
+  statusText
+} from '../presentation.mjs'
 const data = ref<any>({}),
   error = ref(''),
   loading = ref(false),
@@ -63,10 +100,20 @@ const cards = [
   { key: 'saved', label: '记忆已保存' }
 ]
 function metric(key: string) {
-  const rows = data.value.usage?.items
-  if (!Array.isArray(rows)) return '未知'
-  return rows.reduce((sum: number, row: any) => sum + Number(row[key] || 0), 0)
+  return metricTotal(data.value, key)
 }
+const needsAttention = computed(
+  () =>
+    data.value.status !== 'ok' ||
+    (data.value.alerts || []).some((row: any) => row.state !== 'resolved')
+)
+const attention = computed(() => {
+  if (data.value.status !== 'ok') return '部分运行数据尚未确认，请先刷新并检查服务连接。'
+  const count = (data.value.alerts || []).filter((row: any) => row.state !== 'resolved').length
+  return count
+    ? `有 ${count} 条告警尚未恢复，请优先查看下方告警记录。`
+    : '当前没有未恢复的告警。请继续关注失败请求及记忆保存进度。'
+})
 async function load() {
   loading.value = true
   error.value = ''
@@ -75,7 +122,8 @@ async function load() {
     forbidden.value = !who.permissions?.includes('aether:ops:read')
     if (!forbidden.value) data.value = await getOperations('overview')
   } catch (e: any) {
-    error.value = e?.message || String(e)
+    error.value = '暂时无法读取运行情况，请检查登录状态和服务连接后刷新。'
+    data.value = {}
   } finally {
     loading.value = false
   }
@@ -83,6 +131,22 @@ async function load() {
 onMounted(load)
 </script>
 <style scoped>
+.service-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+.service-row p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .header {
   display: flex;
   justify-content: space-between;

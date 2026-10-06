@@ -1,5 +1,10 @@
 <template>
-  <doc-alert title="SaaS 多租户" url="https://doc.iocoder.cn/saas-tenant/" />
+  <ContentWrap
+    ><h2>租户管理</h2
+    ><p
+      >一个租户对应一家企业或一个独立团队，账号和业务数据按租户隔离。停用租户后，该租户的人员无法登录；演示企业均在名称中标明。</p
+    ></ContentWrap
+  >
 
   <!-- 搜索 -->
   <ContentWrap>
@@ -10,7 +15,7 @@
       :inline="true"
       label-width="68px"
     >
-      <el-form-item label="租户名" prop="name">
+      <el-form-item label="企业 / 团队名称" prop="name">
         <el-input
           v-model="queryParams.name"
           placeholder="请输入租户名"
@@ -110,11 +115,10 @@
   <ContentWrap>
     <el-table v-loading="loading" :data="list" @selection-change="handleRowCheckboxChange">
       <el-table-column type="selection" width="55" />
-      <el-table-column label="租户编号" align="center" prop="id" />
-      <el-table-column label="租户名" align="center" prop="name" />
-      <el-table-column label="租户套餐" align="center" prop="packageId">
+      <el-table-column label="企业 / 团队名称" align="center" prop="name" min-width="220" />
+      <el-table-column label="租户套餐" align="center" prop="packageId" min-width="140">
         <template #default="scope">
-          <el-tag v-if="scope.row.packageId === 0" type="danger">系统租户</el-tag>
+          <el-tag v-if="scope.row.packageId === 0" type="danger">平台管理</el-tag>
           <template v-else v-for="item in packageList">
             <el-tag type="success" :key="item.id" v-if="item.id === scope.row.packageId">
               {{ item.name }}
@@ -122,11 +126,10 @@
           </template>
         </template>
       </el-table-column>
-      <el-table-column label="联系人" align="center" prop="contactName" />
-      <el-table-column label="联系手机" align="center" prop="contactMobile" />
-      <el-table-column label="账号额度" align="center" prop="accountCount">
+      <el-table-column label="联系人" align="center" prop="contactName" min-width="100" />
+      <el-table-column label="可开通账号数" align="center" prop="accountCount" min-width="120">
         <template #default="scope">
-          <el-tag>{{ scope.row.accountCount }}</el-tag>
+          <el-tag>最多 {{ scope.row.accountCount }} 人</el-tag>
         </template>
       </el-table-column>
       <el-table-column
@@ -136,26 +139,11 @@
         width="180"
         :formatter="dateFormatter"
       />
-      <el-table-column label="绑定域名" align="center" prop="websites" width="180">
-        <template #default="scope">
-          <el-tag v-for="website in scope.row.websites || []" :key="website" class="mr-1 mb-1">
-            {{ website }}
-          </el-tag>
-          <span v-if="!scope.row.websites || scope.row.websites.length === 0">-</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="租户状态" align="center" prop="status">
+      <el-table-column label="租户状态" align="center" prop="status" min-width="100">
         <template #default="scope">
           <dict-tag :type="DICT_TYPE.COMMON_STATUS" :value="scope.row.status" />
         </template>
       </el-table-column>
-      <el-table-column
-        label="创建时间"
-        align="center"
-        prop="createTime"
-        width="180"
-        :formatter="dateFormatter"
-      />
       <el-table-column label="操作" align="center" min-width="110" fixed="right">
         <template #default="scope">
           <el-button

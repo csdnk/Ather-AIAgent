@@ -1,7 +1,10 @@
 <template>
-  <doc-alert title="用户体系" url="https://doc.iocoder.cn/user-center/" />
-  <doc-alert title="三方登陆" url="https://doc.iocoder.cn/social-user/" />
-  <doc-alert title="Excel 导入导出" url="https://doc.iocoder.cn/excel-import-and-export/" />
+  <ContentWrap>
+    <h2>用户与账号</h2>
+    <p
+      >查看人员身份、账号用途和登录状态。平台管理员可通过顶部“管理范围”切换租户；停用账号可用状态筛选找到并重新启用。</p
+    >
+  </ContentWrap>
 
   <el-row :gutter="20">
     <!-- 左侧部门树 -->
@@ -20,10 +23,10 @@
           :inline="true"
           label-width="68px"
         >
-          <el-form-item label="用户名称" prop="username">
+          <el-form-item label="登录账号" prop="username">
             <el-input
               v-model="queryParams.username"
-              placeholder="请输入用户名称"
+              placeholder="请输入登录账号"
               clearable
               @keyup.enter="handleQuery"
               class="!w-240px"
@@ -106,31 +109,36 @@
       <ContentWrap>
         <el-table v-loading="loading" :data="list" @selection-change="handleRowCheckboxChange">
           <el-table-column type="selection" width="55" />
-          <el-table-column label="用户编号" align="center" key="id" prop="id" />
           <el-table-column
-            label="用户名称"
+            label="登录账号"
+            min-width="155"
             align="center"
             prop="username"
             :show-overflow-tooltip="true"
           />
           <el-table-column
-            label="用户昵称"
+            label="姓名"
+            min-width="110"
             align="center"
             prop="nickname"
             :show-overflow-tooltip="true"
           />
           <el-table-column
             label="部门"
+            min-width="110"
             align="center"
             key="deptName"
             prop="deptName"
             :show-overflow-tooltip="true"
           />
-          <el-table-column label="手机号码" align="center" prop="mobile" width="120" />
-          <el-table-column label="状态" key="status">
+          <el-table-column label="账号用途" prop="remark" min-width="220" />
+          <el-table-column label="状态" key="status" width="85">
             <template #default="scope">
               <el-switch
                 v-model="scope.row.status"
+                inline-prompt
+                active-text="启用"
+                inactive-text="停用"
                 :active-value="0"
                 :inactive-value="1"
                 @change="handleStatusChange(scope.row)"
@@ -138,14 +146,7 @@
               />
             </template>
           </el-table-column>
-          <el-table-column
-            label="创建时间"
-            align="center"
-            prop="createTime"
-            :formatter="dateFormatter"
-            width="180"
-          />
-          <el-table-column label="操作" align="center" width="160">
+          <el-table-column label="操作" align="center" width="140">
             <template #default="scope">
               <div class="flex items-center justify-center">
                 <el-button

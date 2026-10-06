@@ -9,8 +9,8 @@
     </div>
     <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon class="mb-4" />
     <el-alert
-      v-if="data.status && data.status !== 'ok'"
-      :title="`数据状态：${data.status} ${data.code || ''}`"
+      v-if="dataNotice(data)"
+      :title="dataNotice(data)"
       type="warning"
       :closable="false"
       show-icon
@@ -18,25 +18,30 @@
     />
     <el-alert
       v-if="data.scope_note || data.metering_scope"
-      :title="data.scope_note || data.metering_scope"
+      :title="scopeDescription"
       type="info"
       :closable="false"
       class="mb-4"
     />
     <div class="metadata"
-      ><span>采集时间 {{ displayValue(data.observed_at) }}</span
+      ><span>最近更新 {{ formatTime(data.observed_at) }}</span
       ><span>记录 {{ data.total ?? '未知' }}</span
       ><span v-if="resource === 'configuration'"
-        >当前 P3 配置版本
+        >当前记忆服务配置版本
         {{
           data.current_status === 'available'
             ? (data.active_snapshot?.version ?? '尚未激活')
             : '无法读取当前配置'
         }}</span
-      ><span v-if="data.window">统计窗口 {{ data.window }}</span></div
+      ><span v-if="data.window">统计窗口 最近 24 小时</span></div
     >
     <div class="toolbar actions">
-      <el-input v-model="search" clearable placeholder="筛选当前页记录" style="max-width: 280px" />
+      <el-input
+        v-model="search"
+        clearable
+        placeholder="搜索本页名称、状态、说明或编号"
+        style="max-width: 280px"
+      />
       <el-space v-if="canExecute">
         <el-button
           v-if="recordFields.length"
@@ -56,15 +61,15 @@
           v-if="resource === 'configuration'"
           :disabled="blocked || data.current_status !== 'available'"
           @click="openAction('activate')"
-          >激活 P3 配置快照</el-button
+          >启用记忆服务配置快照</el-button
         >
       </el-space>
     </div>
     <el-alert v-if="pending" type="warning" :closable="false" class="mb-4">
-      <template #title>命令 {{ pending.command_id }} · {{ pending.state }}</template>
-      <div>{{ pending.message || '命令受理与执行完成分开记录，请查询原命令结果。' }}</div>
-      <el-button size="small" @click="queryPending">查询原命令</el-button>
-      <el-button v-if="!blocked" size="small" @click="clearPending">关闭记录</el-button>
+      <template #title>{{ statusText(pending.state) }}</template>
+      <div>{{ explainRow('commands', { ...pending, status: pending.state }) }}</div>
+      <el-button size="small" @click="queryPending">查询执行结果</el-button>
+      <el-button v-if="!blocked" size="small" @click="clearPending">收起结果</el-button>
     </el-alert>
     <el-table
       v-loading="loading"
@@ -75,14 +80,15 @@
       @row-dblclick="showDetail"
     >
       <el-table-column
-        v-for="key in columns"
-        :key="key"
-        :prop="key"
-        :label="labels[key] || key"
-        min-width="150"
-        show-overflow-tooltip
+        v-for="column in columns"
+        :key="column.key"
+        :prop="column.key"
+        :label="column.label"
+        :min-width="column.key === 'explanation' ? 300 : 160"
       >
-        <template #default="scope">{{ displayValue(scope.row[key]) }}</template>
+        <template #default="scope"
+          ><span class="cell-text">{{ cellText(resource, column.key, scope.row) }}</span></template
+        >
       </el-table-column>
       <el-table-column label="操作" fixed="right" :width="resource === 'tasks' ? 250 : 180">
         <template #default="scope"
@@ -110,7 +116,7 @@
               type="primary"
               :disabled="blocked"
               @click="openAction('reconcile', scope.row)"
-              >协调</el-button
+              >核对状态</el-button
             >
             <el-button
               v-if="resource === 'incidents'"
@@ -126,7 +132,7 @@
               type="warning"
               :disabled="blocked"
               @click="openAction('silence', scope.row)"
-              >静默</el-button
+              >暂停提醒</el-button
             >
             <el-button
               v-if="resource === 'backups'"
@@ -158,15 +164,19 @@
       ><h3>通知投递</h3
       ><el-table :data="data.deliveries" border
         ><el-table-column
-          v-for="key in ['alert_id', 'channel', 'state', 'code', 'created_at']"
+          v-for="key in ['channel', 'state', 'code', 'created_at']"
           :key="key"
           :prop="key"
           :label="labels[key] || key"
           min-width="140"
-          show-overflow-tooltip /></el-table
-    ></template>
+          ><template #default="scope">{{
+            cellText(resource, key, scope.row)
+          }}</template></el-table-column
+        ></el-table
+      ></template
+    >
     <template v-if="resource === 'usage' && data.model_usage"
-      ><h3>模型计量</h3><p>{{ data.metering_status }}</p
+      ><h3>模型调用用量</h3><p>{{ statusText(data.metering_status) }}</p
       ><el-table :data="data.model_usage" border
         ><el-table-column
           v-for="key in [
@@ -182,7 +192,9 @@
           :prop="key"
           :label="labels[key] || key"
           min-width="140"
-          ><template #default="scope">{{ displayValue(scope.row[key]) }}</template></el-table-column
+          ><template #default="scope">{{
+            cellText(resource, key, scope.row)
+          }}</template></el-table-column
         ></el-table
       ></template
     >
@@ -199,9 +211,21 @@
         class="mb-4"
       />
       <el-form label-position="top">
-        <el-form-item label="记录 / 任务编号"
-          ><el-input v-model="form.target_id" :disabled="editing"
-        /></el-form-item>
+        <el-form-item v-if="resource === 'quotas'" label="企业 / 团队">
+          <el-select
+            v-model="form.target_id"
+            :disabled="editing"
+            placeholder="请选择需要配置用量上限的企业"
+            class="w-full"
+          >
+            <el-option
+              v-for="tenant in data.tenant_choices || []"
+              :key="tenant.id"
+              :label="tenant.name"
+              :value="tenant.id"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item v-if="action === 'save' && editing" label="当前版本"
           ><el-input :model-value="String(form.expected_version)" disabled
         /></el-form-item>
@@ -226,6 +250,17 @@
                 label="最早积压时长（秒）"
                 value="oldest_pending_seconds"
             /></el-select>
+            <el-select
+              v-else-if="['state', 'status', 'severity'].includes(field)"
+              v-model="form.parameters[field]"
+            >
+              <el-option
+                v-for="option in formOptions[field]"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
             <el-input
               v-else
               v-model="form.parameters[field]"
@@ -241,11 +276,11 @@
         <el-form-item v-if="['acknowledge', 'silence'].includes(action)" label="处置说明"
           ><el-input v-model="form.parameters.note" type="textarea"
         /></el-form-item>
-        <el-form-item v-if="action === 'silence'" label="静默分钟数"
+        <el-form-item v-if="action === 'silence'" label="暂停提醒时长（分钟）"
           ><el-input-number v-model="form.parameters.minutes" :min="1" :max="1440"
         /></el-form-item>
         <template v-if="action === 'activate'"
-          ><el-form-item label="当前 P3 配置版本"
+          ><el-form-item label="当前记忆服务配置版本"
             ><el-input
               :model-value="form.expected_version ?? ''"
               placeholder="尚未激活时留空"
@@ -259,29 +294,41 @@
       <template #footer
         ><el-button @click="dialog = false">取消</el-button
         ><el-button type="primary" :loading="submitting" :disabled="blocked" @click="submit"
-          >提交一次</el-button
+          >确认提交</el-button
         ></template
       >
     </el-dialog>
-    <el-drawer v-model="detailOpen" title="记录详情" size="55%"
-      ><el-descriptions :column="1" border
-        ><el-descriptions-item
-          v-for="(value, key) in detail"
-          :key="key"
-          :label="labels[key] || String(key)"
-        >
-          <pre>{{
-            typeof value === 'object' && value !== null
-              ? JSON.stringify(value, null, 2)
-              : displayValue(value)
-          }}</pre>
-        </el-descriptions-item></el-descriptions
-      ></el-drawer
-    >
+    <el-drawer v-model="detailOpen" title="处理详情" size="60%">
+      <el-alert
+        :title="explainRow(resource, detail)"
+        type="info"
+        :closable="false"
+        show-icon
+        class="mb-4"
+      />
+      <el-descriptions :column="1" border>
+        <el-descriptions-item v-for="column in columns" :key="column.key" :label="column.label">
+          {{ cellText(resource, column.key, detail) }}
+        </el-descriptions-item>
+      </el-descriptions>
+      <el-collapse class="mt-4">
+        <el-collapse-item title="技术详情（编号、错误码与原始回执，供排障使用）" name="technical">
+          <pre>{{ JSON.stringify(detail, null, 2) }}</pre>
+        </el-collapse-item>
+      </el-collapse>
+    </el-drawer>
   </ContentWrap>
 </template>
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import {
+  cellText,
+  columnsFor,
+  dataNotice,
+  explainRow,
+  formatTime,
+  statusText
+} from './presentation.mjs'
 import { getIdentity, getOperations, sendCommand } from '@/api/aether'
 import {
   commandLookupParams,
@@ -312,6 +359,24 @@ const blocked = computed(() => !maySubmit(pending.value))
 const canExecute = computed(() =>
   identity.value.permissions.includes(`aether:${props.resource}:execute`)
 )
+const formOptions: Record<string, { label: string; value: string }[]> = {
+  state: [
+    { label: '待处理', value: 'open' },
+    { label: '处理中', value: 'in_progress' },
+    { label: '已解决', value: 'resolved' }
+  ],
+  status: [
+    { label: '运行中（登记）', value: 'running' },
+    { label: '已停止（登记）', value: 'stopped' },
+    { label: '维护中（登记）', value: 'maintenance' }
+  ],
+  severity: [
+    { label: '低', value: 'low' },
+    { label: '中', value: 'medium' },
+    { label: '高', value: 'high' },
+    { label: '紧急', value: 'critical' }
+  ]
+}
 const fields: Record<string, string[]> = {
   quotas: ['daily_requests', 'concurrent_turns', 'observed_token_budget'],
   resources: ['name', 'kind', 'environment', 'owner', 'purpose', 'dependency_ids', 'status'],
@@ -366,13 +431,13 @@ const labels: Record<string, string> = {
   first_token_p95_ms: '首字 P95（毫秒）',
   model_name: '模型',
   measured_attempts: '已计量尝试（含重试）',
-  prompt_tokens: '输入 Token',
-  completion_tokens: '输出 Token',
-  total_tokens: '总 Token',
+  prompt_tokens: '输入文本用量',
+  completion_tokens: '输出文本用量',
+  total_tokens: '文本总用量',
   estimated_cost: '估算费用',
   currency: '币种',
   alert_id: '告警编号',
-  channel: '渠道',
+  channel: '通知类型',
   code: '结果码',
   memory_evidence: '记忆回执',
   last_seen: '最近触发',
@@ -381,27 +446,28 @@ const labels: Record<string, string> = {
 const actionNames: Record<string, string> = {
   save: '维护记录',
   cancel: '取消任务',
-  reconcile: '协调任务',
+  reconcile: '核对任务状态',
   acknowledge: '认领告警',
-  silence: '维护静默',
+  silence: '暂时停止告警提醒',
   create: '创建备份',
   restore_drill: '隔离恢复演练',
-  activate: '激活 P3 配置快照'
+  activate: '启用记忆服务配置快照'
 }
 const rows = computed(() => normalizeRows(data.value))
-const columns = computed(
-  () =>
-    Array.from(new Set(rows.value.flatMap((row: any) => Object.keys(row))))
-      .filter((key: any) => !['fingerprint', 'payload', 'result', 'memory_evidence'].includes(key))
-      .slice(0, 12) as string[]
+const columns = computed(() => columnsFor(props.resource))
+const scopeDescription = computed(() =>
+  props.resource === 'usage'
+    ? '统计最近 24 小时内模型服务已返回的用量，包含重试；尚未计量的请求和记忆服务内部调用未计入。费用未配置时显示未知。'
+    : data.value.scope_note
 )
 const visibleRows = computed(() =>
   rows.value.filter(
     (row: any) =>
       !search.value ||
-      Object.values(row).some((value) =>
-        displayValue(value).toLowerCase().includes(search.value.toLowerCase())
-      )
+      [
+        ...columns.value.map((column: any) => cellText(props.resource, column.key, row)),
+        JSON.stringify(row)
+      ].some((value) => value.toLowerCase().includes(search.value.toLowerCase()))
   )
 )
 function persist() {
@@ -425,7 +491,7 @@ async function load() {
         : { limit: 50, offset: (page.value - 1) * 50 }
     )
   } catch (e: any) {
-    error.value = e?.message || String(e)
+    error.value = '操作暂时无法完成，请检查登录状态和服务连接后重试。'
     data.value = { status: 'unavailable' }
   } finally {
     loading.value = false
@@ -449,7 +515,7 @@ function showDetail(row: any) {
 function editRecord(row?: any) {
   action.value = 'save'
   editing.value = !!row
-  form.target_id = row?.id || ''
+  form.target_id = row?.id || (props.resource === 'quotas' ? '' : crypto.randomUUID())
   form.expected_version = row?.version ?? null
   form.parameters = {}
   for (const key of recordFields.value) {
@@ -469,7 +535,7 @@ function openAction(value: string, row?: any) {
   if (value === 'activate' && data.value.current_status !== 'available') return
   action.value = value
   editing.value = !!row
-  form.target_id = row?.task_id || row?.id || ''
+  form.target_id = row?.task_id || row?.id || crypto.randomUUID()
   form.expected_version =
     value === 'activate'
       ? (data.value.active_snapshot?.version ?? null)
@@ -515,7 +581,7 @@ async function submit() {
     }
     persist()
   } catch (e: any) {
-    error.value = e?.message || String(e)
+    error.value = '操作暂时无法完成，请检查登录状态和服务连接后重试。'
   } finally {
     submitting.value = false
   }
@@ -533,7 +599,7 @@ async function queryPending() {
       persist()
     } else error.value = '原命令尚未出现在查询结果中，状态仍未知。'
   } catch (e: any) {
-    error.value = e?.message || String(e)
+    error.value = '操作暂时无法完成，请检查登录状态和服务连接后重试。'
   }
 }
 onMounted(async () => {
@@ -542,7 +608,7 @@ onMounted(async () => {
     const stored = sessionStorage.getItem(storageKey.value)
     if (stored) pending.value = JSON.parse(stored)
   } catch (e: any) {
-    error.value = e?.message || String(e)
+    error.value = '操作暂时无法完成，请检查登录状态和服务连接后重试。'
   }
   await load()
 })
@@ -571,6 +637,11 @@ onMounted(async () => {
 }
 .actions {
   margin-bottom: 16px;
+}
+.cell-text {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
 }
 pre {
   white-space: pre-wrap;

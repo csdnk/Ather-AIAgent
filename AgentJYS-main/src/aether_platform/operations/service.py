@@ -115,6 +115,14 @@ class Operations:
         )
 
     def read(self, actor, token, resource, limit=50, offset=0, *, cursor=None):
+        from aether_platform.operations.presentation import attach_names
+
+        result = self._read(actor, token, resource, limit, offset, cursor=cursor)
+        if resource == "tasks":
+            return result  # Task metadata has no directory identities to resolve.
+        return attach_names(result, resource, actor, self.directory)
+
+    def _read(self, actor, token, resource, limit=50, offset=0, *, cursor=None):
         if resource == "requests":
             return self.requests(actor, limit, offset)
         if resource == "memories":
@@ -128,6 +136,11 @@ class Operations:
             return self.store.commands(actor, limit, offset)
         if resource in {"resources", "support", "backups", "configuration", "rules", "quotas"}:
             result = self.store.records(actor, resource, limit, offset)
+            if resource == "quotas":
+                with self.directory.connection() as conn:
+                    result["tenant_choices"] = conn.execute(
+                        "SELECT id,name FROM tenants ORDER BY name"
+                    ).fetchall()
             if resource == "configuration":
                 result["release"] = {
                     key: self.config.get("release", {}).get(key)
