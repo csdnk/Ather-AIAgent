@@ -8,7 +8,9 @@ from aether_platform.operations.models import Command, Resource
 GLOBAL_RESOURCES = {"configuration", "backups", "resources", "tasks", "rules", "quotas"}
 
 
-def install_operations(app: FastAPI, config: dict, directory: Any, verifier: Any, *, service=None):
+def install_operations(
+    app: FastAPI, config: dict, directory: Any, verifier: Any, *, service=None, console=None
+):
     if service is None:
         from aether_platform.operations.service import Operations
 
@@ -33,6 +35,10 @@ def install_operations(app: FastAPI, config: dict, directory: Any, verifier: Any
         ):
             raise HTTPException(403, "没有此操作的权限")
         return actor, token
+
+    from aether_platform.operations.console import Console, install_console
+
+    install_console(app, console or Console(config, directory), identity)
 
     @app.get("/platform-ops/v1/{resource}")
     def read(

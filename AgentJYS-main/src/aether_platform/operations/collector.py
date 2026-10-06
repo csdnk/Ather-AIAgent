@@ -66,7 +66,14 @@ class Collector:
                 "SELECT c.tenant_id,count(*) FILTER(WHERE t.status='failed' AND "
                 "t.created_at>now()-interval '15 minutes') AS failures,"
                 "COALESCE(max(EXTRACT(EPOCH FROM (now()-t.started_at))) FILTER(WHERE "
-                "t.status='pending'),0) AS oldest_pending "
+                "t.status='pending'),0) AS oldest_pending,"
+                "count(*) FILTER(WHERE t.created_at>now()-interval '15 minutes') AS turns_15m,"
+                "count(*) FILTER(WHERE t.memory_evidence->>'status'='save_failed' AND "
+                "t.created_at>now()-interval '15 minutes') AS memory_failures,"
+                "count(*) FILTER(WHERE t.memory_evidence->>'status' IN "
+                "('save_queued','saving')) AS memory_pending,"
+                "count(*) FILTER(WHERE t.status='pending' AND "
+                "t.started_at<now()-interval '10 minutes') AS stale_pending "
                 "FROM conversations c JOIN chat_turns t ON t.conversation_id=c.id GROUP BY "
                 "c.tenant_id"
             ).fetchall()
@@ -80,6 +87,10 @@ class Collector:
                 for metric, field, default in (
                     ("request_failures_15m", "failures", 0),
                     ("oldest_pending_seconds", "oldest_pending", 120),
+                    ("chat_turns_15m", "turns_15m", float("inf")),
+                    ("memory_save_failures_15m", "memory_failures", 0),
+                    ("memory_save_pending", "memory_pending", 20),
+                    ("stale_pending_requests", "stale_pending", 0),
                 ):
                     rule = rules.get(metric, {})
                     if rule.get("enabled", True):

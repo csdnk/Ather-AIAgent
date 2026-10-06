@@ -19,6 +19,9 @@ import java.util.stream.Collectors;
 public class AetherOpsGateway {
  public static final Set<String> RESOURCES=Set.of("overview","requests","tasks","memories","incidents","configuration","backups","usage","resources","support","commands","audit","rules","quotas");
  private static final Set<String> QUERY=Set.of("limit","offset","status","request_id","task_id","command_id","cursor","q","from","to");
+ private static final Set<String> CONSOLE_RESOURCES=Set.of("users","conversations","memories","recalls","diagnostics","tasks","history");
+ private static final Set<String> CONSOLE_DETAILS=Set.of("conversations","memories","recalls","tasks");
+ private static final Set<String> CONSOLE_QUERY=Set.of("limit","offset","cursor","q","user_id","tenant_id","flow","state","kind","status","from","to");
  private final String origin; private final ObjectMapper json;
  private final HttpClient http=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).followRedirects(HttpClient.Redirect.NEVER).build();
  public AetherOpsGateway(@Value("${aether.ops.base-url:http://aether-python:8000}") String origin,ObjectMapper json){
@@ -35,6 +38,13 @@ public class AetherOpsGateway {
  public JsonNode command(String bearer,JsonNode command){
   if(!command.isObject()||!command.path("command_id").asText().matches("[A-Za-z0-9_-]{8,128}")||!RESOURCES.contains(command.path("resource").asText())||!command.path("action").asText().matches("[a-z][a-z0-9_]{1,63}"))throw new IllegalArgumentException("Command requires a stable command_id, resource and action");
   return exchange("commands",bearer,command);
+ }
+ /** Target selectors are query data only. Python/P3 authorize them using the real caller. */
+ public JsonNode console(String resource,String id,String bearer,Map<String,String> query){
+  if(!CONSOLE_RESOURCES.contains(resource)||(id!=null&&(!CONSOLE_DETAILS.contains(resource)||!id.matches("[A-Za-z0-9_-]{1,128}"))))throw new IllegalArgumentException("Unknown console resource");
+  if(!CONSOLE_QUERY.containsAll(query.keySet())||query.size()>12||query.entrySet().stream().anyMatch(e->e.getValue()==null||e.getValue().length()>(e.getKey().equals("cursor")?4096:256)))throw new IllegalArgumentException("Unsupported console query");
+  String suffix=query.isEmpty()?"":"?"+query.entrySet().stream().map(e->encode(e.getKey())+"="+encode(e.getValue())).collect(Collectors.joining("&"));
+  return exchange("console/"+resource+(id==null?"":"/"+id)+suffix,bearer,null);
  }
  private JsonNode exchange(String path,String bearer,JsonNode body){
   if(bearer==null||!bearer.matches("Bearer [^\\s]{8,4096}"))throw new IllegalArgumentException("Bearer token required");

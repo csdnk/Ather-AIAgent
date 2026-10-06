@@ -129,6 +129,8 @@ class RuoyiAuthenticator:
                         "ruoyi_authority": authority,
                         "ruoyi_user_id": str(current["user_id"]),
                         "ruoyi_tenant_id": str(current["tenant_id"]),
+                        "ruoyi_roles": sorted(current.get("role_codes", [])),
+                        "ruoyi_permissions": sorted(current.get("permissions", [])),
                     },
                 )
                 tx.write(

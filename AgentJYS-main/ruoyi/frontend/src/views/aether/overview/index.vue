@@ -2,8 +2,8 @@
   <ContentWrap>
     <div class="header"
       ><div
-        ><h1>Aether 运行总览</h1
-        ><p>先看服务是否可用，再看需要处理的请求和告警。统计范围为最近 24 小时。</p></div
+        ><h1>值班总览</h1
+        ><p>先判断能否接收业务，再查看受影响请求和待处理事项。请求统计范围为最近 24 小时。</p></div
       ><el-button :loading="loading" @click="load">刷新数据</el-button></div
     >
     <el-alert v-if="error" :title="error" type="error" :closable="false" class="mb-4" />
@@ -22,6 +22,20 @@
         :type="needsAttention ? 'warning' : 'info'"
         :closable="false"
         show-icon
+        class="mb-4"
+      />
+      <div class="quick-links">
+        <el-button type="primary" @click="$router.push('/aether/business')"
+          >查找用户与记忆</el-button
+        >
+        <el-button @click="$router.push('/aether/tasks')">检查任务与调度</el-button>
+        <el-button @click="$router.push('/aether/faults')">处理异常告警</el-button>
+        <el-button @click="$router.push('/aether/history')">核对操作结果</el-button>
+      </div>
+      <el-alert
+        title="当前请求和连接观测不能覆盖全部记忆召回、长期整理、存储维护及执行器在线情况。未采集项需进入任务与业务详情核实。"
+        type="info"
+        :closable="false"
         class="mb-4"
       />
       <div class="metrics"
@@ -49,7 +63,14 @@
         </el-card>
         <el-card shadow="never"
           ><template #header>最近告警与处理建议</template>
-          <el-table :data="data.alerts || []" empty-text="当前没有告警记录">
+          <el-table
+            :data="data.alerts || []"
+            :empty-text="
+              data.status === 'ok'
+                ? '本次观测没有告警记录，未覆盖业务仍需检查'
+                : '告警观测未确认，不能判断无异常'
+            "
+          >
             <el-table-column label="异常项目" min-width="150"
               ><template #default="scope">{{
                 readable(scope.row.metric)
@@ -137,6 +158,12 @@ onMounted(load)
   gap: 16px;
   padding: 12px 0;
   border-bottom: 1px solid var(--el-border-color-lighter);
+}
+.quick-links {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 20px;
 }
 .service-row p {
   margin: 4px 0 0;

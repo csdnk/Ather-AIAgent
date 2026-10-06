@@ -36,6 +36,7 @@ class P3Client(AbstractContextManager["P3Client"]):
         transport: httpx.BaseTransport | None = None,
         wait_seconds: float = 240,
         operator: bool = False,
+        admin_read: bool = False,
         trusted_http_host: str | None = None,
     ):
         url = urlsplit(base_url)
@@ -60,13 +61,25 @@ class P3Client(AbstractContextManager["P3Client"]):
             raise ValueError(
                 "P3 requires HTTPS, loopback, or an explicitly trusted cluster service"
             )
-        if (operator and actor.role != "platform_admin") or (
+        if admin_read:
+            if (
+                operator
+                or actor.role not in {"platform_admin", "tenant_admin"}
+                or (actor.role == "tenant_admin" and not actor.tenant_id)
+            ):
+                raise P3Error("USER_IDENTITY_REQUIRED")
+        elif (operator and actor.role != "platform_admin") or (
             not operator and (actor.role != "user" or not actor.tenant_id)
         ):
             raise P3Error("USER_IDENTITY_REQUIRED")
+        self.admin_read = admin_read
         self.token = token
         self.actor, self.wait_seconds = actor, wait_seconds
-        self.tenant_id = "aether_platform_operations" if operator else actor.tenant_id
+        self.tenant_id = (
+            "aether_platform_operations"
+            if operator or (admin_read and actor.role == "platform_admin")
+            else actor.tenant_id
+        )
         assert self.tenant_id is not None
         self.http = httpx.Client(
             base_url=base_url,
@@ -93,6 +106,8 @@ class P3Client(AbstractContextManager["P3Client"]):
         media_type: str | None = None,
     ) -> Any:
         if not path.startswith("/p3/") or ".." in path or "?" in path or "#" in path:
+            raise P3Error("INVALID_ROUTE")
+        if self.admin_read and (method != "GET" or not path.startswith("/p3/admin/")):
             raise P3Error("INVALID_ROUTE")
         headers = {"X-Operation-ID": identifier(operation_id)} if operation_id else {}
         headers["Authorization"] = "Bearer " + (

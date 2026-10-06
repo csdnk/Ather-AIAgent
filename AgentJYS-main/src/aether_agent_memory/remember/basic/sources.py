@@ -14,12 +14,12 @@ from aether_agent_memory.runtime.contracts.foundation import ResourceLocation
 from aether_agent_memory.runtime.contracts.models import (
     ErrorCode,
     Flow,
-    Permission,
     RecordRef,
     Scope,
     TrustedContext,
 )
 from aether_agent_memory.runtime.foundation.common import FoundationError
+from aether_agent_memory.runtime.foundation.content_diagnostics import authorize_content_read
 from aether_agent_memory.runtime.foundation.requests import text_hash
 
 
@@ -77,10 +77,10 @@ class SourceAccess:
         row = tx.read("remember_sources", source.source_id)
         if row is None:
             raise FoundationError(ErrorCode.NOT_FOUND, "source unavailable")
-        self.owner.identity.authorize(
+        authorize_content_read(
+            self.owner.identity,
             tx,
             ctx,
-            Permission.READ,
             RecordRef(
                 owner=Flow.REMEMBER,
                 object_type="source",

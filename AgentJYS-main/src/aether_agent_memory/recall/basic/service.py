@@ -27,6 +27,10 @@ from aether_agent_memory.runtime.contracts.models import (
     TrustedContext,
 )
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
+from aether_agent_memory.runtime.foundation.content_diagnostics import (
+    authorize_content_read,
+    diagnostic_expectations,
+)
 from aether_agent_memory.runtime.foundation.events import Events
 from aether_agent_memory.runtime.foundation.identity import Identity
 from aether_agent_memory.runtime.foundation.requests import request_key, select_scope
@@ -198,7 +202,7 @@ class Recall:
             deadline_at=ctx.deadline_at,
             result_available=False,
         )
-        self.identity.authorize(tx, ctx, Permission.READ, self.ref(record))
+        authorize_content_read(self.identity, tx, ctx, self.ref(record))
         previous = tx.read("recall_requests", recall_id)
         if previous:
             if previous["signature"] != signature:
@@ -596,7 +600,7 @@ class Recall:
             if row is None:
                 raise FoundationError(ErrorCode.NOT_FOUND, "recall not found")
             record = RecallRecord.model_validate(row["record"])
-            self.identity.authorize(tx, ctx, Permission.READ, self.ref(record))
+            authorize_content_read(self.identity, tx, ctx, self.ref(record))
             return record
 
     def result(self, ctx: TrustedContext, recall_id: str) -> ContextPack:
@@ -605,7 +609,7 @@ class Recall:
             if row is None:
                 raise FoundationError(ErrorCode.NOT_FOUND, "recall not found")
             record = RecallRecord.model_validate(row["record"])
-            self.identity.authorize(tx, ctx, Permission.READ, self.ref(record))
+            authorize_content_read(self.identity, tx, ctx, self.ref(record))
             # 旧服务不能用较弱的守卫读取新流程结果；重启后必须恢复完整新 B 提供方。
             if record.state == "failed":
                 raise FoundationError(
@@ -625,7 +629,14 @@ class Recall:
                 raise FoundationError(ErrorCode.RESULT_INVALIDATED, "Working recall policy changed")
             if row.get("generation_expectations") is not None:
                 self.guard_generations(
-                    tx, ctx, ContextGuardRequest.model_validate(row["generation_expectations"])
+                    tx,
+                    ctx,
+                    diagnostic_expectations(
+                        self.identity,
+                        tx,
+                        ctx,
+                        ContextGuardRequest.model_validate(row["generation_expectations"]),
+                    ),
                 )
             eligible = self.memories.final_guard(
                 tx, ctx, tuple(i.memory for group in pack.groups for i in group.items), "recall"

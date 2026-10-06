@@ -59,6 +59,7 @@ from aether_agent_memory.runtime.contracts.models import (
 )
 from aether_agent_memory.runtime.contracts.ports import Transaction
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint, later
+from aether_agent_memory.runtime.foundation.content_diagnostics import authorize_content_read
 from aether_agent_memory.runtime.foundation.requests import select_scope, text_hash
 from aether_agent_memory.runtime.foundation.telemetry import observed
 from aether_agent_memory.runtime.foundation.transactions import native
@@ -923,7 +924,7 @@ class RememberPipeline(Revalidation):
     def processing(self, ctx: TrustedContext, memory_id: str) -> dict[str, Any]:
         with self.uow.transaction() as tx:
             item = self.current(tx, memory_id)
-            self.identity.authorize(tx, ctx, Permission.READ, memory_ref(item.ref))
+            authorize_content_read(self.identity, tx, ctx, memory_ref(item.ref))
             task_envelopes = dict(tx.rows("tasks"))
             all_rows = [row["record"] for row in task_envelopes.values()]
             memory_ids, selected_tasks = self.processing_task_closure(tx, memory_id, all_rows)
@@ -1206,7 +1207,7 @@ class RememberPipeline(Revalidation):
         def authorized_locations() -> None:
             with self.uow.transaction() as tx:
                 for ref in refs:
-                    self.identity.authorize(tx, ctx, Permission.READ, memory_ref(ref))
+                    authorize_content_read(self.identity, tx, ctx, memory_ref(ref))
                     if self.final_guard(tx, ctx, (ref,), purpose).items[0].decision != "allowed":
                         continue
                     raw = tx.get(memory_ref(ref, versioned=True))
@@ -1247,6 +1248,70 @@ class RememberPipeline(Revalidation):
         refs, cursor = await asyncio.to_thread(working_page)
         batch = await self.load_async(ctx, tuple(refs))
         return batch.model_copy(update={"next_cursor": cursor})
+
+    async def preview(
+        self, ctx: TrustedContext, ref: MemoryRef, max_chars: int = 240
+    ) -> dict[str, Any]:
+        """A bounded immutable body prefix, guarded before and after physical I/O.
+
+        The catalog never hydrates whole bodies. This is an excerpt, not a model
+        summary or a full-body integrity proof. Body detail retains full hashing.
+        """
+        if not 1 <= max_chars <= 500:
+            raise FoundationError(ErrorCode.INVALID_ARGUMENT, "preview exceeds read budget")
+        with self.uow.transaction() as tx:
+            authorize_content_read(self.identity, tx, ctx, memory_ref(ref))
+            eligible = self.final_guard(tx, ctx, (ref,), "recall").items[0]
+            if eligible.decision != "allowed":
+                return {"content": None, "status": eligible.reason}
+            raw = required_record(tx, memory_ref(ref, versioned=True))
+            if "body_location" not in raw:
+                return {"content": raw["content"][:max_chars], "status": "excerpt"}
+            location = ResourceLocation.model_validate(raw["body_location"])
+            self.bodies.check_binding(location)
+            target_chars = min(raw["body_chars"], max_chars)
+        if location.provider_id == "local":
+
+            def read_prefix() -> bytes:
+                with self.bodies.path(location).open("rb") as stream:
+                    return stream.read(max_chars * 4)
+
+            data = await asyncio.to_thread(read_prefix)
+        import codecs
+
+        try:
+            decoder = codecs.getincrementaldecoder("utf-8")()
+            if location.provider_id == "local":
+                text = decoder.decode(data, final=False)[:max_chars]
+            else:
+                # P2 ranges require an exact byte end. Without byte-length metadata,
+                # remaining characters give a safe lower bound on remaining bytes.
+                # Incremental decoding avoids dropping a short multibyte body and
+                # never asks past EOF or reads more than four bytes per preview char.
+                text, offset = "", 0
+                while len(text) < target_chars:
+                    count = min(target_chars - len(text), max_chars * 4 - offset)
+                    if count <= 0:
+                        raise ValueError("body character count differs")
+                    part = await self.bodies.p2_call(
+                        "read_range", location.object_key, offset, offset + count
+                    )
+                    if len(part) != count:
+                        raise ValueError("body range incomplete")
+                    text += decoder.decode(part, final=False)
+                    offset += count
+            if len(text) != target_chars:
+                raise ValueError("body character count differs")
+        except (ValueError, TypeError) as exc:
+            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "invalid body prefix") from exc
+        with self.uow.transaction() as tx:
+            current = self.final_guard(tx, ctx, (ref,), "recall").items[0]
+            if (
+                current.decision != "allowed"
+                or current.checked_revision != eligible.checked_revision
+            ):
+                return {"content": None, "status": "changed_during_read"}
+        return {"content": text, "status": "excerpt"}
 
     async def read_body(self, ctx: TrustedContext, ref: MemoryRef) -> FullBodyReadResult:
         await self.hydrate(ctx, (ref,))

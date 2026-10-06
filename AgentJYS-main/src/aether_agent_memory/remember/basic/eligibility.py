@@ -8,6 +8,7 @@ from aether_agent_memory.remember.contracts.models import (
     MemoryRef,
 )
 from aether_agent_memory.runtime.contracts.models import Permission, RecordRef, TrustedContext
+from aether_agent_memory.runtime.foundation.content_diagnostics import permits_content_read
 from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 from .service import Remember, memory_ref
@@ -24,7 +25,7 @@ def qualify(
     results = []
     for ref in refs:
         permission = Permission.HISTORY if purpose == "history" else Permission.READ
-        allowed = owner.identity.permits(tx, ctx, permission, memory_ref(ref))
+        allowed = permits_content_read(owner.identity, tx, ctx, permission, memory_ref(ref))
         pointer = tx.read("remember_current", ref.memory_id)
         current: dict[str, Any] | None = (
             tx.get(RecordRef.model_validate(pointer)) if pointer else None

@@ -200,6 +200,77 @@ class TemporalGateway:
                 )
         return self.execution_status(description.status, description.run_id)
 
+    async def describe_details(
+        self, binding: WorkflowBinding, *, periodic: bool = False
+    ) -> dict[str, Any]:
+        """Read current bound execution metadata; never history payloads or failures' text."""
+        status = await self.describe_periodic(binding) if periodic else await self.describe(binding)
+        if status.state == "not_found":
+            return status.model_dump(mode="json")
+        description = await self.client.get_workflow_handle(
+            binding.workflow_id, run_id=status.run_id
+        ).describe(rpc_timeout=self.timeout)
+        if (
+            (description.raw_info.first_run_id or description.run_id) != binding.first_run_id
+            or not description.task_queue.startswith(self.ledger.config.task_queue_prefix + ".")
+            or description.run_id != status.run_id
+        ):
+            raise FoundationError(
+                ErrorCode.VERSION_CONFLICT, "diagnostic execution binding differs"
+            )
+
+        def timestamp(message: Any, name: str) -> str | None:
+            return getattr(message, name).ToJsonString() if message.HasField(name) else None
+
+        activities = description.raw_description.pending_activities
+        result = {
+            **self.execution_status(description.status, description.run_id).model_dump(mode="json"),
+            "workflow_type": description.workflow_type,
+            "task_queue": description.task_queue,
+            "start_time": description.start_time.isoformat() if description.start_time else None,
+            "execution_time": description.execution_time.isoformat()
+            if description.execution_time
+            else None,
+            "close_time": description.close_time.isoformat() if description.close_time else None,
+            "pending_activities": [
+                {
+                    "activity_id": item.activity_id,
+                    "activity_type": item.activity_type.name,
+                    "state": item.state,
+                    "attempt": item.attempt,
+                    "maximum_attempts": item.maximum_attempts,
+                    "last_started_time": timestamp(item, "last_started_time"),
+                    "last_heartbeat_time": timestamp(item, "last_heartbeat_time"),
+                    "next_attempt_schedule_time": timestamp(item, "next_attempt_schedule_time"),
+                    "failure_type": item.last_failure.WhichOneof("failure_info")
+                    if item.HasField("last_failure")
+                    else None,
+                }
+                for item in activities[:100]
+            ],
+            "activities_truncated": len(activities) > 100,
+        }
+        if periodic and result["state"] == "running":
+            try:
+                state = await self.client.get_workflow_handle(
+                    binding.workflow_id, run_id=description.run_id
+                ).query("state", rpc_timeout=self.timeout)
+                result["periodic_state"] = {
+                    k: state[k]
+                    for k in (
+                        "last_tick",
+                        "cursor",
+                        "cancel_requested",
+                        "stopped",
+                        "interval_seconds",
+                    )
+                    if k in state
+                }
+                result["periodic_state_status"] = "available"
+            except Exception:
+                result["periodic_state_status"] = "unavailable"
+        return result
+
     async def describe_periodic(self, binding: WorkflowBinding) -> ExecutionStatus:
         """Resolve the live successor without requiring an expired ancestor's history."""
         self.outside_transaction()

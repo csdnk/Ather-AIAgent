@@ -453,5 +453,8 @@ def create_app(
 
         attach_routes(app, runtime.remember, trusted_dependency, execution=execution)
     app.state.trusted_dependency = trusted_dependency
+    from .admin_diagnostics import attach as attach_admin_diagnostics
+
+    attach_admin_diagnostics(app, runtime, execution)
     app.add_middleware(RequestObservability, telemetry=telemetry)
     return app

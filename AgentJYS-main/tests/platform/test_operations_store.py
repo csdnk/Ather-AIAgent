@@ -237,3 +237,134 @@ def test_configuration_timeout_reconciles_original_snapshot_without_reactivation
         ops.command_status(actor(), "token", command.command_id)["items"][0]["status"] == "complete"
     )
     assert calls == ["PUT", "GET"]
+
+
+def seed_console(store):
+    from aether_platform.chat import Conversations
+
+    directory = store.directory
+    directory.seed(
+        "console",
+        [{"id": "a", "name": "Tenant A", "enabled": True}],
+        [
+            {
+                "id": "u1",
+                "issuer": "id",
+                "subject": "u1",
+                "username": "alice",
+                "display_name": "Alice",
+                "tenant_id": "a",
+                "role": "user",
+                "enabled": True,
+            }
+        ],
+    )
+    Conversations(directory).migrate()
+    with directory.connection() as conn:
+        conn.execute(
+            "INSERT INTO conversations(id,user_id,tenant_id,title) "
+            "VALUES ('c1','u1','a','Real title')"
+        )
+        conn.execute(
+            "INSERT INTO chat_turns(id,conversation_id,input,output,status,memory_evidence) "
+            "VALUES ('t1','c1','Real question','Real answer','complete',"
+            '\'{"status":"save_failed"}\')'
+        )
+
+
+def test_console_postgresql_pagination_detail_and_audit(store):
+    from dataclasses import replace
+    from datetime import UTC, datetime
+
+    from aether_platform.auth.ruoyi import RuoyiActor
+    from aether_platform.operations.console import Console
+
+    seed_console(store)
+    admin = RuoyiActor("root", "id", "root", None, "platform_admin", 1, ("*:*:*",))
+    service = Console({}, store.directory)
+    assert service.users(admin, "", None, 1, 0)["total"] == 1
+    assert service.users(admin, "%", None, 1, 0)["total"] == 0
+    assert service.users(admin, "Ali", "a", 1, 0)["items"][0]["display_name"] == "Alice"
+    target = service.target(admin, "u1")
+    assert service.conversations(target, 1, 0)["items"][0]["turn_count"] == 1
+    assert (
+        service.conversations(
+            target,
+            1,
+            0,
+            status="complete",
+            from_time=datetime(2020, 1, 1, tzinfo=UTC),
+            to_time=datetime(2099, 1, 1, tzinfo=UTC),
+        )["total"]
+        == 1
+    )
+    assert service.conversations(target, 1, 0, status="failed")["total"] == 0
+    result = service.content(
+        admin, "conversations", "c1", "u1", lambda user: service.conversation(user, "c1", 1, 0)
+    )
+    assert result["turns"][0]["output"] == "Real answer"
+    event = service.history(admin, 1, 0)["items"][0]
+    assert event["user_name"] == "Alice" and event["reason"] == "operations_diagnosis"
+    assert (
+        service.history(replace(admin, role="tenant_admin", tenant_id="other"), 10, 0)["total"] == 0
+    )
+
+
+def test_collector_tracks_receipt_failures_and_stale_pending_without_browser(store):
+    from aether_platform.operations.collector import Collector
+
+    seed_console(store)
+    with store.directory.connection() as conn:
+        conn.execute(
+            "INSERT INTO chat_turns(id,conversation_id,input,status,started_at,memory_evidence) "
+            "VALUES ('t2','c1','Pending input','pending',now()-interval '20 minutes',"
+            '\'{"status":"save_queued"}\')'
+        )
+    Collector({}, store).collect()
+    with store.directory.connection() as conn:
+        metrics = {
+            row["metric"]: row["value"]
+            for row in conn.execute(
+                "SELECT metric,value FROM ops_samples WHERE tenant_id='a'"
+            ).fetchall()
+        }
+    assert metrics["memory_save_failures_15m"] == 1
+    assert metrics["memory_save_pending"] == 1
+    assert metrics["stale_pending_requests"] == 1
+
+
+def test_business_observations_distinguish_uncollected_and_stale(store):
+    from aether_platform.operations.console import Console
+
+    service = Console({}, store.directory)
+    assert service.business_observations(actor())["status"] == "not_collected"
+    store.observe("memory_save_pending", "a", 2, 0)
+    with store.directory.connection() as conn:
+        conn.execute("UPDATE ops_samples SET observed_at=now()-interval '10 minutes'")
+    observation = service.business_observations(actor())
+    assert observation["status"] == "stale"
+    assert observation["items"][0]["value"] == 2
+
+
+def test_console_task_names_come_from_scoped_directory_without_changing_subject(store):
+    from aether_platform.operations.console import Console
+
+    seed_console(store)
+    service = Console({}, store.directory)
+    subject = {
+        "scope": {"tenant_id": "a", "user_id": "u1", "application_id": "agent-platform"},
+        "object_type": "memory",
+        "object_id": "m1",
+    }
+
+    def remote(actor, token, path, params=None):
+        row = {"task_id": "task1", "subject": subject, "state": "failed"}
+        return {"task": row} if path.endswith("task1") else {"tasks": {"items": [row]}}
+
+    service.p3_read = remote
+    listing = service.diagnostics(actor(), "token")["tasks"]["items"][0]
+    detail = service.diagnostics(actor(), "token", "task1")["task"]
+    for row in (listing, detail):
+        assert row["tenant_id"] == "a" and row["user_id"] == "u1"
+        assert row["tenant_name"] == "Tenant A" and row["user_name"] == "Alice"
+        assert row["subject"] == subject

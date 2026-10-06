@@ -38,6 +38,14 @@ CREATE TABLE IF NOT EXISTS ops_deliveries (
  channel text NOT NULL, state text NOT NULL, code text,
  created_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS ops_content_access (
+ id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+ actor_id text NOT NULL, tenant_id text, user_id text, resource text NOT NULL,
+ target_id text, reason text NOT NULL, status text NOT NULL,
+ created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ops_content_access_scope_time
+ ON ops_content_access(tenant_id,created_at DESC);
 """
 
 

@@ -15,6 +15,9 @@ public class AetherOpsController {
  @GetMapping("/{resource}") @PreAuthorize("@aetherIdentity.hasPermission('aether:ops:read')")
  @ApiAccessLog(requestEnable=false,responseEnable=false)
  public CommonResult<JsonNode> read(@PathVariable String resource,@RequestHeader("Authorization") String bearer,@RequestParam Map<String,String> query){return success(gateway.read(resource,bearer,query));}
+ @GetMapping({"/console/{resource}","/console/{resource}/{id}"}) @PreAuthorize("@aetherIdentity.hasPermission('aether:ops:read')")
+ @ApiAccessLog(requestEnable=false,responseEnable=false)
+ public CommonResult<JsonNode> console(@PathVariable String resource,@PathVariable(required=false) String id,@RequestHeader("Authorization") String bearer,@RequestParam Map<String,String> query,jakarta.servlet.http.HttpServletResponse response){response.setHeader("Cache-Control","no-store");return success(gateway.console(resource,id,bearer,query));}
  @PostMapping("/commands") @PreAuthorize("@aetherIdentity.hasPermission('aether:ops:read')")
  @ApiAccessLog(requestEnable=false,responseEnable=false)
  public CommonResult<JsonNode> command(@RequestHeader("Authorization") String bearer,@RequestBody JsonNode body){

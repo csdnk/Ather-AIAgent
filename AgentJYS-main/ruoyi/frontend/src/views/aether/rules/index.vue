@@ -1,7 +1,4 @@
-<template>
-  <ResourcePanel resource="rules" title="告警规则" description="管理真实指标阈值与启停状态。" />
-</template>
+<template><LegacyRedirect to="faults" tab="rules" /></template>
 <script setup lang="ts">
-import ResourcePanel from '../ResourcePanel.vue'
-defineOptions({ name: 'AetherRules' })
+import LegacyRedirect from '../LegacyRedirect.vue'
 </script>

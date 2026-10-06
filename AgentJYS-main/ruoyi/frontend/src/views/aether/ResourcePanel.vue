@@ -89,6 +89,11 @@
         <template #default="scope"
           ><span class="cell-text">{{ cellText(resource, column.key, scope.row) }}</span>
           <div
+            v-if="resource === 'tasks' && column.key === 'kind' && taskAudience(scope.row)"
+            class="row-time"
+            >{{ taskAudience(scope.row) }}</div
+          >
+          <div
             v-if="
               column.key === 'explanation' && ['requests', 'tasks', 'memories'].includes(resource)
             "
@@ -286,7 +291,7 @@
         ></template>
         <template v-if="['cancel', 'reconcile'].includes(action)"
           ><el-form-item label="当前任务版本"
-            ><el-input-number v-model="form.expected_version" :min="1" /></el-form-item
+            ><el-input-number v-model="form.expected_version" :min="1" disabled /></el-form-item
           ><el-form-item label="操作原因"
             ><el-input v-model="form.parameters.reason" type="textarea" /></el-form-item
         ></template>
@@ -316,6 +321,16 @@
       >
     </el-dialog>
     <el-drawer v-model="detailOpen" title="处理详情" size="60%">
+      <template v-if="resource === 'tasks'">
+        <p v-if="taskAudience(taskDetail.task)">影响范围：{{ taskAudience(taskDetail.task) }}</p>
+        <el-alert :title="taskOutcome(taskDetail)" type="info" :closable="false" />
+        <el-alert v-if="taskDetailError" :title="taskDetailError" type="error" :closable="false" />
+        <el-button :loading="taskDetailLoading" class="mt-4" @click="loadTaskDetail"
+          >刷新执行进度</el-button
+        >
+        <EvidencePanel title="当前执行步骤" :data="taskDetail.progress" />
+        <EvidencePanel title="Temporal 工作流" :data="taskDetail.workflow" />
+      </template>
       <el-alert
         :title="explainRow(resource, detail)"
         type="info"
@@ -337,7 +352,7 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import {
   cellText,
   columnsFor,
@@ -346,7 +361,9 @@ import {
   formatTime,
   statusText
 } from './presentation.mjs'
-import { getIdentity, getOperations, sendCommand } from '@/api/aether'
+import { getIdentity, getOperations, getConsole, sendCommand } from '@/api/aether'
+import EvidencePanel from './EvidencePanel.vue'
+import { errorMessage, taskOutcome, taskAudience } from './console.mjs'
 import {
   commandLookupParams,
   createCommand,
@@ -354,7 +371,15 @@ import {
   normalizeRows,
   maySubmit
 } from './operations.mjs'
-const props = defineProps<{ resource: string; title: string; description: string }>()
+const props = defineProps<{
+  resource: string
+  title: string
+  description: string
+  taskSource?: any
+  taskLoading?: boolean
+  taskPage?: number
+}>()
+const emit = defineEmits(['refresh', 'previous', 'next'])
 const data = ref<any>({}),
   loading = ref(false),
   error = ref(''),
@@ -371,6 +396,31 @@ const detailOpen = ref(false),
   detail = ref<any>({}),
   pending = ref<any>(null)
 const cursors = ref<(string | undefined)[]>([undefined])
+watch(
+  () => props.taskSource,
+  (value) => {
+    if (value !== undefined) data.value = value
+  },
+  { immediate: true }
+)
+watch(
+  () => props.taskLoading,
+  (value) => {
+    if (props.taskSource !== undefined) loading.value = !!value
+  },
+  { immediate: true }
+)
+watch(
+  () => props.taskPage,
+  (value) => {
+    if (value) page.value = value
+  },
+  { immediate: true }
+)
+const taskDetail = ref<any>({}),
+  taskDetailError = ref(''),
+  taskDetailLoading = ref(false)
+let taskDetailRequest = 0
 const storageKey = computed(() => `aether-command:${identity.value.user_id}:${props.resource}`)
 const blocked = computed(() => !maySubmit(pending.value))
 const canExecute = computed(() =>
@@ -495,6 +545,10 @@ function clearPending() {
   sessionStorage.removeItem(storageKey.value)
 }
 async function load() {
+  if (props.taskSource !== undefined) {
+    emit('refresh')
+    return
+  }
   loading.value = true
   error.value = ''
   try {
@@ -515,11 +569,19 @@ async function load() {
   }
 }
 function nextTasks() {
+  if (props.taskSource !== undefined) {
+    emit('next')
+    return
+  }
   cursors.value[page.value] = data.value.next_cursor
   page.value++
   load()
 }
 function previousTasks() {
+  if (props.taskSource !== undefined) {
+    emit('previous')
+    return
+  }
   if (page.value > 1) {
     page.value--
     load()
@@ -528,6 +590,23 @@ function previousTasks() {
 function showDetail(row: any) {
   detail.value = row
   detailOpen.value = true
+  if (props.resource === 'tasks') loadTaskDetail()
+}
+async function loadTaskDetail() {
+  const request = ++taskDetailRequest
+  taskDetail.value = {}
+  taskDetailError.value = ''
+  taskDetailLoading.value = true
+  try {
+    const response = await getConsole(
+      `tasks/${encodeURIComponent(detail.value.task_id || detail.value.id)}`
+    )
+    if (request === taskDetailRequest) taskDetail.value = response
+  } catch (e) {
+    if (request === taskDetailRequest) taskDetailError.value = errorMessage(e)
+  } finally {
+    if (request === taskDetailRequest) taskDetailLoading.value = false
+  }
 }
 function editRecord(row?: any) {
   action.value = 'save'
@@ -563,6 +642,13 @@ function openAction(value: string, row?: any) {
 }
 async function submit() {
   if (blocked.value || !form.target_id.trim()) return
+  if (
+    ['cancel', 'reconcile'].includes(action.value) &&
+    (!form.expected_version || !form.parameters.reason?.trim())
+  ) {
+    error.value = '请填写操作原因；未取得当前任务版本时，请刷新任务后再操作。'
+    return
+  }
   if (action.value === 'activate' && data.value.current_status !== 'available') return
   submitting.value = true
   error.value = ''
@@ -627,7 +713,7 @@ onMounted(async () => {
   } catch (e: any) {
     error.value = '操作暂时无法完成，请检查登录状态和服务连接后重试。'
   }
-  await load()
+  if (props.taskSource === undefined) await load()
 })
 </script>
 <style scoped>

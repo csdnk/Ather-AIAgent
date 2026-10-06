@@ -1,11 +1,4 @@
-<template>
-  <ResourcePanel
-    resource="configuration"
-    title="配置与发布"
-    description="维护运维配置记录，显式激活 P3 配置快照。"
-  />
-</template>
+<template><LegacyRedirect to="recovery" tab="configuration" /></template>
 <script setup lang="ts">
-import ResourcePanel from '../ResourcePanel.vue'
-defineOptions({ name: 'AetherConfiguration' })
+import LegacyRedirect from '../LegacyRedirect.vue'
 </script>
