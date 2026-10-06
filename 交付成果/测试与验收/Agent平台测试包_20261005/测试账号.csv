@@ -1,0 +1,9 @@
+﻿username,display_name,tenant_id,role,enabled
+platform_admin,平台管理员（测试）,,platform_admin,True
+tenant_admin_a,青禾管理员,demo_tenant_a,tenant_admin,True
+tenant_admin_b,远帆管理员,demo_tenant_b,tenant_admin,True
+user_a,林晓（测试）,demo_tenant_a,user,True
+user_a2,陈墨（测试）,demo_tenant_a,user,True
+user_b,周宁（测试）,demo_tenant_b,user,True
+disabled_user_a,已停用用户（测试）,demo_tenant_a,user,False
+user_c,暂停租户成员（测试）,demo_tenant_c,user,True

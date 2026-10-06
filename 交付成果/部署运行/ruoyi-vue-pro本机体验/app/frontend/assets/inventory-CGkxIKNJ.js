@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t={getInventoryPage:async t=>await e.get({url:`/wms/inventory/page`,params:t}),getInventoryList:async t=>await e.get({url:`/wms/inventory/list`,params:t})};export{t};

@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=async t=>await e.post({url:`/hrm/recruit/config/eliminate-reason/save`,data:{reasons:t}}),n=async()=>await e.get({url:`/hrm/recruit/config/eliminate-reason/list`});export{t as n,n as t};

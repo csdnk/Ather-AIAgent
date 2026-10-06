@@ -1,0 +1,7 @@
+{
+  "upstream": "https://github.com/yudaocode/yudao-ui-admin-vue3",
+  "commit": "0af03a93b6b6300f878e28add69b1c7a9f09ec34",
+  "license": "MIT",
+  "tracked_file_count": 2904,
+  "import": "tracked upstream source only; no repository metadata or build output"
+}

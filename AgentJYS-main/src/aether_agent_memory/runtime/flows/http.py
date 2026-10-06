@@ -67,6 +67,7 @@ def create_app(
     close: Any = None,
     execution: Any = None,
     jwt_auth: JWTAuthenticator | None = None,
+    ruoyi_auth: Any = None,
     browser_identity: BrowserIdentityConfiguration | None = None,
     request_timeout_seconds: float = 60,
 ) -> FastAPI:
@@ -109,12 +110,17 @@ def create_app(
         if not authorization or not authorization.startswith("Bearer "):
             raise FoundationError(ErrorCode.UNAUTHENTICATED, "bearer credential required")
         identity = runtime.foundation.identity
-        try:
-            principal = identity.authenticate(authorization[7:])
-        except FoundationError as error:
-            if error.code != ErrorCode.UNAUTHENTICATED or jwt_auth is None:
-                raise
-            principal = jwt_auth.authenticate(identity, authorization[7:], x_p3_tenant)
+        authority = ruoyi_auth() if callable(ruoyi_auth) else ruoyi_auth
+        if authority is not None:
+            # In Ruoyi mode no public request may fall back to a static service token.
+            principal = authority.authenticate(identity, authorization[7:], x_p3_tenant)
+        else:
+            try:
+                principal = identity.authenticate(authorization[7:])
+            except FoundationError as error:
+                if error.code != ErrorCode.UNAUTHENTICATED or jwt_auth is None:
+                    raise
+                principal = jwt_auth.authenticate(identity, authorization[7:], x_p3_tenant)
         if x_p3_tenant is not None and principal.home_scope.tenant_id != x_p3_tenant:
             raise FoundationError(ErrorCode.FORBIDDEN, "tenant selector cannot expand membership")
         trusted = identity.context_for_principal(
@@ -125,6 +131,8 @@ def create_app(
             trace_id=request.state.trace_id,
             span_id=request.state.span_id,
         )
+        if authority is not None:
+            authority.bind_context(trusted, authorization[7:])
         request.state.context = trusted
         return trusted
 
@@ -344,6 +352,12 @@ def create_app(
             detail="Manual RF cycles are retired; use the Temporal periodic workflow",
         )
 
+    @app.get("/p3/configuration", response_model=ConfigurationSnapshot | None)
+    def current_configuration(
+        ctx: TrustedContext = trusted_dependency,
+    ) -> ConfigurationSnapshot | None:
+        return runtime.foundation.lifecycle.configuration(ctx)
+
     @app.put("/p3/configuration", response_model=ConfigurationSnapshot)
     def configure(
         request: ConfigurationRequest, ctx: TrustedContext = trusted_dependency
@@ -439,5 +453,8 @@ def create_app(
 
         attach_routes(app, runtime.remember, trusted_dependency, execution=execution)
     app.state.trusted_dependency = trusted_dependency
+    from .admin_diagnostics import attach as attach_admin_diagnostics
+
+    attach_admin_diagnostics(app, runtime, execution)
     app.add_middleware(RequestObservability, telemetry=telemetry)
     return app

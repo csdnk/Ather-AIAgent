@@ -1,0 +1,19 @@
+:80 {
+  handle /admin-api/* {
+    reverse_proxy backend:48080
+  }
+  handle /app-api/* {
+    reverse_proxy backend:48080
+  }
+  handle /infra/ws* {
+    reverse_proxy backend:48080
+  }
+  handle /v3/api-docs* {
+    reverse_proxy backend:48080
+  }
+  handle {
+    root * /srv
+    try_files {path} /index.html
+    file_server
+  }
+}

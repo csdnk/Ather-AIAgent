@@ -11,8 +11,9 @@ from functools import wraps
 from typing import Any
 
 from aether_agent_memory.runtime.contracts.foundation import ResourceLocation
-from aether_agent_memory.runtime.contracts.models import ErrorCode, Permission, TrustedContext
+from aether_agent_memory.runtime.contracts.models import ErrorCode, TrustedContext
 from aether_agent_memory.runtime.foundation.common import FoundationError
+from aether_agent_memory.runtime.foundation.content_diagnostics import authorize_content_read
 
 from ..contracts.models import MemoryRef
 from .service import memory_ref
@@ -26,13 +27,13 @@ class BodyReadRequiredError(Exception):
 
 def hydrate_missing(owner: Any, ctx: TrustedContext, missing: BodyReadRequiredError) -> None:
     with owner.uow.transaction() as tx:
-        owner.identity.authorize(tx, ctx, Permission.READ, memory_ref(missing.memory))
+        authorize_content_read(owner.identity, tx, ctx, memory_ref(missing.memory))
         row = tx.get(memory_ref(missing.memory, versioned=True))
         if row is None or row.get("body_location") != missing.location.model_dump(mode="json"):
             tx.abort(ErrorCode.VERSION_CONFLICT, "body location changed before hydration")
     text = owner.bodies.read_local(missing.location)
     with owner.uow.transaction() as tx:
-        owner.identity.authorize(tx, ctx, Permission.READ, memory_ref(missing.memory))
+        authorize_content_read(owner.identity, tx, ctx, memory_ref(missing.memory))
         row = tx.get(memory_ref(missing.memory, versioned=True))
         if row is None or row.get("body_location") != missing.location.model_dump(mode="json"):
             tx.abort(ErrorCode.VERSION_CONFLICT, "body location changed during hydration")

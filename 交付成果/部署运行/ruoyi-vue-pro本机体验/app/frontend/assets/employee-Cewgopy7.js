@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=async()=>await e.get({url:`/hrm/portal/employee/get-bind-status`}),n=async()=>await e.get({url:`/hrm/portal/employee/get`}),r=async t=>await e.put({url:`/hrm/portal/employee/update`,data:t});export{t as n,r,n as t};

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<data-sources>
+  <data-source source="LOCAL" name="Azure-P3-agent" uuid="5eaf30fc-61c1-4eb8-9c58-ed9fe53c5191">
+    <driver-ref>postgresql</driver-ref>
+    <synchronize>true</synchronize>
+    <jdbc-driver>org.postgresql.Driver</jdbc-driver>
+    <jdbc-url>jdbc:postgresql://postgresp3.postgres.database.azure.com:45432/agent?sslmode=verify-full&amp;sslrootcert=E:/projects/codex/aether/交付成果/部署运行/Azure数据库连接/azure-root-ca.pem&amp;connectTimeout=10&amp;socketTimeout=30</jdbc-url>
+    <user-name>p3admin</user-name>
+    <auth-provider>user-pass</auth-provider>
+    <vm-options>-Djdk.net.hosts.file=E:/projects/codex/aether/交付成果/部署运行/Azure数据库连接/azure-pg.hosts</vm-options>
+  </data-source>
+</data-sources>
+

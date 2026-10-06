@@ -1,0 +1,1 @@
+var e=`/assets/jingshu-DJ4QZMd2.png`;export{e as default};

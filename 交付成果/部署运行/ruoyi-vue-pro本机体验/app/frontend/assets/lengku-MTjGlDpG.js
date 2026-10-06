@@ -1,0 +1,1 @@
+var e=`/assets/lengku-DKHN9jn6.png`;export{e as default};

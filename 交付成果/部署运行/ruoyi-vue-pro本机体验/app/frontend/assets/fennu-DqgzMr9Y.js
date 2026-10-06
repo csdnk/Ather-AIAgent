@@ -1,0 +1,1 @@
+var e=`/assets/fennu-B7vTjwXu.png`;export{e as default};

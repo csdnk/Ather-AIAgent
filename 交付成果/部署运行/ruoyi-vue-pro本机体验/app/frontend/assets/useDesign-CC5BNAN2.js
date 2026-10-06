@@ -1,0 +1,1 @@
+var e={namespace:`v`,elNamespace:`el`},t=()=>{let t=e;return{variables:t,getPrefixCls:e=>`${t.namespace}-${e}`}};export{t};

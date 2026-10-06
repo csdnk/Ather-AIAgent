@@ -1,0 +1,1 @@
+import{i as e}from"./constants-DfSgUMce.js";function t(t){return t.kind===`folder`?`ep:folder`:t.type===e.FILE?`ep:paperclip`:`ep:document`}function n(t){return t.kind===`folder`?`文件夹`:t.type===e.FILE?`文件`:`文档`}export{n,t};

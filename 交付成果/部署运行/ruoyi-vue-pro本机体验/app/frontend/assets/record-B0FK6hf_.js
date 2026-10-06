@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=async t=>await e.get({url:`/member/sign-in/record/page`,params:t});export{t};

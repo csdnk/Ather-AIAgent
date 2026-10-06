@@ -58,6 +58,10 @@ from aether_agent_memory.runtime.contracts.models import (
 )
 from aether_agent_memory.runtime.contracts.ports import Transaction
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint, later
+from aether_agent_memory.runtime.foundation.content_diagnostics import (
+    authorize_content_read,
+    permits_content_read,
+)
 from aether_agent_memory.runtime.foundation.events import Events
 from aether_agent_memory.runtime.foundation.identity import Identity
 from aether_agent_memory.runtime.foundation.mutation_receipts import MutationReceipts
@@ -461,7 +465,7 @@ class Remember:
     def get(self, ctx: TrustedContext, memory_id: str) -> MemorySnapshot:
         with self.uow.transaction() as tx:
             item = self.current(tx, memory_id)
-            self.identity.authorize(tx, ctx, Permission.READ, memory_ref(item.ref))
+            authorize_content_read(self.identity, tx, ctx, memory_ref(item.ref))
             if item.status == MemoryStatus.DELETED:
                 raise FoundationError(ErrorCode.MEMORY_GONE, "memory deleted")
             return item
@@ -916,7 +920,7 @@ class Remember:
         results = []
         for ref in refs:
             permission = Permission.HISTORY if purpose == "history" else Permission.READ
-            allowed = self.identity.permits(tx, ctx, permission, memory_ref(ref))
+            allowed = permits_content_read(self.identity, tx, ctx, permission, memory_ref(ref))
             try:
                 current = self.current(sql, ref.memory_id)
             except FoundationError:

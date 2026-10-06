@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=async t=>await e.get({url:`/hrm/portal/salary/slip/list`,params:t}),n=async()=>await e.get({url:`/hrm/portal/salary/slip/unread-summary`}),r=async t=>await e.put({url:`/hrm/portal/salary/slip/read`,params:{ids:t.join(`,`)}});export{n,r,t};

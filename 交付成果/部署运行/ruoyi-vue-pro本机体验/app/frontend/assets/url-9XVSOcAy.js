@@ -1,0 +1,1 @@
+var e=new Set([`http:`,`https:`,`blob:`]);function t(t){if(!t)return!1;try{let n=new URL(t,window.location.origin);return e.has(n.protocol)}catch{return!1}}function n(e){!e||!t(e)||window.open(e,`_blank`,`noopener,noreferrer`)}export{n,t};

@@ -1,0 +1,1 @@
+import{t as e}from"./useMessage-BQQzQgcx.js";var t=()=>{let t=e();return{executeBatch:async e=>{let n=await Promise.allSettled(e),r=n.filter(e=>e.status===`fulfilled`).length,i=n.length-r,a=`操作完成：成功 ${r} 个，失败 ${i} 个`;return i===0?t.success(a):r>0?t.warning(a):t.error(a),r>0}}};export{t};

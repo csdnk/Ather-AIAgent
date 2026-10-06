@@ -1,0 +1,1 @@
+import{n as e}from"./constants-DfSgUMce.js";function t(t){return t===e.MANAGE||t===e.EDIT||t===e.UPLOAD_DOWNLOAD}function n(t){return t===e.MANAGE}function r(t){return t===e.MANAGE||t===e.EDIT}export{t as n,n as r,r as t};

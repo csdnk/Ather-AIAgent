@@ -1,0 +1,1 @@
+function e(e){let t=new Date;return`${e}${String(t.getMonth()+1).padStart(2,`0`)}${String(t.getDate()).padStart(2,`0`)}${String(Math.floor(Math.random()*1e4)).padStart(4,`0`)}`}export{e as t};

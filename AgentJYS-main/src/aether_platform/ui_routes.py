@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from aether_platform.chat import Conversations
 from aether_platform.directory import AccessDeniedError
+from aether_platform.operations.quotas import QuotaExceededError
 
 
 class Message(BaseModel):
@@ -66,6 +67,8 @@ def install_chat(
             turn = chat.begin(actor, conversation_id, body.turn_id, body.content)
         except AccessDeniedError:
             raise
+        except QuotaExceededError as exc:
+            raise HTTPException(429, str(exc)) from None
         except ValueError:
             raise HTTPException(409, "消息正在回复，或消息编号已被使用。") from None
         if turn["started"]:

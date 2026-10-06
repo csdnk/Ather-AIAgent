@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=t=>e.put({url:`/mp/user/update`,data:t}),n=t=>e.get({url:`/mp/user/get?id=`+t}),r=t=>e.get({url:`/mp/user/page`,params:t}),i=t=>e.post({url:`/mp/user/sync?accountId=`+t});export{t as i,r as n,i as r,n as t};

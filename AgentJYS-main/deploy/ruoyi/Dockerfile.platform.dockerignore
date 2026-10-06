@@ -1,0 +1,17 @@
+**
+!platform-web/
+!platform-web/**
+!src/
+!src/aether_platform/
+!src/aether_platform/**
+!src/aether_agent_memory/
+!src/aether_agent_memory/**
+!scripts/
+!scripts/platform/
+!scripts/platform/build_web.mjs
+!scripts/platform/run_cloud.py
+!deploy/
+!deploy/platform/
+!deploy/platform/requirements-cloud.txt
+**/__pycache__/
+**/*.private.*

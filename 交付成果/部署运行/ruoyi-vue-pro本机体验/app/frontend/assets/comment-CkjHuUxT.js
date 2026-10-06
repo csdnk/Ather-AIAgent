@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=async t=>await e.get({url:`/bpm/comment/list-by-process-instance-id?processInstanceId=`+t}),n=async(t,n)=>await e.post({url:`/bpm/comment/create`,data:{taskId:t,message:n}});export{t as n,n as t};

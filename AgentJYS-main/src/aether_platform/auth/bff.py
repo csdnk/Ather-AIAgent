@@ -61,15 +61,32 @@ def create_cloud_app(config_path: Path) -> FastAPI:
     @asynccontextmanager
     async def lifespan(root: FastAPI) -> AsyncIterator[None]:
         async with application.router.lifespan_context(application):
-            yield
+            operations = getattr(root.state, "operations", None)
+            if operations is not None:
+                operations.start()
+            try:
+                yield
+            finally:
+                if operations is not None:
+                    operations.stop()
 
     root = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     root.mount(settings.prefix, application)
+    if config.get("auth_provider") == "ruoyi":
+        from aether_platform.operations.api import install_operations
+
+        root.state.operations = install_operations(
+            root, config, application.state.directory, application.state.ruoyi_verifier
+        )
     return root
 
 
 def _create_app(config_path: Path) -> FastAPI:
     config = json.loads(config_path.read_text(encoding="utf-8"))
+    if config.get("auth_provider") == "ruoyi":
+        from aether_platform.auth.ruoyi_bff import create_ruoyi_app
+
+        return create_ruoyi_app(config)
     settings = RuntimeSettings.from_config(config)
     origin, issuer = settings.origin, settings.issuer
     protocol = issuer + "/protocol/openid-connect"

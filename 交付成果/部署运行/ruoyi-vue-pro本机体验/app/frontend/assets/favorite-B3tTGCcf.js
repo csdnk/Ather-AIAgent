@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=t=>e.post({url:`/pms/kb/favorite/create`,data:t}),n=(t,n)=>e.delete({url:`/pms/kb/favorite/delete`,params:{type:t,entityId:n}}),r=t=>e.get({url:`/pms/kb/favorite/page`,params:t}),i=t=>e.get({url:`/pms/kb/favorite/list`,params:{libraryId:t}});export{r as i,n,i as r,t};

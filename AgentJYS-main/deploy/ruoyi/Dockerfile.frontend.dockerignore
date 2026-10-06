@@ -1,0 +1,11 @@
+**
+!ruoyi/
+!ruoyi/frontend/
+!ruoyi/frontend/**
+!deploy/
+!deploy/ruoyi/
+!deploy/ruoyi/nginx.conf
+**/node_modules/
+**/dist*/
+**/.git/
+**/*.private.*

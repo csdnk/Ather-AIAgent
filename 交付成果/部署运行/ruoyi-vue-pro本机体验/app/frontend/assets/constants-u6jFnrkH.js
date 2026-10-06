@@ -1,0 +1,1 @@
+var e={CLOCK_IN:1,CLOCK_OUT:2},t={NORMAL:1,LATE:2,EARLY:3};export{e as n,t};

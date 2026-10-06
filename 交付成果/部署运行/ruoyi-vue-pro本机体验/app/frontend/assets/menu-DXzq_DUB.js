@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=()=>e.get({url:`/system/menu/simple-list`}),n=t=>e.get({url:`/system/menu/list`,params:t}),r=t=>e.get({url:`/system/menu/get?id=`+t}),i=t=>e.post({url:`/system/menu/create`,data:t}),a=t=>e.put({url:`/system/menu/update`,data:t}),o=t=>e.delete({url:`/system/menu/delete?id=`+t});export{t as a,n as i,o as n,a as o,r,i as t};

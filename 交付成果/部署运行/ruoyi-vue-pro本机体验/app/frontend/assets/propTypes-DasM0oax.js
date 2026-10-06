@@ -1,0 +1,1 @@
+import{r as e,s as t}from"./dist-CuWTGpCG.js";var n=e({func:void 0,bool:void 0,string:void 0,number:void 0,object:void 0,integer:void 0}),r=class extends n{static get style(){return t(`style`,{type:[String,Object]})}};export{r as t};

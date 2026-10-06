@@ -23,6 +23,50 @@ class RuntimeSettings:
     def from_config(cls, config: dict[str, Any]) -> "RuntimeSettings":
         mode = config.get("mode", "lab")
         database = urlsplit(config["database_dsn"])
+        if config.get("auth_provider") == "ruoyi":
+            from aether_platform.auth.ruoyi import validate_ruoyi_config
+
+            authority = validate_ruoyi_config(config)
+            origin = config["public_origin"]
+            public = urlsplit(origin)
+            management = urlsplit(config["management_url"])
+            prefix = config.get("path_prefix", "/agent" if mode == "cloud" else "")
+            if (
+                mode not in {"lab", "cloud"}
+                or public.path
+                or public.query
+                or public.fragment
+                or public.username
+                or not public.hostname
+                or (mode == "cloud" and public.scheme != "https")
+                or (
+                    mode == "lab"
+                    and (
+                        public.scheme != "http"
+                        or public.hostname not in {"localhost", "127.0.0.1", "::1"}
+                    )
+                )
+                or management.scheme != public.scheme
+                or management.username
+                or management.hostname != public.hostname
+                or (mode == "cloud" and management.netloc != public.netloc)
+                or database.scheme != "postgresql"
+                or not database.hostname
+                or database.fragment
+                or (mode == "cloud" and database.hostname in {"localhost", "127.0.0.1", "::1"})
+                or (prefix and not re.fullmatch(r"/[a-z][a-z0-9-]*", prefix))
+            ):
+                raise ValueError("Invalid Ruoyi runtime origins or database")
+            return cls(
+                origin,
+                authority["issuer"],
+                authority["base_url"],
+                config["management_url"],
+                prefix,
+                mode == "cloud",
+            )
+        if config.get("auth_provider", "keycloak") != "keycloak":
+            raise ValueError("Unknown identity provider")
         issuer = config["issuer"]
         if mode == "lab":
             expected = "http://localhost:19080/realms/aether-lab"

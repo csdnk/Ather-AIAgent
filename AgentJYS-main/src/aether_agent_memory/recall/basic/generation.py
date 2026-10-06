@@ -16,8 +16,12 @@ from aether_agent_memory.remember.contracts.ports import (
     MemoryContextGuardPort,
     MemoryFoundationPort,
 )
-from aether_agent_memory.runtime.contracts.models import ErrorCode, Permission, TrustedContext
+from aether_agent_memory.runtime.contracts.models import ErrorCode, TrustedContext
 from aether_agent_memory.runtime.foundation.common import FoundationError
+from aether_agent_memory.runtime.foundation.content_diagnostics import (
+    authorize_content_read,
+    diagnostic_expectations,
+)
 from aether_agent_memory.runtime.foundation.requests import select_scope
 from aether_agent_memory.runtime.foundation.telemetry import observed
 
@@ -120,7 +124,7 @@ class GenerationRecall(Recall):
                 if row is None:
                     raise FoundationError(ErrorCode.NOT_FOUND, "recall not found")
                 record = RecallRecord.model_validate(row["record"])
-                self.identity.authorize(tx, ctx, Permission.READ, self.ref(record))
+                authorize_content_read(self.identity, tx, ctx, self.ref(record))
                 if record.state == "failed":
                     raise FoundationError(
                         ErrorCode.EXECUTION_INTERRUPTED, "Recall ended without a result"
@@ -138,7 +142,12 @@ class GenerationRecall(Recall):
                 self.assembly.revalidate(
                     tx,
                     ctx,
-                    ContextGuardRequest.model_validate(saved["expectations"]),
+                    diagnostic_expectations(
+                        self.identity,
+                        tx,
+                        ctx,
+                        ContextGuardRequest.model_validate(saved["expectations"]),
+                    ),
                     ctx.deadline_at,
                 )
                 return pack

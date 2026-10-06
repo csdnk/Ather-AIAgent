@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=t=>e.get({url:`/infra/file/page`,params:t}),n=t=>e.delete({url:`/infra/file/delete?id=`+t}),r=t=>e.delete({url:`/infra/file/delete-list`,params:{ids:t.join(`,`)}}),i=(t,n)=>e.upload({url:`/infra/file/upload`,data:t,onUploadProgress:n});export{i,r as n,t as r,n as t};

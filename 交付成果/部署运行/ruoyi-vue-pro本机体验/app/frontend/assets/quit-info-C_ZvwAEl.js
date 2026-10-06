@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=async t=>await e.get({url:`/hrm/employee/quit-info/get`,params:{employeeId:t}});export{t};

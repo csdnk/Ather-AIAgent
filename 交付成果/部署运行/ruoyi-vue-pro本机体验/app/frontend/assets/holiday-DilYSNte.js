@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t={getHolidayList:async t=>await e.get({url:`/mes/cal/holiday/list`,params:t}),getHolidayByDay:async t=>await e.get({url:`/mes/cal/holiday/get-by-day`,params:{day:t}}),saveHoliday:async t=>await e.post({url:`/mes/cal/holiday/save`,data:t})};export{t};

@@ -13,7 +13,7 @@
 | Builder | [打开](https://aether-p3-demo-c50c3827.southeastasia.cloudapp.azure.com/builder) | builder@aether-lab.invalid，邮箱密码登录 |
 | Temporal | [打开当前 Agent 工作流](https://aether-p3-demo-c50c3827.southeastasia.cloudapp.azure.com/temporal/namespaces/aether-agent-20261005/workflows) | 先登录管理后台的 platform_admin，再从同一浏览器打开 |
 
-[完整页面与账号说明](项目Web页面与测试账号_20261005.md)；项目负责人另行提供的私有密码清单。原 8 个业务账号、Builder 账号和密码保持不变。
+[完整页面与账号说明](项目Web页面与测试账号_20261005.md)；[密码清单](../测试与验收/Agent平台测试包_20261005/测试账号密码_本机验收.md)。原 8 个业务账号、Builder 账号和密码保持不变。
 
 ## 原因与改动
 

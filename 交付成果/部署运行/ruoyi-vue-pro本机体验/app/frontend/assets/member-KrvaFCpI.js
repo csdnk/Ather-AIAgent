@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=t=>e.get({url:`/pms/kb/library-member/list`,params:{libraryId:t}}),n=t=>e.put({url:`/pms/kb/library-member/update-list`,data:t}),r=t=>e.delete({url:`/pms/kb/library-member/exit`,params:{libraryId:t}});export{t as n,n as r,r as t};

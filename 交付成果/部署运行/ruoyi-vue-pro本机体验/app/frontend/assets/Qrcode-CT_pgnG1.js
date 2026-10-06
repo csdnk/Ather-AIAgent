@@ -1,0 +1,1 @@
+import"./Qrcode-C_SQ_F2L.js";

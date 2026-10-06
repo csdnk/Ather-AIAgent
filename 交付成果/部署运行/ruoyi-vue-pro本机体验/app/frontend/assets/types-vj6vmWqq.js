@@ -1,0 +1,1 @@
+import{t as e}from"./main-o0z7q8oA.js";var t=e,n=function(e){return e.Event=`event`,e.Text=`text`,e.Voice=`voice`,e.Image=`image`,e.Video=`video`,e.Link=`link`,e.Location=`location`,e.Music=`music`,e.News=`news`,e}({});export{t as n,n as t};

@@ -1,0 +1,28 @@
+#cloud-config
+# Host prerequisites only. Application images arrive through verified offline bundles.
+package_update: true
+package_upgrade: false
+packages:
+  - ca-certificates
+  - docker.io
+  - docker-compose-v2
+write_files:
+  - path: /etc/docker/daemon.json
+    permissions: '0644'
+    content: |
+      {
+        "log-driver": "local",
+        "log-opts": {"max-size": "20m", "max-file": "5"},
+        "live-restore": true
+      }
+  - path: /etc/sysctl.d/90-aether-p3.conf
+    permissions: '0644'
+    content: |
+      vm.max_map_count=262144
+runcmd:
+  - [systemctl, enable, --now, docker]
+  - [sysctl, --system]
+  - [install, -d, -m, '0750', -o, aether, -g, aether, /srv/aether]
+  - [install, -d, -m, '0700', -o, aether, -g, aether, /srv/aether/deployment]
+  - [install, -d, -m, '0750', -o, aether, -g, aether, /srv/aether/releases]
+  - [install, -d, -m, '0750', -o, aether, -g, aether, /srv/aether/runtime]

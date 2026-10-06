@@ -1,0 +1,1 @@
+var e=`/assets/login-box-bg-CL6i7T2F.svg`;export{e as t};

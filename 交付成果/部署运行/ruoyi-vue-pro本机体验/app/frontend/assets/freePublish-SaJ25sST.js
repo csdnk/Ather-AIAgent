@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=t=>e.get({url:`/mp/free-publish/page`,params:t}),n=(t,n)=>e.delete({url:`/mp/free-publish/delete?accountId=`+t+`&articleId=`+n}),r=(t,n)=>e.post({url:`/mp/free-publish/submit?accountId=`+t+`&mediaId=`+n});export{t as n,r,n as t};

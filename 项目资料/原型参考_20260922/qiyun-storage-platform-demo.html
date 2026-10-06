@@ -1,0 +1,1778 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src 'unsafe-inline' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Storage Platform Dashboard</title>
+<style>:root{color-scheme:light dark;background:light-dark(rgb(255 255 255), rgb(24 24 24))}html,body{margin:0}body{box-sizing:border-box;padding:1rem;background:inherit}iframe{display:block;width:100%;height:calc(100vh - 2rem);margin:0 auto;border:0}</style>
+</head>
+<body>
+<iframe sandbox="allow-scripts" referrerpolicy="no-referrer" title="Storage Platform Dashboard" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;meta name=&quot;referrer&quot; content=&quot;no-referrer&quot;&gt;
+&lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src &#x27;none&#x27;; script-src &#x27;unsafe-inline&#x27; &#x27;unsafe-eval&#x27; &#x27;wasm-unsafe-eval&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src &#x27;unsafe-inline&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src &#x27;none&#x27;; object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;&quot;&gt;
+&lt;title&gt;Storage Platform Dashboard&lt;/title&gt;
+&lt;style&gt;:root {
+  color-scheme: light dark;
+  background-color: var(
+    --background,
+    var(--color-background-primary, light-dark(rgb(255 255 255), rgb(24 24 24)))
+  ) !important;
+
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: var(
+    --color-background-primary,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --card: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  --card-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --popover: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255), rgb(45 45 45))
+  );
+  --popover-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --primary: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --primary-foreground: var(
+    --color-text-inverse,
+    light-dark(rgb(255 255 255), rgb(13 13 13))
+  );
+  --secondary: var(
+    --color-background-secondary,
+    light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%))
+  );
+  --secondary-foreground: var(
+    --color-text-primary,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: var(
+    --color-text-secondary,
+    light-dark(rgb(26 28 31 / 49.4%), rgb(255 255 255 / 49.8%))
+  );
+  --accent: var(
+    --color-background-info,
+    light-dark(rgb(229 242 255), rgb(13 39 63))
+  );
+  --accent-foreground: var(
+    --color-text-info,
+    light-dark(rgb(51 156 255), rgb(131 195 255))
+  );
+  --destructive: var(
+    --color-text-warning,
+    light-dark(rgb(226 85 7), rgb(255 133 73))
+  );
+  --border: var(
+    --color-border-secondary,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+  --input: var(
+    --color-border-primary,
+    light-dark(
+      rgb(26 28 31 / 11.8%),
+      color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+    )
+  );
+  --ring: var(
+    --color-ring-primary,
+    light-dark(rgb(51 156 255), rgb(131 195 255 / 76%))
+  );
+  --font-size-base: var(--font-text-md-size, 14px);
+  --blue: light-dark(rgb(51 156 255), rgb(51 156 255));
+  --orange: light-dark(rgb(226 85 7), rgb(251 106 34));
+  --green: light-dark(rgb(0 162 64), rgb(64 201 119));
+  --red: light-dark(rgb(224 46 42), rgb(255 103 100));
+  --purple: light-dark(rgb(146 79 247), rgb(173 123 249));
+  --yellow: light-dark(rgb(255 195 0), rgb(255 210 64));
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(rgb(243 136 59), rgb(245 154 86));
+  --viz-series-3: light-dark(rgb(93 201 119), rgb(116 213 139));
+  --viz-series-4: light-dark(rgb(235 119 177), rgb(240 143 192));
+  --viz-series-5: light-dark(rgb(155 121 236), rgb(170 145 239));
+  --viz-series-6: light-dark(rgb(58 185 177), rgb(90 203 194));
+
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans: -apple-system, system-ui, &quot;Segoe UI&quot;, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, &quot;Liberation Mono&quot;,
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 430;
+  --font-weight-medium: 500;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --radius: var(--border-radius-lg, 12.5px);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url(&quot;data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; viewBox=&#x27;0 0 17 17&#x27;%3E%3Cpath d=&#x27;M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z&#x27;/%3E%3C/svg%3E&quot;);
+
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+}
+
+:root[data-theme=&quot;light&quot;] {
+  color-scheme: light;
+}
+
+:root[data-theme=&quot;dark&quot;] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html &gt; body {
+  /* Preserve MCP aliases for older inline renderers without creating :root cycles. */
+  --color-background-primary: var(
+    --background,
+    light-dark(rgb(255 255 255), rgb(24 24 24))
+  );
+  --color-text-primary: var(
+    --foreground,
+    light-dark(rgb(26 28 31), rgb(255 255 255))
+  );
+  --color-border-secondary: var(
+    --border,
+    light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%))
+  );
+
+  margin: 0;
+  padding: 5px;
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-normal);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium, 500);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+b,
+strong,
+th {
+  font-weight: var(--font-weight-medium);
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  corner-shape: superellipse(1.5);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table-responsive &gt; .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead th {
+  padding-block: 8px;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 6px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align=&quot;right&quot;]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align=&quot;center&quot;]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  corner-shape: superellipse(1.5);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+#widget &gt; :not(.card) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  corner-shape: superellipse(1.5);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: none;
+  font-size: var(--font-size-tooltip);
+  line-height: var(--line-height-tooltip);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.viz-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+small,
+.text-small,
+.viz-badge {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls &gt; .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls &gt; .form-label &gt; :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+.btn {
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: superellipse(1.5);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--primary-foreground);
+  background: var(--foreground);
+  background-clip: padding-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(in srgb, var(--primary-foreground) 50%, transparent);
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: padding-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: superellipse(1.5);
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type=&quot;file&quot;] {
+  padding: 0;
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control[type=&quot;file&quot;]::file-selector-button {
+  min-height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+}
+
+.form-control[type=&quot;file&quot;]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type=&quot;color&quot;] {
+  width: 40px;
+  height: 28px;
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+  corner-shape: superellipse(1.5);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 32px 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: superellipse(1.5);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-check {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;] {
+  border-color: var(--input);
+  border-radius: var(--radius-sm);
+  corner-shape: superellipse(1.5);
+  background-color: var(--secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;]:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type=&quot;checkbox&quot;]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: &quot;&quot;;
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+}
+
+.form-check-input[type=&quot;radio&quot;] {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+}
+
+.form-check-input[type=&quot;radio&quot;]:checked {
+  border: 2px solid var(--primary);
+  background:
+    radial-gradient(circle, var(--primary-foreground) 0 2.5px, transparent 3px),
+    var(--primary);
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+  box-shadow: var(--shadow-sm);
+  content: &quot;&quot;;
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--primary);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  border: 0;
+  accent-color: var(--primary);
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      color-mix(in srgb, var(--foreground) 7%, transparent)
+    )
+    center / 100% 2px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+    [aria-pressed=&quot;true&quot;],
+    [aria-selected=&quot;true&quot;],
+    .is-selected
+  ) {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.btn.viz-tile:is([aria-pressed=&quot;true&quot;], [aria-selected=&quot;true&quot;], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget &gt; svg {
+  width: 100%;
+}
+
+/* Model-authored chart rules can otherwise stretch icons after these styles load. */
+svg.lucide {
+  display: block;
+  width: 16px !important;
+  height: 16px !important;
+  flex: none;
+  margin: 0 !important;
+  stroke-width: 1.6;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+
+html&gt;body{padding:0}&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;div id=&quot;qiyun-product-v2&quot;&gt;
+  &lt;style&gt;
+    #qiyun-product-v2 {
+      --qy-bg: light-dark(#f5f7fa, #0f141b);
+      --qy-panel: light-dark(#ffffff, #18212b);
+      --qy-panel-2: light-dark(#f8fafc, #202b36);
+      --qy-text: light-dark(#17202a, #edf3f8);
+      --qy-muted: light-dark(#687583, #9eabb7);
+      --qy-border: light-dark(#dce3e9, #34414d);
+      --qy-nav: light-dark(#172b3b, #121b24);
+      --qy-nav-active: light-dark(#245b7e, #234d69);
+      --qy-primary: light-dark(#1477c9, #64b5f6);
+      --qy-primary-soft: light-dark(#e9f3fb, #17364f);
+      --qy-green: light-dark(#10825c, #54d1a3);
+      --qy-green-soft: light-dark(#e6f6f0, #173b31);
+      --qy-amber: light-dark(#ae6900, #ffc260);
+      --qy-amber-soft: light-dark(#fff3dc, #3c2d15);
+      --qy-red: light-dark(#c33d3d, #ff8989);
+      color: var(--qy-text);
+      width: 100%;
+      font-family: Inter, &quot;PingFang SC&quot;, &quot;Microsoft YaHei&quot;, system-ui, sans-serif;
+      font-size: var(--font-size-base);
+    }
+    #qiyun-product-v2 * { box-sizing: border-box; }
+    #qiyun-product-v2 button, #qiyun-product-v2 input, #qiyun-product-v2 select { font: inherit; }
+    #qiyun-product-v2 .qy-app { min-height: 760px; background: var(--qy-bg); border: 1px solid var(--qy-border); border-radius: 12px; overflow: hidden; box-shadow: 0 16px 42px light-dark(rgba(20,40,58,.13),rgba(0,0,0,.35)); }
+    #qiyun-product-v2 .qy-top { height: 54px; padding: 0 15px; background: var(--qy-panel); border-bottom: 1px solid var(--qy-border); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    #qiyun-product-v2 .qy-brand { display: flex; align-items: center; gap: 9px; font-weight: 500; white-space: nowrap; }
+    #qiyun-product-v2 .qy-logo { width: 31px; height: 31px; border-radius: 8px; background: var(--qy-primary); color: #fff; display: grid; place-items: center; }
+    #qiyun-product-v2 .qy-scope { display: flex; align-items: center; gap: 8px; color: var(--qy-muted); }
+    #qiyun-product-v2 .qy-scope select { border: 1px solid var(--qy-border); border-radius: 5px; padding: 6px 8px; background: var(--qy-panel-2); color: var(--qy-text); }
+    #qiyun-product-v2 .qy-tools { display: flex; align-items: center; gap: 7px; }
+    #qiyun-product-v2 .qy-role-switch { display: flex; align-items: center; padding: 3px; border: 1px solid var(--qy-border); border-radius: 6px; background: var(--qy-panel-2); }
+    #qiyun-product-v2 .qy-role-btn { border: 0; border-radius: 4px; padding: 6px 10px; background: transparent; color: var(--qy-muted); cursor: pointer; }
+    #qiyun-product-v2 .qy-role-btn[aria-pressed=&quot;true&quot;] { background: var(--qy-primary); color: #fff; }
+    #qiyun-product-v2 .qy-icon-btn { border: 0; background: transparent; color: var(--qy-muted); cursor: pointer; padding: 6px; }
+    #qiyun-product-v2 .qy-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--qy-primary-soft); color: var(--qy-primary); display: grid; place-items: center; }
+    #qiyun-product-v2 .qy-shell { display: grid; grid-template-columns: 190px minmax(0,1fr); }
+    #qiyun-product-v2 .qy-sidebar { background: var(--qy-nav); color: #d9e4eb; min-height: 706px; padding: 11px 8px; }
+    #qiyun-product-v2 .qy-nav-section { color: #8296a5; padding: 10px 9px 4px; font-size: 12px; }
+    #qiyun-product-v2 [data-role-nav][hidden], #qiyun-product-v2 [data-role-page][hidden] { display: none !important; }
+    #qiyun-product-v2 .qy-nav-btn { width: 100%; border: 0; border-radius: 5px; background: transparent; color: #d9e4eb; padding: 8px 9px; margin: 1px 0; cursor: pointer; display: flex; align-items: center; gap: 9px; text-align: left; }
+    #qiyun-product-v2 .qy-nav-btn:hover { background: rgba(255,255,255,.07); }
+    #qiyun-product-v2 .qy-nav-btn[aria-current=&quot;page&quot;] { background: var(--qy-nav-active); color: #fff; }
+    #qiyun-product-v2 .qy-nav-icon { width: 18px; text-align: center; opacity: .95; }
+    #qiyun-product-v2 .qy-cluster-mini { margin: 24px 8px 0; border-top: 1px solid rgba(255,255,255,.15); padding-top: 12px; color: #9eb0bd; }
+    #qiyun-product-v2 .qy-cluster-mini strong { color: #fff; font-weight: 500; display: block; margin: 4px 0; }
+    #qiyun-product-v2 .qy-main { min-width: 0; padding: 16px; position: relative; }
+    #qiyun-product-v2 .qy-page { display: none; }
+    #qiyun-product-v2 .qy-page.is-active { display: block; }
+    #qiyun-product-v2 .qy-page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 13px; }
+    #qiyun-product-v2 .qy-page-head h1 { margin: 0; font-size: 21px; font-weight: 500; }
+    #qiyun-product-v2 .qy-page-head p { margin: 4px 0 0; color: var(--qy-muted); }
+    #qiyun-product-v2 .qy-primary, #qiyun-product-v2 .qy-secondary { border-radius: 5px; padding: 8px 11px; cursor: pointer; }
+    #qiyun-product-v2 .qy-primary { border: 1px solid var(--qy-primary); background: var(--qy-primary); color: #fff; }
+    #qiyun-product-v2 .qy-secondary { border: 1px solid var(--qy-border); background: var(--qy-panel); color: var(--qy-text); }
+    #qiyun-product-v2 .qy-kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 11px; }
+    #qiyun-product-v2 .qy-kpi, #qiyun-product-v2 .qy-panel { background: var(--qy-panel); border: 1px solid var(--qy-border); border-radius: 7px; }
+    #qiyun-product-v2 .qy-kpi { padding: 11px 12px; }
+    #qiyun-product-v2 .qy-kpi span { color: var(--qy-muted); display: block; margin-bottom: 6px; }
+    #qiyun-product-v2 .qy-kpi strong { font-size: 18px; font-weight: 500; }
+    #qiyun-product-v2 .qy-kpi em { font-style: normal; color: var(--qy-green); margin-left: 5px; }
+    #qiyun-product-v2 .qy-grid { display: grid; grid-template-columns: 1.25fr .75fr; gap: 10px; }
+    #qiyun-product-v2 .qy-panel-title { padding: 10px 12px; border-bottom: 1px solid var(--qy-border); display: flex; align-items: center; justify-content: space-between; gap: 10px; font-weight: 500; }
+    #qiyun-product-v2 .qy-panel-body { padding: 11px 12px; }
+    #qiyun-product-v2 .qy-health { display: flex; align-items: center; gap: 11px; padding: 10px; background: var(--qy-amber-soft); border-radius: 6px; color: var(--qy-amber); margin-bottom: 10px; }
+    #qiyun-product-v2 .qy-health strong { font-weight: 500; display: block; }
+    #qiyun-product-v2 .qy-health span { color: var(--qy-text); }
+    #qiyun-product-v2 .qy-inventory { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+    #qiyun-product-v2 .qy-inventory div { border-top: 2px solid var(--qy-primary); padding-top: 7px; }
+    #qiyun-product-v2 .qy-inventory span { color: var(--qy-muted); display: block; }
+    #qiyun-product-v2 .qy-inventory strong { font-size: 17px; font-weight: 500; }
+    #qiyun-product-v2 .qy-service-row { display: grid; grid-template-columns: 34px minmax(0,1fr) auto; gap: 9px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--qy-border); }
+    #qiyun-product-v2 .qy-service-row:last-child { border-bottom: 0; }
+    #qiyun-product-v2 .qy-service-icon { width: 30px; height: 30px; border-radius: 5px; display: grid; place-items: center; background: var(--qy-primary-soft); color: var(--qy-primary); }
+    #qiyun-product-v2 .qy-service-row strong { display: block; font-weight: 500; }
+    #qiyun-product-v2 .qy-service-row small { color: var(--qy-muted); }
+    #qiyun-product-v2 .qy-ok { color: var(--qy-green); }
+    #qiyun-product-v2 .qy-chart { width: 100%; height: 164px; display: block; }
+    #qiyun-product-v2 .qy-chart .grid { stroke: var(--qy-border); stroke-width: 1; }
+    #qiyun-product-v2 .qy-chart .line { fill: none; stroke: var(--qy-primary); stroke-width: 2; }
+    #qiyun-product-v2 .qy-chart .area { fill: var(--qy-primary-soft); }
+    #qiyun-product-v2 .qy-chart text { fill: var(--qy-muted); font-size: 11px; }
+    #qiyun-product-v2 .qy-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 9px; margin-bottom: 10px; }
+    #qiyun-product-v2 .qy-search { border: 1px solid var(--qy-border); background: var(--qy-panel); color: var(--qy-text); border-radius: 5px; padding: 8px 9px; width: 230px; max-width: 100%; }
+    #qiyun-product-v2 .qy-table-wrap { overflow-x: auto; background: var(--qy-panel); border: 1px solid var(--qy-border); border-radius: 7px; }
+    #qiyun-product-v2 table { width: 100%; border-collapse: collapse; min-width: 620px; }
+    #qiyun-product-v2 th { background: var(--qy-panel-2); color: var(--qy-muted); font-weight: 500; text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--qy-border); }
+    #qiyun-product-v2 td { padding: 10px; border-bottom: 1px solid var(--qy-border); }
+    #qiyun-product-v2 tr:last-child td { border-bottom: 0; }
+    #qiyun-product-v2 .qy-status { display: inline-block; padding: 3px 7px; border-radius: 999px; background: var(--qy-green-soft); color: var(--qy-green); }
+    #qiyun-product-v2 .qy-pool-map { display: grid; grid-template-columns: repeat(3,1fr); gap: 9px; }
+    #qiyun-product-v2 .qy-pool { background: var(--qy-panel); border: 1px solid var(--qy-border); border-radius: 7px; padding: 11px; }
+    #qiyun-product-v2 .qy-pool strong { display: block; font-weight: 500; }
+    #qiyun-product-v2 .qy-pool span { color: var(--qy-muted); }
+    #qiyun-product-v2 .qy-meter { height: 7px; background: var(--qy-border); border-radius: 999px; overflow: hidden; margin: 10px 0 6px; }
+    #qiyun-product-v2 .qy-meter i { display: block; height: 100%; background: var(--qy-primary); }
+    #qiyun-product-v2 .qy-agent-fab { position: absolute; right: 16px; bottom: 16px; border: 0; border-radius: 999px; padding: 10px 14px; background: var(--qy-primary); color: #fff; cursor: pointer; box-shadow: 0 8px 22px rgba(20,119,201,.28); }
+    #qiyun-product-v2 .qy-agent-drawer { display: none; position: absolute; right: 16px; top: 16px; width: 330px; max-width: calc(100% - 32px); z-index: 5; background: var(--qy-panel); border: 1px solid var(--qy-border); border-radius: 8px; box-shadow: 0 18px 48px light-dark(rgba(15,35,50,.2),rgba(0,0,0,.45)); }
+    #qiyun-product-v2 .qy-agent-drawer.is-open { display: block; }
+    #qiyun-product-v2 .qy-agent-head { padding: 11px 12px; border-bottom: 1px solid var(--qy-border); display: flex; justify-content: space-between; align-items: center; }
+    #qiyun-product-v2 .qy-agent-head strong { font-weight: 500; }
+    #qiyun-product-v2 .qy-agent-body { padding: 12px; }
+    #qiyun-product-v2 .qy-bubble { background: var(--qy-panel-2); border: 1px solid var(--qy-border); border-radius: 6px; padding: 10px; margin-bottom: 10px; }
+    #qiyun-product-v2 .qy-agent-input { display: flex; gap: 6px; }
+    #qiyun-product-v2 .qy-agent-input input { flex: 1; min-width: 0; border: 1px solid var(--qy-border); background: var(--qy-panel-2); color: var(--qy-text); border-radius: 5px; padding: 8px; }
+    #qiyun-product-v2 .qy-suggestions { display: flex; flex-wrap: wrap; gap: 5px; margin: 9px 0; }
+    #qiyun-product-v2 .qy-suggestions button { border: 1px solid var(--qy-border); background: var(--qy-panel); color: var(--qy-text); border-radius: 999px; padding: 5px 7px; cursor: pointer; }
+    #qiyun-product-v2 .qy-toast { display: none; margin-top: 9px; padding: 8px; border-radius: 5px; background: var(--qy-green-soft); color: var(--qy-green); }
+    #qiyun-product-v2 .qy-service-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 10px; }
+    #qiyun-product-v2 .qy-service-card { background: var(--qy-panel); border: 1px solid var(--qy-border); border-radius: 7px; padding: 12px; cursor: pointer; text-align: left; color: var(--qy-text); }
+    #qiyun-product-v2 .qy-service-card:hover { border-color: var(--qy-primary); }
+    #qiyun-product-v2 .qy-service-card strong { display: block; font-weight: 500; font-size: 16px; margin-bottom: 4px; }
+    #qiyun-product-v2 .qy-service-card span { color: var(--qy-muted); }
+    #qiyun-product-v2 .qy-service-card b { display: block; font-weight: 500; font-size: 19px; margin-top: 12px; }
+    #qiyun-product-v2 .qy-agent-workspace { display: grid; grid-template-columns: minmax(0,1fr) 330px; gap: 10px; }
+    #qiyun-product-v2 .qy-agent-main, #qiyun-product-v2 .qy-agent-plan { background: var(--qy-panel); border: 1px solid var(--qy-border); border-radius: 7px; }
+    #qiyun-product-v2 .qy-agent-conversation { padding: 13px; }
+    #qiyun-product-v2 .qy-agent-hero { padding: 12px; background: var(--qy-panel-2); border: 1px solid var(--qy-border); border-radius: 6px; margin-bottom: 10px; }
+    #qiyun-product-v2 .qy-agent-hero strong { display: block; font-weight: 500; margin-bottom: 5px; }
+    #qiyun-product-v2 .qy-plan-step { display: grid; grid-template-columns: 22px minmax(0,1fr); gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--qy-border); }
+    #qiyun-product-v2 .qy-plan-step:last-child { border-bottom: 0; }
+    #qiyun-product-v2 .qy-step-num { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--qy-primary-soft); color: var(--qy-primary); }
+    #qiyun-product-v2 .qy-plan-step strong { display: block; font-weight: 500; }
+    #qiyun-product-v2 .qy-plan-step span { color: var(--qy-muted); }
+    #qiyun-product-v2 .qy-monitor-hero { display: grid; grid-template-columns: 1.15fr .85fr .85fr; gap: 10px; margin-bottom: 10px; }
+    #qiyun-product-v2 .qy-health-big { min-height: 132px; padding: 18px; background: var(--qy-green); color: #fff; border-radius: 7px; display: flex; flex-direction: column; justify-content: center; }
+    #qiyun-product-v2 .qy-health-big strong { font-size: 38px; font-weight: 500; letter-spacing: 1px; }
+    #qiyun-product-v2 .qy-health-big span { margin-top: 4px; opacity: .9; }
+    #qiyun-product-v2 .qy-donut-card { background: var(--qy-panel); border: 1px solid var(--qy-border); border-radius: 7px; padding: 10px 12px; display: grid; grid-template-columns: 84px 1fr; gap: 10px; align-items: center; }
+    #qiyun-product-v2 .qy-donut { width: 78px; height: 78px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--qy-green) calc(var(--qy-value) * 1%), var(--qy-border) 0); }
+    #qiyun-product-v2 .qy-donut::after { content: attr(data-value); width: 54px; height: 54px; display: grid; place-items: center; border-radius: 50%; background: var(--qy-panel); color: var(--qy-text); font-weight: 500; }
+    #qiyun-product-v2 .qy-donut-copy strong, #qiyun-product-v2 .qy-donut-copy span { display: block; }
+    #qiyun-product-v2 .qy-donut-copy strong { font-weight: 500; margin-bottom: 5px; }
+    #qiyun-product-v2 .qy-donut-copy span { color: var(--qy-muted); margin-top: 3px; }
+    #qiyun-product-v2 .qy-monitor-metrics { display: grid; grid-template-columns: repeat(6,1fr); gap: 8px; margin-bottom: 10px; }
+    #qiyun-product-v2 .qy-monitor-metric { background: var(--qy-panel); border: 1px solid var(--qy-border); border-radius: 7px; padding: 10px; }
+    #qiyun-product-v2 .qy-monitor-metric span { display: block; color: var(--qy-muted); }
+    #qiyun-product-v2 .qy-monitor-metric strong { display: block; font-size: 18px; font-weight: 500; margin: 6px 0 4px; }
+    #qiyun-product-v2 .qy-monitor-metric small { color: var(--qy-green); }
+    #qiyun-product-v2 .qy-monitor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    #qiyun-product-v2 .qy-capacity-strip { display: grid; grid-template-columns: repeat(24,1fr); gap: 3px; margin: 12px 0 6px; }
+    #qiyun-product-v2 .qy-capacity-strip i { height: 20px; border-radius: 2px; background: var(--qy-border); }
+    #qiyun-product-v2 .qy-capacity-strip i:nth-child(-n+4) { background: var(--qy-green); }
+    #qiyun-product-v2 .qy-capacity-meta { display: flex; justify-content: space-between; color: var(--qy-muted); }
+    #qiyun-product-v2 .qy-pool-capacity-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px 18px; }
+    #qiyun-product-v2 .qy-pool-capacity-item { display: grid; grid-template-columns: minmax(120px,.9fr) minmax(140px,1.4fr) 54px; gap: 10px; align-items: center; padding: 7px 0; }
+    #qiyun-product-v2 .qy-pool-capacity-name strong, #qiyun-product-v2 .qy-pool-capacity-name span { display: block; }
+    #qiyun-product-v2 .qy-pool-capacity-name strong { font-weight: 500; }
+    #qiyun-product-v2 .qy-pool-capacity-name span { color: var(--qy-muted); margin-top: 3px; }
+    #qiyun-product-v2 .qy-pool-capacity-bar { height: 10px; background: var(--qy-border); border-radius: 999px; overflow: hidden; }
+    #qiyun-product-v2 .qy-pool-capacity-bar i { display: block; height: 100%; width: var(--qy-pool-used); background: var(--qy-green); border-radius: inherit; }
+    #qiyun-product-v2 .qy-pool-capacity-item.is-warn .qy-pool-capacity-bar i { background: var(--qy-amber); }
+    #qiyun-product-v2 .qy-pool-capacity-value { text-align: right; font-weight: 500; color: var(--qy-green); }
+    #qiyun-product-v2 .qy-pool-capacity-item.is-warn .qy-pool-capacity-value { color: var(--qy-amber); }
+    #qiyun-product-v2 .qy-disk-state { display: inline-flex; gap: 5px; align-items: center; }
+    #qiyun-product-v2 .qy-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--qy-green); }
+    #qiyun-product-v2 .qy-steps { display: flex; align-items: center; gap: 0; margin: 4px 0 16px; }
+    #qiyun-product-v2 .qy-step { flex: 1; display: flex; align-items: center; gap: 8px; color: var(--qy-muted); }
+    #qiyun-product-v2 .qy-step::after { content: &quot;&quot;; height: 1px; flex: 1; background: var(--qy-border); }
+    #qiyun-product-v2 .qy-step:last-child::after { display: none; }
+    #qiyun-product-v2 .qy-step b { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--qy-panel-2); border: 1px solid var(--qy-border); font-weight: 500; }
+    #qiyun-product-v2 .qy-step.is-current { color: var(--qy-primary); }
+    #qiyun-product-v2 .qy-step.is-current b, #qiyun-product-v2 .qy-step.is-done b { background: var(--qy-primary); border-color: var(--qy-primary); color: #fff; }
+    #qiyun-product-v2 .qy-form-panel { background: var(--qy-panel); border: 1px solid var(--qy-border); border-radius: 7px; margin-bottom: 10px; }
+    #qiyun-product-v2 .qy-form-section { padding: 14px; border-bottom: 1px solid var(--qy-border); }
+    #qiyun-product-v2 .qy-form-section:last-child { border-bottom: 0; }
+    #qiyun-product-v2 .qy-form-section h3 { margin: 0 0 12px; font-size: 15px; font-weight: 500; }
+    #qiyun-product-v2 .qy-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    #qiyun-product-v2 .qy-field { display: grid; gap: 6px; }
+    #qiyun-product-v2 .qy-field label { color: var(--qy-muted); }
+    #qiyun-product-v2 .qy-field input, #qiyun-product-v2 .qy-field select { width: 100%; border: 1px solid var(--qy-border); background: var(--qy-panel-2); color: var(--qy-text); border-radius: 5px; padding: 9px; }
+    #qiyun-product-v2 .qy-field small { color: var(--qy-muted); }
+    #qiyun-product-v2 .qy-radio-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 9px; }
+    #qiyun-product-v2 .qy-choice { display: block; border: 1px solid var(--qy-border); border-radius: 7px; padding: 11px; cursor: pointer; background: var(--qy-panel-2); }
+    #qiyun-product-v2 .qy-choice:has(input:checked) { border-color: var(--qy-primary); background: var(--qy-primary-soft); }
+    #qiyun-product-v2 .qy-choice input { margin-right: 6px; }
+    #qiyun-product-v2 .qy-choice strong { font-weight: 500; }
+    #qiyun-product-v2 .qy-choice span { display: block; color: var(--qy-muted); margin: 6px 0 0 21px; }
+    #qiyun-product-v2 .qy-device-list { display: grid; gap: 7px; }
+    #qiyun-product-v2 .qy-device { display: grid; grid-template-columns: 28px 1.2fr 1fr 1fr auto; align-items: center; gap: 9px; padding: 10px; border: 1px solid var(--qy-border); border-radius: 6px; background: var(--qy-panel-2); }
+    #qiyun-product-v2 .qy-device span { color: var(--qy-muted); }
+    #qiyun-product-v2 .qy-summary { background: var(--qy-primary-soft); border: 1px solid var(--qy-border); border-radius: 7px; padding: 12px; }
+    #qiyun-product-v2 .qy-summary strong { display: block; font-weight: 500; margin-bottom: 7px; }
+    #qiyun-product-v2 .qy-summary-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+    #qiyun-product-v2 .qy-summary-grid span { color: var(--qy-muted); }
+    #qiyun-product-v2 .qy-summary-grid b { display: block; color: var(--qy-text); font-weight: 500; margin-top: 3px; }
+    #qiyun-product-v2 .qy-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+    #qiyun-product-v2 .qy-crush-map { display: grid; gap: 12px; }
+    #qiyun-product-v2 .qy-crush-root { justify-self: center; min-width: 260px; text-align: center; padding: 12px 18px; background: var(--qy-primary); color: #fff; border-radius: 7px; position: relative; }
+    #qiyun-product-v2 .qy-crush-root strong, #qiyun-product-v2 .qy-crush-root span { display: block; }
+    #qiyun-product-v2 .qy-crush-root strong { font-weight: 500; }
+    #qiyun-product-v2 .qy-crush-root span { margin-top: 4px; opacity: .88; }
+    #qiyun-product-v2 .qy-crush-root::after { content: &quot;&quot;; position: absolute; left: 50%; bottom: -13px; width: 1px; height: 13px; background: var(--qy-border); }
+    #qiyun-product-v2 .qy-crush-zones { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; position: relative; padding-top: 12px; }
+    #qiyun-product-v2 .qy-crush-zones::before { content: &quot;&quot;; position: absolute; top: 0; left: 25%; right: 25%; height: 1px; background: var(--qy-border); }
+    #qiyun-product-v2 .qy-crush-zone { background: var(--qy-panel); border: 1px solid var(--qy-border); border-radius: 7px; padding: 11px; position: relative; }
+    #qiyun-product-v2 .qy-crush-zone::before { content: &quot;&quot;; position: absolute; left: 50%; top: -13px; height: 13px; width: 1px; background: var(--qy-border); }
+    #qiyun-product-v2 .qy-zone-head { display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 9px; }
+    #qiyun-product-v2 .qy-zone-head strong { font-weight: 500; }
+    #qiyun-product-v2 .qy-zone-head span { color: var(--qy-muted); }
+    #qiyun-product-v2 .qy-zone-head div strong, #qiyun-product-v2 .qy-zone-head div span { display: block; }
+    #qiyun-product-v2 .qy-zone-head div span { margin-top: 3px; }
+    #qiyun-product-v2 .qy-rack-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 7px; }
+    #qiyun-product-v2 .qy-rack-btn { border: 1px solid var(--qy-border); background: var(--qy-panel-2); color: var(--qy-text); border-radius: 6px; padding: 8px 6px; cursor: pointer; text-align: center; }
+    #qiyun-product-v2 .qy-rack-btn[aria-pressed=&quot;true&quot;] { border-color: var(--qy-primary); background: var(--qy-primary-soft); color: var(--qy-primary); }
+    #qiyun-product-v2 .qy-rack-btn strong, #qiyun-product-v2 .qy-rack-btn span { display: block; }
+    #qiyun-product-v2 .qy-rack-btn strong { font-weight: 500; }
+    #qiyun-product-v2 .qy-rack-btn span { color: var(--qy-muted); margin-top: 3px; }
+    #qiyun-product-v2 .qy-rack-detail { background: var(--qy-panel); border: 1px solid var(--qy-border); border-radius: 7px; overflow: hidden; }
+    #qiyun-product-v2 .qy-rack-detail-head { padding: 11px 12px; background: var(--qy-panel-2); border-bottom: 1px solid var(--qy-border); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    #qiyun-product-v2 .qy-rack-detail-head strong { font-weight: 500; }
+    #qiyun-product-v2 .qy-rack-detail-head span { color: var(--qy-muted); }
+    #qiyun-product-v2 .qy-rack-detail-head &gt; div:first-child strong, #qiyun-product-v2 .qy-rack-detail-head &gt; div:first-child span { display: block; }
+    #qiyun-product-v2 .qy-rack-detail-head &gt; div:first-child span { margin-top: 3px; }
+    #qiyun-product-v2 .qy-host-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; padding: 12px; }
+    #qiyun-product-v2 .qy-host-box { border: 1px solid var(--qy-border); border-radius: 7px; background: var(--qy-panel-2); overflow: hidden; }
+    #qiyun-product-v2 .qy-host-head { padding: 9px; border-bottom: 1px solid var(--qy-border); }
+    #qiyun-product-v2 .qy-host-head strong, #qiyun-product-v2 .qy-host-head span { display: block; }
+    #qiyun-product-v2 .qy-host-head strong { font-weight: 500; }
+    #qiyun-product-v2 .qy-host-head span { color: var(--qy-muted); margin-top: 3px; }
+    #qiyun-product-v2 .qy-disk-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 5px; padding: 9px; }
+    #qiyun-product-v2 .qy-disk-cell { border: 1px solid var(--qy-border); border-left: 3px solid var(--qy-green); border-radius: 4px; padding: 6px 4px; background: var(--qy-panel); text-align: center; cursor: pointer; color: var(--qy-text); }
+    #qiyun-product-v2 .qy-disk-cell strong, #qiyun-product-v2 .qy-disk-cell span { display: block; }
+    #qiyun-product-v2 .qy-disk-cell strong { font-weight: 500; }
+    #qiyun-product-v2 .qy-disk-cell span { color: var(--qy-muted); margin-top: 2px; }
+    #qiyun-product-v2 .qy-disk-cell.is-warn { border-left-color: var(--qy-amber); }
+    #qiyun-product-v2 .qy-crush-bottom { display: grid; grid-template-columns: 1.25fr .75fr; gap: 10px; }
+    #qiyun-product-v2 .qy-crush-legend { display: flex; flex-wrap: wrap; gap: 12px; color: var(--qy-muted); }
+    #qiyun-product-v2 .qy-crush-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; background: var(--qy-green); margin-right: 5px; }
+    #qiyun-product-v2 .qy-service-tabs { display: flex; gap: 3px; border-bottom: 1px solid var(--qy-border); margin-bottom: 11px; overflow-x: auto; }
+    #qiyun-product-v2 .qy-service-tab { border: 0; border-bottom: 2px solid transparent; padding: 9px 12px; background: transparent; color: var(--qy-muted); cursor: pointer; white-space: nowrap; }
+    #qiyun-product-v2 .qy-service-tab[aria-selected=&quot;true&quot;] { color: var(--qy-primary); border-bottom-color: var(--qy-primary); }
+    #qiyun-product-v2 .qy-service-view[hidden] { display: none !important; }
+    #qiyun-product-v2 .qy-life-flow { display: grid; grid-template-columns: repeat(5,1fr); gap: 0; margin-bottom: 11px; }
+    #qiyun-product-v2 .qy-life-stage { display: flex; align-items: center; min-width: 0; color: var(--qy-muted); }
+    #qiyun-product-v2 .qy-life-stage::after { content: &quot;→&quot;; margin: 0 7px; color: var(--qy-border); }
+    #qiyun-product-v2 .qy-life-stage:last-child::after { display: none; }
+    #qiyun-product-v2 .qy-life-stage span { width: 100%; padding: 9px; border: 1px solid var(--qy-border); border-radius: 6px; background: var(--qy-panel); text-align: center; }
+    #qiyun-product-v2 .qy-life-stage.is-active span { background: var(--qy-primary-soft); color: var(--qy-primary); border-color: var(--qy-primary); }
+    #qiyun-product-v2 .qy-life-stage.is-safe span { background: var(--qy-green-soft); color: var(--qy-green); }
+    #qiyun-product-v2 .qy-policy-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 9px; }
+    #qiyun-product-v2 .qy-policy-item { border: 1px solid var(--qy-border); background: var(--qy-panel); border-radius: 7px; padding: 11px; }
+    #qiyun-product-v2 .qy-policy-item strong, #qiyun-product-v2 .qy-policy-item span { display: block; }
+    #qiyun-product-v2 .qy-policy-item strong { font-weight: 500; }
+    #qiyun-product-v2 .qy-policy-item span { color: var(--qy-muted); margin-top: 5px; }
+    #qiyun-product-v2 .qy-policy-item .qy-meter { margin-bottom: 3px; }
+    #qiyun-product-v2 .qy-table-action { border: 0; background: transparent; color: var(--qy-primary); cursor: pointer; padding: 3px 5px; }
+    @media (max-width: 820px) {
+      #qiyun-product-v2 .qy-shell { grid-template-columns: 162px minmax(0,1fr); }
+      #qiyun-product-v2 .qy-kpis { grid-template-columns: 1fr 1fr; }
+      #qiyun-product-v2 .qy-grid { grid-template-columns: 1fr; }
+      #qiyun-product-v2 .qy-pool-map { grid-template-columns: 1fr 1fr; }
+      #qiyun-product-v2 .qy-service-cards { grid-template-columns: 1fr; }
+      #qiyun-product-v2 .qy-agent-workspace { grid-template-columns: 1fr; }
+      #qiyun-product-v2 .qy-scope span { display: none; }
+      #qiyun-product-v2 .qy-monitor-hero { grid-template-columns: 1fr 1fr; }
+      #qiyun-product-v2 .qy-health-big { grid-column: 1 / -1; }
+      #qiyun-product-v2 .qy-monitor-metrics { grid-template-columns: repeat(3,1fr); }
+      #qiyun-product-v2 .qy-radio-grid { grid-template-columns: 1fr; }
+      #qiyun-product-v2 .qy-host-row { grid-template-columns: 1fr 1fr; }
+      #qiyun-product-v2 .qy-crush-bottom { grid-template-columns: 1fr; }
+      #qiyun-product-v2 .qy-policy-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 560px) {
+      #qiyun-product-v2 .qy-shell { grid-template-columns: 58px minmax(0,1fr); }
+      #qiyun-product-v2 .qy-sidebar { padding: 9px 6px; }
+      #qiyun-product-v2 .qy-nav-btn { justify-content: center; padding: 9px 4px; }
+      #qiyun-product-v2 .qy-nav-btn span:last-child, #qiyun-product-v2 .qy-nav-section, #qiyun-product-v2 .qy-cluster-mini { display: none; }
+      #qiyun-product-v2 .qy-nav-icon { width: auto; }
+      #qiyun-product-v2 .qy-main { padding: 11px; }
+      #qiyun-product-v2 .qy-tools .qy-icon-btn, #qiyun-product-v2 .qy-scope { display: none; }
+      #qiyun-product-v2 .qy-role-btn { padding: 6px; }
+      #qiyun-product-v2 .qy-kpis, #qiyun-product-v2 .qy-pool-map { grid-template-columns: 1fr; }
+      #qiyun-product-v2 .qy-inventory { grid-template-columns: 1fr 1fr; }
+      #qiyun-product-v2 .qy-toolbar { align-items: flex-start; flex-direction: column; }
+      #qiyun-product-v2 .qy-monitor-hero, #qiyun-product-v2 .qy-monitor-grid { grid-template-columns: 1fr; }
+      #qiyun-product-v2 .qy-pool-capacity-grid { grid-template-columns: 1fr; }
+      #qiyun-product-v2 .qy-health-big { grid-column: auto; }
+      #qiyun-product-v2 .qy-monitor-metrics { grid-template-columns: 1fr 1fr; }
+      #qiyun-product-v2 .qy-form-grid, #qiyun-product-v2 .qy-summary-grid { grid-template-columns: 1fr; }
+      #qiyun-product-v2 .qy-steps { align-items: flex-start; }
+      #qiyun-product-v2 .qy-step { font-size: 11px; gap: 4px; }
+      #qiyun-product-v2 .qy-device { grid-template-columns: 24px 1fr; }
+      #qiyun-product-v2 .qy-device span, #qiyun-product-v2 .qy-device .qy-status { grid-column: 2; }
+      #qiyun-product-v2 .qy-crush-zones, #qiyun-product-v2 .qy-host-row { grid-template-columns: 1fr; }
+      #qiyun-product-v2 .qy-crush-zones::before, #qiyun-product-v2 .qy-crush-zone::before, #qiyun-product-v2 .qy-crush-root::after { display: none; }
+      #qiyun-product-v2 .qy-rack-row { grid-template-columns: 1fr 1fr; }
+      #qiyun-product-v2 .qy-pool-capacity-item { grid-template-columns: minmax(100px,.9fr) minmax(90px,1.2fr) 45px; gap: 6px; }
+      #qiyun-product-v2 .qy-life-flow { grid-template-columns: 1fr; gap: 5px; }
+      #qiyun-product-v2 .qy-life-stage::after { display: none; }
+      #qiyun-product-v2 .qy-policy-grid { grid-template-columns: 1fr; }
+    }
+  &lt;/style&gt;
+
+  &lt;section class=&quot;qy-app&quot; aria-label=&quot;齐云存力平台产品原型&quot;&gt;
+    &lt;header class=&quot;qy-top&quot;&gt;
+      &lt;div class=&quot;qy-brand&quot;&gt;&lt;span class=&quot;qy-logo&quot;&gt;Q&lt;/span&gt;&lt;span&gt;齐云存力平台&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;qy-scope&quot;&gt;&lt;span id=&quot;qy-scope-label&quot;&gt;当前租户&lt;/span&gt;&lt;select id=&quot;qy-scope-select&quot; aria-label=&quot;当前范围&quot;&gt;&lt;option&gt;智算训练平台&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;
+      &lt;div class=&quot;qy-tools&quot;&gt;&lt;div class=&quot;qy-role-switch&quot; aria-label=&quot;视角切换&quot;&gt;&lt;button class=&quot;qy-role-btn&quot; data-role-switch=&quot;business&quot; aria-pressed=&quot;true&quot;&gt;业务视角&lt;/button&gt;&lt;button class=&quot;qy-role-btn&quot; data-role-switch=&quot;admin&quot; aria-pressed=&quot;false&quot;&gt;管理视角&lt;/button&gt;&lt;/div&gt;&lt;button class=&quot;qy-icon-btn&quot; aria-label=&quot;通知&quot;&gt;♧&lt;/button&gt;&lt;button class=&quot;qy-icon-btn&quot; aria-label=&quot;帮助&quot;&gt;?&lt;/button&gt;&lt;span class=&quot;qy-avatar&quot;&gt;管&lt;/span&gt;&lt;/div&gt;
+    &lt;/header&gt;
+    &lt;div class=&quot;qy-shell&quot;&gt;
+      &lt;aside class=&quot;qy-sidebar&quot; aria-label=&quot;左侧主导航&quot;&gt;
+        &lt;div data-role-nav=&quot;business&quot;&gt;
+          &lt;div class=&quot;qy-nav-section&quot;&gt;租户工作台&lt;/div&gt;
+          &lt;button class=&quot;qy-nav-btn&quot; data-view=&quot;business-overview&quot; aria-current=&quot;page&quot;&gt;&lt;span class=&quot;qy-nav-icon&quot;&gt;▦&lt;/span&gt;&lt;span&gt;资源总览&lt;/span&gt;&lt;/button&gt;
+          &lt;button class=&quot;qy-nav-btn&quot; data-view=&quot;agent&quot;&gt;&lt;span class=&quot;qy-nav-icon&quot;&gt;✦&lt;/span&gt;&lt;span&gt;AI 存力助手&lt;/span&gt;&lt;/button&gt;
+          &lt;div class=&quot;qy-nav-section&quot;&gt;存储服务&lt;/div&gt;
+          &lt;button class=&quot;qy-nav-btn&quot; data-view=&quot;rbd&quot;&gt;&lt;span class=&quot;qy-nav-icon&quot;&gt;▤&lt;/span&gt;&lt;span&gt;块存储 RBD&lt;/span&gt;&lt;/button&gt;
+          &lt;button class=&quot;qy-nav-btn&quot; data-view=&quot;nas&quot;&gt;&lt;span class=&quot;qy-nav-icon&quot;&gt;▱&lt;/span&gt;&lt;span&gt;文件存储 NAS&lt;/span&gt;&lt;/button&gt;
+          &lt;button class=&quot;qy-nav-btn&quot; data-view=&quot;s3&quot;&gt;&lt;span class=&quot;qy-nav-icon&quot;&gt;◉&lt;/span&gt;&lt;span&gt;对象存储 S3&lt;/span&gt;&lt;/button&gt;
+          &lt;div class=&quot;qy-nav-section&quot;&gt;租户运营&lt;/div&gt;
+          &lt;button class=&quot;qy-nav-btn&quot; data-view=&quot;usage&quot;&gt;&lt;span class=&quot;qy-nav-icon&quot;&gt;◫&lt;/span&gt;&lt;span&gt;用量与账单&lt;/span&gt;&lt;/button&gt;
+          &lt;button class=&quot;qy-nav-btn&quot; data-view=&quot;business-tasks&quot;&gt;&lt;span class=&quot;qy-nav-icon&quot;&gt;☷&lt;/span&gt;&lt;span&gt;申请与任务&lt;/span&gt;&lt;/button&gt;
+        &lt;/div&gt;
+        &lt;div data-role-nav=&quot;admin&quot; hidden&gt;
+          &lt;div class=&quot;qy-nav-section&quot;&gt;平台管理&lt;/div&gt;
+          &lt;button class=&quot;qy-nav-btn&quot; data-view=&quot;admin-overview&quot;&gt;&lt;span class=&quot;qy-nav-icon&quot;&gt;▦&lt;/span&gt;&lt;span&gt;资源总览&lt;/span&gt;&lt;/button&gt;
+          &lt;button class=&quot;qy-nav-btn&quot; data-view=&quot;cluster&quot;&gt;&lt;span class=&quot;qy-nav-icon&quot;&gt;◈&lt;/span&gt;&lt;span&gt;集群管理&lt;/span&gt;&lt;/button&gt;
+          &lt;div class=&quot;qy-nav-section&quot;&gt;Ceph 数据面&lt;/div&gt;
+          &lt;button class=&quot;qy-nav-btn&quot; data-view=&quot;nodes&quot;&gt;&lt;span class=&quot;qy-nav-icon&quot;&gt;▥&lt;/span&gt;&lt;span&gt;节点管理&lt;/span&gt;&lt;/button&gt;
+          &lt;button class=&quot;qy-nav-btn&quot; data-view=&quot;disks&quot;&gt;&lt;span class=&quot;qy-nav-icon&quot;&gt;◫&lt;/span&gt;&lt;span&gt;物理磁盘&lt;/span&gt;&lt;/button&gt;
+          &lt;button class=&quot;qy-nav-btn&quot; data-view=&quot;osd&quot;&gt;&lt;span class=&quot;qy-nav-icon&quot;&gt;◉&lt;/span&gt;&lt;span&gt;OSD 管理&lt;/span&gt;&lt;/button&gt;
+          &lt;button class=&quot;qy-nav-btn&quot; data-view=&quot;pool&quot;&gt;&lt;span class=&quot;qy-nav-icon&quot;&gt;▤&lt;/span&gt;&lt;span&gt;Pool 管理&lt;/span&gt;&lt;/button&gt;
+          &lt;button class=&quot;qy-nav-btn&quot; data-view=&quot;crush&quot;&gt;&lt;span class=&quot;qy-nav-icon&quot;&gt;⌘&lt;/span&gt;&lt;span&gt;CRUSH Map&lt;/span&gt;&lt;/button&gt;
+          &lt;div class=&quot;qy-nav-section&quot;&gt;平台运营&lt;/div&gt;
+          &lt;button class=&quot;qy-nav-btn&quot; data-view=&quot;tenants&quot;&gt;&lt;span class=&quot;qy-nav-icon&quot;&gt;◇&lt;/span&gt;&lt;span&gt;租户与配额&lt;/span&gt;&lt;/button&gt;
+          &lt;button class=&quot;qy-nav-btn&quot; data-view=&quot;monitor&quot;&gt;&lt;span class=&quot;qy-nav-icon&quot;&gt;⌁&lt;/span&gt;&lt;span&gt;监控与告警&lt;/span&gt;&lt;/button&gt;
+          &lt;button class=&quot;qy-nav-btn&quot; data-view=&quot;security&quot;&gt;&lt;span class=&quot;qy-nav-icon&quot;&gt;♢&lt;/span&gt;&lt;span&gt;安全与审计&lt;/span&gt;&lt;/button&gt;
+          &lt;button class=&quot;qy-nav-btn&quot; data-view=&quot;tasks&quot;&gt;&lt;span class=&quot;qy-nav-icon&quot;&gt;☷&lt;/span&gt;&lt;span&gt;运维任务&lt;/span&gt;&lt;/button&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;qy-cluster-mini&quot;&gt;&lt;span id=&quot;qy-side-caption&quot;&gt;租户配额&lt;/span&gt;&lt;strong id=&quot;qy-side-status&quot;&gt;6.5 PB / 8.0 PB&lt;/strong&gt;&lt;span id=&quot;qy-side-detail&quot;&gt;RBD · NAS · S3&lt;/span&gt;&lt;/div&gt;
+      &lt;/aside&gt;
+
+      &lt;main class=&quot;qy-main&quot;&gt;
+        &lt;section class=&quot;qy-page is-active&quot; data-page=&quot;business-overview&quot; data-role-page=&quot;business&quot;&gt;
+          &lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;租户资源总览&lt;/h1&gt;&lt;p&gt;智算训练平台的配额、用量、服务健康与近期申请。&lt;/p&gt;&lt;/div&gt;&lt;button class=&quot;qy-primary&quot; data-view-link=&quot;agent&quot;&gt;✦ AI 申请存储&lt;/button&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-kpis&quot;&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;总配额&lt;/span&gt;&lt;strong&gt;8.0 PB&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;已使用&lt;/span&gt;&lt;strong&gt;6.5 PB&lt;/strong&gt;&lt;em&gt;81.3%&lt;/em&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;存储服务&lt;/span&gt;&lt;strong&gt;47&lt;/strong&gt;&lt;em&gt;全部正常&lt;/em&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;本月预估费用&lt;/span&gt;&lt;strong&gt;¥ 428,600&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-service-cards&quot;&gt;&lt;button class=&quot;qy-service-card&quot; data-view-link=&quot;rbd&quot;&gt;&lt;strong&gt;▤ 块存储 RBD&lt;/strong&gt;&lt;span&gt;数据库、虚拟机、容器持久卷&lt;/span&gt;&lt;b&gt;320 / 500 TB&lt;/b&gt;&lt;div class=&quot;qy-meter&quot;&gt;&lt;i style=&quot;width:64%&quot;&gt;&lt;/i&gt;&lt;/div&gt;&lt;span&gt;18 个卷&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-service-card&quot; data-view-link=&quot;nas&quot;&gt;&lt;strong&gt;▱ 文件存储 NAS&lt;/strong&gt;&lt;span&gt;训练数据集、共享目录&lt;/span&gt;&lt;b&gt;1.6 / 2.0 PB&lt;/b&gt;&lt;div class=&quot;qy-meter&quot;&gt;&lt;i style=&quot;width:80%&quot;&gt;&lt;/i&gt;&lt;/div&gt;&lt;span&gt;8 个文件系统&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-service-card&quot; data-view-link=&quot;s3&quot;&gt;&lt;strong&gt;◉ 对象存储 S3&lt;/strong&gt;&lt;span&gt;模型、归档、湖仓数据&lt;/span&gt;&lt;b&gt;4.6 / 5.5 PB&lt;/b&gt;&lt;div class=&quot;qy-meter&quot;&gt;&lt;i style=&quot;width:84%&quot;&gt;&lt;/i&gt;&lt;/div&gt;&lt;span&gt;21 个 Bucket&lt;/span&gt;&lt;/button&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-grid&quot;&gt;&lt;article class=&quot;qy-panel&quot;&gt;&lt;div class=&quot;qy-panel-title&quot;&gt;近 7 天用量趋势&lt;/div&gt;&lt;div class=&quot;qy-panel-body&quot;&gt;&lt;svg class=&quot;qy-chart&quot; viewBox=&quot;0 0 720 164&quot; role=&quot;img&quot; aria-label=&quot;租户近七天用量趋势&quot;&gt;&lt;line class=&quot;grid&quot; x1=&quot;55&quot; y1=&quot;18&quot; x2=&quot;705&quot; y2=&quot;18&quot;&gt;&lt;/line&gt;&lt;line class=&quot;grid&quot; x1=&quot;55&quot; y1=&quot;60&quot; x2=&quot;705&quot; y2=&quot;60&quot;&gt;&lt;/line&gt;&lt;line class=&quot;grid&quot; x1=&quot;55&quot; y1=&quot;102&quot; x2=&quot;705&quot; y2=&quot;102&quot;&gt;&lt;/line&gt;&lt;line class=&quot;grid&quot; x1=&quot;55&quot; y1=&quot;140&quot; x2=&quot;705&quot; y2=&quot;140&quot;&gt;&lt;/line&gt;&lt;path class=&quot;area&quot; d=&quot;M55,115 L160,106 L265,98 L370,82 L475,70 L580,53 L705,42 L705,140 L55,140 Z&quot;&gt;&lt;/path&gt;&lt;path class=&quot;line&quot; d=&quot;M55,115 L160,106 L265,98 L370,82 L475,70 L580,53 L705,42&quot;&gt;&lt;/path&gt;&lt;text x=&quot;12&quot; y=&quot;22&quot;&gt;8 PB&lt;/text&gt;&lt;text x=&quot;12&quot; y=&quot;64&quot;&gt;6 PB&lt;/text&gt;&lt;text x=&quot;12&quot; y=&quot;106&quot;&gt;4 PB&lt;/text&gt;&lt;text x=&quot;55&quot; y=&quot;158&quot;&gt;周一&lt;/text&gt;&lt;text x=&quot;365&quot; y=&quot;158&quot;&gt;周四&lt;/text&gt;&lt;text x=&quot;680&quot; y=&quot;158&quot;&gt;今天&lt;/text&gt;&lt;/svg&gt;&lt;/div&gt;&lt;/article&gt;&lt;article class=&quot;qy-panel&quot;&gt;&lt;div class=&quot;qy-panel-title&quot;&gt;近期申请&lt;/div&gt;&lt;div class=&quot;qy-panel-body&quot;&gt;&lt;div class=&quot;qy-service-row&quot;&gt;&lt;span class=&quot;qy-service-icon&quot;&gt;✦&lt;/span&gt;&lt;div&gt;&lt;strong&gt;训练集 NAS 扩容&lt;/strong&gt;&lt;small&gt;+200 TB · Agent 发起&lt;/small&gt;&lt;/div&gt;&lt;span style=&quot;color:var(--qy-primary)&quot;&gt;执行中&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-service-row&quot;&gt;&lt;span class=&quot;qy-service-icon&quot;&gt;◉&lt;/span&gt;&lt;div&gt;&lt;strong&gt;模型归档 Bucket&lt;/strong&gt;&lt;small&gt;WORM 30 天&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;qy-ok&quot;&gt;完成&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-service-row&quot;&gt;&lt;span class=&quot;qy-service-icon&quot;&gt;▤&lt;/span&gt;&lt;div&gt;&lt;strong&gt;Checkpoint RBD&lt;/strong&gt;&lt;small&gt;120 TB · 全闪&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;qy-ok&quot;&gt;完成&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;agent&quot; data-role-page=&quot;business&quot;&gt;
+          &lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;AI 存力助手&lt;/h1&gt;&lt;p&gt;描述业务场景，自动完成存储选型、配额校验、安全策略和交付编排。&lt;/p&gt;&lt;/div&gt;&lt;button class=&quot;qy-secondary&quot; data-view-link=&quot;business-tasks&quot;&gt;查看任务&lt;/button&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-agent-workspace&quot;&gt;&lt;section class=&quot;qy-agent-main&quot;&gt;&lt;div class=&quot;qy-panel-title&quot;&gt;需求对话 &lt;span class=&quot;qy-ok&quot;&gt;● 在线&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-agent-conversation&quot;&gt;&lt;div class=&quot;qy-agent-hero&quot;&gt;&lt;strong&gt;你好，我是存力 Agent&lt;/strong&gt;&lt;span&gt;我可以为你创建 RBD、NAS、S3，或分析性能、容量与成本问题。&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-suggestions&quot;&gt;&lt;button data-agent-prompt=&quot;为数据库创建 20 TB 低时延块存储&quot;&gt;数据库块存储&lt;/button&gt;&lt;button data-agent-prompt=&quot;为训练集创建 200 TB 高吞吐共享存储&quot;&gt;训练集共享存储&lt;/button&gt;&lt;button data-agent-prompt=&quot;创建启用版本与 WORM 的模型归档桶&quot;&gt;模型归档桶&lt;/button&gt;&lt;button data-agent-prompt=&quot;分析当前租户的容量增长趋势&quot;&gt;分析容量趋势&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;qy-agent-input&quot;&gt;&lt;input id=&quot;qy-agent-page-input&quot; value=&quot;为训练集创建 200 TB 高吞吐共享存储&quot; aria-label=&quot;业务需求&quot;&gt;&lt;button class=&quot;qy-primary&quot; id=&quot;qy-agent-page-send&quot;&gt;生成方案&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;qy-toast&quot; id=&quot;qy-agent-page-toast&quot;&gt;已完成方案生成，并通过配额、拓扑和安全策略校验。&lt;/div&gt;&lt;/div&gt;&lt;/section&gt;&lt;aside class=&quot;qy-agent-plan&quot;&gt;&lt;div class=&quot;qy-panel-title&quot;&gt;建议交付方案&lt;/div&gt;&lt;div class=&quot;qy-panel-body&quot;&gt;&lt;div class=&quot;qy-plan-step&quot;&gt;&lt;span class=&quot;qy-step-num&quot;&gt;1&lt;/span&gt;&lt;div&gt;&lt;strong&gt;选择 NAS 文件存储&lt;/strong&gt;&lt;span&gt;CephFS + NFS 4.1&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;qy-plan-step&quot;&gt;&lt;span class=&quot;qy-step-num&quot;&gt;2&lt;/span&gt;&lt;div&gt;&lt;strong&gt;容量型服务等级&lt;/strong&gt;&lt;span&gt;200 TB · D-POD1 · EC 8+3&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;qy-plan-step&quot;&gt;&lt;span class=&quot;qy-step-num&quot;&gt;3&lt;/span&gt;&lt;div&gt;&lt;strong&gt;应用保护策略&lt;/strong&gt;&lt;span&gt;每日快照 · BYOK · 租户 VPC&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;qy-health&quot; style=&quot;margin-top:10px;background:var(--qy-green-soft);color:var(--qy-green)&quot;&gt;✓ 配额充足 · ✓ 安全合规&lt;/div&gt;&lt;button class=&quot;qy-primary&quot; style=&quot;width:100%&quot;&gt;提交申请&lt;/button&gt;&lt;/div&gt;&lt;/aside&gt;&lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;admin-overview&quot; data-role-page=&quot;admin&quot; hidden&gt;
+          &lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;存储资源总览&lt;/h1&gt;&lt;p&gt;统一运营 Ceph 集群、数据面资源与多租户存储服务。&lt;/p&gt;&lt;/div&gt;&lt;button class=&quot;qy-primary&quot; data-view-link=&quot;tasks&quot;&gt;新建运维任务&lt;/button&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-kpis&quot;&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;可用存力&lt;/span&gt;&lt;strong&gt;41.2 PB&lt;/strong&gt;&lt;em&gt;82.9%&lt;/em&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;租户&lt;/span&gt;&lt;strong&gt;23&lt;/strong&gt;&lt;em&gt;正常&lt;/em&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;存储服务实例&lt;/span&gt;&lt;strong&gt;114&lt;/strong&gt;&lt;em&gt;+6 本月&lt;/em&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;本月计量&lt;/span&gt;&lt;strong&gt;8.5 PB&lt;/strong&gt;&lt;em&gt;已使用&lt;/em&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-grid&quot;&gt;
+            &lt;article class=&quot;qy-panel&quot;&gt;&lt;div class=&quot;qy-panel-title&quot;&gt;&lt;span&gt;Ceph 集群状态&lt;/span&gt;&lt;button class=&quot;qy-secondary&quot; data-view-link=&quot;cluster&quot;&gt;查看集群&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;qy-panel-body&quot;&gt;&lt;div class=&quot;qy-health&quot;&gt;&lt;span&gt;▲&lt;/span&gt;&lt;div&gt;&lt;strong&gt;HEALTH_WARN&lt;/strong&gt;&lt;span&gt;1 项容量水位提醒，数据服务正常&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;qy-inventory&quot;&gt;&lt;div&gt;&lt;span&gt;主机&lt;/span&gt;&lt;strong&gt;51&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;MON&lt;/span&gt;&lt;strong&gt;5&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;MGR&lt;/span&gt;&lt;strong&gt;2&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;OSD&lt;/span&gt;&lt;strong&gt;96&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;Pool&lt;/span&gt;&lt;strong&gt;18&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;PG&lt;/span&gt;&lt;strong&gt;4.6k&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;RGW&lt;/span&gt;&lt;strong&gt;4&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;MDS&lt;/span&gt;&lt;strong&gt;4&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/article&gt;
+            &lt;article class=&quot;qy-panel&quot;&gt;&lt;div class=&quot;qy-panel-title&quot;&gt;对外服务&lt;/div&gt;&lt;div class=&quot;qy-panel-body&quot;&gt;&lt;div class=&quot;qy-service-row&quot;&gt;&lt;span class=&quot;qy-service-icon&quot;&gt;▤&lt;/span&gt;&lt;div&gt;&lt;strong&gt;RBD&lt;/strong&gt;&lt;small&gt;38 卷 · 312 TB&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;qy-ok&quot;&gt;正常&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-service-row&quot;&gt;&lt;span class=&quot;qy-service-icon&quot;&gt;▱&lt;/span&gt;&lt;div&gt;&lt;strong&gt;NAS&lt;/strong&gt;&lt;small&gt;12 文件系统 · 1.8 PB&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;qy-ok&quot;&gt;正常&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-service-row&quot;&gt;&lt;span class=&quot;qy-service-icon&quot;&gt;◉&lt;/span&gt;&lt;div&gt;&lt;strong&gt;S3&lt;/strong&gt;&lt;small&gt;64 Buckets · 6.2 PB&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;qy-ok&quot;&gt;正常&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/article&gt;
+          &lt;/div&gt;
+          &lt;article class=&quot;qy-panel&quot; style=&quot;margin-top:10px&quot;&gt;&lt;div class=&quot;qy-panel-title&quot;&gt;&lt;span&gt;客户端吞吐&lt;/span&gt;&lt;select class=&quot;qy-secondary&quot; aria-label=&quot;时间范围&quot;&gt;&lt;option&gt;最近 1 小时&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;qy-panel-body&quot;&gt;&lt;svg class=&quot;qy-chart&quot; viewBox=&quot;0 0 720 164&quot; role=&quot;img&quot; aria-label=&quot;客户端吞吐趋势&quot;&gt;&lt;line class=&quot;grid&quot; x1=&quot;55&quot; y1=&quot;18&quot; x2=&quot;705&quot; y2=&quot;18&quot;&gt;&lt;/line&gt;&lt;line class=&quot;grid&quot; x1=&quot;55&quot; y1=&quot;60&quot; x2=&quot;705&quot; y2=&quot;60&quot;&gt;&lt;/line&gt;&lt;line class=&quot;grid&quot; x1=&quot;55&quot; y1=&quot;102&quot; x2=&quot;705&quot; y2=&quot;102&quot;&gt;&lt;/line&gt;&lt;line class=&quot;grid&quot; x1=&quot;55&quot; y1=&quot;140&quot; x2=&quot;705&quot; y2=&quot;140&quot;&gt;&lt;/line&gt;&lt;path class=&quot;area&quot; d=&quot;M55,121 L110,112 L165,116 L220,92 L275,97 L330,70 L385,78 L440,55 L495,64 L550,41 L605,48 L660,28 L705,37 L705,140 L55,140 Z&quot;&gt;&lt;/path&gt;&lt;path class=&quot;line&quot; d=&quot;M55,121 L110,112 L165,116 L220,92 L275,97 L330,70 L385,78 L440,55 L495,64 L550,41 L605,48 L660,28 L705,37&quot;&gt;&lt;/path&gt;&lt;text x=&quot;7&quot; y=&quot;22&quot;&gt;120 GB/s&lt;/text&gt;&lt;text x=&quot;18&quot; y=&quot;64&quot;&gt;80 GB/s&lt;/text&gt;&lt;text x=&quot;18&quot; y=&quot;106&quot;&gt;40 GB/s&lt;/text&gt;&lt;text x=&quot;35&quot; y=&quot;144&quot;&gt;0&lt;/text&gt;&lt;text x=&quot;55&quot; y=&quot;159&quot;&gt;10:00&lt;/text&gt;&lt;text x=&quot;352&quot; y=&quot;159&quot;&gt;10:30&lt;/text&gt;&lt;text x=&quot;665&quot; y=&quot;159&quot;&gt;11:00&lt;/text&gt;&lt;/svg&gt;&lt;/div&gt;&lt;/article&gt;
+        &lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;cluster&quot; data-role-page=&quot;admin&quot; hidden&gt;&lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;集群管理&lt;/h1&gt;&lt;p&gt;管理主机、MON、MGR、MDS、RGW、PG 与故障域。&lt;/p&gt;&lt;/div&gt;&lt;button class=&quot;qy-primary&quot;&gt;纳管集群&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;qy-pool-map&quot;&gt;&lt;div class=&quot;qy-pool&quot;&gt;&lt;strong&gt;qiyun-ceph-01&lt;/strong&gt;&lt;span&gt;生产 · Ceph 20.2 Tentacle&lt;/span&gt;&lt;div class=&quot;qy-meter&quot;&gt;&lt;i style=&quot;width:17%&quot;&gt;&lt;/i&gt;&lt;/div&gt;&lt;span&gt;8.5 / 49.7 PB · HEALTH_WARN&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-pool&quot;&gt;&lt;strong&gt;MON / MGR&lt;/strong&gt;&lt;span&gt;5 MON · 2 MGR&lt;/span&gt;&lt;div class=&quot;qy-meter&quot;&gt;&lt;i style=&quot;width:100%&quot;&gt;&lt;/i&gt;&lt;/div&gt;&lt;span&gt;仲裁正常 · 双活管理&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-pool&quot;&gt;&lt;strong&gt;服务网关&lt;/strong&gt;&lt;span&gt;4 RGW · 4 MDS · 2 NFS&lt;/span&gt;&lt;div class=&quot;qy-meter&quot;&gt;&lt;i style=&quot;width:100%&quot;&gt;&lt;/i&gt;&lt;/div&gt;&lt;span&gt;全部可用&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;qy-table-wrap&quot; style=&quot;margin-top:10px&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;节点&lt;/th&gt;&lt;th&gt;角色&lt;/th&gt;&lt;th&gt;故障域&lt;/th&gt;&lt;th&gt;守护进程&lt;/th&gt;&lt;th&gt;容量&lt;/th&gt;&lt;th&gt;状态&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;storage-c01-r01-n01&lt;/td&gt;&lt;td&gt;NVMe 存储&lt;/td&gt;&lt;td&gt;C / R01&lt;/td&gt;&lt;td&gt;6 OSD&lt;/td&gt;&lt;td&gt;368 TB&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;在线&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;storage-d01-r03-n04&lt;/td&gt;&lt;td&gt;HDD 存储&lt;/td&gt;&lt;td&gt;D / R03&lt;/td&gt;&lt;td&gt;60 OSD&lt;/td&gt;&lt;td&gt;1.8 PB&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;在线&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;meta-b01-r02-n02&lt;/td&gt;&lt;td&gt;管理节点&lt;/td&gt;&lt;td&gt;B / R02&lt;/td&gt;&lt;td&gt;MON / MGR&lt;/td&gt;&lt;td&gt;15 TB&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;在线&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;nodes&quot; data-role-page=&quot;admin&quot; hidden&gt;
+          &lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;节点管理&lt;/h1&gt;&lt;p&gt;统一管理 Ceph 节点、角色、故障域、硬件健康与维护状态。&lt;/p&gt;&lt;/div&gt;&lt;div&gt;&lt;button class=&quot;qy-secondary&quot;&gt;批量维护&lt;/button&gt; &lt;button class=&quot;qy-primary&quot;&gt;添加节点&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-kpis&quot;&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;节点总数&lt;/span&gt;&lt;strong&gt;51&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;在线&lt;/span&gt;&lt;strong&gt;50&lt;/strong&gt;&lt;em&gt;98%&lt;/em&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;维护中&lt;/span&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;硬件告警&lt;/span&gt;&lt;strong&gt;2&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-toolbar&quot;&gt;&lt;input class=&quot;qy-search&quot; placeholder=&quot;搜索节点、IP 或机柜&quot; aria-label=&quot;搜索节点&quot;&gt;&lt;select class=&quot;qy-secondary&quot;&gt;&lt;option&gt;全部角色&lt;/option&gt;&lt;option&gt;存储节点&lt;/option&gt;&lt;option&gt;管理节点&lt;/option&gt;&lt;option&gt;网关节点&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-table-wrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;节点&lt;/th&gt;&lt;th&gt;管理 IP&lt;/th&gt;&lt;th&gt;角色&lt;/th&gt;&lt;th&gt;故障域&lt;/th&gt;&lt;th&gt;CPU / 内存&lt;/th&gt;&lt;th&gt;OSD&lt;/th&gt;&lt;th&gt;硬件健康&lt;/th&gt;&lt;th&gt;状态&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;storage-c01-r01-n01&lt;/td&gt;&lt;td&gt;10.20.1.11&lt;/td&gt;&lt;td&gt;NVMe 存储&lt;/td&gt;&lt;td&gt;C-POD1 / R01&lt;/td&gt;&lt;td&gt;64C / 512 GB&lt;/td&gt;&lt;td&gt;6 / 6&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-disk-state&quot;&gt;&lt;i class=&quot;qy-dot&quot;&gt;&lt;/i&gt;正常&lt;/span&gt;&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;在线&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;storage-d01-r03-n04&lt;/td&gt;&lt;td&gt;10.20.3.14&lt;/td&gt;&lt;td&gt;HDD 存储&lt;/td&gt;&lt;td&gt;D-POD1 / R03&lt;/td&gt;&lt;td&gt;48C / 384 GB&lt;/td&gt;&lt;td&gt;12 / 12&lt;/td&gt;&lt;td style=&quot;color:var(--qy-amber)&quot;&gt;1 块磁盘预警&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;在线&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;meta-b01-r02-n02&lt;/td&gt;&lt;td&gt;10.20.8.22&lt;/td&gt;&lt;td&gt;MON / MGR&lt;/td&gt;&lt;td&gt;B-POD1 / R02&lt;/td&gt;&lt;td&gt;32C / 256 GB&lt;/td&gt;&lt;td&gt;0&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-disk-state&quot;&gt;&lt;i class=&quot;qy-dot&quot;&gt;&lt;/i&gt;正常&lt;/span&gt;&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;在线&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;storage-d01-r04-n02&lt;/td&gt;&lt;td&gt;10.20.4.12&lt;/td&gt;&lt;td&gt;HDD 存储&lt;/td&gt;&lt;td&gt;D-POD1 / R04&lt;/td&gt;&lt;td&gt;48C / 384 GB&lt;/td&gt;&lt;td&gt;12 / 12&lt;/td&gt;&lt;td&gt;正常&lt;/td&gt;&lt;td style=&quot;color:var(--qy-primary)&quot;&gt;维护中&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;disks&quot; data-role-page=&quot;admin&quot; hidden&gt;
+          &lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;物理磁盘管理&lt;/h1&gt;&lt;p&gt;查看磁盘介质、SMART 健康、寿命、温度、槽位和 OSD 绑定关系。&lt;/p&gt;&lt;/div&gt;&lt;div&gt;&lt;button class=&quot;qy-secondary&quot;&gt;磁盘点灯&lt;/button&gt; &lt;button class=&quot;qy-primary&quot;&gt;发现磁盘&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-kpis&quot;&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;物理磁盘&lt;/span&gt;&lt;strong&gt;612&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;HDD / SSD / NVMe&lt;/span&gt;&lt;strong&gt;480 / 84 / 48&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;空闲磁盘&lt;/span&gt;&lt;strong&gt;18&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;健康预警&lt;/span&gt;&lt;strong&gt;3&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-toolbar&quot;&gt;&lt;input class=&quot;qy-search&quot; placeholder=&quot;搜索节点、序列号或 OSD&quot; aria-label=&quot;搜索物理磁盘&quot;&gt;&lt;select class=&quot;qy-secondary&quot;&gt;&lt;option&gt;全部健康状态&lt;/option&gt;&lt;option&gt;正常&lt;/option&gt;&lt;option&gt;预警&lt;/option&gt;&lt;option&gt;故障&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-table-wrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;磁盘 / 槽位&lt;/th&gt;&lt;th&gt;所在节点&lt;/th&gt;&lt;th&gt;介质与容量&lt;/th&gt;&lt;th&gt;序列号&lt;/th&gt;&lt;th&gt;温度&lt;/th&gt;&lt;th&gt;预计寿命&lt;/th&gt;&lt;th&gt;绑定 OSD&lt;/th&gt;&lt;th&gt;健康&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;/dev/sdb · Slot 01&lt;/td&gt;&lt;td&gt;storage-d01-r03-n04&lt;/td&gt;&lt;td&gt;HDD · 18 TB&lt;/td&gt;&lt;td&gt;ZA2M8K9L&lt;/td&gt;&lt;td&gt;38°C&lt;/td&gt;&lt;td&gt;92%&lt;/td&gt;&lt;td&gt;osd.83&lt;/td&gt;&lt;td style=&quot;color:var(--qy-amber)&quot;&gt;介质错误增长&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;/dev/nvme0n1 · Slot 01&lt;/td&gt;&lt;td&gt;storage-c01-r01-n01&lt;/td&gt;&lt;td&gt;NVMe · 7.68 TB&lt;/td&gt;&lt;td&gt;PHBT4401003M&lt;/td&gt;&lt;td&gt;44°C&lt;/td&gt;&lt;td&gt;97%&lt;/td&gt;&lt;td&gt;osd.12&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;正常&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;/dev/sdc · Slot 02&lt;/td&gt;&lt;td&gt;storage-d01-r02-n03&lt;/td&gt;&lt;td&gt;HDD · 18 TB&lt;/td&gt;&lt;td&gt;ZA2N03QX&lt;/td&gt;&lt;td&gt;36°C&lt;/td&gt;&lt;td&gt;95%&lt;/td&gt;&lt;td&gt;osd.45&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;正常&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;/dev/sdn · Slot 12&lt;/td&gt;&lt;td&gt;storage-d01-r04-n02&lt;/td&gt;&lt;td&gt;HDD · 18 TB&lt;/td&gt;&lt;td&gt;ZA2P77DJ&lt;/td&gt;&lt;td&gt;—&lt;/td&gt;&lt;td&gt;—&lt;/td&gt;&lt;td&gt;未绑定&lt;/td&gt;&lt;td style=&quot;color:var(--qy-primary)&quot;&gt;空闲&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;rbd&quot; data-role-page=&quot;business&quot;&gt;
+          &lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;块存储 RBD&lt;/h1&gt;&lt;p&gt;覆盖卷创建、挂载、扩容、快照、克隆、备份与回收的完整生命周期。&lt;/p&gt;&lt;/div&gt;&lt;button class=&quot;qy-primary&quot; id=&quot;qy-open-create-rbd&quot; data-view-link=&quot;create-rbd&quot;&gt;创建 RBD 卷&lt;/button&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-life-flow&quot;&gt;&lt;div class=&quot;qy-life-stage is-safe&quot;&gt;&lt;span&gt;申请与创建&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-life-stage is-active&quot;&gt;&lt;span&gt;挂载与使用&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-life-stage&quot;&gt;&lt;span&gt;扩容与变更&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-life-stage&quot;&gt;&lt;span&gt;快照与保护&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-life-stage&quot;&gt;&lt;span&gt;卸载与回收&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-service-tabs&quot; role=&quot;tablist&quot; aria-label=&quot;RBD 生命周期&quot;&gt;&lt;button class=&quot;qy-service-tab&quot; data-service-tab=&quot;rbd-volumes&quot; aria-selected=&quot;true&quot;&gt;卷实例&lt;/button&gt;&lt;button class=&quot;qy-service-tab&quot; data-service-tab=&quot;rbd-snapshots&quot; aria-selected=&quot;false&quot;&gt;快照与克隆&lt;/button&gt;&lt;button class=&quot;qy-service-tab&quot; data-service-tab=&quot;rbd-protection&quot; aria-selected=&quot;false&quot;&gt;保护策略&lt;/button&gt;&lt;button class=&quot;qy-service-tab&quot; data-service-tab=&quot;rbd-trash&quot; aria-selected=&quot;false&quot;&gt;回收站&lt;/button&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-service-view&quot; data-service-view=&quot;rbd-volumes&quot;&gt;&lt;div class=&quot;qy-toolbar&quot;&gt;&lt;input class=&quot;qy-search&quot; placeholder=&quot;搜索卷名称&quot; aria-label=&quot;搜索 RBD&quot;&gt;&lt;select class=&quot;qy-secondary&quot;&gt;&lt;option&gt;全部服务等级&lt;/option&gt;&lt;option&gt;性能型&lt;/option&gt;&lt;option&gt;容量型&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;qy-table-wrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;卷名称&lt;/th&gt;&lt;th&gt;容量&lt;/th&gt;&lt;th&gt;Pool / 镜像特性&lt;/th&gt;&lt;th&gt;连接&lt;/th&gt;&lt;th&gt;保护&lt;/th&gt;&lt;th&gt;状态&lt;/th&gt;&lt;th&gt;操作&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;mysql-prod-01&lt;/td&gt;&lt;td&gt;20 TB&lt;/td&gt;&lt;td&gt;rbd-performance · layering&lt;/td&gt;&lt;td&gt;Kubernetes CSI&lt;/td&gt;&lt;td&gt;24 快照 · 异地备份&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;使用中&lt;/span&gt;&lt;/td&gt;&lt;td&gt;&lt;button class=&quot;qy-table-action&quot;&gt;扩容&lt;/button&gt;&lt;button class=&quot;qy-table-action&quot;&gt;快照&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;vm-datastore-02&lt;/td&gt;&lt;td&gt;80 TB&lt;/td&gt;&lt;td&gt;rbd-performance · fast-diff&lt;/td&gt;&lt;td&gt;librbd&lt;/td&gt;&lt;td&gt;7 快照&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;使用中&lt;/span&gt;&lt;/td&gt;&lt;td&gt;&lt;button class=&quot;qy-table-action&quot;&gt;克隆&lt;/button&gt;&lt;button class=&quot;qy-table-action&quot;&gt;卸载&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;checkpoint-cache&lt;/td&gt;&lt;td&gt;120 TB&lt;/td&gt;&lt;td&gt;rbd-capacity · exclusive-lock&lt;/td&gt;&lt;td&gt;Kubernetes CSI&lt;/td&gt;&lt;td&gt;每日快照&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;使用中&lt;/span&gt;&lt;/td&gt;&lt;td&gt;&lt;button class=&quot;qy-table-action&quot;&gt;扩容&lt;/button&gt;&lt;button class=&quot;qy-table-action&quot;&gt;备份&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-service-view&quot; data-service-view=&quot;rbd-snapshots&quot; hidden&gt;&lt;div class=&quot;qy-table-wrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;快照&lt;/th&gt;&lt;th&gt;源卷&lt;/th&gt;&lt;th&gt;时间&lt;/th&gt;&lt;th&gt;增量大小&lt;/th&gt;&lt;th&gt;克隆数&lt;/th&gt;&lt;th&gt;状态&lt;/th&gt;&lt;th&gt;操作&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;mysql-prod-01@daily-0811&lt;/td&gt;&lt;td&gt;mysql-prod-01&lt;/td&gt;&lt;td&gt;今天 02:00&lt;/td&gt;&lt;td&gt;186 GB&lt;/td&gt;&lt;td&gt;1&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;受保护&lt;/span&gt;&lt;/td&gt;&lt;td&gt;&lt;button class=&quot;qy-table-action&quot;&gt;恢复&lt;/button&gt;&lt;button class=&quot;qy-table-action&quot;&gt;克隆&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;checkpoint-cache@epoch-480&lt;/td&gt;&lt;td&gt;checkpoint-cache&lt;/td&gt;&lt;td&gt;昨天 23:10&lt;/td&gt;&lt;td&gt;2.4 TB&lt;/td&gt;&lt;td&gt;0&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;可用&lt;/span&gt;&lt;/td&gt;&lt;td&gt;&lt;button class=&quot;qy-table-action&quot;&gt;恢复&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-service-view&quot; data-service-view=&quot;rbd-protection&quot; hidden&gt;&lt;div class=&quot;qy-policy-grid&quot;&gt;&lt;div class=&quot;qy-policy-item&quot;&gt;&lt;strong&gt;数据库黄金策略&lt;/strong&gt;&lt;span&gt;每小时快照 · 保留 24 小时&lt;/span&gt;&lt;span&gt;每日快照 · 保留 30 天&lt;/span&gt;&lt;div class=&quot;qy-meter&quot;&gt;&lt;i style=&quot;width:92%&quot;&gt;&lt;/i&gt;&lt;/div&gt;&lt;span&gt;覆盖 6 个卷&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-policy-item&quot;&gt;&lt;strong&gt;异地镜像策略&lt;/strong&gt;&lt;span&gt;Journal 模式 · RPO ≤ 5 分钟&lt;/span&gt;&lt;span&gt;灾备资源域：北京 02&lt;/span&gt;&lt;div class=&quot;qy-meter&quot;&gt;&lt;i style=&quot;width:100%&quot;&gt;&lt;/i&gt;&lt;/div&gt;&lt;span&gt;同步正常&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-policy-item&quot;&gt;&lt;strong&gt;备份归档策略&lt;/strong&gt;&lt;span&gt;每日增量 · 每周全量&lt;/span&gt;&lt;span&gt;S3 WORM 保留 180 天&lt;/span&gt;&lt;div class=&quot;qy-meter&quot;&gt;&lt;i style=&quot;width:68%&quot;&gt;&lt;/i&gt;&lt;/div&gt;&lt;span&gt;14 个恢复点&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-service-view&quot; data-service-view=&quot;rbd-trash&quot; hidden&gt;&lt;div class=&quot;qy-table-wrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;已删除卷&lt;/th&gt;&lt;th&gt;原容量&lt;/th&gt;&lt;th&gt;删除时间&lt;/th&gt;&lt;th&gt;自动清理&lt;/th&gt;&lt;th&gt;原因&lt;/th&gt;&lt;th&gt;操作&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;temp-train-cache-07&lt;/td&gt;&lt;td&gt;40 TB&lt;/td&gt;&lt;td&gt;昨天 16:42&lt;/td&gt;&lt;td&gt;6 天后&lt;/td&gt;&lt;td&gt;任务结束&lt;/td&gt;&lt;td&gt;&lt;button class=&quot;qy-table-action&quot;&gt;恢复&lt;/button&gt;&lt;button class=&quot;qy-table-action&quot;&gt;立即清理&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;nas&quot; data-role-page=&quot;business&quot;&gt;
+          &lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;文件存储 NAS&lt;/h1&gt;&lt;p&gt;覆盖文件系统、子卷、目录配额、导出、快照和客户端访问生命周期。&lt;/p&gt;&lt;/div&gt;&lt;button class=&quot;qy-primary&quot; id=&quot;qy-open-create-nas&quot; data-view-link=&quot;create-nas&quot;&gt;创建文件存储&lt;/button&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-life-flow&quot;&gt;&lt;div class=&quot;qy-life-stage is-safe&quot;&gt;&lt;span&gt;文件系统&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-life-stage is-active&quot;&gt;&lt;span&gt;子卷与目录&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-life-stage&quot;&gt;&lt;span&gt;NFS/SMB 导出&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-life-stage&quot;&gt;&lt;span&gt;快照与复制&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-life-stage&quot;&gt;&lt;span&gt;停用与回收&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-service-tabs&quot; role=&quot;tablist&quot; aria-label=&quot;NAS 生命周期&quot;&gt;&lt;button class=&quot;qy-service-tab&quot; data-service-tab=&quot;nas-filesystems&quot; aria-selected=&quot;true&quot;&gt;文件系统&lt;/button&gt;&lt;button class=&quot;qy-service-tab&quot; data-service-tab=&quot;nas-subvolumes&quot; aria-selected=&quot;false&quot;&gt;子卷与目录&lt;/button&gt;&lt;button class=&quot;qy-service-tab&quot; data-service-tab=&quot;nas-exports&quot; aria-selected=&quot;false&quot;&gt;共享与客户端&lt;/button&gt;&lt;button class=&quot;qy-service-tab&quot; data-service-tab=&quot;nas-snapshots&quot; aria-selected=&quot;false&quot;&gt;快照与保护&lt;/button&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-service-view&quot; data-service-view=&quot;nas-filesystems&quot;&gt;&lt;div class=&quot;qy-kpis&quot;&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;文件系统&lt;/span&gt;&lt;strong&gt;8&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;已用容量&lt;/span&gt;&lt;strong&gt;1.6 PB&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;MDS&lt;/span&gt;&lt;strong&gt;4 active / 2 standby&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;活跃客户端&lt;/span&gt;&lt;strong&gt;54&lt;/strong&gt;&lt;em&gt;正常&lt;/em&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;qy-table-wrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;文件系统&lt;/th&gt;&lt;th&gt;Metadata / Data Pool&lt;/th&gt;&lt;th&gt;MDS&lt;/th&gt;&lt;th&gt;已用 / 配额&lt;/th&gt;&lt;th&gt;客户端&lt;/th&gt;&lt;th&gt;状态&lt;/th&gt;&lt;th&gt;操作&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;training-datasets&lt;/td&gt;&lt;td&gt;cephfs-meta / cephfs-data&lt;/td&gt;&lt;td&gt;2 active&lt;/td&gt;&lt;td&gt;640 / 800 TB&lt;/td&gt;&lt;td&gt;36&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;正常&lt;/span&gt;&lt;/td&gt;&lt;td&gt;&lt;button class=&quot;qy-table-action&quot;&gt;管理&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;team-share&lt;/td&gt;&lt;td&gt;team-meta / team-data&lt;/td&gt;&lt;td&gt;1 active&lt;/td&gt;&lt;td&gt;62 / 100 TB&lt;/td&gt;&lt;td&gt;12&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;正常&lt;/span&gt;&lt;/td&gt;&lt;td&gt;&lt;button class=&quot;qy-table-action&quot;&gt;扩容&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;raw-data&lt;/td&gt;&lt;td&gt;raw-meta / raw-data&lt;/td&gt;&lt;td&gt;1 active&lt;/td&gt;&lt;td&gt;900 TB / 1 PB&lt;/td&gt;&lt;td&gt;6&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;正常&lt;/span&gt;&lt;/td&gt;&lt;td&gt;&lt;button class=&quot;qy-table-action&quot;&gt;管理&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-service-view&quot; data-service-view=&quot;nas-subvolumes&quot; hidden&gt;&lt;div class=&quot;qy-table-wrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;子卷 / 目录&lt;/th&gt;&lt;th&gt;文件系统&lt;/th&gt;&lt;th&gt;子卷组&lt;/th&gt;&lt;th&gt;配额&lt;/th&gt;&lt;th&gt;已用&lt;/th&gt;&lt;th&gt;快照&lt;/th&gt;&lt;th&gt;操作&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;/training/llm-datasets&lt;/td&gt;&lt;td&gt;training-datasets&lt;/td&gt;&lt;td&gt;ai-platform&lt;/td&gt;&lt;td&gt;500 TB&lt;/td&gt;&lt;td&gt;412 TB&lt;/td&gt;&lt;td&gt;18&lt;/td&gt;&lt;td&gt;&lt;button class=&quot;qy-table-action&quot;&gt;扩容&lt;/button&gt;&lt;button class=&quot;qy-table-action&quot;&gt;快照&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;/team/model-output&lt;/td&gt;&lt;td&gt;team-share&lt;/td&gt;&lt;td&gt;research&lt;/td&gt;&lt;td&gt;60 TB&lt;/td&gt;&lt;td&gt;38 TB&lt;/td&gt;&lt;td&gt;7&lt;/td&gt;&lt;td&gt;&lt;button class=&quot;qy-table-action&quot;&gt;管理配额&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-service-view&quot; data-service-view=&quot;nas-exports&quot; hidden&gt;&lt;div class=&quot;qy-table-wrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;共享名称&lt;/th&gt;&lt;th&gt;协议 / 路径&lt;/th&gt;&lt;th&gt;允许客户端&lt;/th&gt;&lt;th&gt;权限&lt;/th&gt;&lt;th&gt;Squash&lt;/th&gt;&lt;th&gt;连接数&lt;/th&gt;&lt;th&gt;状态&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;training-nfs&lt;/td&gt;&lt;td&gt;NFS 4.1 · /training&lt;/td&gt;&lt;td&gt;10.40.0.0/16&lt;/td&gt;&lt;td&gt;读写&lt;/td&gt;&lt;td&gt;root_squash&lt;/td&gt;&lt;td&gt;36&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;在线&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;research-share&lt;/td&gt;&lt;td&gt;SMB 3.1 · /team&lt;/td&gt;&lt;td&gt;research-group&lt;/td&gt;&lt;td&gt;ACL&lt;/td&gt;&lt;td&gt;—&lt;/td&gt;&lt;td&gt;12&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;在线&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-service-view&quot; data-service-view=&quot;nas-snapshots&quot; hidden&gt;&lt;div class=&quot;qy-policy-grid&quot;&gt;&lt;div class=&quot;qy-policy-item&quot;&gt;&lt;strong&gt;训练数据快照策略&lt;/strong&gt;&lt;span&gt;每 6 小时 · 保留 7 天&lt;/span&gt;&lt;span&gt;每日快照 · 保留 30 天&lt;/span&gt;&lt;div class=&quot;qy-meter&quot;&gt;&lt;i style=&quot;width:88%&quot;&gt;&lt;/i&gt;&lt;/div&gt;&lt;span&gt;最近执行：02:00&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-policy-item&quot;&gt;&lt;strong&gt;子卷复制&lt;/strong&gt;&lt;span&gt;training-datasets → disaster-cephfs&lt;/span&gt;&lt;span&gt;增量同步 · RPO 15 分钟&lt;/span&gt;&lt;div class=&quot;qy-meter&quot;&gt;&lt;i style=&quot;width:100%&quot;&gt;&lt;/i&gt;&lt;/div&gt;&lt;span&gt;同步正常&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-policy-item&quot;&gt;&lt;strong&gt;回收策略&lt;/strong&gt;&lt;span&gt;删除后保留 14 天&lt;/span&gt;&lt;span&gt;配额释放需审批&lt;/span&gt;&lt;div class=&quot;qy-meter&quot;&gt;&lt;i style=&quot;width:42%&quot;&gt;&lt;/i&gt;&lt;/div&gt;&lt;span&gt;2 个待回收子卷&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;s3&quot; data-role-page=&quot;business&quot;&gt;
+          &lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;对象存储 S3&lt;/h1&gt;&lt;p&gt;覆盖 Bucket、对象版本、生命周期、复制、WORM、密钥和回收治理。&lt;/p&gt;&lt;/div&gt;&lt;button class=&quot;qy-primary&quot; id=&quot;qy-open-create-s3&quot; data-view-link=&quot;create-s3&quot;&gt;创建 Bucket&lt;/button&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-life-flow&quot;&gt;&lt;div class=&quot;qy-life-stage is-safe&quot;&gt;&lt;span&gt;Bucket 创建&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-life-stage is-active&quot;&gt;&lt;span&gt;写入与访问&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-life-stage&quot;&gt;&lt;span&gt;版本与复制&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-life-stage&quot;&gt;&lt;span&gt;分层与归档&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-life-stage&quot;&gt;&lt;span&gt;到期与删除&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-service-tabs&quot; role=&quot;tablist&quot; aria-label=&quot;S3 生命周期&quot;&gt;&lt;button class=&quot;qy-service-tab&quot; data-service-tab=&quot;s3-buckets&quot; aria-selected=&quot;true&quot;&gt;Buckets&lt;/button&gt;&lt;button class=&quot;qy-service-tab&quot; data-service-tab=&quot;s3-lifecycle&quot; aria-selected=&quot;false&quot;&gt;生命周期规则&lt;/button&gt;&lt;button class=&quot;qy-service-tab&quot; data-service-tab=&quot;s3-protection&quot; aria-selected=&quot;false&quot;&gt;版本与数据保护&lt;/button&gt;&lt;button class=&quot;qy-service-tab&quot; data-service-tab=&quot;s3-access&quot; aria-selected=&quot;false&quot;&gt;访问与密钥&lt;/button&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-service-view&quot; data-service-view=&quot;s3-buckets&quot;&gt;&lt;div class=&quot;qy-kpis&quot;&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;Buckets&lt;/span&gt;&lt;strong&gt;21&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;对象数量&lt;/span&gt;&lt;strong&gt;3.8 亿&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;已用容量&lt;/span&gt;&lt;strong&gt;4.6 PB&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;API 请求/分钟&lt;/span&gt;&lt;strong&gt;128k&lt;/strong&gt;&lt;em&gt;正常&lt;/em&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;qy-table-wrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Bucket&lt;/th&gt;&lt;th&gt;对象 / 容量&lt;/th&gt;&lt;th&gt;版本&lt;/th&gt;&lt;th&gt;生命周期&lt;/th&gt;&lt;th&gt;复制 / WORM&lt;/th&gt;&lt;th&gt;状态&lt;/th&gt;&lt;th&gt;操作&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;model-registry&lt;/td&gt;&lt;td&gt;64M · 860 TB&lt;/td&gt;&lt;td&gt;开启&lt;/td&gt;&lt;td&gt;2 条规则&lt;/td&gt;&lt;td&gt;WORM 30 天&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;正常&lt;/span&gt;&lt;/td&gt;&lt;td&gt;&lt;button class=&quot;qy-table-action&quot;&gt;管理&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;training-raw&lt;/td&gt;&lt;td&gt;210M · 2.4 PB&lt;/td&gt;&lt;td&gt;开启&lt;/td&gt;&lt;td&gt;90 天转归档&lt;/td&gt;&lt;td&gt;异地复制&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;正常&lt;/span&gt;&lt;/td&gt;&lt;td&gt;&lt;button class=&quot;qy-table-action&quot;&gt;策略&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;checkpoint-archive&lt;/td&gt;&lt;td&gt;82M · 1.1 PB&lt;/td&gt;&lt;td&gt;暂停&lt;/td&gt;&lt;td&gt;180 天清理&lt;/td&gt;&lt;td&gt;Object Lock&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;正常&lt;/span&gt;&lt;/td&gt;&lt;td&gt;&lt;button class=&quot;qy-table-action&quot;&gt;管理&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-service-view&quot; data-service-view=&quot;s3-lifecycle&quot; hidden&gt;&lt;div class=&quot;qy-table-wrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;规则&lt;/th&gt;&lt;th&gt;Bucket / 前缀&lt;/th&gt;&lt;th&gt;当前版本&lt;/th&gt;&lt;th&gt;非当前版本&lt;/th&gt;&lt;th&gt;分段上传&lt;/th&gt;&lt;th&gt;状态&lt;/th&gt;&lt;th&gt;操作&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;raw-tiering&lt;/td&gt;&lt;td&gt;training-raw / datasets/&lt;/td&gt;&lt;td&gt;30 天转低频，90 天归档&lt;/td&gt;&lt;td&gt;保留 30 天后删除&lt;/td&gt;&lt;td&gt;7 天终止&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;启用&lt;/span&gt;&lt;/td&gt;&lt;td&gt;&lt;button class=&quot;qy-table-action&quot;&gt;编辑&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;checkpoint-expire&lt;/td&gt;&lt;td&gt;checkpoint-archive / epochs/&lt;/td&gt;&lt;td&gt;180 天到期&lt;/td&gt;&lt;td&gt;30 天删除&lt;/td&gt;&lt;td&gt;3 天终止&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;启用&lt;/span&gt;&lt;/td&gt;&lt;td&gt;&lt;button class=&quot;qy-table-action&quot;&gt;编辑&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;model-retention&lt;/td&gt;&lt;td&gt;model-registry / releases/&lt;/td&gt;&lt;td&gt;永久保留&lt;/td&gt;&lt;td&gt;保留 10 个版本&lt;/td&gt;&lt;td&gt;7 天终止&lt;/td&gt;&lt;td style=&quot;color:var(--qy-primary)&quot;&gt;观察中&lt;/td&gt;&lt;td&gt;&lt;button class=&quot;qy-table-action&quot;&gt;启用&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-service-view&quot; data-service-view=&quot;s3-protection&quot; hidden&gt;&lt;div class=&quot;qy-policy-grid&quot;&gt;&lt;div class=&quot;qy-policy-item&quot;&gt;&lt;strong&gt;版本控制&lt;/strong&gt;&lt;span&gt;18 个 Bucket 已启用&lt;/span&gt;&lt;span&gt;删除标记保留 30 天&lt;/span&gt;&lt;div class=&quot;qy-meter&quot;&gt;&lt;i style=&quot;width:86%&quot;&gt;&lt;/i&gt;&lt;/div&gt;&lt;span&gt;覆盖率 86%&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-policy-item&quot;&gt;&lt;strong&gt;跨域复制&lt;/strong&gt;&lt;span&gt;training-raw → 北京 02&lt;/span&gt;&lt;span&gt;复制延迟 P95：42 秒&lt;/span&gt;&lt;div class=&quot;qy-meter&quot;&gt;&lt;i style=&quot;width:99%&quot;&gt;&lt;/i&gt;&lt;/div&gt;&lt;span&gt;复制健康 99.9%&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-policy-item&quot;&gt;&lt;strong&gt;Object Lock / WORM&lt;/strong&gt;&lt;span&gt;合规模式 · 保留 30–180 天&lt;/span&gt;&lt;span&gt;Legal Hold：3 个对象&lt;/span&gt;&lt;div class=&quot;qy-meter&quot;&gt;&lt;i style=&quot;width:72%&quot;&gt;&lt;/i&gt;&lt;/div&gt;&lt;span&gt;6 个受保护 Bucket&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-service-view&quot; data-service-view=&quot;s3-access&quot; hidden&gt;&lt;div class=&quot;qy-table-wrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;访问主体&lt;/th&gt;&lt;th&gt;Bucket&lt;/th&gt;&lt;th&gt;权限&lt;/th&gt;&lt;th&gt;Access Key&lt;/th&gt;&lt;th&gt;最近使用&lt;/th&gt;&lt;th&gt;轮换策略&lt;/th&gt;&lt;th&gt;状态&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;training-pipeline&lt;/td&gt;&lt;td&gt;training-raw&lt;/td&gt;&lt;td&gt;读写 · 前缀限制&lt;/td&gt;&lt;td&gt;AKIA••••6D21&lt;/td&gt;&lt;td&gt;2 分钟前&lt;/td&gt;&lt;td&gt;90 天&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;有效&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;model-serving&lt;/td&gt;&lt;td&gt;model-registry&lt;/td&gt;&lt;td&gt;只读&lt;/td&gt;&lt;td&gt;STS 临时凭证&lt;/td&gt;&lt;td&gt;刚刚&lt;/td&gt;&lt;td&gt;1 小时&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;有效&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;archive-job&lt;/td&gt;&lt;td&gt;checkpoint-archive&lt;/td&gt;&lt;td&gt;写入 / 不可删除&lt;/td&gt;&lt;td&gt;AKIA••••9A04&lt;/td&gt;&lt;td&gt;1 小时前&lt;/td&gt;&lt;td&gt;30 天&lt;/td&gt;&lt;td style=&quot;color:var(--qy-amber)&quot;&gt;5 天后轮换&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;create-rbd&quot; data-role-page=&quot;business&quot;&gt;
+          &lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;创建块存储&lt;/h1&gt;&lt;p&gt;创建 RBD 卷，并配置性能等级、镜像特性与数据保护。&lt;/p&gt;&lt;/div&gt;&lt;button class=&quot;qy-secondary&quot; data-view-link=&quot;rbd&quot;&gt;返回块存储&lt;/button&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-steps&quot;&gt;&lt;div class=&quot;qy-step is-current&quot;&gt;&lt;b&gt;1&lt;/b&gt;&lt;span&gt;基本信息&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-step&quot;&gt;&lt;b&gt;2&lt;/b&gt;&lt;span&gt;性能与特性&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-step&quot;&gt;&lt;b&gt;3&lt;/b&gt;&lt;span&gt;保护与确认&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-form-panel&quot;&gt;
+            &lt;div class=&quot;qy-form-section&quot;&gt;&lt;h3&gt;基本信息&lt;/h3&gt;&lt;div class=&quot;qy-form-grid&quot;&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-rbd-name&quot;&gt;卷名称&lt;/label&gt;&lt;input id=&quot;qy-rbd-name&quot; value=&quot;mysql-prod-02&quot; aria-label=&quot;RBD 卷名称&quot;&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-rbd-project&quot;&gt;所属项目&lt;/label&gt;&lt;select id=&quot;qy-rbd-project&quot;&gt;&lt;option&gt;智算训练平台 / 数据库&lt;/option&gt;&lt;option&gt;智算训练平台 / 模型训练&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-rbd-pool&quot;&gt;存储池&lt;/label&gt;&lt;select id=&quot;qy-rbd-pool&quot;&gt;&lt;option&gt;rbd-performance · NVMe&lt;/option&gt;&lt;option&gt;rbd-capacity · HDD&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-rbd-size&quot;&gt;容量&lt;/label&gt;&lt;input id=&quot;qy-rbd-size&quot; value=&quot;20 TB&quot; aria-label=&quot;RBD 容量&quot;&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;qy-form-section&quot;&gt;&lt;h3&gt;服务等级&lt;/h3&gt;&lt;div class=&quot;qy-radio-grid&quot;&gt;&lt;label class=&quot;qy-choice&quot;&gt;&lt;input type=&quot;radio&quot; name=&quot;rbd-tier&quot; checked&gt;&lt;strong&gt;性能型&lt;/strong&gt;&lt;span&gt;NVMe · 低时延 · 适合数据库&lt;/span&gt;&lt;/label&gt;&lt;label class=&quot;qy-choice&quot;&gt;&lt;input type=&quot;radio&quot; name=&quot;rbd-tier&quot;&gt;&lt;strong&gt;吞吐型&lt;/strong&gt;&lt;span&gt;SSD · 适合虚拟化与日志&lt;/span&gt;&lt;/label&gt;&lt;label class=&quot;qy-choice&quot;&gt;&lt;input type=&quot;radio&quot; name=&quot;rbd-tier&quot;&gt;&lt;strong&gt;容量型&lt;/strong&gt;&lt;span&gt;HDD · 适合通用数据盘&lt;/span&gt;&lt;/label&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;qy-form-section&quot;&gt;&lt;h3&gt;镜像特性与数据保护&lt;/h3&gt;&lt;div class=&quot;qy-form-grid&quot;&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-rbd-features&quot;&gt;镜像特性&lt;/label&gt;&lt;select id=&quot;qy-rbd-features&quot;&gt;&lt;option&gt;layering + exclusive-lock + fast-diff&lt;/option&gt;&lt;option&gt;layering&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-rbd-format&quot;&gt;镜像格式&lt;/label&gt;&lt;select id=&quot;qy-rbd-format&quot;&gt;&lt;option&gt;Format 2&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-rbd-snapshot&quot;&gt;快照策略&lt;/label&gt;&lt;select id=&quot;qy-rbd-snapshot&quot;&gt;&lt;option&gt;数据库黄金策略 · 每小时&lt;/option&gt;&lt;option&gt;每日快照 · 保留 30 天&lt;/option&gt;&lt;option&gt;暂不启用&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-rbd-mirror&quot;&gt;异地镜像&lt;/label&gt;&lt;select id=&quot;qy-rbd-mirror&quot;&gt;&lt;option&gt;Journal 模式 · 北京 02&lt;/option&gt;&lt;option&gt;Snapshot 模式&lt;/option&gt;&lt;option&gt;关闭&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;qy-summary&quot;&gt;&lt;strong&gt;创建预览&lt;/strong&gt;&lt;div class=&quot;qy-summary-grid&quot;&gt;&lt;span&gt;卷名称&lt;b id=&quot;qy-rbd-preview-name&quot;&gt;mysql-prod-02&lt;/b&gt;&lt;/span&gt;&lt;span&gt;容量&lt;b&gt;20 TB&lt;/b&gt;&lt;/span&gt;&lt;span&gt;性能等级&lt;b&gt;性能型&lt;/b&gt;&lt;/span&gt;&lt;span&gt;预计交付&lt;b&gt;约 2 分钟&lt;/b&gt;&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;qy-toast&quot; id=&quot;qy-rbd-create-toast&quot;&gt;块存储创建申请已提交，正在创建镜像并应用快照与镜像策略。&lt;/div&gt;&lt;div class=&quot;qy-form-actions&quot;&gt;&lt;button class=&quot;qy-secondary&quot; data-view-link=&quot;rbd&quot;&gt;取消&lt;/button&gt;&lt;button class=&quot;qy-primary&quot; id=&quot;qy-create-rbd-submit&quot;&gt;校验并创建块存储&lt;/button&gt;&lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;create-nas&quot; data-role-page=&quot;business&quot;&gt;
+          &lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;创建文件存储&lt;/h1&gt;&lt;p&gt;创建 CephFS 文件系统，并按需发布 NFS、SMB 或 CSI 访问入口。&lt;/p&gt;&lt;/div&gt;&lt;button class=&quot;qy-secondary&quot; data-view-link=&quot;nas&quot;&gt;返回文件存储&lt;/button&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-steps&quot;&gt;&lt;div class=&quot;qy-step is-current&quot;&gt;&lt;b&gt;1&lt;/b&gt;&lt;span&gt;文件系统&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-step&quot;&gt;&lt;b&gt;2&lt;/b&gt;&lt;span&gt;共享与访问&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-step&quot;&gt;&lt;b&gt;3&lt;/b&gt;&lt;span&gt;保护与确认&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-form-panel&quot;&gt;
+            &lt;div class=&quot;qy-form-section&quot;&gt;&lt;h3&gt;文件系统配置&lt;/h3&gt;&lt;div class=&quot;qy-form-grid&quot;&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-nas-name&quot;&gt;文件系统名称&lt;/label&gt;&lt;input id=&quot;qy-nas-name&quot; value=&quot;training-output&quot; aria-label=&quot;文件系统名称&quot;&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-nas-quota&quot;&gt;容量配额&lt;/label&gt;&lt;input id=&quot;qy-nas-quota&quot; value=&quot;200 TB&quot; aria-label=&quot;文件存储容量&quot;&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-nas-meta&quot;&gt;Metadata Pool&lt;/label&gt;&lt;select id=&quot;qy-nas-meta&quot;&gt;&lt;option&gt;自动创建 · 3 副本 SSD&lt;/option&gt;&lt;option&gt;使用 cephfs-meta&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-nas-data&quot;&gt;Data Pool&lt;/label&gt;&lt;select id=&quot;qy-nas-data&quot;&gt;&lt;option&gt;cephfs-data · EC 8+3&lt;/option&gt;&lt;option&gt;cephfs-performance · 3 副本&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;qy-form-section&quot;&gt;&lt;h3&gt;访问协议&lt;/h3&gt;&lt;div class=&quot;qy-radio-grid&quot;&gt;&lt;label class=&quot;qy-choice&quot;&gt;&lt;input type=&quot;radio&quot; name=&quot;nas-protocol&quot; checked&gt;&lt;strong&gt;NFS 4.1&lt;/strong&gt;&lt;span&gt;Linux、训练集群与通用共享&lt;/span&gt;&lt;/label&gt;&lt;label class=&quot;qy-choice&quot;&gt;&lt;input type=&quot;radio&quot; name=&quot;nas-protocol&quot;&gt;&lt;strong&gt;SMB 3.1&lt;/strong&gt;&lt;span&gt;Windows 与团队文件共享&lt;/span&gt;&lt;/label&gt;&lt;label class=&quot;qy-choice&quot;&gt;&lt;input type=&quot;radio&quot; name=&quot;nas-protocol&quot;&gt;&lt;strong&gt;CephFS CSI&lt;/strong&gt;&lt;span&gt;Kubernetes 动态挂载&lt;/span&gt;&lt;/label&gt;&lt;/div&gt;&lt;div class=&quot;qy-form-grid&quot; style=&quot;margin-top:12px&quot;&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-nas-path&quot;&gt;共享路径&lt;/label&gt;&lt;input id=&quot;qy-nas-path&quot; value=&quot;/training/output&quot; aria-label=&quot;共享路径&quot;&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-nas-client&quot;&gt;允许客户端&lt;/label&gt;&lt;input id=&quot;qy-nas-client&quot; value=&quot;10.40.0.0/16&quot; aria-label=&quot;允许客户端&quot;&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-nas-access&quot;&gt;访问权限&lt;/label&gt;&lt;select id=&quot;qy-nas-access&quot;&gt;&lt;option&gt;读写 · root_squash&lt;/option&gt;&lt;option&gt;只读&lt;/option&gt;&lt;option&gt;读写 · no_root_squash&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-nas-placement&quot;&gt;MDS / 网关放置&lt;/label&gt;&lt;select id=&quot;qy-nas-placement&quot;&gt;&lt;option&gt;自动选择高可用节点&lt;/option&gt;&lt;option&gt;C-POD1&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;qy-form-section&quot;&gt;&lt;h3&gt;数据保护&lt;/h3&gt;&lt;div class=&quot;qy-form-grid&quot;&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-nas-snapshot&quot;&gt;快照策略&lt;/label&gt;&lt;select id=&quot;qy-nas-snapshot&quot;&gt;&lt;option&gt;每 6 小时 · 保留 7 天&lt;/option&gt;&lt;option&gt;每日 · 保留 30 天&lt;/option&gt;&lt;option&gt;关闭&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-nas-replication&quot;&gt;子卷复制&lt;/label&gt;&lt;select id=&quot;qy-nas-replication&quot;&gt;&lt;option&gt;增量复制至灾备 CephFS&lt;/option&gt;&lt;option&gt;关闭&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;qy-summary&quot;&gt;&lt;strong&gt;创建预览&lt;/strong&gt;&lt;div class=&quot;qy-summary-grid&quot;&gt;&lt;span&gt;文件系统&lt;b id=&quot;qy-nas-preview-name&quot;&gt;training-output&lt;/b&gt;&lt;/span&gt;&lt;span&gt;容量&lt;b&gt;200 TB&lt;/b&gt;&lt;/span&gt;&lt;span&gt;访问入口&lt;b&gt;NFS 4.1&lt;/b&gt;&lt;/span&gt;&lt;span&gt;预计交付&lt;b&gt;约 5 分钟&lt;/b&gt;&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;qy-toast&quot; id=&quot;qy-nas-create-toast&quot;&gt;文件存储创建任务已提交，正在创建 Pool、MDS、子卷和共享入口。&lt;/div&gt;&lt;div class=&quot;qy-form-actions&quot;&gt;&lt;button class=&quot;qy-secondary&quot; data-view-link=&quot;nas&quot;&gt;取消&lt;/button&gt;&lt;button class=&quot;qy-primary&quot; id=&quot;qy-create-nas-submit&quot;&gt;校验并创建文件存储&lt;/button&gt;&lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;create-s3&quot; data-role-page=&quot;business&quot;&gt;
+          &lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;创建对象存储&lt;/h1&gt;&lt;p&gt;创建 S3 Bucket，并配置所有者、版本、加密、复制、WORM 和访问策略。&lt;/p&gt;&lt;/div&gt;&lt;button class=&quot;qy-secondary&quot; data-view-link=&quot;s3&quot;&gt;返回对象存储&lt;/button&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-steps&quot;&gt;&lt;div class=&quot;qy-step is-current&quot;&gt;&lt;b&gt;1&lt;/b&gt;&lt;span&gt;Bucket 信息&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-step&quot;&gt;&lt;b&gt;2&lt;/b&gt;&lt;span&gt;保护与合规&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-step&quot;&gt;&lt;b&gt;3&lt;/b&gt;&lt;span&gt;权限与确认&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-form-panel&quot;&gt;
+            &lt;div class=&quot;qy-form-section&quot;&gt;&lt;h3&gt;Bucket 信息&lt;/h3&gt;&lt;div class=&quot;qy-form-grid&quot;&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-s3-name&quot;&gt;Bucket 名称&lt;/label&gt;&lt;input id=&quot;qy-s3-name&quot; value=&quot;model-release-2026&quot; aria-label=&quot;Bucket 名称&quot;&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-s3-owner&quot;&gt;所有者&lt;/label&gt;&lt;select id=&quot;qy-s3-owner&quot;&gt;&lt;option&gt;training-pipeline&lt;/option&gt;&lt;option&gt;model-serving&lt;/option&gt;&lt;option&gt;新建 S3 用户&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-s3-zone&quot;&gt;存储区域&lt;/label&gt;&lt;select id=&quot;qy-s3-zone&quot;&gt;&lt;option&gt;济南 · RGW Zone 01&lt;/option&gt;&lt;option&gt;北京 · RGW Zone 02&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-s3-class&quot;&gt;默认存储等级&lt;/label&gt;&lt;select id=&quot;qy-s3-class&quot;&gt;&lt;option&gt;STANDARD · 容量型&lt;/option&gt;&lt;option&gt;PERFORMANCE · 性能型&lt;/option&gt;&lt;option&gt;ARCHIVE · 归档型&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;qy-form-section&quot;&gt;&lt;h3&gt;保护与合规&lt;/h3&gt;&lt;div class=&quot;qy-radio-grid&quot;&gt;&lt;label class=&quot;qy-choice&quot;&gt;&lt;input type=&quot;checkbox&quot; checked&gt;&lt;strong&gt;版本控制&lt;/strong&gt;&lt;span&gt;保留对象历史版本和删除标记&lt;/span&gt;&lt;/label&gt;&lt;label class=&quot;qy-choice&quot;&gt;&lt;input type=&quot;checkbox&quot; checked&gt;&lt;strong&gt;服务端加密&lt;/strong&gt;&lt;span&gt;SSE-KMS · 租户 BYOK&lt;/span&gt;&lt;/label&gt;&lt;label class=&quot;qy-choice&quot;&gt;&lt;input type=&quot;checkbox&quot;&gt;&lt;strong&gt;跨域复制&lt;/strong&gt;&lt;span&gt;双向同步至北京 RGW Zone&lt;/span&gt;&lt;/label&gt;&lt;/div&gt;&lt;div class=&quot;qy-form-grid&quot; style=&quot;margin-top:12px&quot;&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-s3-lock&quot;&gt;Object Lock / WORM&lt;/label&gt;&lt;select id=&quot;qy-s3-lock&quot;&gt;&lt;option&gt;合规模式 · 保留 30 天&lt;/option&gt;&lt;option&gt;治理模式 · 保留 90 天&lt;/option&gt;&lt;option&gt;关闭&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-s3-lifecycle&quot;&gt;生命周期模板&lt;/label&gt;&lt;select id=&quot;qy-s3-lifecycle&quot;&gt;&lt;option&gt;模型归档 · 90 天转归档&lt;/option&gt;&lt;option&gt;训练原始数据 · 180 天清理&lt;/option&gt;&lt;option&gt;暂不设置&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;qy-form-section&quot;&gt;&lt;h3&gt;访问权限与配额&lt;/h3&gt;&lt;div class=&quot;qy-form-grid&quot;&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-s3-policy&quot;&gt;Bucket Policy&lt;/label&gt;&lt;select id=&quot;qy-s3-policy&quot;&gt;&lt;option&gt;项目内读写 · 禁止公开访问&lt;/option&gt;&lt;option&gt;只读分发&lt;/option&gt;&lt;option&gt;自定义策略&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-s3-quota&quot;&gt;容量配额&lt;/label&gt;&lt;input id=&quot;qy-s3-quota&quot; value=&quot;500 TB&quot; aria-label=&quot;Bucket 容量配额&quot;&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-s3-tags&quot;&gt;标签&lt;/label&gt;&lt;input id=&quot;qy-s3-tags&quot; value=&quot;project=llm, env=prod&quot; aria-label=&quot;Bucket 标签&quot;&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-s3-key&quot;&gt;访问密钥&lt;/label&gt;&lt;select id=&quot;qy-s3-key&quot;&gt;&lt;option&gt;创建 Access Key · 90 天轮换&lt;/option&gt;&lt;option&gt;仅使用 STS 临时凭证&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;qy-summary&quot;&gt;&lt;strong&gt;创建预览&lt;/strong&gt;&lt;div class=&quot;qy-summary-grid&quot;&gt;&lt;span&gt;Bucket&lt;b id=&quot;qy-s3-preview-name&quot;&gt;model-release-2026&lt;/b&gt;&lt;/span&gt;&lt;span&gt;配额&lt;b&gt;500 TB&lt;/b&gt;&lt;/span&gt;&lt;span&gt;数据保护&lt;b&gt;版本 + WORM&lt;/b&gt;&lt;/span&gt;&lt;span&gt;预计交付&lt;b&gt;约 1 分钟&lt;/b&gt;&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;qy-toast&quot; id=&quot;qy-s3-create-toast&quot;&gt;对象存储创建任务已提交，正在配置 Bucket、密钥、加密和生命周期策略。&lt;/div&gt;&lt;div class=&quot;qy-form-actions&quot;&gt;&lt;button class=&quot;qy-secondary&quot; data-view-link=&quot;s3&quot;&gt;取消&lt;/button&gt;&lt;button class=&quot;qy-primary&quot; id=&quot;qy-create-s3-submit&quot;&gt;校验并创建 Bucket&lt;/button&gt;&lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;usage&quot; data-role-page=&quot;business&quot;&gt;&lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;用量与账单&lt;/h1&gt;&lt;p&gt;按服务、项目和时间查看存储消费与费用预测。&lt;/p&gt;&lt;/div&gt;&lt;button class=&quot;qy-secondary&quot;&gt;导出账单&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpis&quot;&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;本月费用&lt;/span&gt;&lt;strong&gt;¥ 428,600&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;RBD&lt;/span&gt;&lt;strong&gt;¥ 86,400&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;NAS&lt;/span&gt;&lt;strong&gt;¥ 122,200&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;S3&lt;/span&gt;&lt;strong&gt;¥ 220,000&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;qy-table-wrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;服务&lt;/th&gt;&lt;th&gt;计费规格&lt;/th&gt;&lt;th&gt;平均用量&lt;/th&gt;&lt;th&gt;请求/流量&lt;/th&gt;&lt;th&gt;本月费用&lt;/th&gt;&lt;th&gt;环比&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;块存储 RBD&lt;/td&gt;&lt;td&gt;性能型&lt;/td&gt;&lt;td&gt;312 TB&lt;/td&gt;&lt;td&gt;18.6M IOPS&lt;/td&gt;&lt;td&gt;¥ 86,400&lt;/td&gt;&lt;td&gt;+4.2%&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;文件存储 NAS&lt;/td&gt;&lt;td&gt;容量型&lt;/td&gt;&lt;td&gt;1.6 PB&lt;/td&gt;&lt;td&gt;860 TB 流量&lt;/td&gt;&lt;td&gt;¥ 122,200&lt;/td&gt;&lt;td&gt;+8.6%&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;对象存储 S3&lt;/td&gt;&lt;td&gt;EC 容量型&lt;/td&gt;&lt;td&gt;4.6 PB&lt;/td&gt;&lt;td&gt;2.8B 请求&lt;/td&gt;&lt;td&gt;¥ 220,000&lt;/td&gt;&lt;td&gt;+12.1%&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;business-tasks&quot; data-role-page=&quot;business&quot;&gt;&lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;申请与任务&lt;/h1&gt;&lt;p&gt;查看当前租户的存储申请、审批与自动交付进度。&lt;/p&gt;&lt;/div&gt;&lt;button class=&quot;qy-primary&quot; data-view-link=&quot;agent&quot;&gt;新建申请&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;qy-table-wrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;申请 ID&lt;/th&gt;&lt;th&gt;申请内容&lt;/th&gt;&lt;th&gt;发起方式&lt;/th&gt;&lt;th&gt;进度&lt;/th&gt;&lt;th&gt;提交时间&lt;/th&gt;&lt;th&gt;状态&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;REQ-20260811-018&lt;/td&gt;&lt;td&gt;训练集 NAS 扩容 200 TB&lt;/td&gt;&lt;td&gt;AI 存力助手&lt;/td&gt;&lt;td&gt;3 / 4&lt;/td&gt;&lt;td&gt;11:20&lt;/td&gt;&lt;td style=&quot;color:var(--qy-primary)&quot;&gt;执行中&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;REQ-20260811-012&lt;/td&gt;&lt;td&gt;创建模型归档 Bucket&lt;/td&gt;&lt;td&gt;控制台&lt;/td&gt;&lt;td&gt;4 / 4&lt;/td&gt;&lt;td&gt;09:42&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;完成&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;REQ-20260810-086&lt;/td&gt;&lt;td&gt;Checkpoint RBD 120 TB&lt;/td&gt;&lt;td&gt;AI 存力助手&lt;/td&gt;&lt;td&gt;4 / 4&lt;/td&gt;&lt;td&gt;昨天&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;完成&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;osd&quot; data-role-page=&quot;admin&quot; hidden&gt;&lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;OSD 管理&lt;/h1&gt;&lt;p&gt;查看 OSD 拓扑、介质、容量、水位、延迟与生命周期。&lt;/p&gt;&lt;/div&gt;&lt;div&gt;&lt;button class=&quot;qy-secondary&quot;&gt;安全下线&lt;/button&gt; &lt;button class=&quot;qy-primary&quot; data-view-link=&quot;create-osd&quot;&gt;创建 OSD&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpis&quot;&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;OSD 总数&lt;/span&gt;&lt;strong&gt;96&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;Up / In&lt;/span&gt;&lt;strong&gt;96 / 96&lt;/strong&gt;&lt;em&gt;正常&lt;/em&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;原始容量&lt;/span&gt;&lt;strong&gt;82.4 PB&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;慢请求&lt;/span&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;qy-table-wrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;OSD&lt;/th&gt;&lt;th&gt;节点 / 机柜&lt;/th&gt;&lt;th&gt;设备&lt;/th&gt;&lt;th&gt;类别&lt;/th&gt;&lt;th&gt;使用率&lt;/th&gt;&lt;th&gt;提交延迟&lt;/th&gt;&lt;th&gt;状态&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;osd.83&lt;/td&gt;&lt;td&gt;d01-r03-n04 / R03&lt;/td&gt;&lt;td&gt;/dev/sdb&lt;/td&gt;&lt;td&gt;HDD&lt;/td&gt;&lt;td&gt;76.8%&lt;/td&gt;&lt;td style=&quot;color:var(--qy-amber)&quot;&gt;18 ms&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;up / in&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;osd.12&lt;/td&gt;&lt;td&gt;c01-r01-n01 / R01&lt;/td&gt;&lt;td&gt;nvme0n1&lt;/td&gt;&lt;td&gt;NVMe&lt;/td&gt;&lt;td&gt;38.2%&lt;/td&gt;&lt;td&gt;0.8 ms&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;up / in&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;osd.45&lt;/td&gt;&lt;td&gt;d01-r02-n03 / R02&lt;/td&gt;&lt;td&gt;/dev/sdc&lt;/td&gt;&lt;td&gt;HDD&lt;/td&gt;&lt;td&gt;61.4%&lt;/td&gt;&lt;td&gt;6 ms&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;up / in&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;pool&quot; data-role-page=&quot;admin&quot; hidden&gt;&lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;Pool 管理&lt;/h1&gt;&lt;p&gt;管理副本、纠删码、PG、配额、应用标签与自动伸缩策略。&lt;/p&gt;&lt;/div&gt;&lt;button class=&quot;qy-primary&quot; data-view-link=&quot;create-pool&quot;&gt;创建 Pool&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpis&quot;&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;Pool 数量&lt;/span&gt;&lt;strong&gt;18&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;PG 总数&lt;/span&gt;&lt;strong&gt;4,608&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;副本池&lt;/span&gt;&lt;strong&gt;7&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;EC 池&lt;/span&gt;&lt;strong&gt;11&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;qy-table-wrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Pool&lt;/th&gt;&lt;th&gt;用途&lt;/th&gt;&lt;th&gt;冗余策略&lt;/th&gt;&lt;th&gt;PG&lt;/th&gt;&lt;th&gt;已用&lt;/th&gt;&lt;th&gt;Autoscale&lt;/th&gt;&lt;th&gt;状态&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;rbd-performance&lt;/td&gt;&lt;td&gt;RBD&lt;/td&gt;&lt;td&gt;3 副本&lt;/td&gt;&lt;td&gt;256&lt;/td&gt;&lt;td&gt;312 TB&lt;/td&gt;&lt;td&gt;on&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;active+clean&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;cephfs-data&lt;/td&gt;&lt;td&gt;CephFS&lt;/td&gt;&lt;td&gt;EC 8+3&lt;/td&gt;&lt;td&gt;512&lt;/td&gt;&lt;td&gt;1.8 PB&lt;/td&gt;&lt;td&gt;on&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;active+clean&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;rgw-data&lt;/td&gt;&lt;td&gt;RGW&lt;/td&gt;&lt;td&gt;EC 8+3&lt;/td&gt;&lt;td&gt;1024&lt;/td&gt;&lt;td&gt;6.2 PB&lt;/td&gt;&lt;td&gt;on&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;active+clean&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;create-osd&quot; data-role-page=&quot;admin&quot; hidden&gt;
+          &lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;创建 OSD&lt;/h1&gt;&lt;p&gt;选择空闲物理磁盘并配置部署策略，平台将完成预检和自动编排。&lt;/p&gt;&lt;/div&gt;&lt;button class=&quot;qy-secondary&quot; data-view-link=&quot;osd&quot;&gt;返回 OSD 管理&lt;/button&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-steps&quot;&gt;&lt;div class=&quot;qy-step is-done&quot;&gt;&lt;b&gt;1&lt;/b&gt;&lt;span&gt;部署策略&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-step is-current&quot;&gt;&lt;b&gt;2&lt;/b&gt;&lt;span&gt;选择设备&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-step&quot;&gt;&lt;b&gt;3&lt;/b&gt;&lt;span&gt;配置与确认&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-form-panel&quot;&gt;
+            &lt;div class=&quot;qy-form-section&quot;&gt;&lt;h3&gt;部署策略&lt;/h3&gt;&lt;div class=&quot;qy-radio-grid&quot;&gt;&lt;label class=&quot;qy-choice&quot;&gt;&lt;input type=&quot;radio&quot; name=&quot;osd-profile&quot; value=&quot;capacity&quot; checked&gt;&lt;strong&gt;容量优先&lt;/strong&gt;&lt;span&gt;HDD 数据盘，适合对象与归档池&lt;/span&gt;&lt;/label&gt;&lt;label class=&quot;qy-choice&quot;&gt;&lt;input type=&quot;radio&quot; name=&quot;osd-profile&quot; value=&quot;throughput&quot;&gt;&lt;strong&gt;吞吐优先&lt;/strong&gt;&lt;span&gt;SSD DB/WAL，加速大文件顺序读写&lt;/span&gt;&lt;/label&gt;&lt;label class=&quot;qy-choice&quot;&gt;&lt;input type=&quot;radio&quot; name=&quot;osd-profile&quot; value=&quot;iops&quot;&gt;&lt;strong&gt;IOPS 优先&lt;/strong&gt;&lt;span&gt;全 NVMe，适合数据库与虚拟化&lt;/span&gt;&lt;/label&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;qy-form-section&quot;&gt;&lt;h3&gt;空闲设备（已选择 3 块）&lt;/h3&gt;&lt;div class=&quot;qy-device-list&quot;&gt;&lt;label class=&quot;qy-device&quot;&gt;&lt;input type=&quot;checkbox&quot; checked&gt;&lt;strong&gt;/dev/sdn · Slot 12&lt;/strong&gt;&lt;span&gt;storage-d01-r04-n02&lt;/span&gt;&lt;span&gt;HDD · 18 TB&lt;/span&gt;&lt;span class=&quot;qy-status&quot;&gt;健康&lt;/span&gt;&lt;/label&gt;&lt;label class=&quot;qy-device&quot;&gt;&lt;input type=&quot;checkbox&quot; checked&gt;&lt;strong&gt;/dev/sdo · Slot 13&lt;/strong&gt;&lt;span&gt;storage-d01-r04-n02&lt;/span&gt;&lt;span&gt;HDD · 18 TB&lt;/span&gt;&lt;span class=&quot;qy-status&quot;&gt;健康&lt;/span&gt;&lt;/label&gt;&lt;label class=&quot;qy-device&quot;&gt;&lt;input type=&quot;checkbox&quot; checked&gt;&lt;strong&gt;/dev/sdp · Slot 14&lt;/strong&gt;&lt;span&gt;storage-d01-r04-n02&lt;/span&gt;&lt;span&gt;HDD · 18 TB&lt;/span&gt;&lt;span class=&quot;qy-status&quot;&gt;健康&lt;/span&gt;&lt;/label&gt;&lt;label class=&quot;qy-device&quot;&gt;&lt;input type=&quot;checkbox&quot;&gt;&lt;strong&gt;/dev/nvme6n1 · Slot 07&lt;/strong&gt;&lt;span&gt;storage-c01-r02-n03&lt;/span&gt;&lt;span&gt;NVMe · 7.68 TB&lt;/span&gt;&lt;span class=&quot;qy-status&quot;&gt;健康&lt;/span&gt;&lt;/label&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;qy-form-section&quot;&gt;&lt;h3&gt;高级配置&lt;/h3&gt;&lt;div class=&quot;qy-form-grid&quot;&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-device-class&quot;&gt;设备类别&lt;/label&gt;&lt;select id=&quot;qy-device-class&quot;&gt;&lt;option&gt;hdd-capacity&lt;/option&gt;&lt;option&gt;ssd-throughput&lt;/option&gt;&lt;option&gt;nvme-performance&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-crush-root&quot;&gt;CRUSH 根&lt;/label&gt;&lt;select id=&quot;qy-crush-root&quot;&gt;&lt;option&gt;default / D-POD1&lt;/option&gt;&lt;option&gt;default / C-POD1&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-db-device&quot;&gt;DB/WAL 设备&lt;/label&gt;&lt;select id=&quot;qy-db-device&quot;&gt;&lt;option&gt;自动分配&lt;/option&gt;&lt;option&gt;独立 SSD&lt;/option&gt;&lt;option&gt;与数据盘共用&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-encrypt&quot;&gt;磁盘加密&lt;/label&gt;&lt;select id=&quot;qy-encrypt&quot;&gt;&lt;option&gt;启用 · 平台 KMS&lt;/option&gt;&lt;option&gt;启用 · BYOK&lt;/option&gt;&lt;option&gt;关闭&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;qy-summary&quot;&gt;&lt;strong&gt;部署预览&lt;/strong&gt;&lt;div class=&quot;qy-summary-grid&quot;&gt;&lt;span&gt;新增 OSD&lt;b id=&quot;qy-osd-count&quot;&gt;3 个&lt;/b&gt;&lt;/span&gt;&lt;span&gt;新增裸容量&lt;b id=&quot;qy-osd-capacity&quot;&gt;54 TB&lt;/b&gt;&lt;/span&gt;&lt;span&gt;故障域&lt;b&gt;host / rack&lt;/b&gt;&lt;/span&gt;&lt;span&gt;预计完成&lt;b&gt;约 18 分钟&lt;/b&gt;&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-toast&quot; id=&quot;qy-osd-toast&quot; role=&quot;status&quot;&gt;OSD 创建任务已提交，系统正在进行磁盘擦除、激活与 CRUSH 编排。&lt;/div&gt;
+          &lt;div class=&quot;qy-form-actions&quot;&gt;&lt;button class=&quot;qy-secondary&quot; data-view-link=&quot;osd&quot;&gt;取消&lt;/button&gt;&lt;button class=&quot;qy-primary&quot; id=&quot;qy-create-osd-submit&quot;&gt;预检并创建 OSD&lt;/button&gt;&lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;create-pool&quot; data-role-page=&quot;admin&quot; hidden&gt;
+          &lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;创建 Pool&lt;/h1&gt;&lt;p&gt;按业务用途配置数据保护、PG、压缩和容量配额。&lt;/p&gt;&lt;/div&gt;&lt;button class=&quot;qy-secondary&quot; data-view-link=&quot;pool&quot;&gt;返回 Pool 管理&lt;/button&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-steps&quot;&gt;&lt;div class=&quot;qy-step is-current&quot;&gt;&lt;b&gt;1&lt;/b&gt;&lt;span&gt;基础配置&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-step&quot;&gt;&lt;b&gt;2&lt;/b&gt;&lt;span&gt;数据保护&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-step&quot;&gt;&lt;b&gt;3&lt;/b&gt;&lt;span&gt;确认创建&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-form-panel&quot;&gt;
+            &lt;div class=&quot;qy-form-section&quot;&gt;&lt;h3&gt;基础配置&lt;/h3&gt;&lt;div class=&quot;qy-form-grid&quot;&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-pool-name&quot;&gt;Pool 名称&lt;/label&gt;&lt;input id=&quot;qy-pool-name&quot; value=&quot;training-archive&quot; aria-label=&quot;Pool 名称&quot;&gt;&lt;small&gt;仅支持小写字母、数字和连字符&lt;/small&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-pool-app&quot;&gt;应用类型&lt;/label&gt;&lt;select id=&quot;qy-pool-app&quot;&gt;&lt;option&gt;RBD · 块存储&lt;/option&gt;&lt;option&gt;CephFS · 文件存储&lt;/option&gt;&lt;option selected&gt;RGW · 对象存储&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-pool-class&quot;&gt;设备类别&lt;/label&gt;&lt;select id=&quot;qy-pool-class&quot;&gt;&lt;option selected&gt;hdd-capacity&lt;/option&gt;&lt;option&gt;ssd-throughput&lt;/option&gt;&lt;option&gt;nvme-performance&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-pg-mode&quot;&gt;PG 管理&lt;/label&gt;&lt;select id=&quot;qy-pg-mode&quot;&gt;&lt;option selected&gt;Autoscaler 自动管理&lt;/option&gt;&lt;option&gt;手动设置&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;qy-form-section&quot;&gt;&lt;h3&gt;数据保护&lt;/h3&gt;&lt;div class=&quot;qy-radio-grid&quot;&gt;&lt;label class=&quot;qy-choice&quot;&gt;&lt;input type=&quot;radio&quot; name=&quot;pool-type&quot; value=&quot;replicated&quot;&gt;&lt;strong&gt;副本池&lt;/strong&gt;&lt;span&gt;3 副本，低时延、恢复速度快&lt;/span&gt;&lt;/label&gt;&lt;label class=&quot;qy-choice&quot;&gt;&lt;input type=&quot;radio&quot; name=&quot;pool-type&quot; value=&quot;ec&quot; checked&gt;&lt;strong&gt;纠删码池&lt;/strong&gt;&lt;span&gt;EC 8+3，容量效率约 72.7%&lt;/span&gt;&lt;/label&gt;&lt;label class=&quot;qy-choice&quot;&gt;&lt;input type=&quot;radio&quot; name=&quot;pool-type&quot; value=&quot;ec42&quot;&gt;&lt;strong&gt;轻量纠删码&lt;/strong&gt;&lt;span&gt;EC 4+2，适合中小规模集群&lt;/span&gt;&lt;/label&gt;&lt;/div&gt;&lt;div class=&quot;qy-form-grid&quot; style=&quot;margin-top:12px&quot;&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-crush-rule&quot;&gt;CRUSH 规则&lt;/label&gt;&lt;select id=&quot;qy-crush-rule&quot;&gt;&lt;option selected&gt;ec-capacity-8-3 · rack&lt;/option&gt;&lt;option&gt;replicated-performance · host&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-compression&quot;&gt;在线压缩&lt;/label&gt;&lt;select id=&quot;qy-compression&quot;&gt;&lt;option&gt;关闭&lt;/option&gt;&lt;option selected&gt;被动压缩 · zstd&lt;/option&gt;&lt;option&gt;强制压缩 · zstd&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;qy-form-section&quot;&gt;&lt;h3&gt;配额与水位&lt;/h3&gt;&lt;div class=&quot;qy-form-grid&quot;&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-pool-quota&quot;&gt;最大容量&lt;/label&gt;&lt;input id=&quot;qy-pool-quota&quot; value=&quot;5&quot; aria-label=&quot;最大容量&quot;&gt;&lt;small&gt;单位：PB，0 表示不限制&lt;/small&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-pool-objects&quot;&gt;最大对象数&lt;/label&gt;&lt;input id=&quot;qy-pool-objects&quot; value=&quot;500000000&quot; aria-label=&quot;最大对象数&quot;&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-nearfull&quot;&gt;预警水位&lt;/label&gt;&lt;input id=&quot;qy-nearfull&quot; value=&quot;75%&quot; aria-label=&quot;预警水位&quot;&gt;&lt;/div&gt;&lt;div class=&quot;qy-field&quot;&gt;&lt;label for=&quot;qy-full&quot;&gt;只读保护水位&lt;/label&gt;&lt;input id=&quot;qy-full&quot; value=&quot;90%&quot; aria-label=&quot;只读保护水位&quot;&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;qy-summary&quot;&gt;&lt;strong&gt;创建预览&lt;/strong&gt;&lt;div class=&quot;qy-summary-grid&quot;&gt;&lt;span&gt;Pool&lt;b id=&quot;qy-pool-preview-name&quot;&gt;training-archive&lt;/b&gt;&lt;/span&gt;&lt;span&gt;冗余策略&lt;b id=&quot;qy-pool-preview-type&quot;&gt;EC 8+3&lt;/b&gt;&lt;/span&gt;&lt;span&gt;预计可用容量&lt;b&gt;5.0 PB&lt;/b&gt;&lt;/span&gt;&lt;span&gt;应用标签&lt;b&gt;rgw&lt;/b&gt;&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-toast&quot; id=&quot;qy-pool-toast&quot; role=&quot;status&quot;&gt;Pool 创建任务已提交，PG Autoscaler 和应用标签将自动完成配置。&lt;/div&gt;
+          &lt;div class=&quot;qy-form-actions&quot;&gt;&lt;button class=&quot;qy-secondary&quot; data-view-link=&quot;pool&quot;&gt;取消&lt;/button&gt;&lt;button class=&quot;qy-primary&quot; id=&quot;qy-create-pool-submit&quot;&gt;校验并创建 Pool&lt;/button&gt;&lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;crush&quot; data-role-page=&quot;admin&quot; hidden&gt;
+          &lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;CRUSH Map&lt;/h1&gt;&lt;p&gt;按存储域、机柜、主机和磁盘查看数据放置拓扑与故障域。&lt;/p&gt;&lt;/div&gt;&lt;div&gt;&lt;button class=&quot;qy-secondary&quot;&gt;导出 Map&lt;/button&gt; &lt;button class=&quot;qy-primary&quot;&gt;新建规则&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-crush-map&quot;&gt;
+            &lt;div class=&quot;qy-crush-root&quot;&gt;&lt;strong&gt;ROOT · default&lt;/strong&gt;&lt;span&gt;82.4 PB 原始容量 · 51 主机 · 96 OSD&lt;/span&gt;&lt;/div&gt;
+            &lt;div class=&quot;qy-crush-zones&quot;&gt;
+              &lt;section class=&quot;qy-crush-zone&quot;&gt;&lt;div class=&quot;qy-zone-head&quot;&gt;&lt;div&gt;&lt;strong&gt;C-POD1 · 性能存储域&lt;/strong&gt;&lt;span&gt;NVMe / SSD&lt;/span&gt;&lt;/div&gt;&lt;span&gt;4 Racks · 24 OSD&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-rack-row&quot;&gt;&lt;button class=&quot;qy-rack-btn&quot; data-crush-rack=&quot;C-R01&quot; data-zone=&quot;C-POD1&quot; data-media=&quot;NVMe&quot; data-capacity=&quot;92 TB&quot;&gt;&lt;strong&gt;R01&lt;/strong&gt;&lt;span&gt;4 主机&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-rack-btn&quot; data-crush-rack=&quot;C-R02&quot; data-zone=&quot;C-POD1&quot; data-media=&quot;NVMe&quot; data-capacity=&quot;92 TB&quot;&gt;&lt;strong&gt;R02&lt;/strong&gt;&lt;span&gt;4 主机&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-rack-btn&quot; data-crush-rack=&quot;C-R03&quot; data-zone=&quot;C-POD1&quot; data-media=&quot;SSD&quot; data-capacity=&quot;184 TB&quot;&gt;&lt;strong&gt;R03&lt;/strong&gt;&lt;span&gt;4 主机&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-rack-btn&quot; data-crush-rack=&quot;C-R04&quot; data-zone=&quot;C-POD1&quot; data-media=&quot;SSD&quot; data-capacity=&quot;184 TB&quot;&gt;&lt;strong&gt;R04&lt;/strong&gt;&lt;span&gt;4 主机&lt;/span&gt;&lt;/button&gt;&lt;/div&gt;&lt;/section&gt;
+              &lt;section class=&quot;qy-crush-zone&quot;&gt;&lt;div class=&quot;qy-zone-head&quot;&gt;&lt;div&gt;&lt;strong&gt;D-POD1 · 容量存储域&lt;/strong&gt;&lt;span&gt;HDD&lt;/span&gt;&lt;/div&gt;&lt;span&gt;8 Racks · 72 OSD&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-rack-row&quot;&gt;&lt;button class=&quot;qy-rack-btn&quot; data-crush-rack=&quot;D-R01&quot; data-zone=&quot;D-POD1&quot; data-media=&quot;HDD&quot; data-capacity=&quot;864 TB&quot;&gt;&lt;strong&gt;R01&lt;/strong&gt;&lt;span&gt;4 主机&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-rack-btn&quot; data-crush-rack=&quot;D-R02&quot; data-zone=&quot;D-POD1&quot; data-media=&quot;HDD&quot; data-capacity=&quot;864 TB&quot;&gt;&lt;strong&gt;R02&lt;/strong&gt;&lt;span&gt;4 主机&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-rack-btn&quot; data-crush-rack=&quot;D-R03&quot; data-zone=&quot;D-POD1&quot; data-media=&quot;HDD&quot; data-capacity=&quot;864 TB&quot; aria-pressed=&quot;true&quot;&gt;&lt;strong&gt;R03&lt;/strong&gt;&lt;span&gt;4 主机&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-rack-btn&quot; data-crush-rack=&quot;D-R04&quot; data-zone=&quot;D-POD1&quot; data-media=&quot;HDD&quot; data-capacity=&quot;864 TB&quot;&gt;&lt;strong&gt;R04&lt;/strong&gt;&lt;span&gt;4 主机&lt;/span&gt;&lt;/button&gt;&lt;/div&gt;&lt;/section&gt;
+            &lt;/div&gt;
+            &lt;section class=&quot;qy-rack-detail&quot; aria-label=&quot;选中机柜的主机与磁盘拓扑&quot;&gt;
+              &lt;div class=&quot;qy-rack-detail-head&quot;&gt;&lt;div&gt;&lt;strong id=&quot;qy-crush-rack-title&quot;&gt;机柜 D-R03&lt;/strong&gt;&lt;span id=&quot;qy-crush-rack-meta&quot;&gt;D-POD1 · HDD · 864 TB · rack 故障域&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-crush-legend&quot;&gt;&lt;span&gt;&lt;i&gt;&lt;/i&gt;正常&lt;/span&gt;&lt;span&gt;&lt;i style=&quot;background:var(--qy-amber)&quot;&gt;&lt;/i&gt;预警&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+              &lt;div class=&quot;qy-host-row&quot;&gt;
+                &lt;article class=&quot;qy-host-box&quot;&gt;&lt;div class=&quot;qy-host-head&quot;&gt;&lt;strong id=&quot;qy-crush-host-1&quot;&gt;storage-d01-r03-n01&lt;/strong&gt;&lt;span&gt;10.20.3.11 · 12 OSD&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-disk-grid&quot;&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.72&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.73&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.74&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.75&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.76&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.77&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;
+                &lt;article class=&quot;qy-host-box&quot;&gt;&lt;div class=&quot;qy-host-head&quot;&gt;&lt;strong id=&quot;qy-crush-host-2&quot;&gt;storage-d01-r03-n02&lt;/strong&gt;&lt;span&gt;10.20.3.12 · 12 OSD&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-disk-grid&quot;&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.78&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.79&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.80&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.81&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.82&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-disk-cell is-warn&quot;&gt;&lt;strong&gt;osd.83&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;
+                &lt;article class=&quot;qy-host-box&quot;&gt;&lt;div class=&quot;qy-host-head&quot;&gt;&lt;strong id=&quot;qy-crush-host-3&quot;&gt;storage-d01-r03-n03&lt;/strong&gt;&lt;span&gt;10.20.3.13 · 12 OSD&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-disk-grid&quot;&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.84&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.85&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.86&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.87&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.88&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.89&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;
+                &lt;article class=&quot;qy-host-box&quot;&gt;&lt;div class=&quot;qy-host-head&quot;&gt;&lt;strong id=&quot;qy-crush-host-4&quot;&gt;storage-d01-r03-n04&lt;/strong&gt;&lt;span&gt;10.20.3.14 · 12 OSD&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-disk-grid&quot;&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.90&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.91&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.92&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.93&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.94&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;button class=&quot;qy-disk-cell&quot;&gt;&lt;strong&gt;osd.95&lt;/strong&gt;&lt;span&gt;18 TB&lt;/span&gt;&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;
+              &lt;/div&gt;
+            &lt;/section&gt;
+            &lt;div class=&quot;qy-crush-bottom&quot;&gt;&lt;article class=&quot;qy-panel&quot;&gt;&lt;div class=&quot;qy-panel-title&quot;&gt;当前数据放置路径&lt;/div&gt;&lt;div class=&quot;qy-panel-body&quot;&gt;&lt;strong id=&quot;qy-crush-path&quot; style=&quot;font-weight:500&quot;&gt;default → D-POD1 → D-R03 → storage-d01-r03-n02 → osd.83&lt;/strong&gt;&lt;div id=&quot;qy-crush-path-meta&quot; style=&quot;color:var(--qy-muted);margin-top:7px&quot;&gt;故障隔离级别：Rack · 设备类别：HDD · 权重：1.0 · 状态：up / in&lt;/div&gt;&lt;/div&gt;&lt;/article&gt;&lt;article class=&quot;qy-panel&quot;&gt;&lt;div class=&quot;qy-panel-title&quot;&gt;匹配的 CRUSH 规则&lt;/div&gt;&lt;div class=&quot;qy-panel-body&quot;&gt;&lt;div class=&quot;qy-service-row&quot;&gt;&lt;span class=&quot;qy-service-icon&quot;&gt;EC&lt;/span&gt;&lt;div&gt;&lt;strong&gt;ec-capacity-8-3&lt;/strong&gt;&lt;small&gt;rack failure domain · HDD&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;qy-ok&quot;&gt;启用&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-service-row&quot;&gt;&lt;span class=&quot;qy-service-icon&quot;&gt;3×&lt;/span&gt;&lt;div&gt;&lt;strong&gt;replicated-performance&lt;/strong&gt;&lt;small&gt;host failure domain · NVMe&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;qy-ok&quot;&gt;启用&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;tenants&quot; data-role-page=&quot;admin&quot; hidden&gt;&lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;租户与配额&lt;/h1&gt;&lt;p&gt;统一配置存储配额、服务等级、访问域与计量策略。&lt;/p&gt;&lt;/div&gt;&lt;button class=&quot;qy-primary&quot;&gt;创建租户&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;qy-table-wrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;租户&lt;/th&gt;&lt;th&gt;RBD 配额&lt;/th&gt;&lt;th&gt;NAS 配额&lt;/th&gt;&lt;th&gt;S3 配额&lt;/th&gt;&lt;th&gt;本月使用&lt;/th&gt;&lt;th&gt;密钥策略&lt;/th&gt;&lt;th&gt;状态&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;智算训练平台&lt;/td&gt;&lt;td&gt;500 TB&lt;/td&gt;&lt;td&gt;2 PB&lt;/td&gt;&lt;td&gt;5.5 PB&lt;/td&gt;&lt;td&gt;6.5 PB&lt;/td&gt;&lt;td&gt;BYOK&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;正常&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;数据中台&lt;/td&gt;&lt;td&gt;200 TB&lt;/td&gt;&lt;td&gt;1 PB&lt;/td&gt;&lt;td&gt;8 PB&lt;/td&gt;&lt;td&gt;4.0 PB&lt;/td&gt;&lt;td&gt;平台 KMS&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;正常&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;云资源平台&lt;/td&gt;&lt;td&gt;1 PB&lt;/td&gt;&lt;td&gt;300 TB&lt;/td&gt;&lt;td&gt;2 PB&lt;/td&gt;&lt;td&gt;1.4 PB&lt;/td&gt;&lt;td&gt;BYOK&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;正常&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;monitor&quot; data-role-page=&quot;admin&quot; hidden&gt;
+          &lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;监控与告警&lt;/h1&gt;&lt;p&gt;从集群健康、容量、OSD、PG、IOPS 与带宽观察 Ceph 实时状态。&lt;/p&gt;&lt;/div&gt;&lt;div&gt;&lt;select class=&quot;qy-secondary&quot; aria-label=&quot;监控时间范围&quot;&gt;&lt;option&gt;最近 5 分钟&lt;/option&gt;&lt;option&gt;最近 1 小时&lt;/option&gt;&lt;option&gt;最近 24 小时&lt;/option&gt;&lt;/select&gt; &lt;button class=&quot;qy-secondary&quot;&gt;告警规则&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-monitor-hero&quot;&gt;
+            &lt;div class=&quot;qy-health-big&quot;&gt;&lt;strong&gt;HEALTHY&lt;/strong&gt;&lt;span&gt;qiyun-ceph-01 · 数据服务全部可用&lt;/span&gt;&lt;/div&gt;
+            &lt;div class=&quot;qy-donut-card&quot;&gt;&lt;div class=&quot;qy-donut&quot; style=&quot;--qy-value:100&quot; data-value=&quot;96/96&quot;&gt;&lt;/div&gt;&lt;div class=&quot;qy-donut-copy&quot;&gt;&lt;strong&gt;OSD 运行状态&lt;/strong&gt;&lt;span&gt;Up 96&lt;/span&gt;&lt;span&gt;Down 0&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;qy-donut-card&quot;&gt;&lt;div class=&quot;qy-donut&quot; style=&quot;--qy-value:100&quot; data-value=&quot;4.6k&quot;&gt;&lt;/div&gt;&lt;div class=&quot;qy-donut-copy&quot;&gt;&lt;strong&gt;PG 状态&lt;/strong&gt;&lt;span&gt;Clean 4,608&lt;/span&gt;&lt;span&gt;Other 0&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;qy-monitor-metrics&quot;&gt;&lt;div class=&quot;qy-monitor-metric&quot;&gt;&lt;span&gt;集群内 OSD 正常&lt;/span&gt;&lt;strong&gt;96&lt;/strong&gt;&lt;small&gt;全部在线&lt;/small&gt;&lt;/div&gt;&lt;div class=&quot;qy-monitor-metric&quot;&gt;&lt;span&gt;集群内 OSD 停止&lt;/span&gt;&lt;strong&gt;0&lt;/strong&gt;&lt;small&gt;正常&lt;/small&gt;&lt;/div&gt;&lt;div class=&quot;qy-monitor-metric&quot;&gt;&lt;span&gt;集群外 OSD&lt;/span&gt;&lt;strong&gt;0&lt;/strong&gt;&lt;small&gt;无异常&lt;/small&gt;&lt;/div&gt;&lt;div class=&quot;qy-monitor-metric&quot;&gt;&lt;span&gt;平均 PG / OSD&lt;/span&gt;&lt;strong&gt;48.0&lt;/strong&gt;&lt;small&gt;分布均衡&lt;/small&gt;&lt;/div&gt;&lt;div class=&quot;qy-monitor-metric&quot;&gt;&lt;span&gt;裸容量 / 已用&lt;/span&gt;&lt;strong&gt;82.4 / 14.1 PB&lt;/strong&gt;&lt;small&gt;17.1%&lt;/small&gt;&lt;/div&gt;&lt;div class=&quot;qy-monitor-metric&quot;&gt;&lt;span&gt;可用容量 / 已用&lt;/span&gt;&lt;strong&gt;49.7 / 8.5 PB&lt;/strong&gt;&lt;small&gt;容量充足&lt;/small&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-panel&quot; style=&quot;margin-bottom:10px&quot;&gt;&lt;div class=&quot;qy-panel-title&quot;&gt;&lt;span&gt;集群容量使用率&lt;/span&gt;&lt;strong style=&quot;color:var(--qy-green);font-weight:500&quot;&gt;17.1%&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-panel-body&quot;&gt;&lt;div class=&quot;qy-capacity-strip&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;/div&gt;&lt;div class=&quot;qy-capacity-meta&quot;&gt;&lt;span&gt;已用 8.5 PB&lt;/span&gt;&lt;span&gt;可用 41.2 PB&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-panel&quot; style=&quot;margin-bottom:10px&quot;&gt;&lt;div class=&quot;qy-panel-title&quot;&gt;&lt;span&gt;各 Pool 容量使用率&lt;/span&gt;&lt;span style=&quot;color:var(--qy-muted);font-weight:400&quot;&gt;按使用率从高到低&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-panel-body&quot;&gt;&lt;div class=&quot;qy-pool-capacity-grid&quot;&gt;
+            &lt;div class=&quot;qy-pool-capacity-item is-warn&quot; style=&quot;--qy-pool-used:77.5%&quot;&gt;&lt;div class=&quot;qy-pool-capacity-name&quot;&gt;&lt;strong&gt;rgw-data&lt;/strong&gt;&lt;span&gt;6.20 / 8.00 PB · EC 8+3&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-pool-capacity-bar&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;/div&gt;&lt;div class=&quot;qy-pool-capacity-value&quot;&gt;77.5%&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;qy-pool-capacity-item&quot; style=&quot;--qy-pool-used:52%&quot;&gt;&lt;div class=&quot;qy-pool-capacity-name&quot;&gt;&lt;strong&gt;rbd-performance&lt;/strong&gt;&lt;span&gt;312 / 600 TB · 3 副本&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-pool-capacity-bar&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;/div&gt;&lt;div class=&quot;qy-pool-capacity-value&quot;&gt;52.0%&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;qy-pool-capacity-item&quot; style=&quot;--qy-pool-used:45%&quot;&gt;&lt;div class=&quot;qy-pool-capacity-name&quot;&gt;&lt;strong&gt;cephfs-data&lt;/strong&gt;&lt;span&gt;1.80 / 4.00 PB · EC 8+3&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-pool-capacity-bar&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;/div&gt;&lt;div class=&quot;qy-pool-capacity-value&quot;&gt;45.0%&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;qy-pool-capacity-item&quot; style=&quot;--qy-pool-used:32%&quot;&gt;&lt;div class=&quot;qy-pool-capacity-name&quot;&gt;&lt;strong&gt;cephfs-metadata&lt;/strong&gt;&lt;span&gt;96 / 300 TB · 3 副本&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-pool-capacity-bar&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;/div&gt;&lt;div class=&quot;qy-pool-capacity-value&quot;&gt;32.0%&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;qy-pool-capacity-item&quot; style=&quot;--qy-pool-used:18.4%&quot;&gt;&lt;div class=&quot;qy-pool-capacity-name&quot;&gt;&lt;strong&gt;rbd-capacity&lt;/strong&gt;&lt;span&gt;920 TB / 5.00 PB · EC 4+2&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-pool-capacity-bar&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;/div&gt;&lt;div class=&quot;qy-pool-capacity-value&quot;&gt;18.4%&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;qy-pool-capacity-item&quot; style=&quot;--qy-pool-used:12.6%&quot;&gt;&lt;div class=&quot;qy-pool-capacity-name&quot;&gt;&lt;strong&gt;rgw-index&lt;/strong&gt;&lt;span&gt;63 / 500 TB · 3 副本&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-pool-capacity-bar&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;/div&gt;&lt;div class=&quot;qy-pool-capacity-value&quot;&gt;12.6%&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;qy-pool-capacity-item&quot; style=&quot;--qy-pool-used:6.8%&quot;&gt;&lt;div class=&quot;qy-pool-capacity-name&quot;&gt;&lt;strong&gt;nfs-ganesha&lt;/strong&gt;&lt;span&gt;34 / 500 TB · 3 副本&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-pool-capacity-bar&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;/div&gt;&lt;div class=&quot;qy-pool-capacity-value&quot;&gt;6.8%&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;qy-pool-capacity-item&quot; style=&quot;--qy-pool-used:2.4%&quot;&gt;&lt;div class=&quot;qy-pool-capacity-name&quot;&gt;&lt;strong&gt;archive-data&lt;/strong&gt;&lt;span&gt;120 TB / 5.00 PB · EC 8+3&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;qy-pool-capacity-bar&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;/div&gt;&lt;div class=&quot;qy-pool-capacity-value&quot;&gt;2.4%&lt;/div&gt;&lt;/div&gt;
+          &lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-monitor-grid&quot;&gt;
+            &lt;article class=&quot;qy-panel&quot;&gt;&lt;div class=&quot;qy-panel-title&quot;&gt;&lt;span&gt;集群读写 IOPS&lt;/span&gt;&lt;strong style=&quot;font-weight:500&quot;&gt;559.55 ops/s&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-panel-body&quot;&gt;&lt;svg class=&quot;qy-chart&quot; viewBox=&quot;0 0 720 164&quot; role=&quot;img&quot; aria-label=&quot;最近五分钟集群读写 IOPS 趋势&quot;&gt;&lt;line class=&quot;grid&quot; x1=&quot;55&quot; y1=&quot;18&quot; x2=&quot;705&quot; y2=&quot;18&quot;&gt;&lt;/line&gt;&lt;line class=&quot;grid&quot; x1=&quot;55&quot; y1=&quot;60&quot; x2=&quot;705&quot; y2=&quot;60&quot;&gt;&lt;/line&gt;&lt;line class=&quot;grid&quot; x1=&quot;55&quot; y1=&quot;102&quot; x2=&quot;705&quot; y2=&quot;102&quot;&gt;&lt;/line&gt;&lt;line class=&quot;grid&quot; x1=&quot;55&quot; y1=&quot;140&quot; x2=&quot;705&quot; y2=&quot;140&quot;&gt;&lt;/line&gt;&lt;path class=&quot;area&quot; d=&quot;M55,108 L130,96 L205,104 L280,82 L355,67 L430,78 L505,58 L580,69 L650,86 L705,93 L705,140 L55,140 Z&quot;&gt;&lt;/path&gt;&lt;path class=&quot;line&quot; d=&quot;M55,108 L130,96 L205,104 L280,82 L355,67 L430,78 L505,58 L580,69 L650,86 L705,93&quot;&gt;&lt;/path&gt;&lt;text x=&quot;10&quot; y=&quot;22&quot;&gt;800&lt;/text&gt;&lt;text x=&quot;10&quot; y=&quot;64&quot;&gt;500&lt;/text&gt;&lt;text x=&quot;10&quot; y=&quot;106&quot;&gt;200&lt;/text&gt;&lt;text x=&quot;55&quot; y=&quot;158&quot;&gt;-5m&lt;/text&gt;&lt;text x=&quot;365&quot; y=&quot;158&quot;&gt;-2.5m&lt;/text&gt;&lt;text x=&quot;680&quot; y=&quot;158&quot;&gt;现在&lt;/text&gt;&lt;/svg&gt;&lt;/div&gt;&lt;/article&gt;
+            &lt;article class=&quot;qy-panel&quot;&gt;&lt;div class=&quot;qy-panel-title&quot;&gt;&lt;span&gt;集群读写带宽&lt;/span&gt;&lt;strong style=&quot;font-weight:500&quot;&gt;14.0 MB/s&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-panel-body&quot;&gt;&lt;svg class=&quot;qy-chart&quot; viewBox=&quot;0 0 720 164&quot; role=&quot;img&quot; aria-label=&quot;最近五分钟集群读写带宽趋势&quot;&gt;&lt;line class=&quot;grid&quot; x1=&quot;55&quot; y1=&quot;18&quot; x2=&quot;705&quot; y2=&quot;18&quot;&gt;&lt;/line&gt;&lt;line class=&quot;grid&quot; x1=&quot;55&quot; y1=&quot;60&quot; x2=&quot;705&quot; y2=&quot;60&quot;&gt;&lt;/line&gt;&lt;line class=&quot;grid&quot; x1=&quot;55&quot; y1=&quot;102&quot; x2=&quot;705&quot; y2=&quot;102&quot;&gt;&lt;/line&gt;&lt;line class=&quot;grid&quot; x1=&quot;55&quot; y1=&quot;140&quot; x2=&quot;705&quot; y2=&quot;140&quot;&gt;&lt;/line&gt;&lt;path class=&quot;area&quot; d=&quot;M55,96 L130,102 L205,99 L280,91 L355,80 L430,70 L505,62 L580,53 L650,72 L705,88 L705,140 L55,140 Z&quot;&gt;&lt;/path&gt;&lt;path class=&quot;line&quot; d=&quot;M55,96 L130,102 L205,99 L280,91 L355,80 L430,70 L505,62 L580,53 L650,72 L705,88&quot;&gt;&lt;/path&gt;&lt;text x=&quot;10&quot; y=&quot;22&quot;&gt;24 MB/s&lt;/text&gt;&lt;text x=&quot;10&quot; y=&quot;64&quot;&gt;16 MB/s&lt;/text&gt;&lt;text x=&quot;10&quot; y=&quot;106&quot;&gt;8 MB/s&lt;/text&gt;&lt;text x=&quot;55&quot; y=&quot;158&quot;&gt;-5m&lt;/text&gt;&lt;text x=&quot;365&quot; y=&quot;158&quot;&gt;-2.5m&lt;/text&gt;&lt;text x=&quot;680&quot; y=&quot;158&quot;&gt;现在&lt;/text&gt;&lt;/svg&gt;&lt;/div&gt;&lt;/article&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;qy-monitor-grid&quot;&gt;
+            &lt;div class=&quot;qy-table-wrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;OSD&lt;/th&gt;&lt;th&gt;状态&lt;/th&gt;&lt;th&gt;节点&lt;/th&gt;&lt;th&gt;提交延迟&lt;/th&gt;&lt;th&gt;写入延迟&lt;/th&gt;&lt;th&gt;使用率&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;osd.83&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;正常&lt;/span&gt;&lt;/td&gt;&lt;td&gt;10.20.3.14&lt;/td&gt;&lt;td&gt;18 ms&lt;/td&gt;&lt;td&gt;21 ms&lt;/td&gt;&lt;td&gt;7.70%&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;osd.12&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;正常&lt;/span&gt;&lt;/td&gt;&lt;td&gt;10.20.1.11&lt;/td&gt;&lt;td&gt;1 ms&lt;/td&gt;&lt;td&gt;1 ms&lt;/td&gt;&lt;td&gt;7.66%&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;osd.45&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;正常&lt;/span&gt;&lt;/td&gt;&lt;td&gt;10.20.2.13&lt;/td&gt;&lt;td&gt;0 ms&lt;/td&gt;&lt;td&gt;1 ms&lt;/td&gt;&lt;td&gt;7.47%&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;
+            &lt;div class=&quot;qy-table-wrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Pool&lt;/th&gt;&lt;th&gt;PG&lt;/th&gt;&lt;th&gt;对象数&lt;/th&gt;&lt;th&gt;总可用&lt;/th&gt;&lt;th&gt;已使用&lt;/th&gt;&lt;th&gt;使用率&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;device_health&lt;/td&gt;&lt;td&gt;1&lt;/td&gt;&lt;td&gt;27&lt;/td&gt;&lt;td&gt;58.4 TB&lt;/td&gt;&lt;td&gt;258 MB&lt;/td&gt;&lt;td&gt;0.00%&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;images&lt;/td&gt;&lt;td&gt;128&lt;/td&gt;&lt;td&gt;175,350&lt;/td&gt;&lt;td&gt;87.6 TB&lt;/td&gt;&lt;td&gt;2.94 TB&lt;/td&gt;&lt;td&gt;1.68%&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;ssd-volumes&lt;/td&gt;&lt;td&gt;1,024&lt;/td&gt;&lt;td&gt;199,550&lt;/td&gt;&lt;td&gt;25.3 TB&lt;/td&gt;&lt;td&gt;1.64 TB&lt;/td&gt;&lt;td&gt;3.24%&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;
+          &lt;/div&gt;
+          &lt;div class=&quot;qy-table-wrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;级别&lt;/th&gt;&lt;th&gt;告警&lt;/th&gt;&lt;th&gt;对象&lt;/th&gt;&lt;th&gt;持续时间&lt;/th&gt;&lt;th&gt;建议&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td style=&quot;color:var(--qy-amber)&quot;&gt;警告&lt;/td&gt;&lt;td&gt;OSD 慢请求高于基线&lt;/td&gt;&lt;td&gt;osd.83&lt;/td&gt;&lt;td&gt;6 分钟&lt;/td&gt;&lt;td&gt;检查所在物理磁盘及链路&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;信息&lt;/td&gt;&lt;td&gt;PG autoscaler 调整完成&lt;/td&gt;&lt;td&gt;pool-archive&lt;/td&gt;&lt;td&gt;2 分钟&lt;/td&gt;&lt;td&gt;无需处理&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;security&quot; data-role-page=&quot;admin&quot; hidden&gt;&lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;安全与审计&lt;/h1&gt;&lt;p&gt;管理 BYOK、访问控制、数据出域审批与全量操作审计。&lt;/p&gt;&lt;/div&gt;&lt;button class=&quot;qy-primary&quot;&gt;数据出域审批&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpis&quot;&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;托管密钥&lt;/span&gt;&lt;strong&gt;46&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;待审批&lt;/span&gt;&lt;strong&gt;2&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;今日审计事件&lt;/span&gt;&lt;strong&gt;1,284&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;qy-kpi&quot;&gt;&lt;span&gt;高危操作&lt;/span&gt;&lt;strong&gt;0&lt;/strong&gt;&lt;em&gt;安全&lt;/em&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;qy-table-wrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;时间&lt;/th&gt;&lt;th&gt;操作者&lt;/th&gt;&lt;th&gt;动作&lt;/th&gt;&lt;th&gt;资源&lt;/th&gt;&lt;th&gt;来源&lt;/th&gt;&lt;th&gt;结果&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;11:26:08&lt;/td&gt;&lt;td&gt;agent.storage&lt;/td&gt;&lt;td&gt;创建快照策略&lt;/td&gt;&lt;td&gt;mysql-prod-01&lt;/td&gt;&lt;td&gt;工作流 ST-018&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;成功&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;11:18:32&lt;/td&gt;&lt;td&gt;admin&lt;/td&gt;&lt;td&gt;更新租户配额&lt;/td&gt;&lt;td&gt;智算训练平台&lt;/td&gt;&lt;td&gt;堡垒机会话&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;成功&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;10:54:10&lt;/td&gt;&lt;td&gt;kms.service&lt;/td&gt;&lt;td&gt;轮换租户密钥&lt;/td&gt;&lt;td&gt;data-platform-key&lt;/td&gt;&lt;td&gt;KMS&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;成功&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&lt;/section&gt;
+
+        &lt;section class=&quot;qy-page&quot; data-page=&quot;tasks&quot; data-role-page=&quot;admin&quot; hidden&gt;&lt;div class=&quot;qy-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;运维任务&lt;/h1&gt;&lt;p&gt;追踪集群维护、扩容、数据迁移和自动化工作流。&lt;/p&gt;&lt;/div&gt;&lt;button class=&quot;qy-secondary&quot;&gt;任务模板&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;qy-table-wrap&quot;&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;任务 ID&lt;/th&gt;&lt;th&gt;任务&lt;/th&gt;&lt;th&gt;发起人&lt;/th&gt;&lt;th&gt;进度&lt;/th&gt;&lt;th&gt;开始时间&lt;/th&gt;&lt;th&gt;状态&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;ST-20260811-018&lt;/td&gt;&lt;td&gt;新增 6 个容量型 OSD&lt;/td&gt;&lt;td&gt;admin&lt;/td&gt;&lt;td&gt;4 / 6&lt;/td&gt;&lt;td&gt;11:20&lt;/td&gt;&lt;td style=&quot;color:var(--qy-primary)&quot;&gt;执行中&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;ST-20260811-017&lt;/td&gt;&lt;td&gt;调整 rgw-data PG&lt;/td&gt;&lt;td&gt;Autoscaler&lt;/td&gt;&lt;td&gt;5 / 5&lt;/td&gt;&lt;td&gt;10:42&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;完成&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;ST-20260811-016&lt;/td&gt;&lt;td&gt;更新 CRUSH 规则&lt;/td&gt;&lt;td&gt;admin&lt;/td&gt;&lt;td&gt;2 / 2&lt;/td&gt;&lt;td&gt;09:18&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;qy-status&quot;&gt;完成&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&lt;/section&gt;
+
+        &lt;button class=&quot;qy-agent-fab&quot; data-agent-open&gt;✦ 存力 Agent&lt;/button&gt;
+        &lt;aside class=&quot;qy-agent-drawer&quot; aria-label=&quot;AI 存力助手&quot;&gt;
+          &lt;div class=&quot;qy-agent-head&quot;&gt;&lt;strong&gt;✦ 存力 Agent&lt;/strong&gt;&lt;button class=&quot;qy-icon-btn&quot; data-agent-close aria-label=&quot;关闭&quot;&gt;×&lt;/button&gt;&lt;/div&gt;
+          &lt;div class=&quot;qy-agent-body&quot;&gt;&lt;div class=&quot;qy-bubble&quot; id=&quot;qy-agent-message&quot;&gt;我可以结合当前 Ceph 容量、性能、租户配额与安全策略，为你创建或诊断存储服务。&lt;/div&gt;&lt;div class=&quot;qy-suggestions&quot;&gt;&lt;button data-agent-prompt=&quot;创建 RBD&quot;&gt;创建 RBD&lt;/button&gt;&lt;button data-agent-prompt=&quot;创建 NAS&quot;&gt;创建 NAS&lt;/button&gt;&lt;button data-agent-prompt=&quot;创建 S3&quot;&gt;创建 S3&lt;/button&gt;&lt;button data-agent-prompt=&quot;分析告警&quot;&gt;分析告警&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;qy-agent-input&quot;&gt;&lt;input id=&quot;qy-agent-input&quot; value=&quot;为训练集创建 200 TB 高吞吐共享存储&quot; aria-label=&quot;描述需求&quot;&gt;&lt;button class=&quot;qy-primary&quot; id=&quot;qy-agent-send&quot;&gt;发送&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;qy-toast&quot; id=&quot;qy-agent-toast&quot; role=&quot;status&quot;&gt;已生成交付计划：D-POD1、CephFS + NFS 4.1、每日快照、租户 BYOK。&lt;/div&gt;&lt;/div&gt;
+        &lt;/aside&gt;
+      &lt;/main&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;script&gt;
+    (() =&gt; {
+      const root = document.getElementById(&#x27;qiyun-product-v2&#x27;);
+      const navs = root.querySelectorAll(&#x27;.qy-nav-btn[data-view]&#x27;);
+      const pages = root.querySelectorAll(&#x27;.qy-page[data-page]&#x27;);
+      const drawer = root.querySelector(&#x27;.qy-agent-drawer&#x27;);
+      const roleButtons = root.querySelectorAll(&#x27;[data-role-switch]&#x27;);
+      const roleNavs = root.querySelectorAll(&#x27;[data-role-nav]&#x27;);
+      const rolePages = root.querySelectorAll(&#x27;[data-role-page]&#x27;);
+      const agentFab = root.querySelector(&#x27;.qy-agent-fab&#x27;);
+      const showView = (view) =&gt; {
+        pages.forEach((page) =&gt; page.classList.toggle(&#x27;is-active&#x27;, !page.hidden &amp;&amp; page.dataset.page === view));
+        navs.forEach((nav) =&gt; nav.setAttribute(&#x27;aria-current&#x27;, !nav.closest(&#x27;[data-role-nav]&#x27;).hidden &amp;&amp; nav.dataset.view === view ? &#x27;page&#x27; : &#x27;false&#x27;));
+      };
+      const setRole = (role) =&gt; {
+        roleButtons.forEach((button) =&gt; button.setAttribute(&#x27;aria-pressed&#x27;, button.dataset.roleSwitch === role ? &#x27;true&#x27; : &#x27;false&#x27;));
+        roleNavs.forEach((group) =&gt; { group.hidden = group.dataset.roleNav !== role; });
+        rolePages.forEach((page) =&gt; { page.hidden = page.dataset.rolePage !== role; });
+        const business = role === &#x27;business&#x27;;
+        root.querySelector(&#x27;#qy-scope-label&#x27;).textContent = business ? &#x27;当前租户&#x27; : &#x27;当前资源域&#x27;;
+        root.querySelector(&#x27;#qy-scope-select&#x27;).innerHTML = business ? &#x27;&lt;option&gt;智算训练平台&lt;/option&gt;&#x27; : &#x27;&lt;option&gt;济南 · 存力中心 01&lt;/option&gt;&#x27;;
+        root.querySelector(&#x27;#qy-side-caption&#x27;).textContent = business ? &#x27;租户配额&#x27; : &#x27;Ceph 数据面&#x27;;
+        root.querySelector(&#x27;#qy-side-status&#x27;).textContent = business ? &#x27;6.5 PB / 8.0 PB&#x27; : &#x27;HEALTH_WARN&#x27;;
+        root.querySelector(&#x27;#qy-side-detail&#x27;).textContent = business ? &#x27;RBD · NAS · S3&#x27; : &#x27;51 节点 · 49.7 PB&#x27;;
+        agentFab.hidden = !business;
+        drawer.classList.remove(&#x27;is-open&#x27;);
+        showView(business ? &#x27;business-overview&#x27; : &#x27;admin-overview&#x27;);
+      };
+      navs.forEach((nav) =&gt; nav.addEventListener(&#x27;click&#x27;, () =&gt; showView(nav.dataset.view)));
+      root.querySelectorAll(&#x27;[data-view-link]&#x27;).forEach((button) =&gt; button.addEventListener(&#x27;click&#x27;, () =&gt; showView(button.dataset.viewLink)));
+      root.addEventListener(&#x27;click&#x27;, (event) =&gt; {
+        const link = event.target.closest(&#x27;[data-view-link]&#x27;);
+        if (link &amp;&amp; root.contains(link)) showView(link.dataset.viewLink);
+      });
+      [[&#x27;qy-open-create-rbd&#x27;,&#x27;create-rbd&#x27;],[&#x27;qy-open-create-nas&#x27;,&#x27;create-nas&#x27;],[&#x27;qy-open-create-s3&#x27;,&#x27;create-s3&#x27;]].forEach(([id, view]) =&gt; {
+        root.querySelector(`#${id}`).addEventListener(&#x27;click&#x27;, () =&gt; showView(view));
+      });
+      roleButtons.forEach((button) =&gt; button.addEventListener(&#x27;click&#x27;, () =&gt; setRole(button.dataset.roleSwitch)));
+      root.querySelectorAll(&#x27;[data-agent-open]&#x27;).forEach((button) =&gt; button.addEventListener(&#x27;click&#x27;, () =&gt; drawer.classList.add(&#x27;is-open&#x27;)));
+      root.querySelector(&#x27;[data-agent-close]&#x27;).addEventListener(&#x27;click&#x27;, () =&gt; drawer.classList.remove(&#x27;is-open&#x27;));
+      root.querySelectorAll(&#x27;[data-agent-service]&#x27;).forEach((button) =&gt; button.addEventListener(&#x27;click&#x27;, () =&gt; {
+        drawer.classList.add(&#x27;is-open&#x27;);
+        const copy = {rbd:&#x27;创建 20 TB 低时延 RBD 卷&#x27;,nas:&#x27;创建 200 TB 高吞吐 NAS 共享&#x27;,s3:&#x27;创建启用版本与 WORM 的 S3 Bucket&#x27;};
+        root.querySelector(&#x27;#qy-agent-input&#x27;).value = copy[button.dataset.agentService];
+      }));
+      root.querySelectorAll(&#x27;[data-agent-prompt]&#x27;).forEach((button) =&gt; button.addEventListener(&#x27;click&#x27;, () =&gt; {
+        const input = button.closest(&#x27;.qy-agent-main&#x27;) ? root.querySelector(&#x27;#qy-agent-page-input&#x27;) : root.querySelector(&#x27;#qy-agent-input&#x27;);
+        input.value = button.dataset.agentPrompt;
+      }));
+      root.querySelector(&#x27;#qy-agent-send&#x27;).addEventListener(&#x27;click&#x27;, () =&gt; { root.querySelector(&#x27;#qy-agent-toast&#x27;).style.display = &#x27;block&#x27;; });
+      root.querySelector(&#x27;#qy-agent-page-send&#x27;).addEventListener(&#x27;click&#x27;, () =&gt; { root.querySelector(&#x27;#qy-agent-page-toast&#x27;).style.display = &#x27;block&#x27;; });
+      const osdDevices = root.querySelectorAll(&#x27;[data-page=&quot;create-osd&quot;] .qy-device input[type=&quot;checkbox&quot;]&#x27;);
+      const updateOsdSummary = () =&gt; {
+        let count = 0;
+        let capacity = 0;
+        osdDevices.forEach((device) =&gt; {
+          if (!device.checked) return;
+          count += 1;
+          capacity += device.closest(&#x27;.qy-device&#x27;).textContent.includes(&#x27;NVMe&#x27;) ? 7.68 : 18;
+        });
+        root.querySelector(&#x27;#qy-osd-count&#x27;).textContent = `${count} 个`;
+        root.querySelector(&#x27;#qy-osd-capacity&#x27;).textContent = `${capacity.toFixed(capacity % 1 ? 2 : 0)} TB`;
+      };
+      osdDevices.forEach((device) =&gt; device.addEventListener(&#x27;change&#x27;, updateOsdSummary));
+      root.querySelector(&#x27;#qy-create-osd-submit&#x27;).addEventListener(&#x27;click&#x27;, () =&gt; { root.querySelector(&#x27;#qy-osd-toast&#x27;).style.display = &#x27;block&#x27;; });
+      const poolName = root.querySelector(&#x27;#qy-pool-name&#x27;);
+      poolName.addEventListener(&#x27;input&#x27;, () =&gt; { root.querySelector(&#x27;#qy-pool-preview-name&#x27;).textContent = poolName.value || &#x27;未命名&#x27;; });
+      root.querySelectorAll(&#x27;input[name=&quot;pool-type&quot;]&#x27;).forEach((radio) =&gt; radio.addEventListener(&#x27;change&#x27;, () =&gt; {
+        const labels = {replicated:&#x27;3 副本&#x27;, ec:&#x27;EC 8+3&#x27;, ec42:&#x27;EC 4+2&#x27;};
+        root.querySelector(&#x27;#qy-pool-preview-type&#x27;).textContent = labels[radio.value];
+      }));
+      root.querySelector(&#x27;#qy-create-pool-submit&#x27;).addEventListener(&#x27;click&#x27;, () =&gt; { root.querySelector(&#x27;#qy-pool-toast&#x27;).style.display = &#x27;block&#x27;; });
+      const crushRacks = root.querySelectorAll(&#x27;[data-crush-rack]&#x27;);
+      crushRacks.forEach((rack) =&gt; rack.addEventListener(&#x27;click&#x27;, () =&gt; {
+        crushRacks.forEach((item) =&gt; item.setAttribute(&#x27;aria-pressed&#x27;, item === rack ? &#x27;true&#x27; : &#x27;false&#x27;));
+        const rackName = rack.dataset.crushRack;
+        const rackCode = rackName.split(&#x27;-&#x27;).slice(-1)[0].toLowerCase();
+        const zoneCode = rack.dataset.zone.split(&#x27;-&#x27;)[0].toLowerCase();
+        root.querySelector(&#x27;#qy-crush-rack-title&#x27;).textContent = `机柜 ${rackName}`;
+        root.querySelector(&#x27;#qy-crush-rack-meta&#x27;).textContent = `${rack.dataset.zone} · ${rack.dataset.media} · ${rack.dataset.capacity} · rack 故障域`;
+        for (let index = 1; index &lt;= 4; index += 1) {
+          root.querySelector(`#qy-crush-host-${index}`).textContent = `storage-${zoneCode}01-${rackCode}-n0${index}`;
+        }
+        root.querySelector(&#x27;#qy-crush-path&#x27;).textContent = `default → ${rack.dataset.zone} → ${rackName} → storage-${zoneCode}01-${rackCode}-n02 → OSD`;
+        root.querySelector(&#x27;#qy-crush-path-meta&#x27;).textContent = `故障隔离级别：Rack · 设备类别：${rack.dataset.media} · 权重：1.0 · 状态：up / in`;
+      }));
+      root.querySelectorAll(&#x27;.qy-disk-cell&#x27;).forEach((disk) =&gt; disk.addEventListener(&#x27;click&#x27;, () =&gt; {
+        const host = disk.closest(&#x27;.qy-host-box&#x27;).querySelector(&#x27;.qy-host-head strong&#x27;).textContent;
+        const rack = root.querySelector(&#x27;[data-crush-rack][aria-pressed=&quot;true&quot;]&#x27;);
+        root.querySelector(&#x27;#qy-crush-path&#x27;).textContent = `default → ${rack.dataset.zone} → ${rack.dataset.crushRack} → ${host} → ${disk.querySelector(&#x27;strong&#x27;).textContent}`;
+      }));
+      root.querySelectorAll(&#x27;[data-service-tab]&#x27;).forEach((tab) =&gt; tab.addEventListener(&#x27;click&#x27;, () =&gt; {
+        const page = tab.closest(&#x27;.qy-page&#x27;);
+        page.querySelectorAll(&#x27;[data-service-tab]&#x27;).forEach((item) =&gt; item.setAttribute(&#x27;aria-selected&#x27;, item === tab ? &#x27;true&#x27; : &#x27;false&#x27;));
+        page.querySelectorAll(&#x27;[data-service-view]&#x27;).forEach((view) =&gt; { view.hidden = view.dataset.serviceView !== tab.dataset.serviceTab; });
+      }));
+      [[&#x27;qy-rbd-name&#x27;,&#x27;qy-rbd-preview-name&#x27;],[&#x27;qy-nas-name&#x27;,&#x27;qy-nas-preview-name&#x27;],[&#x27;qy-s3-name&#x27;,&#x27;qy-s3-preview-name&#x27;]].forEach(([inputId, previewId]) =&gt; {
+        const input = root.querySelector(`#${inputId}`);
+        input.addEventListener(&#x27;input&#x27;, () =&gt; { root.querySelector(`#${previewId}`).textContent = input.value || &#x27;未命名&#x27;; });
+      });
+      [[&#x27;qy-create-rbd-submit&#x27;,&#x27;qy-rbd-create-toast&#x27;],[&#x27;qy-create-nas-submit&#x27;,&#x27;qy-nas-create-toast&#x27;],[&#x27;qy-create-s3-submit&#x27;,&#x27;qy-s3-create-toast&#x27;]].forEach(([buttonId, toastId]) =&gt; {
+        root.querySelector(`#${buttonId}`).addEventListener(&#x27;click&#x27;, () =&gt; { root.querySelector(`#${toastId}`).style.display = &#x27;block&#x27;; });
+      });
+      setRole(&#x27;business&#x27;);
+    })();
+  &lt;/script&gt;
+&lt;/div&gt;
+
+&lt;script src=&quot;https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  if (window.FloatingUIDOM == null) {
+    return;
+  }
+  const { autoUpdate, computePosition, flip, offset, shift, size } =
+    window.FloatingUIDOM;
+  const tooltipPlacements = new Set([&quot;top&quot;, &quot;right&quot;, &quot;bottom&quot;, &quot;left&quot;]);
+  const tooltipId = `codex-visualization-tooltip-${
+    window.crypto?.randomUUID?.() ?? Date.now().toString(36)
+  }`;
+  const tooltipGap = 5;
+  const hoverDelay = 700;
+  const skipDelay = 300;
+  let activeTrigger = null;
+  let pendingTrigger = null;
+  let tooltip = null;
+  let openTimeout = null;
+  let autoUpdateCleanup = null;
+  let positionRequest = 0;
+  let skipDelayUntil = 0;
+
+  const getTrigger = (target) =&gt;
+    target?.nodeType === Node.ELEMENT_NODE
+      ? target.closest(&quot;[data-tooltip]&quot;)
+      : null;
+  const containsTarget = (trigger, target) =&gt;
+    target?.nodeType != null &amp;&amp; trigger.contains(target);
+  const getContent = (trigger) =&gt;
+    trigger.getAttribute(&quot;data-tooltip&quot;)?.trim() ?? &quot;&quot;;
+  const getPlacement = (trigger) =&gt; {
+    const placement = trigger.getAttribute(&quot;data-tooltip-placement&quot;);
+    return tooltipPlacements.has(placement) ? placement : &quot;top&quot;;
+  };
+  const getTooltip = () =&gt; {
+    if (tooltip == null) {
+      tooltip = document.createElement(&quot;div&quot;);
+      tooltip.id = tooltipId;
+      tooltip.className = &quot;tooltip&quot;;
+      tooltip.setAttribute(&quot;role&quot;, &quot;tooltip&quot;);
+    }
+    return tooltip;
+  };
+  const setDescribedBy = (trigger, described) =&gt; {
+    const ids = new Set(
+      (trigger.getAttribute(&quot;aria-describedby&quot;) ?? &quot;&quot;)
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    if (described) {
+      ids.add(tooltipId);
+    } else {
+      ids.delete(tooltipId);
+    }
+    if (ids.size === 0) {
+      trigger.removeAttribute(&quot;aria-describedby&quot;);
+    } else {
+      trigger.setAttribute(&quot;aria-describedby&quot;, [...ids].join(&quot; &quot;));
+    }
+  };
+  const clearOpenTimeout = () =&gt; {
+    if (openTimeout != null) {
+      window.clearTimeout(openTimeout);
+      openTimeout = null;
+    }
+    pendingTrigger = null;
+  };
+  const closeTooltip = (activateSkipDelay = true) =&gt; {
+    clearOpenTimeout();
+    positionRequest += 1;
+    autoUpdateCleanup?.();
+    autoUpdateCleanup = null;
+    if (activeTrigger == null) {
+      return;
+    }
+    setDescribedBy(activeTrigger, false);
+    activeTrigger = null;
+    tooltip?.remove();
+    if (activateSkipDelay) {
+      skipDelayUntil = Date.now() + skipDelay;
+    }
+  };
+  const updatePosition = (trigger, floating) =&gt; {
+    const request = ++positionRequest;
+    void computePosition(trigger, floating, {
+      middleware: [
+        offset(tooltipGap),
+        flip({ padding: tooltipGap }),
+        shift({ padding: tooltipGap }),
+        size({
+          padding: tooltipGap,
+          apply({ availableHeight, availableWidth, elements }) {
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-width&quot;,
+              `${Math.max(0, availableWidth)}px`,
+            );
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-height&quot;,
+              `${Math.max(0, availableHeight)}px`,
+            );
+          },
+        }),
+      ],
+      placement: getPlacement(trigger),
+      strategy: &quot;fixed&quot;,
+    })
+      .then(({ x, y }) =&gt; {
+        if (activeTrigger !== trigger || request !== positionRequest) {
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        floating.style.transform = `translate(${Math.round(x * scale) / scale}px, ${Math.round(y * scale) / scale}px)`;
+        floating.style.visibility = &quot;visible&quot;;
+      })
+      .catch(() =&gt; {
+        if (activeTrigger === trigger &amp;&amp; request === positionRequest) {
+          closeTooltip(false);
+        }
+      });
+  };
+  const openTooltip = (trigger) =&gt; {
+    const content = getContent(trigger);
+    if (!trigger.isConnected || content.length === 0) {
+      return;
+    }
+    clearOpenTimeout();
+    if (activeTrigger === trigger) {
+      return;
+    }
+    closeTooltip();
+    const floating = getTooltip();
+    floating.textContent = content;
+    floating.style.visibility = &quot;hidden&quot;;
+    floating.style.transform = &quot;translate(0, 0)&quot;;
+    document.body.appendChild(floating);
+    activeTrigger = trigger;
+    setDescribedBy(trigger, true);
+    autoUpdateCleanup = autoUpdate(trigger, floating, () =&gt; {
+      updatePosition(trigger, floating);
+    });
+  };
+  const requestOpen = (trigger, immediate = false) =&gt; {
+    if (
+      getContent(trigger).length === 0 ||
+      activeTrigger === trigger ||
+      pendingTrigger === trigger
+    ) {
+      return;
+    }
+    clearOpenTimeout();
+    pendingTrigger = trigger;
+    const delay =
+      immediate || activeTrigger != null || Date.now() &lt; skipDelayUntil
+        ? 0
+        : hoverDelay;
+    if (delay === 0) {
+      openTooltip(trigger);
+      return;
+    }
+    openTimeout = window.setTimeout(() =&gt; {
+      openTimeout = null;
+      pendingTrigger = null;
+      openTooltip(trigger);
+    }, delay);
+  };
+  const handlePointerOpen = (event) =&gt; {
+    if (event.pointerType === &quot;touch&quot;) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    requestOpen(trigger);
+  };
+  const handleLeave = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handleFocusIn = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (trigger?.matches(&quot;:focus-visible&quot;)) {
+      requestOpen(trigger, true);
+    }
+  };
+  const handleKeyDown = (event) =&gt; {
+    if (event.key === &quot;Escape&quot;) {
+      closeTooltip();
+    }
+  };
+  const handleContextMenu = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const destroy = () =&gt; {
+    closeTooltip(false);
+    document.removeEventListener(&quot;pointerover&quot;, handlePointerOpen);
+    document.removeEventListener(&quot;pointerout&quot;, handleLeave);
+    document.removeEventListener(&quot;focusin&quot;, handleFocusIn);
+    document.removeEventListener(&quot;focusout&quot;, handleLeave);
+    document.removeEventListener(&quot;keydown&quot;, handleKeyDown);
+    document.removeEventListener(&quot;contextmenu&quot;, handleContextMenu);
+    tooltip = null;
+  };
+
+  document.addEventListener(&quot;pointerover&quot;, handlePointerOpen);
+  document.addEventListener(&quot;pointerout&quot;, handleLeave);
+  document.addEventListener(&quot;focusin&quot;, handleFocusIn);
+  document.addEventListener(&quot;focusout&quot;, handleLeave);
+  document.addEventListener(&quot;keydown&quot;, handleKeyDown);
+  document.addEventListener(&quot;contextmenu&quot;, handleContextMenu);
+  window.addEventListener(&quot;pagehide&quot;, destroy, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-lucide&quot; async src=&quot;https://unpkg.com/lucide@1.17.0/dist/umd/lucide.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  const initialize = () =&gt; {
+    globalThis.lucide?.createIcons({ attrs: { width: 16, height: 16 } });
+  };
+  if (globalThis.lucide != null) {
+    initialize();
+    return;
+  }
+  document
+    .getElementById(&quot;codex-visualization-lucide&quot;)
+    ?.addEventListener(&quot;load&quot;, initialize, { once: true });
+})();
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+</body>
+</html>

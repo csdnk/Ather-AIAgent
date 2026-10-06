@@ -13,6 +13,8 @@ import httpx
 from psycopg.types.json import Jsonb
 
 from aether_platform.directory import AccessDeniedError, Actor, Directory
+from aether_platform.operations.metering import parse_usage
+from aether_platform.operations.quotas import enforce_admission
 from aether_platform.p3 import P3Client, P3Error
 
 
@@ -46,6 +48,13 @@ class Conversations:
                 ALTER TABLE chat_turns ADD COLUMN IF NOT EXISTS phase
                     text NOT NULL DEFAULT 'retrieving';
                 ALTER TABLE chat_turns ADD COLUMN IF NOT EXISTS first_token_at timestamptz;
+                ALTER TABLE chat_turns ADD COLUMN IF NOT EXISTS model_usage jsonb;
+                ALTER TABLE chat_turns ADD COLUMN IF NOT EXISTS model_name text;
+                CREATE TABLE IF NOT EXISTS chat_model_usage (
+                    turn_id text NOT NULL REFERENCES chat_turns(id), attempt integer NOT NULL,
+                    model_name text NOT NULL, usage jsonb NOT NULL,
+                    observed_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(turn_id,attempt)
+                );
             """)
 
     def actor(self, actor: Actor) -> Actor:
@@ -145,6 +154,7 @@ class Conversations:
                 if old["input"] != content:
                     raise ValueError("Turn identifier already used")
                 if old["status"] == "failed":
+                    enforce_admission(conn, actor.tenant_id, new_turn=False)
                     if conn.execute(
                         "SELECT 1 FROM chat_turns WHERE conversation_id=%s AND status='pending'",
                         (conversation_id,),
@@ -168,6 +178,7 @@ class Conversations:
                     "started": False,
                     "attempt": old["attempt"],
                 }
+            enforce_admission(conn, actor.tenant_id, new_turn=True)
             if conn.execute(
                 "SELECT 1 FROM chat_turns WHERE conversation_id=%s AND status='pending'",
                 (conversation_id,),
@@ -278,8 +289,13 @@ class Conversations:
             for row in rows:
                 evidence = dict(row["memory_evidence"])
                 try:
-                    with P3Client(settings["base_url"], token, actor, wait_seconds=0,
-                                  trusted_http_host=settings.get("internal_http_host")) as p3:
+                    with P3Client(
+                        settings["base_url"],
+                        token,
+                        actor,
+                        wait_seconds=0,
+                        trusted_http_host=settings.get("internal_http_host"),
+                    ) as p3:
                         found = p3.call(
                             "GET",
                             "/p3/operation-requests/" + evidence["operation_id"],
@@ -431,8 +447,12 @@ class Conversations:
             evidence = None
             p3 = None
             if p3_settings and p3_settings.get("base_url"):
-                p3 = P3Client(p3_settings["base_url"], p3_token or "", actor,
-                              trusted_http_host=p3_settings.get("internal_http_host"))
+                p3 = P3Client(
+                    p3_settings["base_url"],
+                    p3_token or "",
+                    actor,
+                    trusted_http_host=p3_settings.get("internal_http_host"),
+                )
                 operation = sha256((actor.id + ":" + turn_id).encode()).hexdigest()
                 try:
                     p3.identity()
@@ -490,8 +510,12 @@ class Conversations:
                     p3_token()
                 if evidence is not None:
                     assert p3_settings is not None
-                    with P3Client(p3_settings["base_url"], p3_token or "", actor,
-                                  trusted_http_host=p3_settings.get("internal_http_host")) as check:
+                    with P3Client(
+                        p3_settings["base_url"],
+                        p3_token or "",
+                        actor,
+                        trusted_http_host=p3_settings.get("internal_http_host"),
+                    ) as check:
                         check.call("GET", "/p3/recalls/" + evidence["recall_id"] + "/result")
                 accepted = self.progress(
                     actor, conversation_id, turn_id, content, phase="generating", attempt=attempt
@@ -511,6 +535,7 @@ class Conversations:
                         "messages": [prompt, *history],
                         "max_completion_tokens": 4000,
                         "stream": True,
+                        "stream_options": {"include_usage": True},
                     },
                 ) as response,
             ):
@@ -527,6 +552,26 @@ class Conversations:
                     event = json.loads(data)
                     if event.get("error"):
                         raise ValueError("Model stream failed")
+                    if event.get("usage") is not None:
+                        usage = parse_usage(event["usage"])
+                        with self.directory.connection() as usage_conn:
+                            usage_conn.execute(
+                                "INSERT INTO chat_model_usage(turn_id,attempt,model_name,usage) "
+                                "VALUES (%s,%s,%s,%s) ON CONFLICT(turn_id,attempt) DO UPDATE "
+                                "SET usage=EXCLUDED.usage,observed_at=now()",
+                                (turn_id, attempt, settings["model"], json.dumps(usage)),
+                            )
+                            usage_conn.execute(
+                                "UPDATE chat_turns SET model_usage=%s,model_name=%s "
+                                "WHERE id=%s AND conversation_id=%s AND attempt=%s",
+                                (
+                                    json.dumps(usage),
+                                    settings["model"],
+                                    turn_id,
+                                    conversation_id,
+                                    attempt,
+                                ),
+                            )
                     choices = event.get("choices", [])
                     if not choices:
                         continue

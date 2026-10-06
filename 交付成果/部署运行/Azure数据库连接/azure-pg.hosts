@@ -1,0 +1,4 @@
+127.0.0.1 localhost postgresp3.postgres.database.azure.com
+127.0.0.1 redisp3.redis.cache.windows.net
+127.0.0.1 milvus.internal
+::1 localhost

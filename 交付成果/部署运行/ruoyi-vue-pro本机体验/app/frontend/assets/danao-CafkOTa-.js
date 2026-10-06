@@ -1,0 +1,1 @@
+var e=`/assets/danao-IckdlRmE.png`;export{e as default};

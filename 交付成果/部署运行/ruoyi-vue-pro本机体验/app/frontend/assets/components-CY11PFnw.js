@@ -1,0 +1,1 @@
+import"./SkuList-C_cwFr2M.js";var e=e=>{let t=[];return e.specType&&e.skus?.forEach(e=>{e.properties?.forEach(({propertyId:e,propertyName:n,valueId:r,valueName:i})=>{t?.some(t=>t.id===e)||t.push({id:e,name:n,values:[]});let a=t?.findIndex(t=>t.id===e);t[a].values?.some(e=>e.id===r)||t[a].values?.push({id:r,name:i})})}),t};export{e as t};

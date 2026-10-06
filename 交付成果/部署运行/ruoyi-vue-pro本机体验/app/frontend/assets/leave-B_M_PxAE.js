@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=async t=>await e.post({url:`/bpm/oa/leave/create`,data:t}),n=async t=>await e.get({url:`/bpm/oa/leave/get?id=`+t}),r=async t=>await e.get({url:`/bpm/oa/leave/page`,params:t});export{n,r,t};

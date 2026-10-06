@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=async t=>await e.get({url:`/system/social-user/page`,params:t}),n=async t=>await e.get({url:`/system/social-user/get?id=`+t}),r=async()=>await e.get({url:`/system/social-user/get-bind-list`});export{n,t as r,r as t};

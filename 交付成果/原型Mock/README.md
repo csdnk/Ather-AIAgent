@@ -1,16 +1,20 @@
-# P3 原型 Mock · PRD V1.3
+# P3 平台交互 Mock · PRD V1.3
 
-更新：2026-09-20。直接打开[统一演示入口](index.html)，无需安装依赖或连接后端。以浏览器打开整个目录中的HTML，JS和CSS需随交付保留。
+更新：2026-09-22。打开 [统一演示入口](index.html)，无需连接后端。参考用户提供的两个平台原型重新设计了工作台、侧栏、表格、表单和详情抽屉，支持深浅主题及窄屏。
 
-建议先走S01完整业务主线20步，再按甲方问题选择S09租户授权、S11检测恢复和S06内部调度。切换顶部视图共用当前专题状态；专题之间独立预置并保留进度。页面只模拟目标行为，不冒充真实产品验收。
+提供业务使用、运行观察、评审验证三个观察视角，共 13 个页面。23 个专题、161 个步骤覆盖 FR01—FR18 及公共底座、Remember/Embedding、Recall、Operate 的关键流程和异常分支。
 
-- [演示说明](原型Mock设计与演示说明.md)：操作顺序、场景与边界。
-- [甲方评审指南](../里程碑与交付/甲方评审沟通指南_PRD_ADR_Mock.md)：讲解、选型追问和会议结论。
-- [本次改造验收](../测试与验收/Mock_V1.3模拟改造验收_20260920.md)：验证范围与限制。
-- [PRD V1.3](../PRD版本/AetherBrain_P3_PRD_租户补全版_V1.3.docx)、[主ADR D01—D08](../ADR版本/ADR-P2P3-001_总体架构决策.md)：正式产品与设计依据。
+- [使用与演示说明](原型Mock设计与演示说明.md)：页面用途、演示顺序与边界。
+- [需求与流程覆盖](Mock需求与流程覆盖_20260922.md)：逐项映射、歧义处理及待确认细则。
+- [本次验收](../测试与验收/Mock前端重设计与流程覆盖验收_20260922.md)：测试结果与限制。
+- [PRD V1.3](../PRD版本/AetherBrain_P3_PRD_租户补全版_V1.3.docx) / [完整流程图](../架构设计/P3全景流程_Excalidraw/P3_整体架构与完整流程.excalidraw)。
 
-源文件：`review-model.js`统一模拟状态及授权；`review-content.js`维护场景与ADR映射；`review-app.js`展示和交互；`review.css`样式。`tests/review-model.test.cjs`是可维护的模拟回归测试，运行命令为`node --test tests/review-model.test.cjs`。
+运行时请保留整个目录。当前依赖为 review-model.js、review-content.js、platform-model.js、platform-content.js、platform-app.js 和 platform.css；前两个文件是仍在使用的基础模型和场景。tests 目录保留原有及新增的模拟回归测试，可用 Node.js 运行：
 
-旧`tenant.html`和`p3-extended.html`保留跳转，避免旧链接失效；不再运行另一套权限或任务逻辑。[P2消费场景](p2.html)保留作P2专题参考。
+```text
+node --test tests/review-model.test.cjs tests/platform.test.cjs
+```
 
-身份、模型、向量、P2、执行效果与时钟均为模拟。会话保存在浏览器当前标签，刷新可继续；浏览器禁用存储时仅保留当前页面内存。演示中使用样例文本，勿录入实际密钥或敏感客户资料。导出文件明确标记V1.3与simulated。
+直接打开 HTML 可运行；如使用静态服务，请以 aether 项目根目录为站点根目录，以便访问真实代码接入说明。会话状态保存在当前标签页，浏览器禁止会话存储时仍可在页面内存中演示。分享时复制整个目录；连同文档分享请保留交付成果及必要相对目录结构。
+
+旧 tenant.html、p3-extended.html 保留跳转；[P2 消费场景](p2.html)是独立历史参考。所有模型、身份、检索、搬运和时钟均为模拟，不代表后端已实现或通过真实验收。

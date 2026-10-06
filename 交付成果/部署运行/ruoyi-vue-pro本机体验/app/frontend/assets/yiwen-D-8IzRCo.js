@@ -1,0 +1,1 @@
+var e=`/assets/yiwen-Cb7SUgbc.png`;export{e as default};

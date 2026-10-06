@@ -1,0 +1,1 @@
+async function e(e){let t=[],n=1,r=0;do{let i=await e(n,200);if(t.push(...i.list),r=i.total,i.list.length===0)break;n++}while(t.length<r);return t}export{e as t};

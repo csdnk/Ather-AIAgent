@@ -1,0 +1,1 @@
+import{Ca as e,Ja as t}from"./form-create-WSkr8cvM.js";e();function n(e){let n=null,r,i=()=>{n&&(n.srcObject=r||null)};return t(e,e=>{r=e,i()},{flush:`post`,immediate:!0}),e=>{if(e instanceof HTMLMediaElement){n=e,i();return}n&&(n.srcObject=null),n=null}}export{n as t};

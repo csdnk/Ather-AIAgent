@@ -4,6 +4,7 @@ import pytest
 from test_ledger import admit, foundation, ledger  # noqa: F401
 
 from aether_agent_memory.runtime.contracts.models import (
+    ErrorCode,
     PageRequest,
     Permission,
     Principal,
@@ -41,6 +42,7 @@ def test_configured_operator_task_access_does_not_grant_memory_or_trace(foundati
     page = foundation.diagnostics.tasks_page(ctx, PageRequest())
     assert [i["task_id"] for i in page["items"]] == [job.job_id]
     assert page["items"][0]["trace_id"] is None
+    assert page["items"][0]["revision"] == foundation.diagnostics.task(ctx, job.job_id).revision
     assert foundation.diagnostics.task(ctx, job.job_id).task_id == job.job_id
     assert foundation.tasks.progress.read(ctx, job.job_id)["stages"] == []
     with pytest.raises(FoundationError):
@@ -79,3 +81,100 @@ def test_configured_operator_task_access_does_not_grant_memory_or_trace(foundati
     ledger.periodic_operators = ()
     with pytest.raises(FoundationError), foundation.uow.transaction() as tx:
         authorize_delivery(ledger, tx, row)
+
+
+def test_initial_configuration_activation_uses_absent_version_cas(foundation):  # noqa: F811
+    from aether_agent_memory.runtime.contracts.foundation import ConfigurationSnapshot
+    from aether_agent_memory.runtime.foundation.common import fingerprint, now
+
+    operator = Principal(
+        principal_id="ops",
+        auth_epoch=1,
+        home_scope=Scope(
+            tenant_id="operations", user_id="ops", application_id="app", agent_id="agent"
+        ),
+        permissions=(Permission.CONFIGURE,),
+    )
+    foundation.identity.provision([(sha256(b"ops").hexdigest(), operator)])
+    foundation.lifecycle.operators = ("ops",)
+    ctx = foundation.identity.context("ops")
+
+    def snapshot(version):
+        value = ConfigurationSnapshot(
+            version=version,
+            config_hash="0" * 64,
+            deployment_id="test",
+            provider_ids=("postgres",),
+            policy_versions=("policy-v1",),
+            activated_at=now(),
+        )
+        return value.model_copy(
+            update={
+                "config_hash": fingerprint(
+                    value.model_dump(mode="json", exclude={"config_hash", "activated_at"})
+                )
+            }
+        )
+
+    assert foundation.lifecycle.configuration(ctx) is None
+    foundation.lifecycle.activate(ctx, snapshot("v1"), expected_version=None)
+    with pytest.raises(FoundationError):
+        foundation.lifecycle.activate(ctx, snapshot("v2"), expected_version=None)
+    assert foundation.lifecycle.configuration(ctx).version == "v1"
+    foundation.lifecycle.activate(ctx, snapshot("v2"), expected_version="v1")
+    assert foundation.lifecycle.configuration(ctx).version == "v2"
+
+
+def test_operator_task_page_does_not_revalidate_identity_for_every_historical_task(
+    foundation,  # noqa: F811
+    ledger,  # noqa: F811
+    monkeypatch,
+):
+    alice = foundation.identity.context("alice").principal
+    operator = Principal(
+        principal_id="ops",
+        auth_epoch=1,
+        home_scope=Scope(
+            tenant_id="operations", user_id="ops", application_id="app", agent_id="agent"
+        ),
+        permissions=(Permission.DIAGNOSE,),
+    )
+    foundation.identity.provision(
+        [(sha256(p.principal_id.encode()).hexdigest(), p) for p in (alice, operator)]
+    )
+    foundation.diagnostics.maintenance_principals = ("ops",)
+    job, _ = admit(foundation, ledger)
+    with foundation.uow.transaction() as tx:
+        original = tx.read("tasks", job.job_id)
+        for number in range(30):
+            task_id = f"historical-task-{number}"
+            tx.write(
+                "tasks", task_id, {**original, "record": {**original["record"], "task_id": task_id}}
+            )
+    ctx = foundation.identity.context("ops")
+    revalidate = foundation.identity.revalidate
+    calls = []
+
+    def counted(tx, current):
+        calls.append(current.principal.principal_id)
+        return revalidate(tx, current)
+
+    monkeypatch.setattr(foundation.identity, "revalidate", counted)
+    result = foundation.diagnostics.tasks_page(ctx, PageRequest(limit=50))
+    assert len(result["items"]) == 31
+    # Live Ruoyi revalidation performs remote I/O. It must be bounded per page,
+    # while still validating on entry and immediately before delivery.
+    assert len(calls) == 3
+
+    calls.clear()
+
+    def revoked_at_delivery(tx, current):
+        calls.append(current.principal.principal_id)
+        if len(calls) == 3:
+            raise FoundationError(ErrorCode.FORBIDDEN, "authority revoked before delivery")
+        return revalidate(tx, current)
+
+    monkeypatch.setattr(foundation.identity, "revalidate", revoked_at_delivery)
+    with pytest.raises(FoundationError):
+        foundation.diagnostics.tasks_page(ctx, PageRequest(limit=50))
+    assert len(calls) == 3

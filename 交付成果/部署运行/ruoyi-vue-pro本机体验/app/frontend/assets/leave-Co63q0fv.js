@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=async t=>await e.get({url:`/hrm/attendance/leave/page`,params:t}),n=async t=>await e.download({url:`/hrm/attendance/leave/export-excel`,params:t}),r=async t=>await e.get({url:`/hrm/attendance/leave/get?id=`+t});export{r as n,t as r,n as t};

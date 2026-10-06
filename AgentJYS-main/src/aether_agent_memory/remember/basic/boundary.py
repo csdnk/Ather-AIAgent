@@ -16,13 +16,13 @@ from aether_agent_memory.remember.contracts.foundation import (
 from aether_agent_memory.remember.contracts.models import MemoryRef
 from aether_agent_memory.runtime.contracts.models import (
     ErrorCode,
-    Permission,
     RecordRef,
     ScopeSelector,
     TrustedContext,
 )
 from aether_agent_memory.runtime.contracts.ports import Transaction
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
+from aether_agent_memory.runtime.foundation.content_diagnostics import authorize_content_read
 from aether_agent_memory.runtime.foundation.requests import select_scope
 from aether_agent_memory.runtime.foundation.transactions import native
 from aether_agent_memory.runtime.storage.ports import MetadataTransaction
@@ -117,7 +117,7 @@ class RememberBoundary:
 
     def guard_in(self, tx: MetadataTransaction, ctx: TrustedContext, ref: MemoryRef) -> GuardStamp:
         owner = self.remember
-        owner.identity.authorize(tx, ctx, Permission.READ, memory_ref(ref))
+        authorize_content_read(owner.identity, tx, ctx, memory_ref(ref))
         if owner.final_guard(tx, ctx, (ref,), "recall").items[0].decision != "allowed":
             tx.abort(ErrorCode.RESULT_INVALIDATED, "memory no longer eligible")
         raw = required_record(tx, memory_ref(ref, versioned=True))
