@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=async(t,n)=>await e.get({url:`/bpm/process-definition/get`,params:{id:t,key:n}}),n=async t=>await e.get({url:`/bpm/process-definition/page`,params:t}),r=async t=>await e.get({url:`/bpm/process-definition/list`,params:t}),i=async()=>await e.get({url:`/bpm/process-definition/simple-list`});export{i,r as n,n as r,t};

@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=t=>e.post({url:`/pms/pm/project-favorite/create`,params:{projectId:t}}),n=t=>e.delete({url:`/pms/pm/project-favorite/delete`,params:{projectId:t}});export{n,t};

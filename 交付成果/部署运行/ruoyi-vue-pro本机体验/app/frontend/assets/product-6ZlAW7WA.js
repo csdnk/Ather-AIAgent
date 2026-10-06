@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t={getProductSalesList:t=>e.get({url:`/crm/statistics-product/get-product-sales-list`,params:t}),getProductCategorySummary:t=>e.get({url:`/crm/statistics-product/get-product-category-summary`,params:t})};export{t};

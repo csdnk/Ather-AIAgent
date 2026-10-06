@@ -1,0 +1,1 @@
+import{hi as e,ii as t,li as n,si as r}from"./form-create-WSkr8cvM.js";function i(i,a,o){if(!e(o))return!1;var s=typeof a;return(s==`number`?t(o)&&n(a,o.length):s==`string`&&a in o)?r(o[a],i):!1}export{i as t};

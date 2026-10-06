@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=async t=>e.delete({url:`/promotion/coupon/delete?id=${t}`}),n=async t=>e.get({url:`/promotion/coupon/page`,params:t}),r=async t=>e.post({url:`/promotion/coupon/send`,data:t});export{n,r,t};

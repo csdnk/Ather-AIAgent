@@ -1,0 +1,369 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2748" height="3858" viewBox="-24 -24 2748 3858">
+<title>P3 Working向量化 V1.4 设计修订</title>
+<desc>由新版Excalidraw逐元素导出；保留原节点位置与连线。红色表示本次设计修改，非实现验收。</desc>
+<text id="remember-complete-0001-line-0" x="40" y="49.64" font-family="Microsoft YaHei" font-size="28" text-anchor="start" fill="#222222" opacity="1.0">模块二 · Remember｜保存、缓存、LangMem 提取与生命周期</text>
+<rect id="remember-complete-0025" opacity="1.0" x="35" y="430" width="2625" height="225" rx="12" fill="#ffffff" stroke="#888888" stroke-width="1"/>
+<text id="remember-complete-0026-line-0" x="50" y="465.36" font-family="Microsoft YaHei" font-size="22" text-anchor="start" fill="#222222" opacity="1.0">B.2 · 内容与记录对应关系｜下列节点表示引用关系，不表示执行先后</text>
+<rect id="remember-complete-0027" opacity="1.0" x="70" y="490" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0028-line-0" x="140" y="524.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">原文 + 独立来源索引</text>
+<text id="remember-complete-0028-line-1" x="140" y="550.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">source_id / version → 原文地址</text>
+<text id="remember-complete-0028-line-2" x="140" y="576.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">权限、会话、片段与保留期</text>
+<rect id="remember-complete-0029" opacity="1.0" x="590" y="490" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0030-line-0" x="668.4921875" y="524.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">MemoryRecord（W / E / S）</text>
+<text id="remember-complete-0030-line-1" x="668.4921875" y="550.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">记忆版本、状态与正文引用</text>
+<text id="remember-complete-0030-line-2" x="668.4921875" y="576.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">关联来源证据和 Artifact ID</text>
+<rect id="remember-complete-0031" opacity="1.0" x="1110" y="490" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0032-line-0" x="1186" y="524.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">ArtifactRecord → 派生内容</text>
+<text id="remember-complete-0032-line-1" x="1186" y="550.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">来源版本、任务与策略版本</text>
+<text id="remember-complete-0032-line-2" x="1186" y="576.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">输出地址、质量、输入输出字节</text>
+<rect id="remember-complete-0033" opacity="1.0" x="1630" y="490" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0034-line-0" x="1736" y="524.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">E/S 正文独立持久化</text>
+<text id="remember-complete-0034-line-1" x="1736" y="550.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">证据 → 原文版本 / 片段</text>
+<text id="remember-complete-0034-line-2" x="1736" y="576.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">派生物不自动成为新记忆</text>
+<rect id="remember-complete-0035" opacity="1.0" x="2150" y="490" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0036-line-0" x="2239" y="524.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">记忆与原文分别保留</text>
+<text id="remember-complete-0036-line-1" x="2239" y="550.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">删除 Working 不丢原文索引</text>
+<text id="remember-complete-0036-line-2" x="2239" y="576.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">原文按授权范围独立查找</text>
+<rect id="remember-complete-0037" opacity="1.0" x="35" y="675" width="2625" height="235" rx="12" fill="#ffffff" stroke="#888888" stroke-width="1"/>
+<text id="remember-complete-0038-line-0" x="50" y="710.36" font-family="Microsoft YaHei" font-size="22" text-anchor="start" fill="#222222" opacity="1.0">B.3 · Working 内容写入与正文读取｜Remember 写入</text>
+<rect id="remember-complete-0039" opacity="1.0" x="70" y="735" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0040-line-0" x="170.0" y="769.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">Working 正文缓存准备</text>
+<text id="remember-complete-0040-line-1" x="170.0" y="795.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">先确认正文与记录可靠保存</text>
+<text id="remember-complete-0040-line-2" x="170.0" y="821.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">saved 不等于向量 ready</text>
+<rect id="remember-complete-0041" opacity="1.0" x="590" y="735" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0042-line-0" x="656" y="769.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">判断初始缓存方式</text>
+<text id="remember-complete-0042-line-1" x="656" y="795.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">短内容：准备完整原文</text>
+<text id="remember-complete-0042-line-2" x="656" y="821.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">长内容：仅登记原文引用及元数据</text>
+<rect id="remember-complete-0043" opacity="1.0" x="1110" y="735" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0044-line-0" x="1176" y="769.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">校验资格、版本与可用配额</text>
+<text id="remember-complete-0044-line-1" x="1176" y="795.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">短内容完整写入 Redis</text>
+<text id="remember-complete-0044-line-2" x="1176" y="821.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">长内容登记引用，标记正文未缓存</text>
+<rect id="remember-complete-0045" opacity="1.0" x="1630" y="735" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0046-line-0" x="1691.4921875" y="782.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">确认写入结果</text>
+<text id="remember-complete-0046-line-1" x="1691.4921875" y="808.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">通过 Outbox 发送 MemorySignal</text>
+<rect id="remember-complete-0047" opacity="1.0" x="2150" y="735" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0048-line-0" x="2240.376953125" y="769.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">返回实际缓存状态</text>
+<text id="remember-complete-0048-line-1" x="2240.376953125" y="795.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">不以缓存成功代替向量 ready</text>
+<text id="remember-complete-0048-line-2" x="2240.376953125" y="821.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">异常与补偿进入 B.8</text>
+<polyline id="remember-complete-0049" opacity="1.0" points="510,791 590,791" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M580.8691105968769 795.0776045305957 L590 791 L580.8691105968769 786.9223954694043" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="remember-complete-0050" opacity="1.0" points="1030,791 1110,791" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1100.869110596877 795.0776045305957 L1110 791 L1100.869110596877 786.9223954694043" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="remember-complete-0051" opacity="1.0" points="1550,791 1630,791" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1620.869110596877 795.0776045305957 L1630 791 L1620.869110596877 786.9223954694043" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="remember-complete-0052" opacity="1.0" points="2070,791 2150,791" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M2140.869110596877 795.0776045305957 L2150 791 L2140.869110596877 786.9223954694043" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<rect id="remember-complete-0067" opacity="1.0" x="35" y="930" width="2625" height="325" rx="12" fill="#ffffff" stroke="#888888" stroke-width="1"/>
+<text id="remember-complete-0068-line-0" x="50" y="965.36" font-family="Microsoft YaHei" font-size="22" text-anchor="start" fill="#222222" opacity="1.0">B.4 · 后台加工｜大文本分段，压缩与摘要按任务目的执行</text>
+<rect id="remember-complete-0069" opacity="1.0" x="70" y="990" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0070-line-0" x="150" y="1024.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">判断加工需求</text>
+<text id="remember-complete-0070-line-1" x="150" y="1050.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">超过长度／模型预算 → 后台；</text>
+<text id="remember-complete-0070-line-2" x="150" y="1076.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">否则原文供 B.5 使用。</text>
+<rect id="remember-complete-0071" opacity="1.0" x="590" y="990" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0072-line-0" x="676" y="1024.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">持久化 Task + Outbox</text>
+<text id="remember-complete-0072-line-1" x="676" y="1050.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">绑定来源、目标版本及幂等键</text>
+<text id="remember-complete-0072-line-2" x="676" y="1076.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">提交后返回任务已受理</text>
+<rect id="remember-complete-0073" opacity="1.0" x="1110" y="990" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0074-line-0" x="1206" y="1024.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">确认式派发到持久队列</text>
+<text id="remember-complete-0074-line-1" x="1206" y="1050.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">Worker 领取租约</text>
+<text id="remember-complete-0074-line-2" x="1206" y="1076.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">读取来源，保存分段检查点</text>
+<rect id="remember-complete-0075" opacity="1.0" x="1630" y="990" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0076-line-0" x="1696" y="1024.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">执行压缩 / 摘要任务</text>
+<text id="remember-complete-0076-line-1" x="1696" y="1050.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">压缩保留实体、数值、否定与条件</text>
+<text id="remember-complete-0076-line-2" x="1696" y="1076.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">摘要形成概览，标记表示类型</text>
+<rect id="remember-complete-0077" opacity="1.0" x="2150" y="990" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0078-line-0" x="2244" y="1024.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">验收质量、来源版本与代次</text>
+<text id="remember-complete-0078-line-1" x="2244" y="1050.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">压缩按同批正文核算 ≥5X</text>
+<text id="remember-complete-0078-line-2" x="2244" y="1076.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">通过 → 发布；失败 → 原文</text>
+<polyline id="remember-complete-0079" opacity="1.0" points="510,1046 590,1046" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M580.8691105968769 1050.0776045305956 L590 1046 L580.8691105968769 1041.9223954694044" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="remember-complete-0080" opacity="1.0" points="1030,1046 1110,1046" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1100.869110596877 1050.0776045305956 L1110 1046 L1100.869110596877 1041.9223954694044" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="remember-complete-0081" opacity="1.0" points="1550,1046 1630,1046" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1620.869110596877 1050.0776045305956 L1630 1046 L1620.869110596877 1041.9223954694044" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="remember-complete-0082" opacity="1.0" points="2070,1046 2150,1046" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M2140.869110596877 1050.0776045305956 L2150 1046 L2140.869110596877 1041.9223954694044" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<rect id="remember-complete-0083" opacity="1.0" x="1460" y="1160" width="1120" height="75" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0084-line-0" x="1824.4921875" y="1189.1" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">先存派生文本，再条件发布 ArtifactRecord</text>
+<text id="remember-complete-0084-line-1" x="1824.4921875" y="1215.1" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">供 B.5 复用；任务结果提交后 Ack</text>
+<text id="remember-complete-0086-line-0" x="2470" y="1125.84" font-family="Microsoft YaHei" font-size="18" text-anchor="start" fill="#222222" opacity="1.0">通过</text>
+<rect id="remember-complete-0087" opacity="1.0" x="110" y="1160" width="1200" height="75" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0088-line-0" x="462.5" y="1189.1" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">加工失败 → B.8 重试；质量不通过 → B.5 读原文</text>
+<text id="remember-complete-0088-line-1" x="462.5" y="1215.1" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">仅摘要不按压缩验收；派生物不直接送 Recall 或向量库</text>
+<polyline id="remember-complete-0089" opacity="1.0" points="2250,1102 2250,1124 710,1124 710,1160" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M705.9223954694043 1150.869110596877 L710 1160 L714.0776045305957 1150.869110596877" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<text id="remember-complete-0090-line-0" x="940" y="1145.84" font-family="Microsoft YaHei" font-size="18" text-anchor="start" fill="#222222" opacity="1.0">不通过</text>
+<rect id="remember-complete-0091" opacity="1.0" x="35" y="1275" width="2625" height="620" rx="12" fill="#ffffff" stroke="#888888" stroke-width="1"/>
+<text id="remember-complete-0092-line-0" x="50" y="1310.36" font-family="Microsoft YaHei" font-size="22" text-anchor="start" fill="#222222" opacity="1.0">B.5 · LangMem 提取｜Working 形成 Episodic；已有 Episodic 也可参与事实提炼</text>
+<rect id="remember-complete-0093" opacity="1.0" x="70" y="1340" width="440" height="140" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0094-line-0" x="96" y="1388.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">触发与确定范围</text>
+<text id="remember-complete-0094-line-1" x="96" y="1414.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">显式记忆、阶段结束或批次／时间策略触发</text>
+<text id="remember-complete-0094-line-2" x="96" y="1440.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">确定本次新增内容范围与来源版本</text>
+<rect id="remember-complete-0095" opacity="1.0" x="590" y="1340" width="440" height="140" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0096-line-0" x="626" y="1375.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">准备提取材料</text>
+<text id="remember-complete-0096-line-1" x="626" y="1401.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">读取 Working 对应正文</text>
+<text id="remember-complete-0096-line-2" x="626" y="1427.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">长内容复用合格材料，缺失细节读取原文</text>
+<text id="remember-complete-0096-line-3" x="626" y="1453.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">保留来源标识、版本与位置</text>
+<rect id="remember-complete-0097" opacity="1.0" x="1110" y="1340" width="440" height="140" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0098-line-0" x="1196" y="1388.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">检索同 Scope 的相关旧记忆</text>
+<text id="remember-complete-0098-line-1" x="1196" y="1414.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">准备现有事件、事实与来源</text>
+<text id="remember-complete-0098-line-2" x="1196" y="1440.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">固定来源范围与提取策略版本</text>
+<rect id="remember-complete-0099" opacity="1.0" x="1630" y="1340" width="440" height="140" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0100-line-0" x="1673.9921875" y="1388.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">LangMem create_memory_manager</text>
+<text id="remember-complete-0100-line-1" x="1673.9921875" y="1414.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">输入消息、旧记忆和 Schema</text>
+<text id="remember-complete-0100-line-2" x="1673.9921875" y="1440.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">LLM 生成抽取 / 更新建议</text>
+<rect id="remember-complete-0101" opacity="1.0" x="2150" y="1340" width="440" height="140" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0102-line-0" x="2225" y="1388.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">结构化候选：零条 / 一条 / 多条</text>
+<text id="remember-complete-0102-line-1" x="2225" y="1414.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">保留证据与被更新目标</text>
+<text id="remember-complete-0102-line-2" x="2225" y="1440.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">零条 → 提交水位，结束本批</text>
+<polyline id="remember-complete-0103" opacity="1.0" points="510,1410 590,1410" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M580.8691105968769 1414.0776045305956 L590 1410 L580.8691105968769 1405.9223954694044" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="remember-complete-0104" opacity="1.0" points="1035.75,1410.014 1104.25,1410.014" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1095.119110596877 1414.0916045305955 L1104.25 1410.014 L1095.119110596877 1405.9363954694043" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="remember-complete-0105" opacity="1.0" points="1555.75,1410.014 1624.25,1410.014" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1615.119110596877 1414.0916045305955 L1624.25 1410.014 L1615.119110596877 1405.9363954694043" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="remember-complete-0106" opacity="1.0" points="2070,1410 2150,1410" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M2140.869110596877 1414.0776045305956 L2150 1410 L2140.869110596877 1405.9223954694044" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<rect id="remember-complete-0107" opacity="1.0" x="2150" y="1570" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0108-line-0" x="2256" y="1617.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">Episodic 候选</text>
+<text id="remember-complete-0108-line-1" x="2256" y="1643.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">事件、时间、经过与结果</text>
+<rect id="remember-complete-0109" opacity="1.0" x="1630" y="1570" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0110-line-0" x="1676" y="1617.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">Remember 校验</text>
+<text id="remember-complete-0110-line-1" x="1676" y="1643.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">事件边界、来源、重复及新旧事件关系</text>
+<rect id="remember-complete-0111" opacity="1.0" x="1110" y="1570" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0112-line-0" x="1205.5" y="1617.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">Semantic 候选</text>
+<text id="remember-complete-0112-line-1" x="1205.5" y="1643.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">事实 / 偏好、条件与有效期</text>
+<rect id="remember-complete-0113" opacity="1.0" x="590" y="1570" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0114-line-0" x="646" y="1617.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">Remember 校验</text>
+<text id="remember-complete-0114-line-1" x="646" y="1643.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">证据、范围、时效、冲突及替代关系</text>
+<polyline id="remember-complete-0117" opacity="1.0" points="2150,1626 2070,1626" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M2079.130889403123 1621.9223954694044 L2070 1626 L2079.130889403123 1630.0776045305956" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="remember-complete-0118" opacity="1.0" points="1110,1626 1030,1626" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1039.130889403123 1621.9223954694044 L1030 1626 L1039.130889403123 1630.0776045305956" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<rect id="remember-complete-0119" opacity="1.0" x="590" y="1750" width="1520" height="120" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0120-line-0" x="1096" y="1775.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">提交正式记忆</text>
+<text id="remember-complete-0120-line-1" x="1096" y="1801.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">新事实创建新 ID；既有记忆更新生成新版本。</text>
+<text id="remember-complete-0120-line-2" x="1096" y="1827.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">保存正文、证据和关系，同步登记所需索引／通知待办。</text>
+<text id="remember-complete-0120-line-3" x="1096" y="1853.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">提交前检查目标版本与权限；成功后进入 B.6。</text>
+<rect id="remember-complete-0149" opacity="1.0" x="35" y="2240" width="2625" height="320" rx="12" fill="#ffffff" stroke="#888888" stroke-width="1"/>
+<text id="remember-complete-0150-line-0" x="50" y="2275.36" font-family="Microsoft YaHei" font-size="22" text-anchor="start" fill="#222222" opacity="1.0">B.7 · 更正、到期、删除与缓存释放｜权威失效先提交，物理清理异步完成</text>
+<rect id="remember-complete-0151" opacity="1.0" x="70" y="2300" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0152-line-0" x="166" y="2334.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">确定对象、版本与处理范围</text>
+<text id="remember-complete-0152-line-1" x="166" y="2360.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">只删记忆 / 连同原文删除</text>
+<text id="remember-complete-0152-line-2" x="166" y="2386.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">核验权限与保留规则</text>
+<rect id="remember-complete-0153" opacity="1.0" x="590" y="2300" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0154-line-0" x="676" y="2334.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">事务提交新版本 / 删除标记</text>
+<text id="remember-complete-0154-line-1" x="676" y="2360.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">同事务写清理待办与 Outbox</text>
+<text id="remember-complete-0154-line-2" x="676" y="2386.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">立即阻止旧读取、回填和发布</text>
+<rect id="remember-complete-0155" opacity="1.0" x="1110" y="2300" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0156-line-0" x="1182" y="2334.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">处理原文与证据依赖</text>
+<text id="remember-complete-0156-line-1" x="1182" y="2360.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">Working 到期按原文保留期处理</text>
+<text id="remember-complete-0156-line-2" x="1182" y="2386.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">删原文则失效相关派生与证据</text>
+<rect id="remember-complete-0157" opacity="1.0" x="1630" y="2300" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0158-line-0" x="1699.625" y="2334.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">B 撤销 W/E/S 旧索引资格和任务</text>
+<text id="remember-complete-0158-line-1" x="1699.625" y="2360.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">更正 / 摘要更新 / 删除 / 撤权生效</text>
+<text id="remember-complete-0158-line-2" x="1699.625" y="2386.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">物理向量及缓存清理异步执行</text>
+<rect id="remember-complete-0159" opacity="1.0" x="2150" y="2300" width="440" height="112" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0160-line-0" x="2225" y="2334.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">按操作范围核验清理完成度</text>
+<text id="remember-complete-0160-line-1" x="2225" y="2360.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">共享正文仍有有效引用则保留</text>
+<text id="remember-complete-0160-line-2" x="2225" y="2386.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">失败 → B.8；禁止补建已删记录</text>
+<polyline id="remember-complete-0161" opacity="1.0" points="510,2356 590,2356" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M580.8691105968769 2360.0776045305956 L590 2356 L580.8691105968769 2351.9223954694044" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="remember-complete-0162" opacity="1.0" points="1030,2356 1110,2356" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1100.869110596877 2360.0776045305956 L1110 2356 L1100.869110596877 2351.9223954694044" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="remember-complete-0163" opacity="1.0" points="1550,2356 1630,2356" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1620.869110596877 2360.0776045305956 L1630 2356 L1620.869110596877 2351.9223954694044" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="remember-complete-0164" opacity="1.0" points="2070,2356 2150,2356" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M2140.869110596877 2360.0776045305956 L2150 2356 L2140.869110596877 2351.9223954694044" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<rect id="remember-complete-0165" opacity="1.0" x="110" y="2470" width="1200" height="75" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0166-line-0" x="466" y="2499.1" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">授权原文仍保留 → 可按独立来源索引查询</text>
+<text id="remember-complete-0166-line-1" x="466" y="2525.1" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">原文到期先处理依赖；旧内联数据先迁出再物理删记录</text>
+<rect id="remember-complete-0167" opacity="1.0" x="1460" y="2470" width="1120" height="75" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0168-line-0" x="1776" y="2499.1" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">删除标记与幂等记录覆盖旧请求、消息和任务存活期</text>
+<text id="remember-complete-0168-line-1" x="1776" y="2525.1" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">物理清理未完成也禁止使用；驻留释放不改变记忆类型</text>
+<rect id="remember-complete-0201" opacity="1.0" x="48.333282470703125" y="3260" width="2625" height="490" rx="12" fill="#ffffff" stroke="#888888" stroke-width="1"/>
+<text id="remember-complete-0202-line-0" x="63.333282470703125" y="3295.36" font-family="Microsoft YaHei" font-size="22" text-anchor="start" fill="#222222" opacity="1.0">B.10 · 跨模块接口｜调用方 → Remember / 共享能力 → 返回或消费结果</text>
+<rect id="remember-complete-0203" opacity="1.0" x="83.33328247070312" y="3330" width="700" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0204-line-0" x="261.3332824707031" y="3371.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">Recall 读取、组包及历史结果重取</text>
+<text id="remember-complete-0204-line-1" x="261.3332824707031" y="3397.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">调用 B.read / relations / final_guard</text>
+<rect id="remember-complete-0205" opacity="1.0" x="1013.3332824707031" y="3330" width="700" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0206-line-0" x="1203.3332824707031" y="3371.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">B.read 按范围核验并读取完整正文</text>
+<text id="remember-complete-0206-line-1" x="1203.3332824707031" y="3397.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">提供精确版本、必需关系组及修订号</text>
+<rect id="remember-complete-0207" opacity="1.0" x="1943.3332824707031" y="3330" width="700" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0208-line-0" x="2090.833282470703" y="3371.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">返回正文、证据、完整关系组和逐项状态</text>
+<text id="remember-complete-0208-line-1" x="2090.833282470703" y="3397.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">Recall 负责组包；成功 read 经 RF 交 C 计热</text>
+<polyline id="remember-complete-0209" opacity="1.0" points="783.3332824707031,3380 1013.3332824707031,3380" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1004.20239306758 3384.0776045305956 L1013.3332824707031 3380 L1004.20239306758 3375.9223954694044" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="remember-complete-0210" opacity="1.0" points="1713.3332824707031,3380 1943.3332824707031,3380" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1934.20239306758 3384.0776045305956 L1943.3332824707031 3380 L1934.20239306758 3375.9223954694044" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<rect id="remember-complete-0211" opacity="1.0" x="83.33328247070312" y="3480" width="700" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0212-line-0" x="249.46707153320312" y="3521.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">Remember 的 Working / E / S 索引任务</text>
+<text id="remember-complete-0212-line-1" x="249.46707153320312" y="3547.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">携带正文、当前版本与兼容模型空间</text>
+<rect id="remember-complete-0213" opacity="1.0" x="1013.3332824707031" y="3480" width="700" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0214-line-0" x="1190.3332824707031" y="3521.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">A 维护共享 Embedding / Vector</text>
+<text id="remember-complete-0214-line-1" x="1190.3332824707031" y="3547.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">B 调用底层能力，不进入 Recall 主流程</text>
+<rect id="remember-complete-0215" opacity="1.0" x="1943.3332824707031" y="3480" width="700" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0216-line-0" x="2153.208282470703" y="3521.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">返回编码 / 索引结果与核验证据</text>
+<text id="remember-complete-0216-line-1" x="2153.208282470703" y="3547.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">B 按当前版本和批次发布 ready</text>
+<polyline id="remember-complete-0217" opacity="1.0" points="783.3332824707031,3530 1013.3332824707031,3530" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1004.20239306758 3534.0776045305956 L1013.3332824707031 3530 L1004.20239306758 3525.9223954694044" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="remember-complete-0218" opacity="1.0" points="1713.3332824707031,3530 1943.3332824707031,3530" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1934.20239306758 3534.0776045305956 L1943.3332824707031 3530 L1934.20239306758 3525.9223954694044" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<rect id="remember-complete-0219" opacity="1.0" x="83.33328247070312" y="3630" width="700" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0220-line-0" x="257.3332824707031" y="3671.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">Operate 计划核验 / 执行后交接新地址</text>
+<text id="remember-complete-0220-line-1" x="257.3332824707031" y="3697.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">携带 action_id、对象版本及读取证据</text>
+<rect id="remember-complete-0221" opacity="1.0" x="1013.3332824707031" y="3630" width="700" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0222-line-0" x="1165.8254699707031" y="3671.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">B 核验当前资格、动作及地址可读性</text>
+<text id="remember-complete-0222-line-1" x="1165.8254699707031" y="3697.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">CAS 更新 MemoryRecord 引用，操作幂等</text>
+<rect id="remember-complete-0223" opacity="1.0" x="1943.3332824707031" y="3630" width="700" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="remember-complete-0224-line-0" x="2107.833282470703" y="3671.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">确认 → C 结束本轮；失效 → 拒绝旧地址</text>
+<text id="remember-complete-0224-line-1" x="2107.833282470703" y="3697.6" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">写入失败 → 重试交接，不重新迁移</text>
+<polyline id="remember-complete-0225" opacity="1.0" points="783.3332824707031,3680 1013.3332824707031,3680" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1004.20239306758 3684.0776045305956 L1013.3332824707031 3680 L1004.20239306758 3675.9223954694044" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="remember-complete-0226" opacity="1.0" points="1713.3332824707031,3680 1943.3332824707031,3680" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1934.20239306758 3684.0776045305956 L1943.3332824707031 3680 L1934.20239306758 3675.9223954694044" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="jMmc9aNGNa5tdj856VFa1" opacity="1.0" points="2450,1102 2450,1142 2020,1142 2020,1160" fill="none" stroke="#1e1e1e" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M2015.9223954694044 1150.869110596877 L2020 1160 L2024.0776045305956 1150.869110596877" fill="none" stroke="#1e1e1e" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="3dyYIeqVAYnvyW4YtRCTM" opacity="1.0" points="2590,1410 2630,1410 2630,1626 2590,1626" fill="none" stroke="#1e1e1e" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M2599.130889403123 1621.9223954694044 L2590 1626 L2599.130889403123 1630.0776045305956" fill="none" stroke="#1e1e1e" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="ZjyvqouaA2nBhpoVYdYQx" opacity="1.0" points="2370,1570 2370,1520 1330,1520 1330,1570" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1325.9223954694044 1560.869110596877 L1330 1570 L1334.0776045305956 1560.869110596877" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="4GLHQPzTt1YPpGpush1B6" opacity="1.0" points="1850,1682 1850,1750" fill="none" stroke="#1e1e1e" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1845.9223954694044 1740.869110596877 L1850 1750 L1854.0776045305956 1740.869110596877" fill="none" stroke="#1e1e1e" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="rj6ZFGLel8QflQMVEQlih" opacity="1.0" points="810,1682 810,1750" fill="none" stroke="#1e1e1e" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M805.9223954694043 1740.869110596877 L810 1750 L814.0776045305957 1740.869110596877" fill="none" stroke="#1e1e1e" stroke-width="1.5" stroke-linecap="round"/>
+<rect id="ecIMWEI_GpsS9yqrrSjUb" opacity="1.0" x="42.05550638834211" y="2971.722232394748" width="2625" height="225" rx="12" fill="#ffffff" stroke="#888888" stroke-width="1"/>
+<text id="hJ3Tng1YsJCLXzmBiyywt-line-0" x="57.05550638834211" y="3005.082232394748" font-family="Microsoft YaHei" font-size="22" text-anchor="start" fill="#222222" opacity="1.0">B.9 · 模块提供的能力｜能力目录，不表示顺序执行</text>
+<rect id="ZC2Rpr5YFQZw7SMSXSsJE" opacity="1.0" x="77.05550638834211" y="3031.722232394748" width="440" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="05GS9xSfR7Uz1a6YjOjEY-line-0" x="150.0555063883421" y="3060.322232394748" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">保存与生命周期管理</text>
+<text id="05GS9xSfR7Uz1a6YjOjEY-line-1" x="150.0555063883421" y="3086.322232394748" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">原文、Working、正式 E/S 建档</text>
+<text id="05GS9xSfR7Uz1a6YjOjEY-line-2" x="150.0555063883421" y="3112.322232394748" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">更正、到期、删除及保留范围</text>
+<rect id="fEnmQZ3FnxYdq2NT7npus" opacity="1.0" x="597.0555063883421" y="3031.722232394748" width="440" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="lkqle_9mOtXOtwO79wpRj-line-0" x="680.0555063883421" y="3060.322232394748" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">正文、来源及历史读取</text>
+<text id="lkqle_9mOtXOtwO79wpRj-line-1" x="680.0555063883421" y="3086.322232394748" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">授权会话列举 / 精确引用读取</text>
+<text id="lkqle_9mOtXOtwO79wpRj-line-2" x="680.0555063883421" y="3112.322232394748" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">替代与冲突关系、final_guard</text>
+<rect id="0aYLg4f9rfamw3ymcVdDU" opacity="1.0" x="1117.055506388342" y="3031.722232394748" width="440" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="L6uIVcFmsf7EGoOosRHDB-line-0" x="1164.621912638342" y="3060.322232394748" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">后台加工与记忆向量构建</text>
+<text id="L6uIVcFmsf7EGoOosRHDB-line-1" x="1164.621912638342" y="3086.322232394748" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">Working 独立索引；E/S 提取另行推进</text>
+<text id="L6uIVcFmsf7EGoOosRHDB-line-2" x="1164.621912638342" y="3112.322232394748" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">产物引用与来源版本可追溯</text>
+<rect id="2BCGfkpZZmpe-EAN3kaTI" opacity="1.0" x="1637.055506388342" y="3031.722232394748" width="440" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="PaoI-_KOHr3TuiiaYJugu-line-0" x="1713.055506388342" y="3060.322232394748" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">原请求、任务与结果查询</text>
+<text id="PaoI-_KOHr3TuiiaYJugu-line-1" x="1713.055506388342" y="3086.322232394748" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">保存状态、缓存覆盖、失败原因</text>
+<text id="PaoI-_KOHr3TuiiaYJugu-line-2" x="1713.055506388342" y="3112.322232394748" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">恢复原任务，不隐式重做业务</text>
+<rect id="CT2X27DNnSbLXi_GIzfhY" opacity="1.0" x="2157.055506388342" y="3031.722232394748" width="440" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="vOFTQa3qkhiXOcr0-tP3f-line-0" x="2237.555506388342" y="3060.322232394748" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">地址交接与条件更新</text>
+<text id="vOFTQa3qkhiXOcr0-tP3f-line-1" x="2237.555506388342" y="3086.322232394748" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">核验 action_id、版本及新地址</text>
+<text id="vOFTQa3qkhiXOcr0-tP3f-line-2" x="2237.555506388342" y="3112.322232394748" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">CAS 更新引用，返回幂等确认</text>
+<rect id="e8rBtVuceX07r3G--F29m" opacity="1.0" x="52.05540466308139" y="2605.6111891004775" width="2625" height="315" rx="12" fill="#ffffff" stroke="#888888" stroke-width="1"/>
+<text id="PmbbD73D2wXr53GTJUFZl-line-0" x="67.05540466308139" y="2638.9711891004777" font-family="Microsoft YaHei" font-size="22" text-anchor="start" fill="#222222" opacity="1.0">B.8 · 并发、重试与恢复｜使用共享状态，续作原操作，阻止过期执行者写回</text>
+<rect id="WC2_dbex8zgZFMrxncY-_" opacity="1.0" x="87.05540466308139" y="2665.6111891004775" width="440" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="MidjpgUmf93KicjmZAMFs-line-0" x="180.5554046630814" y="2694.2111891004774" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">失败 / 超时先查询原操作</text>
+<text id="MidjpgUmf93KicjmZAMFs-line-1" x="180.5554046630814" y="2720.2111891004774" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">已提交 → 复用已核验结果</text>
+<text id="MidjpgUmf93KicjmZAMFs-line-2" x="180.5554046630814" y="2746.2111891004774" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">未知 → 保留原 ID 继续查询</text>
+<rect id="KKXI0hwjmNqCPD8w02-dA" opacity="1.0" x="607.0554046630814" y="2665.6111891004775" width="440" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="GjqzUmaxcl4kT8YRnqXOt-line-0" x="692.5554046630814" y="2694.2111891004774" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">重验权限、源版本与删除标记</text>
+<text id="GjqzUmaxcl4kT8YRnqXOt-line-1" x="692.5554046630814" y="2720.2111891004774" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">共享幂等键 / 任务租约与代次</text>
+<text id="GjqzUmaxcl4kT8YRnqXOt-line-2" x="692.5554046630814" y="2746.2111891004774" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">接管后阻止旧执行者发布</text>
+<rect id="K2PftNrUhah19NFjSNgXc" opacity="1.0" x="1127.0554046630814" y="2665.6111891004775" width="440" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="kXZLVRYZSm0K9KwQgJ7yR-line-0" x="1210.1218109130814" y="2694.2111891004774" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">按缺失阶段恢复原任务</text>
+<text id="kXZLVRYZSm0K9KwQgJ7yR-line-1" x="1210.1218109130814" y="2720.2111891004774" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">历史 Working 显式幂等补索引</text>
+<text id="kXZLVRYZSm0K9KwQgJ7yR-line-2" x="1210.1218109130814" y="2746.2111891004774" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">不重复抽取，不复活失效版本</text>
+<rect id="7lK8xPUhquStJKZ0IPAuP" opacity="1.0" x="1647.0554046630814" y="2665.6111891004775" width="440" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="SK_hHvdEPUvheETNgzh5H-line-0" x="1730.5554046630814" y="2694.2111891004774" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">CAS 条件提交记录与任务结果</text>
+<text id="SK_hHvdEPUvheETNgzh5H-line-1" x="1730.5554046630814" y="2720.2111891004774" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">同事务核验版本、资格及代次</text>
+<text id="SK_hHvdEPUvheETNgzh5H-line-2" x="1730.5554046630814" y="2746.2111891004774" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">持久化后 Ack；失败不报成功</text>
+<rect id="p9Jr4BpC0DhRQ7j1-aNCh" opacity="1.0" x="2167.0554046630823" y="2665.6111891004775" width="440" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="eQafQDJKPzEGoSVc4Dj-m-line-0" x="2243.0554046630823" y="2694.2111891004774" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">有限退避重试并保留检查点</text>
+<text id="eQafQDJKPzEGoSVc4Dj-m-line-1" x="2243.0554046630823" y="2720.2111891004774" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">超限 Failed / 死信 / 告警</text>
+<text id="eQafQDJKPzEGoSVc4Dj-m-line-2" x="2243.0554046630823" y="2746.2111891004774" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">修复后显式重放，保留历史结果</text>
+<polyline id="xIh78EfrrsYVzpqJmaoYb" opacity="1.0" points="527.0554046630814,2715.6111891004775 607.0554046630814,2715.6111891004775" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M597.9245152599583 2719.688793631073 L607.0554046630814 2715.6111891004775 L597.9245152599583 2711.533584569882" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="SqZd4MAM4cNBSaSxcOR5k" opacity="1.0" points="1047.0554046630814,2715.6111891004775 1127.0554046630814,2715.6111891004775" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1117.9245152599583 2719.688793631073 L1127.0554046630814 2715.6111891004775 L1117.9245152599583 2711.533584569882" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="j8_NDSUIXCJMWM8hqrl-7" opacity="1.0" points="1567.0554046630814,2715.6111891004775 1647.0554046630814,2715.6111891004775" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1637.9245152599583 2719.688793631073 L1647.0554046630814 2715.6111891004775 L1637.9245152599583 2711.533584569882" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="3xGpl8BlPi3GKF0Q3mIIM" opacity="1.0" points="2087.0554046630814,2715.6111891004775 2167.0554046630814,2715.6111891004775" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M2157.9245152599583 2719.688793631073 L2167.0554046630814 2715.6111891004775 L2157.9245152599583 2711.533584569882" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<rect id="mpJVENa35UAIKPlrDoEgA" opacity="1.0" x="147.0554046630814" y="2835.6111891004775" width="1200" height="70" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="iCvNozYK-CjlHIT6pdrzG-line-0" x="466.0554046630814" y="2862.2111891004774" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">孤立文件延迟清理；已删记录不补建；已完成动作不重做</text>
+<text id="iCvNozYK-CjlHIT6pdrzG-line-1" x="466.0554046630814" y="2888.2111891004774" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">配置版本随任务固定，按租户限并发，优先保障 Working 读写</text>
+<rect id="2uVIXxNSjRY17a8uPdXTo" opacity="1.0" x="1467.0554046630814" y="2835.6111891004775" width="1120" height="70" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="fRtWK8d6pe1cxGTE7yQek-line-0" x="1753.0554046630814" y="2862.2111891004774" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">缓存统一内容版本键，回源限流并合并重复加载</text>
+<text id="fRtWK8d6pe1cxGTE7yQek-line-1" x="1753.0554046630814" y="2888.2111891004774" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">分别报告原文、记忆、覆盖与任务状态；内部分段处理不计热</text>
+<rect id="WkhKkyUtCsxuycCLa1nA9" opacity="1.0" x="47.778138478592155" y="85.77781677246071" width="2625" height="295" rx="12" fill="#ffffff" stroke="#888888" stroke-width="1"/>
+<text id="IiMz5_j34p2UCj_jGeZUj-line-0" x="62.778138478592155" y="119.13781677246071" font-family="Microsoft YaHei" font-size="22" text-anchor="start" fill="#222222" opacity="1.0">B.1 · 接入与保存｜原文独立保存，MemoryRecord 关联引用</text>
+<rect id="ONLbYxj0VNg_fL-v5EP-K" opacity="1.0" x="82.77813847859215" y="145.7778167724607" width="440" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="hI9yEn-zPAtXevH7hfaS--line-0" x="145.77813847859215" y="187.3778167724607" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">接收用户 / Agent / 工作流文本</text>
+<text id="hI9yEn-zPAtXevH7hfaS--line-1" x="145.77813847859215" y="213.3778167724607" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">绑定身份、Scope、来源与请求 ID</text>
+<rect id="G1m9OIKn1uzI4IJX6IT_E" opacity="1.0" x="602.7781384785922" y="145.7778167724607" width="440" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="BErFVTim3ax1CyUzYH0fO-line-0" x="688.7781384785922" y="174.3778167724607" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">检查权限、格式、配额与幂等</text>
+<text id="BErFVTim3ax1CyUzYH0fO-line-1" x="688.7781384785922" y="200.3778167724607" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">同键同内容 → 返回原结果</text>
+<text id="BErFVTim3ax1CyUzYH0fO-line-2" x="688.7781384785922" y="226.3778167724607" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">校验通过 → 保存</text>
+<rect id="E4e1tdxUOzej8vSKwQla0" opacity="1.0" x="1122.7781384785922" y="145.7778167724607" width="440" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="x98IDobBkoSD-7L37TKMg-line-0" x="1198.7781384785922" y="174.3778167724607" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">P2 独立保存完整原文</text>
+<text id="x98IDobBkoSD-7L37TKMg-line-1" x="1198.7781384785922" y="200.3778167724607" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">取得对象引用、源版本与校验值</text>
+<text id="x98IDobBkoSD-7L37TKMg-line-2" x="1198.7781384785922" y="226.3778167724607" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">短文、长文采用统一来源标识</text>
+<rect id="5CbLHM-Wlg-sAQeimgT6T" opacity="1.0" x="1642.7781384785922" y="145.7778167724607" width="440" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="qd80USd5RD1xYqhKksQNJ-line-0" x="1693.9675916035922" y="174.3778167724607" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">事务提交来源索引 + Working</text>
+<text id="qd80USd5RD1xYqhKksQNJ-line-1" x="1693.9675916035922" y="200.3778167724607" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">可靠保存正文引用与当前版本</text>
+<text id="qd80USd5RD1xYqhKksQNJ-line-2" x="1693.9675916035922" y="226.3778167724607" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">向量任务、会话序号、Outbox 同提交</text>
+<rect id="pr-266VxRGd7M8YrUAP0n" opacity="1.0" x="2162.778138478592" y="145.7778167724607" width="440" height="100" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="qX08uyNbKWvLHgDEN3OBO-line-0" x="2227.907044728592" y="174.3778167724607" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">返回 saved 与向量任务状态</text>
+<text id="qX08uyNbKWvLHgDEN3OBO-line-1" x="2227.907044728592" y="200.3778167724607" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">缓存 → B.3；Working 索引 → B.6</text>
+<text id="qX08uyNbKWvLHgDEN3OBO-line-2" x="2227.907044728592" y="226.3778167724607" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#b42318" opacity="1.0">长期加工 B.4 / 提取 B.5 并行</text>
+<polyline id="tPU10UQvvTUe_pOAAk4fL" opacity="1.0" points="522.7781384785922,195.7778167724607 602.7781384785922,195.7778167724607" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M593.6472490754691 199.8554213030564 L602.7781384785922 195.7778167724607 L593.6472490754691 191.70021224186502" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="3bo31oDv7xjJlhreCCwlL" opacity="1.0" points="1042.7781384785922,195.7778167724607 1122.7781384785922,195.7778167724607" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1113.647249075469 199.8554213030564 L1122.7781384785922 195.7778167724607 L1113.647249075469 191.70021224186502" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="TA2SDG9ekcqu8fp1cpHro" opacity="1.0" points="1562.7781384785922,195.7778167724607 1642.7781384785922,195.7778167724607" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1633.647249075469 199.8554213030564 L1642.7781384785922 195.7778167724607 L1633.647249075469 191.70021224186502" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<polyline id="5Pvs5ZY9hZq9SfRT_R3TT" opacity="1.0" points="2082.778138478592,195.7778167724607 2162.778138478592,195.7778167724607" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M2153.647249075469 199.8554213030564 L2162.778138478592 195.7778167724607 L2153.647249075469 191.70021224186502" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<rect id="67fMhHtfaL2cjfKfVWAN7" opacity="1.0" x="602.7781384785922" y="295.7778167724607" width="440" height="70" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="R3ayzwA595rNyHsQEr3VW-line-0" x="698.7781384785922" y="322.37781677246073" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">校验失败 / 同键异内容</text>
+<text id="R3ayzwA595rNyHsQEr3VW-line-1" x="698.7781384785922" y="348.37781677246073" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">返回原因，不创建记忆记录</text>
+<polyline id="vJ2PvRc-7ifaq3L_zAqZy" opacity="1.0" points="822.7781384785922,245.7778167724607 822.7781384785922,295.7778167724607" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M818.7005339479964 286.6469273693376 L822.7781384785922 295.7778167724607 L826.8557430091879 286.6469273693376" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<text id="ufMaPZXSErrSy7xnddnt_-line-0" x="837.7781384785922" y="279.6178167724607" font-family="Microsoft YaHei" font-size="18" text-anchor="start" fill="#222222" opacity="1.0">拒绝</text>
+<rect id="uguMOxwZc_1d4Uyo0niEz" opacity="1.0" x="1382.7781384785922" y="295.7778167724607" width="1120" height="70" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="v6yYWGW6AWCGr9OLjI169-line-0" x="1748.7781384785922" y="322.37781677246073" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">原文保存 / 元数据提交失败或超时 → B.8</text>
+<text id="v6yYWGW6AWCGr9OLjI169-line-1" x="1748.7781384785922" y="348.37781677246073" font-family="Microsoft YaHei" font-size="20" text-anchor="start" fill="#222222" opacity="1.0">查原操作后补关联，保留原请求与会话序号</text>
+<polyline id="b3HTTssV3SppPZDu-YKLW" opacity="1.0" points="1342.7781384785922,245.7778167724607 1342.7781384785922,275.7778167724607 1942.7781384785922,275.7778167724607 1942.7781384785922,295.7778167724607" fill="none" stroke="#222222" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1938.7005339479965 286.6469273693376 L1942.7781384785922 295.7778167724607 L1946.8557430091878 286.6469273693376" fill="none" stroke="#222222" stroke-width="1.5" stroke-linecap="round"/>
+<rect id="rc26-index" opacity="1.0" x="35" y="1915" width="2625" height="305" rx="12" fill="#ffffff" stroke="#888888" stroke-width="1"/>
+<text id="rc26-index-title-line-0" x="50" y="1950.12" font-family="Microsoft YaHei" font-size="24" text-anchor="start" fill="#b42318" opacity="1.0">B.6 · 记忆向量索引构建｜Working / E / S；Remember 发布精确批次资格</text>
+<rect id="rc26-index-body" opacity="1.0" x="70" y="1980" width="440" height="116" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="rc26-index-body-text-line-0" x="157.0" y="2017.67" font-family="Microsoft YaHei" font-size="19" text-anchor="start" fill="#b42318" opacity="1.0">Working 有效正文 / 正式 E/S</text>
+<text id="rc26-index-body-text-line-1" x="157.0" y="2042.3700000000001" font-family="Microsoft YaHei" font-size="19" text-anchor="start" fill="#b42318" opacity="1.0">长文先完成适用正文整理</text>
+<text id="rc26-index-body-text-line-2" x="157.0" y="2067.0699999999997" font-family="Microsoft YaHei" font-size="19" text-anchor="start" fill="#b42318" opacity="1.0">核验权限、版本、指纹及块清单</text>
+<rect id="rc26-index-embed" opacity="1.0" x="590" y="1980" width="440" height="116" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="rc26-index-embed-text-line-0" x="687.2548828125" y="2017.67" font-family="Microsoft YaHei" font-size="19" text-anchor="start" fill="#b42318" opacity="1.0">A 共享 Passage Embedding</text>
+<text id="rc26-index-embed-text-line-1" x="687.2548828125" y="2042.3700000000001" font-family="Microsoft YaHei" font-size="19" text-anchor="start" fill="#b42318" opacity="1.0">按模型空间分块并编码</text>
+<text id="rc26-index-embed-text-line-2" x="687.2548828125" y="2067.0699999999997" font-family="Microsoft YaHei" font-size="19" text-anchor="start" fill="#b42318" opacity="1.0">Working 任务不等长期提取</text>
+<rect id="rc26-index-write" opacity="1.0" x="1110" y="1980" width="440" height="116" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="rc26-index-write-text-line-0" x="1182.8125" y="2017.67" font-family="Microsoft YaHei" font-size="19" text-anchor="start" fill="#b42318" opacity="1.0">A 适配 P2 / Milvus 幂等写入</text>
+<text id="rc26-index-write-text-line-1" x="1182.8125" y="2042.3700000000001" font-family="Microsoft YaHei" font-size="19" text-anchor="start" fill="#b42318" opacity="1.0">ID / version / chunk / 类型 / 批次</text>
+<text id="rc26-index-write-text-line-2" x="1182.8125" y="2067.0699999999997" font-family="Microsoft YaHei" font-size="19" text-anchor="start" fill="#b42318" opacity="1.0">保存正文、块指纹与模型空间</text>
+<rect id="rc26-index-ready" opacity="1.0" x="1630" y="1980" width="440" height="116" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="rc26-index-ready-text-line-0" x="1736.0" y="2017.67" font-family="Microsoft YaHei" font-size="19" text-anchor="start" fill="#b42318" opacity="1.0">B 核验全部预期块可查</text>
+<text id="rc26-index-ready-text-line-1" x="1736.0" y="2042.3700000000001" font-family="Microsoft YaHei" font-size="19" text-anchor="start" fill="#b42318" opacity="1.0">当前版本、类型和批次一致</text>
+<text id="rc26-index-ready-text-line-2" x="1736.0" y="2067.0699999999997" font-family="Microsoft YaHei" font-size="19" text-anchor="start" fill="#b42318" opacity="1.0">条件发布该版本 ready</text>
+<rect id="rc26-index-recall" opacity="1.0" x="2150" y="1980" width="440" height="116" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="rc26-index-recall-text-line-0" x="2254.0" y="2017.67" font-family="Microsoft YaHei" font-size="19" text-anchor="start" fill="#222222" opacity="1.0">Recall A.1c 按记忆 ID 聚合</text>
+<text id="rc26-index-recall-text-line-1" x="2254.0" y="2042.3700000000001" font-family="Microsoft YaHei" font-size="19" text-anchor="start" fill="#222222" opacity="1.0">B 提供完整正文与关系</text>
+<text id="rc26-index-recall-text-line-2" x="2254.0" y="2067.0699999999997" font-family="Microsoft YaHei" font-size="19" text-anchor="start" fill="#222222" opacity="1.0">交接展开见 A.1b / A.1d</text>
+<rect id="rc26-index-fault" opacity="1.0" x="350" y="2140" width="2050" height="65" rx="12" fill="#ffffff" stroke="#222222" stroke-width="1.5"/>
+<text id="rc26-index-fault-text-line-0" x="1054.5" y="2164.52" font-family="Microsoft YaHei" font-size="19" text-anchor="start" fill="#b42318" opacity="1.0">编码 / 写入失败或超时 → B.8 核对原操作并恢复；保存内容保留，部分完成不发布 ready。</text>
+<text id="rc26-index-fault-text-line-1" x="1054.5" y="2189.22" font-family="Microsoft YaHei" font-size="19" text-anchor="start" fill="#b42318" opacity="1.0">更正、摘要更新、删除或撤权先撤销旧资格；未就绪不冒充正常空，迟到任务不得复活旧版。</text>
+<polyline id="rc26-edge-68" opacity="1.0" points="510,2038.0 590,2038.0" fill="none" stroke="#222222" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M580.8691105968769 2042.0776045305956 L590 2038.0 L580.8691105968769 2033.9223954694044" fill="none" stroke="#222222" stroke-width="1.8" stroke-linecap="round"/>
+<polyline id="rc26-edge-69" opacity="1.0" points="1030,2038.0 1110,2038.0" fill="none" stroke="#222222" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1100.869110596877 2042.0776045305956 L1110 2038.0 L1100.869110596877 2033.9223954694044" fill="none" stroke="#222222" stroke-width="1.8" stroke-linecap="round"/>
+<polyline id="rc26-edge-70" opacity="1.0" points="1550,2038.0 1630,2038.0" fill="none" stroke="#222222" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1620.869110596877 2042.0776045305956 L1630 2038.0 L1620.869110596877 2033.9223954694044" fill="none" stroke="#222222" stroke-width="1.8" stroke-linecap="round"/>
+<polyline id="rc26-edge-71" opacity="1.0" points="2070,2038.0 2150,2038.0" fill="none" stroke="#222222" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="8 6"/>
+<path d="M2140.869110596877 2042.0776045305956 L2150 2038.0 L2140.869110596877 2033.9223954694044" fill="none" stroke="#222222" stroke-width="1.8" stroke-linecap="round"/>
+<polyline id="rc26-edge-72" opacity="1.0" points="810.0,2096 810.0,2140" fill="none" stroke="#222222" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M805.9223954694043 2130.869110596877 L810.0 2140 L814.0776045305957 2130.869110596877" fill="none" stroke="#222222" stroke-width="1.8" stroke-linecap="round"/>
+<text id="rc26-label-72-line-0" x="824.0" y="2122.1400000000003" font-family="Microsoft YaHei" font-size="18" text-anchor="start" fill="#222222" opacity="1.0">失败 / 超时</text>
+</svg>

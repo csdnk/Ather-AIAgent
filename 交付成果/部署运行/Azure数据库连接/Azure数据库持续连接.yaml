@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aether-desktop-db-relay
+  namespace: aether-p3-demo
+  labels: &id001
+    app.kubernetes.io/name: aether-desktop-db-relay
+    app.kubernetes.io/part-of: aether-p3
+    aether-task: desktop-db-20261003
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aether-desktop-db-relay
+  template:
+    metadata:
+      labels: *id001
+    spec:
+      restartPolicy: Always
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 3
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      imagePullSecrets:
+      - name: acr-pull
+      containers:
+      - name: relay
+        image: aetherp3acr-a0bne7gpetbpdcbq.azurecr.io/aether/p3@sha256:f36cb812773d724cc6d7710320232d7fe20c343fae132c3649b74180b44f4c7f
+        imagePullPolicy: IfNotPresent
+        command:
+        - python
+        - -u
+        - -c
+        - "import socket,threading,select,time\ndef transfer(client,target):\n   \
+          \ try:\n        with client,socket.create_connection(target,timeout=10)\
+          \ as remote:\n            remote.settimeout(None)\n            while True:\n\
+          \                ready,_,_=select.select([client,remote],[],[],60)\n   \
+          \             if not ready: continue\n                for source in ready:\n\
+          \                    data=source.recv(65536)\n                    if not\
+          \ data: return\n                    (remote if source is client else client).sendall(data)\n\
+          \    except OSError: pass\ndef serve(port,host,dest):\n    with socket.socket()\
+          \ as server:\n        server.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)\n\
+          \        server.bind(('0.0.0.0',port)); server.listen()\n        while True:\n\
+          \            client,_=server.accept()\n            threading.Thread(target=transfer,args=(client,(host,dest)),daemon=True).start()\n\
+          for item in [(35432,'postgresp3.postgres.database.azure.com',5432),(36380,'redisp3.redis.cache.windows.net',6380),(39530,'milvus.internal',19530)]:\n\
+          \    threading.Thread(target=serve,args=item,daemon=True).start()\nwhile\
+          \ True: time.sleep(30)\n"
+        resources:
+          requests:
+            cpu: 25m
+            memory: 32Mi
+          limits:
+            cpu: 250m
+            memory: 96Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        ports:
+        - name: pg
+          containerPort: 35432
+        - name: redis
+          containerPort: 36380
+        - name: milvus
+          containerPort: 39530
+        readinessProbe:
+          tcpSocket:
+            port: pg
+          initialDelaySeconds: 2
+          periodSeconds: 5
+        livenessProbe:
+          tcpSocket:
+            port: pg
+          initialDelaySeconds: 10
+          periodSeconds: 15

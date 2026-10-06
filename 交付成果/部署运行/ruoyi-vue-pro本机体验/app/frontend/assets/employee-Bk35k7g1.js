@@ -1,0 +1,1 @@
+import{n as e}from"./employee-Cewgopy7.js";var t=`/hrm/portal/home`,n=`/hrm/portal/opening-guide`;async function r(t){try{return await e()?!0:(await t.replace(n),!1)}catch{return!0}}async function i(n){try{return await e()?(await n.replace(t),!0):!1}catch{return!1}}export{i as n,r as t};

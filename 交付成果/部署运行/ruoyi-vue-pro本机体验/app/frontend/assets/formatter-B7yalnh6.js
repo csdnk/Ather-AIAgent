@@ -1,0 +1,1 @@
+import{_ as e}from"./utils-BZqUPeGF.js";var t=(t,n,r,i)=>`￥${e(r)}`;export{t};

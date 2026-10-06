@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=(t,n)=>{let r={appId:t,code:n};return e.get({url:`/pay/channel/get`,params:r})},n=t=>e.post({url:`/pay/channel/create`,data:t}),r=t=>e.put({url:`/pay/channel/update`,data:t});export{t as n,r,n as t};

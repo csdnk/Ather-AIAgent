@@ -1,0 +1,1 @@
+var e=`/assets/huaixiao-BvJ-JlUT.png`;export{e as default};

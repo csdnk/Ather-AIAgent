@@ -1,0 +1,1 @@
+import{t as e}from"./useI18n-Car1UUIO.js";var{t}=e(),n={required:!0,message:t(`common.required`)};export{n as t};

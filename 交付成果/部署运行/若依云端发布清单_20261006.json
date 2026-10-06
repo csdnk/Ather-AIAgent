@@ -1,0 +1,38 @@
+{
+  "branch": "codex/ruoyi-platform-20261006",
+  "commit": "e91c8875ac1be6be6bb0bdd3a09d296e9e7b0992",
+  "verified_at": "2026-10-06T05:37:02.108000+00:00",
+  "namespace": "aether-p3-demo",
+  "admin_url": "https://aether-p3-demo-c50c3827.southeastasia.cloudapp.azure.com/ruoyi/",
+  "agent_url": "https://aether-p3-demo-c50c3827.southeastasia.cloudapp.azure.com/ruoyi-agent/",
+  "images": {
+    "backend": "aetherp3acr-a0bne7gpetbpdcbq.azurecr.io/aether/ruoyi-backend@sha256:2c6cc6caa820ba4c3e8b48029bac46c2a474f43fcb5edf23dd871df23fc52b04",
+    "frontend": "aetherp3acr-a0bne7gpetbpdcbq.azurecr.io/aether/ruoyi-frontend@sha256:6eb0acb9c1402637982edf238f549a7bd639fdc8e73fbe1b40f1f2f0badf5fc7",
+    "platform": "aetherp3acr-a0bne7gpetbpdcbq.azurecr.io/aether/ruoyi-platform@sha256:e1fd8911b3151aa9e9de238d96f6075d4111d1d7c3efc9300a1bce4d1e5d272d",
+    "p3": "aetherp3acr-a0bne7gpetbpdcbq.azurecr.io/aether/ruoyi-p3@sha256:38b93458fea340ceadc9772ab08706df97934e139b47edece90ce1c7b10ea6ac"
+  },
+  "retired_deployments": [
+    "aether-platform",
+    "aether-agent-p3",
+    "aether-budibase",
+    "aether-keycloak",
+    "aether-platform-db",
+    "temporal-ui"
+  ],
+  "retired_pods": 0,
+  "previous_pvcs_preserved": 12,
+  "release": {
+    "commit": "fca90ed0180bee51256a1e54b60b5e61692975b7",
+    "image_digest": "sha256:e1fd8911b3151aa9e9de238d96f6075d4111d1d7c3efc9300a1bce4d1e5d272d",
+    "deployed_at": "2026-10-06T05:26:52.333545+00:00",
+    "environment": "Azure AKS"
+  },
+  "production_ha_verified": false,
+  "base_release_commit": "fca90ed0180bee51256a1e54b60b5e61692975b7",
+  "frontend_update": {
+    "verified_at": "2026-10-06T05:57:48.475066+00:00",
+    "commit": "e91c8875ac1be6be6bb0bdd3a09d296e9e7b0992",
+    "reason": "Restore permission-controlled administrator tenant switching independently of tenant-free login",
+    "account_status_changed": false
+  }
+}

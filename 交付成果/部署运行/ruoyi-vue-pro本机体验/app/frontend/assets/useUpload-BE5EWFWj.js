@@ -1,0 +1,1 @@
+import{i as e}from"./file-Dzsx0SOp.js";var t=()=>`/admin-api/infra/file/upload`,n=n=>({uploadUrl:t(),httpRequest:async t=>{let r=e=>{let n=Object.assign(e.event);n.percent=e.progress?e.progress*100:0,t.onProgress?.(n)};return new Promise((i,a)=>{e({file:t.file,directory:n},r).then(e=>{e.code===0?i(e):a(e)}).catch(e=>{a(e)})})}});export{n as t};

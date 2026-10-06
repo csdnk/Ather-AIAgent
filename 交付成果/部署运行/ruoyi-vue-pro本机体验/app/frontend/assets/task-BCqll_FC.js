@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t={getOtaTaskPage:async t=>await e.get({url:`/iot/ota/task/page`,params:t}),getOtaTask:async t=>await e.get({url:`/iot/ota/task/get?id=`+t}),createOtaTask:async t=>await e.post({url:`/iot/ota/task/create`,data:t}),cancelOtaTask:async t=>await e.post({url:`/iot/ota/task/cancel?id=`+t})};export{t};

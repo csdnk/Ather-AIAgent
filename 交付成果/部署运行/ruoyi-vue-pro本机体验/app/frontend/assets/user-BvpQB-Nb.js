@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=async t=>await e.get({url:`/member/user/page`,params:t}),n=async t=>await e.get({url:`/member/user/get?id=`+t}),r=async t=>await e.put({url:`/member/user/update`,data:t}),i=async t=>await e.put({url:`/member/user/update-level`,data:t}),a=async t=>await e.put({url:`/member/user/update-point`,data:t});export{a,i,t as n,r,n as t};

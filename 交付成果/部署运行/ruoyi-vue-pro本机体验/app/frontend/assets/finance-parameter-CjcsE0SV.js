@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t={getFinanceParameter:async t=>await e.get({url:`/fms/config/finance-parameter/get`,params:{accountSetId:t}}),updateFinanceParameter:async t=>await e.put({url:`/fms/config/finance-parameter/update`,data:t})};export{t};

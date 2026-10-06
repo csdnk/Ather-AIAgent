@@ -1,0 +1,1 @@
+var e=function(e){return e[e.Follow=1]=`Follow`,e[e.Message=2]=`Message`,e[e.Keyword=3]=`Keyword`,e}({});export{e as t};

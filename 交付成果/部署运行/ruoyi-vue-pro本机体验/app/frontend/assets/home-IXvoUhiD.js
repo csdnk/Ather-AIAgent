@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t={getHomeSummary:async()=>await e.get({url:`/mes/home-statistics/summary`}),getWorkOrderStatusDistribution:async()=>await e.get({url:`/mes/home-statistics/work-order-status`}),getProductionTrend:async t=>await e.get({url:`/mes/home-statistics/production-trend`,params:{days:t}})};export{t};

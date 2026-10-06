@@ -1,0 +1,1 @@
+import{i as e}from"./auth-BxC435RS.js";import{n as t,t as n}from"./useUpload-Dn4QicUw.js";var r={Authorization:`Bearer `+e()},i=`/admin-api/mp/material/upload-permanent`,a=e=>t(n.Image,2)(e),o=e=>t(n.Voice,2)(e),s=e=>t(n.Video,10)(e);export{o as a,s as i,i as n,a as r,r as t};

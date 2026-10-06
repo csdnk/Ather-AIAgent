@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=t=>e.get({url:`/mp/material/page`,params:t}),n=t=>e.delete({url:`/mp/material/delete-permanent?id=`+t});export{t as n,n as t};

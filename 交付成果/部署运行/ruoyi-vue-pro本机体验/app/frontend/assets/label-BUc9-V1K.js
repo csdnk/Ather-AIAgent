@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=t=>e.get({url:`/pms/pm/work-item-label/list`,params:{name:t}}),n=t=>e.post({url:`/pms/pm/work-item-label/create`,data:t}),r=t=>e.put({url:`/pms/pm/work-item-label/update`,data:t}),i=t=>e.delete({url:`/pms/pm/work-item-label/delete`,params:{id:t}});export{r as i,i as n,t as r,n as t};

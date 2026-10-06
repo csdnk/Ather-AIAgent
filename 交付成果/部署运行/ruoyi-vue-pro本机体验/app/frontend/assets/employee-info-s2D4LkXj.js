@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=async t=>await e.get({url:`/hrm/insurance/employee-info/get`,params:{employeeId:t}}),n=async t=>await e.put({url:`/hrm/insurance/employee-info/save`,data:t}),r=async(t,n)=>await e.put({url:`/hrm/insurance/employee-info/update-scheme`,data:{employeeId:t,schemeId:n}});export{n,r,t};

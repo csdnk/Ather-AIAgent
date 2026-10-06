@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=()=>e.get({url:`/system/user/profile/get`}),n=t=>e.put({url:`/system/user/profile/update`,data:t}),r=(t,n)=>e.put({url:`/system/user/profile/update-password`,data:{oldPassword:t,newPassword:n}});export{r as n,n as r,t};

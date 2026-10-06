@@ -1,0 +1,10 @@
+{
+  "backend": {
+    "remote": "https://github.com/YunaiV/ruoyi-vue-pro.git",
+    "commit": "3a6150f544444495a39a14087389fad278be5844"
+  },
+  "frontend": {
+    "remote": "https://github.com/yudaocode/yudao-ui-admin-vue3.git",
+    "commit": "0af03a93b6b6300f878e28add69b1c7a9f09ec34"
+  }
+}

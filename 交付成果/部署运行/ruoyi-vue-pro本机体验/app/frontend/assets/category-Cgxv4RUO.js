@@ -1,0 +1,1 @@
+import{t as e}from"./axios-BBXj9ECu.js";var t=t=>e.post({url:`/product/category/create`,data:t}),n=t=>e.put({url:`/product/category/update`,data:t}),r=t=>e.delete({url:`/product/category/delete?id=${t}`}),i=t=>e.get({url:`/product/category/get?id=${t}`}),a=t=>e.get({url:`/product/category/list`,params:t});export{n as a,a as i,r as n,i as r,t};

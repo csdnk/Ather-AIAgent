@@ -1,0 +1,1 @@
+import{Kr as e,_i as t,di as n,qr as r}from"./form-create-WSkr8cvM.js";function i(){var i=arguments.length;if(!i)return[];for(var a=Array(i-1),o=arguments[0],s=i;s--;)a[s-1]=arguments[s];return r(t(o)?n(o):[o],e(a,1))}export{i as t};

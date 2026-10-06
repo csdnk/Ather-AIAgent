@@ -1,0 +1,70 @@
+name: aether-ruoyi-eval
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ruoyi-vue-pro
+      MYSQL_USER: ruoyi
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./source/backend/sql/mysql/ruoyi-vue-pro.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_PASSWORD mysql -uruoyi -D ruoyi-vue-pro -e 'SELECT COUNT(*) FROM system_users' >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: ["redis-data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+  backend:
+    image: maven:3.9-eclipse-temurin-17
+    restart: unless-stopped
+    working_dir: /app
+    entrypoint: ["java", "-Xms256m", "-Xmx1536m", "-jar", "/app/yudao-server.jar"]
+    environment:
+      TZ: Asia/Shanghai
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATASOURCE_DYNAMIC_DATASOURCE_MASTER_URL: jdbc:mysql://mysql:3306/ruoyi-vue-pro?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true&rewriteBatchedStatements=true
+      SPRING_DATASOURCE_DYNAMIC_DATASOURCE_MASTER_USERNAME: ruoyi
+      SPRING_DATASOURCE_DYNAMIC_DATASOURCE_MASTER_PASSWORD: ${MYSQL_PASSWORD}
+      SPRING_DATASOURCE_DYNAMIC_DATASOURCE_SLAVE_URL: jdbc:mysql://mysql:3306/ruoyi-vue-pro?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
+      SPRING_DATASOURCE_DYNAMIC_DATASOURCE_SLAVE_USERNAME: ruoyi
+      SPRING_DATASOURCE_DYNAMIC_DATASOURCE_SLAVE_PASSWORD: ${MYSQL_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_BOOT_ADMIN_CLIENT_ENABLED: 'false'
+      YUDAO_SECURITY_MOCK_ENABLE: 'false'
+      YUDAO_CAPTCHA_ENABLE: 'false'
+      YUDAO_DEMO: 'false'
+      YUDAO_ACCESS_LOG_ENABLE: 'true'
+      YUDAO_WEB_ADMIN_UI_URL: http://127.0.0.1:18888
+      SPRING_DATASOURCE_DRUID_STAT_VIEW_SERVLET_ENABLED: 'false'
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info
+    volumes:
+      - ./app/yudao-server.jar:/app/yudao-server.jar:ro
+      - backend-data:/root
+    depends_on:
+      mysql: {condition: service_healthy}
+      redis: {condition: service_healthy}
+  web:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["127.0.0.1:18888:80"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./app/frontend:/srv:ro
+    depends_on: [backend]
+volumes:
+  mysql-data:
+  redis-data:
+  backend-data:

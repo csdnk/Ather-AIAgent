@@ -1,0 +1,1 @@
+import{Ca as e,xa as t}from"./form-create-WSkr8cvM.js";import{t as n}from"./Icon-BpqObWSu.js";import"./index-DOvMvYkD.js";e();var r=e=>t(n,e);export{r as t};
