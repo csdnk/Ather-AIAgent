@@ -80,3 +80,45 @@ def test_configured_operator_task_access_does_not_grant_memory_or_trace(foundati
     ledger.periodic_operators = ()
     with pytest.raises(FoundationError), foundation.uow.transaction() as tx:
         authorize_delivery(ledger, tx, row)
+
+
+def test_initial_configuration_activation_uses_absent_version_cas(foundation):  # noqa: F811
+    from aether_agent_memory.runtime.contracts.foundation import ConfigurationSnapshot
+    from aether_agent_memory.runtime.foundation.common import fingerprint, now
+
+    operator = Principal(
+        principal_id="ops",
+        auth_epoch=1,
+        home_scope=Scope(
+            tenant_id="operations", user_id="ops", application_id="app", agent_id="agent"
+        ),
+        permissions=(Permission.CONFIGURE,),
+    )
+    foundation.identity.provision([(sha256(b"ops").hexdigest(), operator)])
+    foundation.lifecycle.operators = ("ops",)
+    ctx = foundation.identity.context("ops")
+
+    def snapshot(version):
+        value = ConfigurationSnapshot(
+            version=version,
+            config_hash="0" * 64,
+            deployment_id="test",
+            provider_ids=("postgres",),
+            policy_versions=("policy-v1",),
+            activated_at=now(),
+        )
+        return value.model_copy(
+            update={
+                "config_hash": fingerprint(
+                    value.model_dump(mode="json", exclude={"config_hash", "activated_at"})
+                )
+            }
+        )
+
+    assert foundation.lifecycle.configuration(ctx) is None
+    foundation.lifecycle.activate(ctx, snapshot("v1"), expected_version=None)
+    with pytest.raises(FoundationError):
+        foundation.lifecycle.activate(ctx, snapshot("v2"), expected_version=None)
+    assert foundation.lifecycle.configuration(ctx).version == "v1"
+    foundation.lifecycle.activate(ctx, snapshot("v2"), expected_version="v1")
+    assert foundation.lifecycle.configuration(ctx).version == "v2"

@@ -140,3 +140,18 @@ def test_task_projection_preserves_control_revision_and_failure_metadata():
         "effect_status": "unknown",
     }
     assert result["next_cursor"] == "cursor-2"
+
+
+def test_first_configuration_snapshot_accepts_absent_previous_version():
+    from aether_platform.operations.service import Operations
+
+    command = Command(
+        command_id="first-config-1",
+        resource="configuration",
+        action="activate",
+        expected_version=None,
+        parameters={"snapshot": {"version": "v1"}},
+    )
+    Operations._validate(command)
+    with pytest.raises(ValueError):
+        Operations._validate(command.model_copy(update={"expected_version": 12}))

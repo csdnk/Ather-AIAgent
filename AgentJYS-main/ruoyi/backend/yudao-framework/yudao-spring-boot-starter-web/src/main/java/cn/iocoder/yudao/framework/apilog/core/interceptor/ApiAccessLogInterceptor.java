@@ -43,14 +43,8 @@ public class ApiAccessLogInterceptor implements HandlerInterceptor {
 
         // 打印 request 日志
         if (!SpringUtils.isProd()) {
-            Map<String, String> queryString = ServletUtils.getParamMap(request);
-            String requestBody = ServletUtils.getBody(request);
-            if (CollUtil.isEmpty(queryString) && StrUtil.isEmpty(requestBody)) {
-                log.info("[preHandle][开始请求 URL({}) 无参数]", request.getRequestURI());
-            } else {
-                log.info("[preHandle][开始请求 URL({}) 参数({})]", request.getRequestURI(),
-                        StrUtil.blankToDefault(requestBody, queryString.toString()));
-            }
+            // Debug profiles include cloud. Never print request bodies or query values.
+            log.info("[preHandle][开始请求 URL({})]", request.getRequestURI());
             // 计时
             StopWatch stopWatch = new StopWatch();
             stopWatch.start();

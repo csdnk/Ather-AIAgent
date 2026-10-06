@@ -352,6 +352,12 @@ def create_app(
             detail="Manual RF cycles are retired; use the Temporal periodic workflow",
         )
 
+    @app.get("/p3/configuration", response_model=ConfigurationSnapshot | None)
+    def current_configuration(
+        ctx: TrustedContext = trusted_dependency,
+    ) -> ConfigurationSnapshot | None:
+        return runtime.foundation.lifecycle.configuration(ctx)
+
     @app.put("/p3/configuration", response_model=ConfigurationSnapshot)
     def configure(
         request: ConfigurationRequest, ctx: TrustedContext = trusted_dependency

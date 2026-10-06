@@ -93,12 +93,15 @@ public class ApiAccessLogFilter extends ApiRequestFilter {
             }
             apiAccessLogApi.createApiAccessLogAsync(accessLog);
         } catch (Throwable th) {
-            log.error("[createApiAccessLog][url({}) log({}) 发生异常]", request.getRequestURI(), toJsonString(accessLog), th);
+            log.error("[createApiAccessLog][记录失败 type({})]", th.getClass().getName());
         }
     }
 
     private boolean buildApiAccessLog(ApiAccessLogCreateReqDTO accessLog, HttpServletRequest request, LocalDateTime beginTime,
                                       Map<String, String> queryString, String requestBody, Exception ex) {
+        String path = request.getRequestURI();
+        boolean sensitive = path.contains("/aether/") || path.contains("/system/")
+                || path.contains("/infra/file-config/");
         // 判断：是否要记录操作日志
         HandlerMethod handlerMethod = (HandlerMethod) request.getAttribute(ATTRIBUTE_HANDLER_METHOD);
         ApiAccessLog accessLogAnnotation = null;
@@ -118,24 +121,24 @@ public class ApiAccessLogFilter extends ApiRequestFilter {
             accessLog.setResultCode(result.getCode()).setResultMsg(result.getMsg());
         } else if (ex != null) {
             accessLog.setResultCode(GlobalErrorCodeConstants.INTERNAL_SERVER_ERROR.getCode())
-                    .setResultMsg(ExceptionUtil.getRootCauseMessage(ex));
+                    .setResultMsg(sensitive ? ex.getClass().getName() : ExceptionUtil.getRootCauseMessage(ex));
         } else {
             accessLog.setResultCode(GlobalErrorCodeConstants.SUCCESS.getCode()).setResultMsg("");
         }
         // 设置请求字段
         accessLog.setTraceId(TracerUtils.getTraceId()).setApplicationName(applicationName)
                 .setRequestUrl(request.getRequestURI()).setRequestMethod(request.getMethod())
-                .setUserAgent(ServletUtils.getUserAgent(request)).setUserIp(ServletUtils.getClientIP(request));
+                .setUserAgent(sensitive ? "" : ServletUtils.getUserAgent(request)).setUserIp(ServletUtils.getClientIP(request));
         String[] sanitizeKeys = accessLogAnnotation != null ? accessLogAnnotation.sanitizeKeys() : null;
         Boolean requestEnable = accessLogAnnotation != null ? accessLogAnnotation.requestEnable() : Boolean.TRUE;
-        if (!BooleanUtil.isFalse(requestEnable)) { // 默认记录，所以判断 !false
+        if (!sensitive && !BooleanUtil.isFalse(requestEnable)) { // Sensitive endpoints record metadata only.
             Map<String, Object> requestParams = MapUtil.<String, Object>builder()
                     .put("query", sanitizeMap(queryString, sanitizeKeys))
                     .put("body", sanitizeJson(requestBody, sanitizeKeys)).build();
             accessLog.setRequestParams(toJsonString(requestParams));
         }
         Boolean responseEnable = accessLogAnnotation != null ? accessLogAnnotation.responseEnable() : Boolean.FALSE;
-        if (BooleanUtil.isTrue(responseEnable)) { // 默认不记录，默认强制要求 true
+        if (!sensitive && BooleanUtil.isTrue(responseEnable)) { // 默认不记录，默认强制要求 true
             accessLog.setResponseBody(sanitizeJson(result, sanitizeKeys));
         }
         // 持续时间
@@ -203,8 +206,8 @@ public class ApiAccessLogFilter extends ApiRequestFilter {
             return JsonUtils.toJsonString(rootNode);
         } catch (Exception e) {
             // 脱敏失败的情况下，直接忽略异常，避免影响用户请求
-            log.error("[sanitizeJson][脱敏({}) 发生异常]", jsonString, e);
-            return jsonString;
+            log.warn("[sanitizeJson][内容省略 type({})]", e.getClass().getName());
+            return null;
         }
     }
 
@@ -219,8 +222,8 @@ public class ApiAccessLogFilter extends ApiRequestFilter {
             return JsonUtils.toJsonString(rootNode);
         } catch (Exception e) {
             // 脱敏失败的情况下，直接忽略异常，避免影响用户请求
-            log.error("[sanitizeJson][脱敏({}) 发生异常]", jsonString, e);
-            return jsonString;
+            log.warn("[sanitizeJson][内容省略 type({})]", e.getClass().getName());
+            return null;
         }
     }
 

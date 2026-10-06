@@ -209,3 +209,31 @@ def test_backup_original_receipt_recovers_committed_result_without_execution(sto
     assert record["status"] == "complete" and record["result"] == result
     assert ops.command_status(actor(), "token", cmd.command_id)["items"][0]["status"] == "complete"
     assert store.records(actor(), "backups")["items"][0]["version"] == 1
+
+
+def test_configuration_timeout_reconciles_original_snapshot_without_reactivation(store):
+    from aether_platform.operations.service import Operations
+    from aether_platform.p3 import P3Error
+
+    ops = Operations({}, store.directory)
+    snapshot = {"version": "v1", "config_hash": "a" * 64, "activated_at": "2026-10-06"}
+    command = Command(
+        command_id="config-timeout-1",
+        resource="configuration",
+        action="activate",
+        parameters={"snapshot": snapshot},
+    )
+    calls = []
+
+    def remote(actor, token, method, path, **kwargs):
+        calls.append(method)
+        if method == "PUT":
+            raise P3Error("CONNECTION_UNCONFIRMED")
+        return snapshot
+
+    ops.p3_call = remote
+    assert ops.command(actor(), "token", command)["status"] == "unknown"
+    assert (
+        ops.command_status(actor(), "token", command.command_id)["items"][0]["status"] == "complete"
+    )
+    assert calls == ["PUT", "GET"]

@@ -26,6 +26,13 @@
     <div class="metadata"
       ><span>采集时间 {{ displayValue(data.observed_at) }}</span
       ><span>记录 {{ data.total ?? '未知' }}</span
+      ><span v-if="resource === 'configuration'"
+        >当前 P3 配置版本
+        {{
+          data.current_status === 'available'
+            ? (data.active_snapshot?.version ?? '尚未激活')
+            : '无法读取当前配置'
+        }}</span
       ><span v-if="data.window">统计窗口 {{ data.window }}</span></div
     >
     <div class="toolbar actions">
@@ -47,7 +54,7 @@
         >
         <el-button
           v-if="resource === 'configuration'"
-          :disabled="blocked"
+          :disabled="blocked || data.current_status !== 'available'"
           @click="openAction('activate')"
           >激活 P3 配置快照</el-button
         >
@@ -239,7 +246,12 @@
         /></el-form-item>
         <template v-if="action === 'activate'"
           ><el-form-item label="当前 P3 配置版本"
-            ><el-input v-model="form.expected_version" /></el-form-item
+            ><el-input
+              :model-value="form.expected_version ?? ''"
+              placeholder="尚未激活时留空"
+              @update:model-value="
+                form.expected_version = $event === '' ? null : $event
+              " /></el-form-item
           ><el-form-item label="新配置快照（JSON）"
             ><el-input v-model="snapshot" type="textarea" :rows="8" /></el-form-item
         ></template>
@@ -454,16 +466,21 @@ function editRecord(row?: any) {
   dialog.value = true
 }
 function openAction(value: string, row?: any) {
+  if (value === 'activate' && data.value.current_status !== 'available') return
   action.value = value
   editing.value = !!row
   form.target_id = row?.task_id || row?.id || ''
-  form.expected_version = row?.revision ?? row?.version ?? null
+  form.expected_version =
+    value === 'activate'
+      ? (data.value.active_snapshot?.version ?? null)
+      : (row?.revision ?? row?.version ?? null)
   form.parameters = value === 'silence' ? { note: '', minutes: 30 } : {}
   snapshot.value = ''
   dialog.value = true
 }
 async function submit() {
   if (blocked.value || !form.target_id.trim()) return
+  if (action.value === 'activate' && data.value.current_status !== 'available') return
   submitting.value = true
   error.value = ''
   try {

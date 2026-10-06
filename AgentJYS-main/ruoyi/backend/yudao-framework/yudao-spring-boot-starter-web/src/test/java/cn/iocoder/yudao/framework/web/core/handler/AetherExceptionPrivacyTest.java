@@ -57,6 +57,54 @@ class AetherExceptionPrivacyTest {
         assertFalse(response.getMsg().contains(SENTINEL));
         assertSafeLogs();
     }
+    @Test void debugAccessInterceptorDoesNotLogRequestCredentials() {
+        var accessLogger = (Logger) LoggerFactory.getLogger(cn.iocoder.yudao.framework.apilog.core.interceptor.ApiAccessLogInterceptor.class);
+        var accessEvents = new ListAppender<ILoggingEvent>();
+        accessEvents.start();
+        accessLogger.addAppender(accessEvents);
+        try (var spring = mockStatic(cn.iocoder.yudao.framework.common.util.spring.SpringUtils.class)) {
+            spring.when(cn.iocoder.yudao.framework.common.util.spring.SpringUtils::isProd).thenReturn(false);
+            var interceptor = new cn.iocoder.yudao.framework.apilog.core.interceptor.ApiAccessLogInterceptor();
+            var request = new MockHttpServletRequest("POST", "/admin-api/aether/identity/login");
+            request.setContentType("application/json");
+            request.setContent(("{\"password\":\"" + SENTINEL + "\"}").getBytes());
+            request.addParameter("refresh_token", SENTINEL);
+            var response = new org.springframework.mock.web.MockHttpServletResponse();
+            assertTrue(interceptor.preHandle(request, response, null));
+            interceptor.afterCompletion(request, response, null, null);
+            assertFalse(accessEvents.list.isEmpty());
+            for (var event : accessEvents.list) {
+                assertFalse(event.getFormattedMessage().contains(SENTINEL));
+                assertNull(event.getThrowableProxy());
+            }
+        } finally {
+            accessLogger.detachAppender(accessEvents);
+            accessEvents.stop();
+        }
+    }
+    @Test void nativeAccessLogOmitsSensitiveFormTokensAndMalformedPayloads() {
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                cn.iocoder.yudao.framework.web.core.util.WebFrameworkUtils.class, "properties",
+                new cn.iocoder.yudao.framework.web.config.WebProperties());
+        var filter = new cn.iocoder.yudao.framework.apilog.core.filter.ApiAccessLogFilter(
+                new cn.iocoder.yudao.framework.web.config.WebProperties(), "test",
+                mock(cn.iocoder.yudao.framework.common.biz.infra.logger.ApiAccessLogCommonApi.class));
+        var dto = new cn.iocoder.yudao.framework.common.biz.infra.logger.dto.ApiAccessLogCreateReqDTO();
+        var request = new MockHttpServletRequest("POST", "/admin-api/system/oauth2/token");
+        request.addHeader("User-Agent", SENTINEL);
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(filter, "buildApiAccessLog", dto,
+                request, java.time.LocalDateTime.now(), Map.of("client_secret", SENTINEL, "refresh_token", SENTINEL),
+                "{malformed: " + SENTINEL, new IllegalStateException(SENTINEL));
+        assertFalse(String.valueOf(dto.getRequestParams()).contains(SENTINEL));
+        assertFalse(String.valueOf(dto.getUserAgent()).contains(SENTINEL));
+        assertFalse(String.valueOf(dto.getResultMsg()).contains(SENTINEL));
+    }
+    @Test void wrappedNativeRejectionKeepsItsBusinessCode() {
+        var request = new MockHttpServletRequest("POST", "/admin-api/aether/identity/login");
+        var cause = new cn.iocoder.yudao.framework.common.exception.ServiceException(1002000001, "disabled");
+        assertEquals(1002000001, handler.defaultExceptionHandler(request, new RuntimeException(cause)).getCode());
+        verifyNoInteractions(api);
+    }
     @Test void sensitiveEndpointErrorDoesNotPersistPayloadOrExceptionValues() throws Exception {
         for (String path : new String[]{"/admin-api/aether/identity/login", "/admin-api/aether/ops/commands", "/admin-api/system/auth/login"}) {
             var request = new MockHttpServletRequest("POST", path);

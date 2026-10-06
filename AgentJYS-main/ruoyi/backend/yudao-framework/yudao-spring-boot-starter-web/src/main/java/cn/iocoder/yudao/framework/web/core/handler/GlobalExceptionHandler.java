@@ -321,6 +321,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(value = Exception.class)
     public CommonResult<?> defaultExceptionHandler(HttpServletRequest req, Throwable ex) {
+        if (ex.getCause() instanceof ServiceException serviceException) {
+            return serviceExceptionHandler(serviceException);
+        }
         // Identity, native administration and Aether commands can carry credentials.
         // Access-log annotations do not cover this separate exception-log path.
         if (isSensitiveRequest(req)) {
@@ -330,9 +333,6 @@ public class GlobalExceptionHandler {
         }
         // 特殊：如果是 ServiceException 的异常，则直接返回
         // 例如说：https://gitee.com/zhijiantianya/yudao-cloud/issues/ICSSRM、https://gitee.com/zhijiantianya/yudao-cloud/issues/ICT6FM
-        if (ex.getCause() != null && ex.getCause() instanceof ServiceException) {
-            return serviceExceptionHandler((ServiceException) ex.getCause());
-        }
 
         // 情况一：处理表不存在的异常
         CommonResult<?> tableNotExistsResult = handleTableNotExists(ex);

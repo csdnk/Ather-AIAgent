@@ -136,6 +136,13 @@ class Operations:
                 result["scope_note"] = (
                     "运维配置记录与 P3 配置快照版本；激活快照不等同模型、存储等运行参数热更新"
                 )
+                try:
+                    result["active_snapshot"] = self.p3_call(
+                        actor, token, "GET", "/p3/configuration"
+                    )
+                    result["current_status"] = "available"
+                except P3Error as exc:
+                    result.update(active_snapshot=None, current_status="unavailable", code=exc.code)
             if resource == "backups":
                 result["executor_status"] = (
                     "configured"
@@ -220,6 +227,25 @@ class Operations:
         record = self.store.command_record(actor, command_id)
         if not record:
             raise HTTPException(404, "没有此操作")
+        if (
+            record["resource"] == "configuration"
+            and record["action"] == "activate"
+            and record["status"] in {"submitted", "unknown"}
+            and record["result"].get("desired_version")
+        ):
+            try:
+                current = self.p3_call(actor, token, "GET", "/p3/configuration")
+                if current and (current.get("version"), current.get("config_hash")) == (
+                    record["result"]["desired_version"],
+                    record["result"]["desired_hash"],
+                ):
+                    record = self.store.finish(
+                        command_id,
+                        "complete",
+                        {k: current.get(k) for k in ("version", "config_hash", "activated_at")},
+                    )
+            except P3Error:
+                pass
         if record["resource"] == "backups" and record["status"] in {"submitted", "unknown"}:
             from aether_platform.operations.backups import BackupExecutor
 
@@ -319,7 +345,15 @@ class Operations:
             if not 1 <= int(command.parameters.get("minutes", 30)) <= 1440:
                 raise ValueError("Invalid silence duration")
         elif command.resource == "configuration" and command.action == "activate":
-            if set(command.parameters) != {"snapshot"} or command.expected_version is None:
+            if not isinstance(command.parameters.get("snapshot"), dict):
+                raise ValueError("Configuration snapshot must be an object")
+            if set(command.parameters) != {"snapshot"} or (
+                command.expected_version is not None
+                and (
+                    not isinstance(command.expected_version, str)
+                    or not 1 <= len(command.expected_version) <= 128
+                )
+            ):
                 raise ValueError("Configuration snapshot and current version required")
         elif command.resource == "backups" and command.action in {"create", "restore_drill"}:
             if command.parameters or not command.target_id:
@@ -369,6 +403,7 @@ class Operations:
 
     def command(self, actor, token, command: Command):
         admitted = False
+        recovery_evidence = {}
         try:
             self._validate(command)
             if (command.resource in RECORD_FIELDS and command.action == "save") or (
@@ -405,6 +440,12 @@ class Operations:
                     if k in {"operation_id", "state", "phase", "revision", "task_ids", "outcome"}
                 }
             elif command.resource == "configuration":
+                snapshot = command.parameters["snapshot"]
+                recovery_evidence = {
+                    "desired_version": snapshot.get("version"),
+                    "desired_hash": snapshot.get("config_hash"),
+                }
+                self.store.finish(command.command_id, "submitted", recovery_evidence)
                 result = self.p3_call(
                     actor,
                     token,
@@ -434,7 +475,9 @@ class Operations:
                 if exc.code in {"CONNECTION_UNCONFIRMED", "REQUEST_IN_PROGRESS", "INVALID_RESPONSE"}
                 else "failed"
             )
-            return self.store.finish(command.command_id, status, {"code": exc.code})
+            return self.store.finish(
+                command.command_id, status, {"code": exc.code, **recovery_evidence}
+            )
         except PermissionError:
             if admitted:
                 self.store.finish(command.command_id, "failed", {"code": "FORBIDDEN"})
