@@ -164,6 +164,7 @@ class Diagnostics:
                     key: row["record"][key]
                     for key in (
                         "task_id",
+                        "revision",
                         "kind",
                         "owner_flow",
                         "state",

@@ -40,6 +40,7 @@ def jwt_issuer_policy_hash(config: dict[str, Any]) -> str:
 class Identity:
     def __init__(self, uow: MetadataUnitOfWork, clock: Callable[[], str] = now) -> None:
         self.uow, self.clock = uow, clock
+        self.ruoyi_revalidate: Callable[[Any, dict[str, Any], TrustedContext], None] | None = None
 
     def provision(
         self,
@@ -50,6 +51,7 @@ class Identity:
         jwt_subjects: Sequence[tuple[str, str, str]] = (),
         jwt_issuers: Sequence[dict[str, object]] = (),
         configuration_revision: int | None = None,
+        ruoyi_policy: str | None = None,
     ) -> None:
         """Trusted deployment operation. Digests, not API secrets, are persisted.
 
@@ -104,6 +106,8 @@ class Identity:
             # Keep the signature of pre-JWT deployments stable on upgrade.
             if normalized_subjects or issuer_data:
                 configuration.update(jwt_subjects=normalized_subjects, jwt_issuers=issuer_data)
+            if ruoyi_policy is not None:
+                configuration["ruoyi_policy"] = ruoyi_policy
             if configuration_revision is not None:
                 previous_config = tx.read("settings", "identity_revision")
                 signature = fingerprint(configuration)
@@ -175,6 +179,8 @@ class Identity:
                 )
             present = {p.principal_id for _, p in principals}
             for key, value in old.items():
+                if value.get("ruoyi_source") and value.get("ruoyi_policy") == ruoyi_policy:
+                    continue
                 source = value.get("directory_source")
                 if (
                     source
@@ -345,10 +351,18 @@ class Identity:
             not current
             or not current["enabled"]
             or current["principal"] != ctx.principal.model_dump(mode="json")
-            or (tenants is not None and not tenants.get(ctx.principal.home_scope.tenant_id, False))
+            or (
+                not current.get("ruoyi_source")
+                and tenants is not None
+                and not tenants.get(ctx.principal.home_scope.tenant_id, False)
+            )
         ):
             sql.abort(ErrorCode.FORBIDDEN, "principal revoked or changed")
         self._check_directory(tx, current)
+        if current.get("ruoyi_source"):
+            if self.ruoyi_revalidate is None:
+                raise FoundationError(ErrorCode.FORBIDDEN, "Ruoyi authority is not configured")
+            self.ruoyi_revalidate(tx, current, ctx)
         if self.clock() >= ctx.deadline_at:
             sql.abort(ErrorCode.DEADLINE_EXCEEDED, "request deadline expired")
 
@@ -375,6 +389,25 @@ class Identity:
         logical = target.model_copy(update={"version": None})
         return self.permits(tx, ctx, Permission.READ, logical)
 
+    def is_maintenance_operator(
+        self,
+        tx: Transaction,
+        ctx: TrustedContext,
+        permission: Permission,
+        operators: tuple[str, ...],
+    ) -> bool:
+        """Legacy explicit operators or live Ruoyi grants in the dedicated ops scope."""
+        self.revalidate(tx, ctx)
+        if permission not in {Permission.DIAGNOSE, Permission.RECOVER, Permission.CONFIGURE}:
+            return False
+        if permission not in ctx.principal.permissions:
+            return False
+        row = native(tx).read("identities", ctx.principal.principal_id) or {}
+        return ctx.principal.principal_id in operators or bool(
+            row.get("ruoyi_source")
+            and ctx.principal.home_scope.tenant_id == "aether_platform_operations"
+        )
+
     def permits_task_maintenance(
         self,
         tx: Transaction,
@@ -388,11 +421,8 @@ class Identity:
         This must never authorize memory bodies, traces, arbitrary object reads,
         or request-supplied references. Callers load the actual task first.
         """
-        self.revalidate(tx, ctx)
-        if (
-            ctx.principal.principal_id in operators
-            and permission in {Permission.DIAGNOSE, Permission.RECOVER}
-            and permission in ctx.principal.permissions
+        if permission in {Permission.DIAGNOSE, Permission.RECOVER} and self.is_maintenance_operator(
+            tx, ctx, permission, operators
         ):
             return True
         return self.permits(tx, ctx, permission, task.subject)

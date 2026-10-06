@@ -1,7 +1,7 @@
 """Explicit, versioned deployment configuration for the complete P3 runtime."""
 
 from pathlib import Path
-from typing import Literal, Self
+from typing import Any, Literal, Self
 from urllib.parse import urlsplit
 
 import yaml
@@ -121,9 +121,24 @@ class IdentityConfiguration(ContractModel):
     identities: tuple[IdentityEntry, ...]
     grants: tuple[AuthorizationGrant, ...] = ()
     jwt_issuers: tuple[JWTIssuerConfiguration, ...] = ()
+    ruoyi: dict[str, Any] | None = None
 
     @model_validator(mode="after")
     def bound_tenants(self) -> Self:
+        if self.ruoyi is not None:
+            from aether_platform.auth.ruoyi import validate_ruoyi_config
+
+            validate_ruoyi_config(self.ruoyi)
+            if self.jwt_issuers or not self.ruoyi.get("role_permissions"):
+                raise ValueError("Ruoyi mode requires role permission ceilings and no JWT issuers")
+            for permissions in self.ruoyi["role_permissions"].values():
+                for permission in permissions:
+                    Permission(permission)
+            mapped = {item.get("principal_id") for item in self.ruoyi.get("mappings", [])}
+            if mapped.intersection(entry.principal.principal_id for entry in self.identities):
+                raise ValueError(
+                    "Ruoyi mapped principals must not have independent static identities"
+                )
         tenant_ids = [tenant.tenant_id for tenant in self.tenants]
         if len(tenant_ids) != len(set(tenant_ids)):
             raise ValueError("duplicate business tenant")

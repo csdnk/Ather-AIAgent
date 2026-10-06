@@ -97,10 +97,8 @@ class ControlAdmission:
         return self.persist(tx, ctx, request, signature, task.subject, binding, job_id, "task")
 
     def periodic_snapshot(self, tx: MetadataTransaction, ctx: TrustedContext) -> dict[str, Any]:
-        self.tasks.identity.revalidate(tx, ctx)
-        if (
-            ctx.principal.principal_id not in self.ledger.periodic_operators
-            or Permission.CONFIGURE not in ctx.principal.permissions
+        if not self.tasks.identity.is_maintenance_operator(
+            tx, ctx, Permission.CONFIGURE, self.ledger.periodic_operators
         ):
             tx.abort(ErrorCode.FORBIDDEN, "configured deployment operator required")
         row = tx.read("temporal_periodic_binding", self.ledger.config.deployment_id)
@@ -226,9 +224,8 @@ def authorize_delivery(
         authorize_task(ledger, tx, ctx, task)
     else:
         ledger.tasks.identity.authorize(tx, ctx, Permission.RECOVER, subject)
-    if row["target"] == "periodic" and (
-        ctx.principal.principal_id not in ledger.periodic_operators
-        or Permission.CONFIGURE not in ctx.principal.permissions
+    if row["target"] == "periodic" and not ledger.tasks.identity.is_maintenance_operator(
+        tx, ctx, Permission.CONFIGURE, ledger.periodic_operators
     ):
         tx.abort(ErrorCode.FORBIDDEN, "deployment operator no longer authorized")
 

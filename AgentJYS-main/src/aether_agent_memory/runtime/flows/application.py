@@ -193,6 +193,7 @@ class Service:
         self.keycloak_directory = KeycloakDirectory(self.runtime.foundation.identity)
         self.closers.append(self.keycloak_directory.close)
         self.jwt_auth = JWTAuthenticator()
+        self.ruoyi_auth = None
         self.closers.append(self.jwt_auth.close)
         self.tracing_provider = configure_tracing(
             self.runtime.foundation.telemetry,
@@ -300,6 +301,10 @@ class Service:
                     )
 
     def reload_identity(self) -> None:
+        from aether_agent_memory.runtime.foundation.common import fingerprint
+
+        from .ruoyi_auth import RuoyiAuthenticator
+
         raw = self.config.identity_file.read_bytes()
         if raw == self.identity_hash:
             return
@@ -319,7 +324,20 @@ class Service:
             ],
             jwt_issuers=[issuer.model_dump(mode="json") for issuer in config.jwt_issuers],
             configuration_revision=config.revision,
+            ruoyi_policy=fingerprint(config.ruoyi) if config.ruoyi is not None else None,
         )
+        old_ruoyi = self.ruoyi_auth
+        self.ruoyi_auth = (
+            RuoyiAuthenticator(self.runtime.foundation.identity, config.ruoyi)
+            if config.ruoyi is not None
+            else None
+        )
+        if self.ruoyi_auth is not None:
+            self.closers.append(self.ruoyi_auth.close)
+        else:
+            self.runtime.foundation.identity.ruoyi_revalidate = None
+        if old_ruoyi is not None:
+            old_ruoyi.close()
         self.jwt_auth.configure(config.jwt_issuers)
         self.keycloak_directory.configure(config.jwt_issuers)
         self.identity_hash = raw
@@ -380,6 +398,7 @@ class Service:
             execution=self.execution,
             close=self.close,
             jwt_auth=self.jwt_auth,
+            ruoyi_auth=lambda: self.ruoyi_auth,
             browser_identity=self.config.browser_identity,
             request_timeout_seconds=getattr(self.config, "request_timeout_seconds", 60),
         )

@@ -67,6 +67,7 @@ def create_app(
     close: Any = None,
     execution: Any = None,
     jwt_auth: JWTAuthenticator | None = None,
+    ruoyi_auth: Any = None,
     browser_identity: BrowserIdentityConfiguration | None = None,
     request_timeout_seconds: float = 60,
 ) -> FastAPI:
@@ -109,12 +110,17 @@ def create_app(
         if not authorization or not authorization.startswith("Bearer "):
             raise FoundationError(ErrorCode.UNAUTHENTICATED, "bearer credential required")
         identity = runtime.foundation.identity
-        try:
-            principal = identity.authenticate(authorization[7:])
-        except FoundationError as error:
-            if error.code != ErrorCode.UNAUTHENTICATED or jwt_auth is None:
-                raise
-            principal = jwt_auth.authenticate(identity, authorization[7:], x_p3_tenant)
+        authority = ruoyi_auth() if callable(ruoyi_auth) else ruoyi_auth
+        if authority is not None:
+            # In Ruoyi mode no public request may fall back to a static service token.
+            principal = authority.authenticate(identity, authorization[7:], x_p3_tenant)
+        else:
+            try:
+                principal = identity.authenticate(authorization[7:])
+            except FoundationError as error:
+                if error.code != ErrorCode.UNAUTHENTICATED or jwt_auth is None:
+                    raise
+                principal = jwt_auth.authenticate(identity, authorization[7:], x_p3_tenant)
         if x_p3_tenant is not None and principal.home_scope.tenant_id != x_p3_tenant:
             raise FoundationError(ErrorCode.FORBIDDEN, "tenant selector cannot expand membership")
         trusted = identity.context_for_principal(
@@ -125,6 +131,8 @@ def create_app(
             trace_id=request.state.trace_id,
             span_id=request.state.span_id,
         )
+        if authority is not None:
+            authority.bind_context(trusted, authorization[7:])
         request.state.context = trusted
         return trusted
 

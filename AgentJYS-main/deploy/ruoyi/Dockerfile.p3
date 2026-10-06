@@ -1,0 +1,18 @@
+# The existing immutable P3 release supplies verified CPU/ONNX/Temporal/provider dependencies.
+# Application source is baked into the new image; no PVC source or dependency injection.
+FROM aetherp3acr-a0bne7gpetbpdcbq.azurecr.io/aether/p3@sha256:f36cb812773d724cc6d7710320232d7fe20c343fae132c3649b74180b44f4c7f
+COPY pyproject.toml /app/pyproject.toml
+RUN python - <<'PY'
+import pathlib, tomllib
+p = tomllib.loads(pathlib.Path('/app/pyproject.toml').read_text())['project']
+requirements = list(p['dependencies'])
+for extra in ('embedding-onnx', 'resource-documents', 'remember-ceph'):
+    requirements.extend(p['optional-dependencies'][extra])
+pathlib.Path('/tmp/ruoyi-p3-requirements.txt').write_text('\n'.join(requirements) + '\n')
+PY
+RUN pip install --no-cache-dir -r /tmp/ruoyi-p3-requirements.txt && pip check
+COPY src /app/src
+ENV PYTHONPATH=/app/src PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 TOKENIZERS_PARALLELISM=false OMP_NUM_THREADS=2
+USER 10001:10001
+EXPOSE 8080
+CMD ["python", "-m", "aether_agent_memory", "serve", "--config", "/config/service.yaml"]

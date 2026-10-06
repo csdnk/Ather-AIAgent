@@ -1,0 +1,13 @@
+FROM maven:3.9-eclipse-temurin-17 AS build
+WORKDIR /build
+COPY ruoyi/backend/ ./
+RUN --mount=type=cache,target=/root/.m2 mvn -B -ntp -DskipTests package
+
+FROM eclipse-temurin:17-jre-jammy
+WORKDIR /app
+COPY --from=build --chown=10001:10001 /build/yudao-server/target/yudao-server.jar /app/server.jar
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=70 -Djava.io.tmpdir=/tmp"
+USER 10001:10001
+EXPOSE 48080
+ENTRYPOINT ["java", "-jar", "/app/server.jar"]
+CMD ["--spring.profiles.active=cloud", "--spring.config.additional-location=file:/config/application-cloud.yaml"]

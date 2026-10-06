@@ -1,0 +1,8 @@
+**
+!ruoyi/
+!ruoyi/backend/
+!ruoyi/backend/**
+**/target/
+**/.git/
+**/.idea/
+**/*.private.*

@@ -1,0 +1,6 @@
+**
+!pyproject.toml
+!src/
+!src/**
+**/__pycache__/
+**/*.private.*

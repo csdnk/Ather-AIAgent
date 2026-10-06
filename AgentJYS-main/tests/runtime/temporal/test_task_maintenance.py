@@ -41,6 +41,7 @@ def test_configured_operator_task_access_does_not_grant_memory_or_trace(foundati
     page = foundation.diagnostics.tasks_page(ctx, PageRequest())
     assert [i["task_id"] for i in page["items"]] == [job.job_id]
     assert page["items"][0]["trace_id"] is None
+    assert page["items"][0]["revision"] == foundation.diagnostics.task(ctx, job.job_id).revision
     assert foundation.diagnostics.task(ctx, job.job_id).task_id == job.job_id
     assert foundation.tasks.progress.read(ctx, job.job_id)["stages"] == []
     with pytest.raises(FoundationError):

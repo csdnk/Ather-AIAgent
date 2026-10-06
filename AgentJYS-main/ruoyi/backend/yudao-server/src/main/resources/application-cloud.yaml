@@ -1,0 +1,83 @@
+# Candidate cloud profile. Secrets are environment values supplied by the deployment Secret.
+server:
+  port: 48080
+spring:
+  datasource:
+    druid:
+      web-stat-filter:
+        enabled: false
+      stat-view-servlet:
+        enabled: false
+      filter:
+        stat:
+          log-slow-sql: false
+    dynamic:
+      primary: master
+      datasource:
+        master:
+          name: ruoyi
+          url: ${RUOYI_JDBC_URL}
+          username: ${RUOYI_DB_USER}
+          password: ${RUOYI_DB_PASSWORD}
+          driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${RUOYI_REDIS_HOST}
+      port: ${RUOYI_REDIS_PORT:6379}
+      password: ${RUOYI_REDIS_PASSWORD:}
+      database: ${RUOYI_REDIS_DATABASE:0}
+  quartz:
+    auto-startup: false
+    job-store-type: memory
+  boot:
+    admin:
+      context-path: /admin
+      client:
+        enabled: false
+  main:
+    lazy-initialization: false
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+knife4j:
+  enable: false
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+yudao:
+  web:
+    admin-ui:
+      url: ${RUOYI_ADMIN_UI_URL:http://localhost/ruoyi/}
+  security:
+    mock-enable: false
+  demo: false
+  captcha:
+    enable: false
+  tenant:
+    enable: true
+    ignore-visit-urls:
+      - /admin-api/system/user/profile/**
+      - /admin-api/system/auth/**
+      - /admin-api/aether/**
+  sms-code:
+    begin-code: 1000
+    end-code: 9999
+aether:
+  ops:
+    base-url: ${AETHER_OPS_BASE_URL:http://aether-python:8000}
+  identity:
+    platform-tenant-id: ${AETHER_PLATFORM_TENANT_ID:1}
+    service-clients: aether-python
+  notification-key: ${AETHER_NOTIFICATION_KEY:}
+  notification-admin-ids: ${AETHER_NOTIFICATION_ADMIN_IDS:50001}
+logging:
+  level:
+    cn.iocoder.yudao.module.system.dal.mysql: INFO
+    cn.iocoder.yudao.module.infra.dal.mysql: INFO

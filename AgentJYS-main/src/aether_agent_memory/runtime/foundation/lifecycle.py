@@ -43,10 +43,8 @@ class RuntimeLifecycle:
 
     def authorize(self, ctx: TrustedContext) -> None:
         with self.uow.transaction() as tx:
-            self.identity.revalidate(tx, ctx)
-            if (
-                ctx.principal.principal_id not in self.operators
-                or Permission.CONFIGURE not in ctx.principal.permissions
+            if not self.identity.is_maintenance_operator(
+                tx, ctx, Permission.CONFIGURE, self.operators
             ):
                 tx.abort(ErrorCode.FORBIDDEN, "deployment operator required")
 

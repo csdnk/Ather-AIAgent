@@ -1,0 +1,22 @@
+# Insert inside the existing HTTPS site's route BEFORE its fallback handle.
+# Apply only after internal candidate readiness and migration checks pass.
+handle /ruoyi {
+    redir * /ruoyi/ 308
+}
+handle /ruoyi/* {
+    reverse_proxy aether-ruoyi-frontend:8080
+}
+handle_path /ruoyi-api/* {
+    rewrite * /admin-api{uri}
+    reverse_proxy aether-ruoyi-backend:48080
+}
+handle /ruoyi-agent {
+    redir * /ruoyi-agent/ 308
+}
+handle /ruoyi-agent/* {
+    reverse_proxy aether-ruoyi-platform:19010 {
+        transport http {
+            response_header_timeout 300s
+        }
+    }
+}
