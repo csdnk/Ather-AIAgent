@@ -2,6 +2,10 @@
 server:
   port: 48080
 spring:
+  autoconfigure:
+    exclude:
+      - com.binarywang.spring.starter.wxjava.mp.config.WxMpAutoConfiguration
+      - com.binarywang.spring.starter.wxjava.miniapp.config.WxMaAutoConfiguration
   datasource:
     druid:
       web-stat-filter:
@@ -70,6 +74,8 @@ yudao:
     begin-code: 1000
     end-code: 9999
 aether:
+  social:
+    enabled: false
   ops:
     base-url: ${AETHER_OPS_BASE_URL:http://aether-python:8000}
   identity:
@@ -77,6 +83,8 @@ aether:
     service-clients: aether-python
   notification-key: ${AETHER_NOTIFICATION_KEY:}
   notification-admin-ids: ${AETHER_NOTIFICATION_ADMIN_IDS:50001}
+justauth:
+  enabled: false
 logging:
   level:
     cn.iocoder.yudao.module.system.dal.mysql: INFO

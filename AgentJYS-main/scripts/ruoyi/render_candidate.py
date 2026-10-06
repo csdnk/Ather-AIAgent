@@ -95,13 +95,13 @@ def render(images: dict[str, str], namespace: str, replicas: int) -> dict:
                        ("platform-database", "10Gi"), ("p3-data", "10Gi"),
                        ("ops-backups", "10Gi")]:
         volume_claim(name, size)
-    deploy("mysql", images.get("mysql", "mysql:8.0"), 3306, uid=999,
+    deploy("mysql", images.get("mysql", "mysql@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b"), 3306, uid=999,
            pvc=("mysql-data", "/var/lib/mysql"), env_from="mysql",
            args=["--datadir=/var/lib/mysql/data", "--socket=/tmp/mysql.sock", "--pid-file=/tmp/mysql.pid"])
-    deploy("redis", images.get("redis", "redis:7-alpine"), 6379, uid=999,
+    deploy("redis", images.get("redis", "redis@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499"), 6379, uid=999,
            secret="redis", pvc=("redis-data", "/data"), memory="128Mi",
            command=["redis-server", "/config/redis.conf"])
-    deploy("platform-db", images.get("postgres", "postgres:17.6"), 5432, uid=999,
+    deploy("platform-db", images.get("postgres", "postgres@sha256:00bc86618629af00d2937fdc5a5d63db3ff8450acf52f0636ec813c7f4902929"), 5432, uid=999,
            pvc=("platform-database", "/var/lib/postgresql/data"), env_from="platform-database",
            env=[{"name": "PGDATA", "value": "/var/lib/postgresql/data/pgdata"},
                 {"name": "PGHOST", "value": "/tmp"}],

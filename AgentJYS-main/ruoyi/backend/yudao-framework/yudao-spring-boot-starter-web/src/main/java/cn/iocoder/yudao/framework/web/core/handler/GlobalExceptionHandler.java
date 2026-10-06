@@ -127,7 +127,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(value = MissingServletRequestParameterException.class)
     public CommonResult<?> missingServletRequestParameterExceptionHandler(MissingServletRequestParameterException ex) {
-        log.warn("[missingServletRequestParameterExceptionHandler]", ex);
+        log.warn("[requestValidation] code=400 missingParameter={}", ex.getParameterName());
         return CommonResult.error(BAD_REQUEST.getCode(), String.format("请求参数缺失:%s", ex.getParameterName()));
     }
 
@@ -138,8 +138,8 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public CommonResult<?> methodArgumentTypeMismatchExceptionHandler(MethodArgumentTypeMismatchException ex) {
-        log.warn("[methodArgumentTypeMismatchExceptionHandler]", ex);
-        return CommonResult.error(BAD_REQUEST.getCode(), String.format("请求参数类型错误:%s", ex.getMessage()));
+        log.warn("[requestValidation] code=400 parameter={}", ex.getName());
+        return CommonResult.error(BAD_REQUEST.getCode(), String.format("请求参数类型错误:%s", ex.getName()));
     }
 
     /**
@@ -147,7 +147,8 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public CommonResult<?> methodArgumentNotValidExceptionExceptionHandler(MethodArgumentNotValidException ex) {
-        log.warn("[methodArgumentNotValidExceptionExceptionHandler]", ex);
+        log.warn("[requestValidation] code=400 fields={}", ex.getBindingResult().getFieldErrors()
+                .stream().map(FieldError::getField).distinct().toList());
         // 获取 errorMessage
         String errorMessage = null;
         FieldError fieldError = ex.getBindingResult().getFieldError();
@@ -172,7 +173,8 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(BindException.class)
     public CommonResult<?> bindExceptionHandler(BindException ex) {
-        log.warn("[handleBindException]", ex);
+        log.warn("[requestValidation] code=400 fields={}", ex.getFieldErrors()
+                .stream().map(FieldError::getField).distinct().toList());
         FieldError fieldError = ex.getFieldError();
         assert fieldError != null; // 断言，避免告警
         return CommonResult.error(BAD_REQUEST.getCode(), String.format("请求参数不正确:%s", fieldError.getDefaultMessage()));
@@ -186,15 +188,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     @SuppressWarnings("PatternVariableCanBeUsed")
     public CommonResult<?> methodArgumentTypeInvalidFormatExceptionHandler(HttpMessageNotReadableException ex) {
-        log.warn("[methodArgumentTypeInvalidFormatExceptionHandler]", ex);
-        if (ex.getCause() instanceof InvalidFormatException) {
-            InvalidFormatException invalidFormatException = (InvalidFormatException) ex.getCause();
-            return CommonResult.error(BAD_REQUEST.getCode(), String.format("请求参数类型错误:%s", invalidFormatException.getValue()));
-        }
-        if (StrUtil.startWith(ex.getMessage(), "Required request body is missing")) {
-            return CommonResult.error(BAD_REQUEST.getCode(), "请求参数类型错误: request body 缺失");
-        }
-        return defaultExceptionHandler(ServletUtils.getRequest(), ex);
+        log.warn("[requestValidation] code=400 invalidRequestBody");
+        return CommonResult.error(BAD_REQUEST.getCode(), "请求正文缺失或格式不正确");
     }
 
     /**
@@ -202,7 +197,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(value = ConstraintViolationException.class)
     public CommonResult<?> constraintViolationExceptionHandler(ConstraintViolationException ex) {
-        log.warn("[constraintViolationExceptionHandler]", ex);
+        log.warn("[requestValidation] code=400 constraintViolation");
         ConstraintViolation<?> constraintViolation = ex.getConstraintViolations().iterator().next();
         return CommonResult.error(BAD_REQUEST.getCode(), String.format("请求参数不正确:%s", constraintViolation.getMessage()));
     }
@@ -212,7 +207,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(value = ValidationException.class)
     public CommonResult<?> validationException(ValidationException ex) {
-        log.warn("[constraintViolationExceptionHandler]", ex);
+        log.warn("[requestValidation] code=400 validationFailure");
         // 无法拼接明细的错误信息，因为 Dubbo Consumer 抛出 ValidationException 异常时，是直接的字符串信息，且人类不可读
         return CommonResult.error(BAD_REQUEST);
     }
@@ -326,6 +321,13 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(value = Exception.class)
     public CommonResult<?> defaultExceptionHandler(HttpServletRequest req, Throwable ex) {
+        // Identity, native administration and Aether commands can carry credentials.
+        // Access-log annotations do not cover this separate exception-log path.
+        if (isSensitiveRequest(req)) {
+            log.error("[sensitiveEndpointFailure] code=500 type={}", ex.getClass().getName());
+            createExceptionLog(req, ex);
+            return CommonResult.error(INTERNAL_SERVER_ERROR);
+        }
         // 特殊：如果是 ServiceException 的异常，则直接返回
         // 例如说：https://gitee.com/zhijiantianya/yudao-cloud/issues/ICSSRM、https://gitee.com/zhijiantianya/yudao-cloud/issues/ICT6FM
         if (ex.getCause() != null && ex.getCause() instanceof ServiceException) {
@@ -350,13 +352,46 @@ public class GlobalExceptionHandler {
         // 插入错误日志
         ApiErrorLogCreateReqDTO errorLog = new ApiErrorLogCreateReqDTO();
         try {
+            if (isSensitiveRequest(req)) {
+                errorLog.setApplicationName(applicationName);
+                errorLog.setRequestUrl(req.getRequestURI());
+                errorLog.setRequestMethod(req.getMethod());
+                errorLog.setExceptionName(e.getClass().getName());
+                errorLog.setExceptionTime(LocalDateTime.now());
+                // Required native log columns stay valid without retaining request values.
+                errorLog.setRequestParams("{}");
+                errorLog.setUserIp("");
+                errorLog.setUserAgent("");
+                errorLog.setExceptionClassName("");
+                errorLog.setExceptionFileName("");
+                errorLog.setExceptionMethodName("");
+                errorLog.setExceptionLineNumber(0);
+                errorLog.setExceptionStackTrace("");
+                errorLog.setExceptionMessage("");
+                errorLog.setExceptionRootCauseMessage("");
+                apiErrorLogApi.createApiErrorLogAsync(errorLog);
+                return;
+            }
             // 初始化 errorLog
             buildExceptionLog(errorLog, req, e);
             // 执行插入 errorLog
             apiErrorLogApi.createApiErrorLogAsync(errorLog);
         } catch (Throwable th) {
+            if (isSensitiveRequest(req)) {
+                log.error("[exceptionLogFailure] type={}", th.getClass().getName());
+                return;
+            }
             log.error("[createExceptionLog][url({}) log({}) 发生异常]", req.getRequestURI(),  JsonUtils.toJsonString(errorLog), th);
         }
+    }
+
+    private static boolean isSensitiveRequest(HttpServletRequest request) {
+        if (request == null) {
+            return false;
+        }
+        String path = request.getRequestURI();
+        return path.contains("/aether/") || path.contains("/system/")
+                || path.contains("/infra/file-config/");
     }
 
     private void buildExceptionLog(ApiErrorLogCreateReqDTO errorLog, HttpServletRequest request, Throwable e) {

@@ -68,6 +68,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.NOT_IMPLEMENTED;
 import static cn.iocoder.yudao.framework.common.util.collection.MapUtils.findAndThen;
 import static cn.iocoder.yudao.framework.common.util.date.LocalDateTimeUtils.UTC_MS_WITH_XXX_OFFSET_FORMATTER;
 import static cn.iocoder.yudao.framework.common.util.date.LocalDateTimeUtils.toEpochSecond;
@@ -83,6 +84,15 @@ import static java.util.Collections.singletonList;
 @Service
 @Slf4j
 public class SocialClientServiceImpl implements SocialClientService {
+
+    @Value("${aether.social.enabled:true}")
+    private boolean socialEnabled = true;
+
+    private void requireSocialEnabled() {
+        if (!socialEnabled) {
+            throw exception(NOT_IMPLEMENTED);
+        }
+    }
 
     /**
      * 小程序码要打开的小程序版本
@@ -116,10 +126,10 @@ public class SocialClientServiceImpl implements SocialClientService {
     @Autowired(required = false) // 由于 justauth.enable 配置项，可以关闭 AuthRequestFactory 的功能，所以这里只能不强制注入
     private AuthRequestFactory authRequestFactory;
 
-    @Resource
+    @Autowired(required = false)
     private WxMpService wxMpService;
-    @Resource
-    private WxMpProperties wxMpProperties;
+    @Autowired(required = false)
+    private WxMpProperties wxMpProperties = new WxMpProperties();
     @Resource
     private StringRedisTemplate stringRedisTemplate; // WxMpService 需要使用到，所以在 Service 注入了它
     /**
@@ -142,10 +152,10 @@ public class SocialClientServiceImpl implements SocialClientService {
 
             });
 
-    @Resource
+    @Autowired(required = false)
     private WxMaService wxMaService;
-    @Resource
-    private WxMaProperties wxMaProperties;
+    @Autowired(required = false)
+    private WxMaProperties wxMaProperties = new WxMaProperties();
     /**
      * 缓存 WxMaService 对象
      *
@@ -199,6 +209,10 @@ public class SocialClientServiceImpl implements SocialClientService {
      */
     @VisibleForTesting
     AuthRequest buildAuthRequest(Integer socialType, Integer userType) {
+        requireSocialEnabled();
+        if (authRequestFactory == null) {
+            throw exception(NOT_IMPLEMENTED);
+        }
         // 1. 先查找默认的配置项，从 application-*.yaml 中读取
         AuthRequest request = authRequestFactory.get(SocialTypeEnum.valueOfType(socialType).getSource());
         Assert.notNull(request, String.format("社交平台(%d) 不存在", socialType));
@@ -242,6 +256,7 @@ public class SocialClientServiceImpl implements SocialClientService {
      */
     @VisibleForTesting
     WxMpService getWxMpService(Integer userType) {
+        requireSocialEnabled();
         // 第一步，查询 DB 的配置项，获得对应的 WxMpService 对象
         SocialClientDO client = socialClientMapper.selectBySocialTypeAndUserType(
                 SocialTypeEnum.WECHAT_MP.getType(), userType);
@@ -249,6 +264,9 @@ public class SocialClientServiceImpl implements SocialClientService {
             return wxMpServiceCache.getUnchecked(client.getClientId() + ":" + client.getClientSecret());
         }
         // 第二步，不存在 DB 配置项，则使用 application-*.yaml 对应的 WxMpService 对象
+        if (wxMpService == null) {
+            throw exception(NOT_IMPLEMENTED);
+        }
         return wxMpService;
     }
 
@@ -260,6 +278,7 @@ public class SocialClientServiceImpl implements SocialClientService {
      * @return WxMpService 对象
      */
     public WxMpService buildWxMpService(String clientId, String clientSecret) {
+        requireSocialEnabled();
         // 第一步，创建 WxMpRedisConfigImpl 对象
         WxMpRedisConfigImpl configStorage = new WxMpRedisConfigImpl(
                 new RedisTemplateWxRedisOps(stringRedisTemplate),
@@ -429,6 +448,7 @@ public class SocialClientServiceImpl implements SocialClientService {
      */
     @VisibleForTesting
     WxMaService getWxMaService(Integer userType) {
+        requireSocialEnabled();
         // 第一步，查询 DB 的配置项，获得对应的 WxMaService 对象
         SocialClientDO client = socialClientMapper.selectBySocialTypeAndUserType(
                 SocialTypeEnum.WECHAT_MINI_PROGRAM.getType(), userType);
@@ -436,6 +456,9 @@ public class SocialClientServiceImpl implements SocialClientService {
             return wxMaServiceCache.getUnchecked(client.getClientId() + ":" + client.getClientSecret());
         }
         // 第二步，不存在 DB 配置项，则使用 application-*.yaml 对应的 WxMaService 对象
+        if (wxMaService == null) {
+            throw exception(NOT_IMPLEMENTED);
+        }
         return wxMaService;
     }
 
@@ -447,6 +470,7 @@ public class SocialClientServiceImpl implements SocialClientService {
      * @return WxMaService 对象
      */
     private WxMaService buildWxMaService(String clientId, String clientSecret) {
+        requireSocialEnabled();
         // 第一步，创建 WxMaRedisBetterConfigImpl 对象
         WxMaRedisBetterConfigImpl configStorage = new WxMaRedisBetterConfigImpl(
                 new RedisTemplateWxRedisOps(stringRedisTemplate),

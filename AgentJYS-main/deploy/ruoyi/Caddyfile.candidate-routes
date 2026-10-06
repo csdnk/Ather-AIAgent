@@ -6,6 +6,11 @@ handle /ruoyi {
 handle /ruoyi/* {
     reverse_proxy aether-ruoyi-frontend:8080
 }
+# Native DB file storage appends /admin-api to its configured public domain.
+handle /ruoyi-api/admin-api/infra/file/* {
+    uri strip_prefix /ruoyi-api
+    reverse_proxy aether-ruoyi-backend:48080
+}
 handle_path /ruoyi-api/* {
     rewrite * /admin-api{uri}
     reverse_proxy aether-ruoyi-backend:48080
