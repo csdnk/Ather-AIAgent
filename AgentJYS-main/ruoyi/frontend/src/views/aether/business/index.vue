@@ -311,10 +311,14 @@
         <p v-if="detail.result?.rendered_context != null" class="note"
           >服务已返回组装后的上下文。该回执不证明内容已发送给模型或被模型采用。</p
         >
+        <article v-if="typeof detail.result?.rendered_context === 'string'" class="turn">
+          <h3>组装后的上下文正文</h3>
+          <div class="body">{{ detail.result.rendered_context || '本次组装的上下文为空' }}</div>
+        </article>
         <p v-if="detail.result?.degradation_reasons?.length" class="note"
           >降级原因：{{
             detail.result.degradation_reasons
-              .map((reason: string) => readable(reason, '部分检索证据不可用，错误码见技术详情'))
+              .map((reason: string) => readable(reason, '部分检索证据不可用，具体原因待核实'))
               .join('；')
           }}</p
         >
@@ -337,11 +341,6 @@
           title="执行进度"
           :data="detail.progress" /><EvidencePanel title="工作流状态" :data="detail.workflow"
       /></template>
-      <el-collapse v-if="!detailLoading && !detailError"
-        ><el-collapse-item title="技术详情（编号与原始回执）" name="raw">
-          <pre>{{ JSON.stringify(detail, null, 2) }}</pre>
-        </el-collapse-item></el-collapse
-      >
     </el-drawer>
   </ContentWrap>
 </template>

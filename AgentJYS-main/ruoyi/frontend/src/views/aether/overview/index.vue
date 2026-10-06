@@ -55,11 +55,6 @@
             >
             <el-tag :type="item.text === '可用' ? 'success' : 'info'">{{ item.text }}</el-tag>
           </div>
-          <el-collapse
-            ><el-collapse-item title="查看服务技术详情" name="raw">
-              <pre>{{ JSON.stringify(data.p3, null, 2) }}</pre>
-            </el-collapse-item></el-collapse
-          >
         </el-card>
         <el-card shadow="never"
           ><template #header>最近告警与处理建议</template>
@@ -173,10 +168,6 @@ onMounted(load)
   margin: 4px 0 0;
   font-size: 12px;
   color: var(--el-text-color-secondary);
-}
-pre {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 .header {
   display: flex;

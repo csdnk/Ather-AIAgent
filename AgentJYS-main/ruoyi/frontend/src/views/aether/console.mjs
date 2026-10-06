@@ -175,5 +175,5 @@ export const scopeText = (value) => {
   if (/deployment queues|backlog/.test(value))
     return '当前部署的队列；积压为服务端估计值，缺少采样时保持未知'
   if (/chat|receipt/.test(value)) return '平台对话回执的持续采样，不覆盖全部 P3 业务'
-  return '本次授权范围内的有限观测，详细范围见技术记录'
+  return '本次观测仅覆盖当前授权范围，具体覆盖项尚未说明'
 }

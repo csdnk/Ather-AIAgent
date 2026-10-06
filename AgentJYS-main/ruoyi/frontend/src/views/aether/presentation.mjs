@@ -186,14 +186,14 @@ const reasons = {
   OK: '处理正常'
 }
 export const statusText = (value) => (value == null ? '尚无数据' : states[value] || '状态待核实')
-export const readable = (value, fallback = '具体信息见技术详情') => {
+export const readable = (value, fallback = '此项说明待补充') => {
   if (value == null || value === '') return '尚无数据'
   if (typeof value === 'boolean') return value ? '是' : '否'
   if (typeof value === 'number')
     return Number.isFinite(value)
       ? value.toLocaleString('zh-CN', { maximumFractionDigits: 2 })
       : '尚无数据'
-  if (typeof value === 'object') return '详细记录可在技术详情中查看'
+  if (typeof value === 'object') return '此项暂无可读摘要'
   return (
     terms[value] ||
     states[value] ||
@@ -331,7 +331,8 @@ export const columnsFor = (resource) =>
 export function explainRow(resource, row) {
   const state = row.status || row.state
   const code = row.error_code || row.code || row.result?.code
-  if (code && code !== 'OK') return reasons[code] || '系统返回了异常信息，请展开技术详情核对原因。'
+  if (code && code !== 'OK')
+    return reasons[code] || '系统报告异常，具体原因待核实，请联系平台管理员排查。'
   if (resource === 'memories') {
     const memory = row.memory_status || row.memory_evidence?.status
     if (memory === 'saved') return '本次请求的记忆已保存；检索是否可用需另行验证。'
@@ -391,7 +392,7 @@ export function cellText(resource, key, row) {
       value ||
       (key === 'tenant_name' && row.tenant_id == null && resource !== 'quotas'
         ? '平台范围'
-        : '名称尚未同步（编号见详情）')
+        : '名称尚未同步')
     )
   if (key.endsWith('_at') || key === 'last_seen') return formatTime(value)
   if (['status', 'state', 'phase', 'effect_status', 'memory_status'].includes(key))

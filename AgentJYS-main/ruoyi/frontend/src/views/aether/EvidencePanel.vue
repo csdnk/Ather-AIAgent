@@ -23,7 +23,7 @@
           row.completed_parts != null
             ? `已完成 ${row.completed_parts} 个处理部分`
             : row.error_code
-              ? readable(row.error_code, '服务报告异常，错误码见技术详情')
+              ? readable(row.error_code, '服务报告异常，具体原因待核实，请联系平台管理员排查。')
               : row.message || row.description || row.reason || '该记录未保存说明'
         }}</template></el-table-column
       >
@@ -47,11 +47,6 @@
         :data="section.value"
         :depth="(depth || 0) + 1"
     /></template>
-    <el-collapse
-      ><el-collapse-item title="技术详情（原始观测与编号）" name="raw">
-        <pre>{{ JSON.stringify(data, null, 2) }}</pre>
-      </el-collapse-item></el-collapse
-    >
   </section>
 </template>
 <script setup lang="ts">
@@ -95,15 +90,19 @@ const visibleFields = computed(() => {
     ['last_run_at', '最近运行', formatTime],
     ['next_run_at', '下次运行（有调度依据）', formatTime],
     ['observed_at', '观测时间', formatTime],
-    ['reason', '情况说明', (v: any) => readable(v, '服务报告了处理原因，详见技术记录')],
+    ['reason', '情况说明', (v: any) => readable(v, '处理原因尚未提供可读说明')],
     [
       'reason_code',
       '处理原因',
-      (v: any) => (v === 'READY' ? '执行器与依赖已就绪' : readable(v, '具体原因见技术详情'))
+      (v: any) => (v === 'READY' ? '执行器与依赖已就绪' : readable(v, '具体原因待核实'))
     ],
-    ['message', '服务说明', (v: any) => readable(v, '服务返回说明，详见技术记录')],
+    ['message', '服务说明', (v: any) => readable(v, '服务尚未提供可读说明')],
     ['scope_note', '覆盖范围', scopeText],
-    ['error_code', '错误说明', (v: any) => readable(v, '服务报告异常，错误码见技术详情')]
+    [
+      'error_code',
+      '错误说明',
+      (v: any) => readable(v, '服务报告异常，具体原因待核实，请联系平台管理员排查。')
+    ]
   ] as const
   return fields
     .filter(([key]) => data[key] != null && typeof data[key] !== 'object')
@@ -139,9 +138,5 @@ const nestedSections = computed(() => {
 .note {
   color: var(--el-text-color-secondary);
   line-height: 1.7;
-}
-pre {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 </style>

@@ -343,11 +343,6 @@
           {{ cellText(resource, column.key, detail) }}
         </el-descriptions-item>
       </el-descriptions>
-      <el-collapse class="mt-4">
-        <el-collapse-item title="技术详情（编号、错误码与原始回执，供排障使用）" name="technical">
-          <pre>{{ JSON.stringify(detail, null, 2) }}</pre>
-        </el-collapse-item>
-      </el-collapse>
     </el-drawer>
   </ContentWrap>
 </template>
