@@ -263,7 +263,22 @@ const definitions = {
   ]
 }
 export const columnsFor = (resource) =>
-  (definitions[resource] || []).map(([key, label]) => ({ key, label }))
+  (definitions[resource] || [])
+    .filter(
+      ([key]) => !(key === 'created_at' && ['requests', 'tasks', 'memories'].includes(resource))
+    )
+    .map(([key, label]) => ({
+      key,
+      label,
+      width:
+        key === 'explanation'
+          ? 270
+          : ['tenant_name', 'kind', 'name'].includes(key)
+            ? 140
+            : key.endsWith('_at') || key === 'last_seen'
+              ? 165
+              : 110
+    }))
 export function explainRow(resource, row) {
   const state = row.status || row.state
   const code = row.error_code || row.code || row.result?.code
@@ -333,7 +348,12 @@ export function cellText(resource, key, row) {
   if (['status', 'state', 'phase', 'effect_status', 'memory_status'].includes(key))
     return statusText(value)
   if (key === 'memory_evidence') return statusText(value?.status)
-  if (key.endsWith('_ms')) return value == null ? '尚无数据' : `${readable(value)} 毫秒`
+  if (key.endsWith('_ms'))
+    return value == null
+      ? '尚无数据'
+      : Number(value) >= 1000
+        ? `${readable(Number(value) / 1000)} 秒`
+        : `${readable(value)} 毫秒`
   if (key === 'bytes') return value == null ? '不适用' : `${readable(value / 1024)} KB`
   if (key === 'scope' && row.status === 'restored') return '业务平台数据库恢复演练'
   if (key === 'estimated_cost' && value == null) return '尚未配置单价'

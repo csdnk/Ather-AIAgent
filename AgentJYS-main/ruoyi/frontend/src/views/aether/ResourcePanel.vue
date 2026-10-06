@@ -84,13 +84,30 @@
         :key="column.key"
         :prop="column.key"
         :label="column.label"
-        :min-width="column.key === 'explanation' ? 300 : 160"
+        :min-width="column.width"
       >
         <template #default="scope"
-          ><span class="cell-text">{{ cellText(resource, column.key, scope.row) }}</span></template
+          ><span class="cell-text">{{ cellText(resource, column.key, scope.row) }}</span>
+          <div
+            v-if="
+              column.key === 'explanation' && ['requests', 'tasks', 'memories'].includes(resource)
+            "
+            class="row-time"
+            >{{ formatTime(scope.row.created_at) }}</div
+          ></template
         >
       </el-table-column>
-      <el-table-column label="操作" fixed="right" :width="resource === 'tasks' ? 250 : 180">
+      <el-table-column
+        label="操作"
+        fixed="right"
+        :width="
+          resource === 'tasks'
+            ? 190
+            : canExecute && (recordFields.length || ['incidents', 'backups'].includes(resource))
+              ? 150
+              : 80
+        "
+      >
         <template #default="scope"
           ><el-button link type="primary" @click="showDetail(scope.row)">详情</el-button>
           <template v-if="canExecute">
@@ -637,6 +654,11 @@ onMounted(async () => {
 }
 .actions {
   margin-bottom: 16px;
+}
+.row-time {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  margin-top: 4px;
 }
 .cell-text {
   white-space: normal;
