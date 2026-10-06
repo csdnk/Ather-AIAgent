@@ -6,8 +6,14 @@ import {
   explainRow,
   healthItems,
   metricTotal,
-  statusText
+  statusText,
+  dataNotice
 } from '../src/views/aether/presentation.mjs'
+
+test('available console data does not trigger a retry warning while failures remain visible', () => {
+  assert.equal(dataNotice({ status: 'available', items: [{ id: 'task' }] }), '')
+  assert.match(dataNotice({ status: 'unavailable', items: [] }), /刷新重试/)
+})
 
 test('real backend failure and intervention states retain their definite meaning', () => {
   for (const [state, text] of Object.entries({

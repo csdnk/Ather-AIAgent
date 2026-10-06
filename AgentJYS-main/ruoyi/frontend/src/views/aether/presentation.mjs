@@ -436,6 +436,6 @@ export function metricTotal(data, key) {
   return usage.items.reduce((sum, row) => sum + Number(row[key]), 0)
 }
 export const dataNotice = (data) =>
-  data.status && data.status !== 'ok'
+  data.status && !['ok', 'available'].includes(data.status)
     ? `${statusText(data.status)}。请刷新重试；此时空列表不代表没有业务记录。`
     : ''

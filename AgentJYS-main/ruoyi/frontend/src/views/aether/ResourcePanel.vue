@@ -363,7 +363,7 @@ import {
 } from './presentation.mjs'
 import { getIdentity, getOperations, getConsole, sendCommand } from '@/api/aether'
 import EvidencePanel from './EvidencePanel.vue'
-import { errorMessage, taskOutcome, taskAudience } from './console.mjs'
+import { errorMessage, taskOutcome, taskAudience, scopeText } from './console.mjs'
 import {
   commandLookupParams,
   createCommand,
@@ -525,7 +525,7 @@ const columns = computed(() => columnsFor(props.resource))
 const scopeDescription = computed(() =>
   props.resource === 'usage'
     ? '统计最近 24 小时内模型服务已返回的用量，包含重试；尚未计量的请求和记忆服务内部调用未计入。费用未配置时显示未知。'
-    : data.value.scope_note
+    : scopeText(data.value.scope_note)
 )
 const visibleRows = computed(() =>
   rows.value.filter(
