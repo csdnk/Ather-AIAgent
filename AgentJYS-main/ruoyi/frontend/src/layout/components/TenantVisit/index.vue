@@ -2,7 +2,7 @@
   <div>
     <el-select
       filterable
-      placeholder="请选择租户"
+      placeholder="管理范围：平台"
       class="!w-180px"
       v-model="value"
       @change="handleChange"

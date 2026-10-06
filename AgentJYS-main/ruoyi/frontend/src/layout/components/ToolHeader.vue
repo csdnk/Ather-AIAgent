@@ -51,10 +51,8 @@ const message = computed(() => appStore.getMessage)
 // IM即时通讯图标
 const im = computed(() => appStore.getIm)
 
-// 租户切换权限
-const hasTenantVisitPermission = computed(
-  () => import.meta.env.VITE_APP_TENANT_ENABLE === 'true' && checkPermi(['system:tenant:visit'])
-)
+// 管理员跨租户访问由独立权限控制，不依赖登录页是否要求填写租户。
+const hasTenantVisitPermission = computed(() => checkPermi(['system:tenant:visit']))
 
 // 顶部聊天入口：用路由 name resolve 出完整 URL，在新标签页打开 IM 主页
 // 场景考虑：IM 是全屏沉浸式壳，如果在当前页 push 会把原来在用的后台管理界面挤掉；开新 Tab 更符合用户预期
