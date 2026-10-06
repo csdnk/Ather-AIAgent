@@ -141,6 +141,7 @@ export const queueBusiness = (queue) =>
   ({
     engineering: '运行协调',
     maintenance: '周期维护',
+    periodic: '周期任务调度',
     io: '存储读写',
     model: '模型调用',
     remember: '记忆写入与整理',

@@ -6,7 +6,8 @@ import {
   recallEvidence,
   taskOutcome,
   targetQuery,
-  sectionItems
+  sectionItems,
+  queueBusiness
 } from '../src/views/aether/console.mjs'
 
 test('missing, failed, disabled and empty observations cannot imply healthy zero', () => {
@@ -15,6 +16,21 @@ test('missing, failed, disabled and empty observations cannot imply healthy zero
   assert.match(observation({ status: 'disabled' }), /未启用/)
   assert.match(observation({ status: 'ok', items: [] }), /没有记录/)
   assert.match(observation({ status: 'stale' }), /过期/)
+})
+test('deployed queue lanes have readable business purposes without exposing deployment IDs', () => {
+  for (const lane of [
+    'engineering',
+    'maintenance',
+    'operate',
+    'periodic',
+    'recall',
+    'remember',
+    'remember_index',
+    'remember_ingress'
+  ]) {
+    assert.doesNotMatch(queueBusiness(`agent.deployment.${lane}`), /待核实|deployment/)
+  }
+  assert.match(queueBusiness('agent.deployment.unrecognized'), /待核实/)
 })
 test('a sampled runtime is not missing data and explicit failures remain authoritative', () => {
   const runtime = {
