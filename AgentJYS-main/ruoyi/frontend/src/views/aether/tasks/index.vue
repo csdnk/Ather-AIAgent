@@ -116,6 +116,11 @@
           :data="sectionItems(data.queue_metrics)"
           :empty-text="observation(data.queue_metrics)"
         >
+          <el-table-column label="负责业务" min-width="180"
+            ><template #default="{ row }">{{
+              queueBusiness(row.task_queue)
+            }}</template></el-table-column
+          >
           <el-table-column label="执行类型" min-width="140"
             ><template #default="{ row }">{{ readable(row.task_type) }}</template></el-table-column
           >
@@ -210,7 +215,8 @@ import {
   sectionItems,
   taskOutcome,
   pipelineRows,
-  taskAudience
+  taskAudience,
+  queueBusiness
 } from '../console.mjs'
 import { formatTime, readable, statusText } from '../presentation.mjs'
 defineOptions({ name: 'AetherTasks' })

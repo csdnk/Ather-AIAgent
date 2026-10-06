@@ -13,6 +13,8 @@ export function observation(data) {
   if (['disabled', 'not_enabled'].includes(status)) return '未启用此项能力'
   if (status === 'not_bound') return '当前部署尚未绑定此项工作流'
   if (status === 'no_records') return '尚无实际维护记录'
+  if (!status && data?.observed_at && data?.worker && data?.temporal)
+    return '已读取执行器与调度观测；各项状态见下方'
   if (!status || ['unknown', 'not_collected', 'not_configured'].includes(status))
     return '尚未采集到可靠数据'
   if (status === 'partial') return '只取得部分数据，请检查详情中的缺失项'
@@ -135,6 +137,22 @@ export const memoryKind = (value) =>
     semantic: '语义记忆 · 稳定知识',
     procedural: '过程记忆 · 操作经验'
   })[value] || '类型尚未标明'
+export const queueBusiness = (queue) =>
+  ({
+    engineering: '运行协调',
+    maintenance: '周期维护',
+    io: '存储读写',
+    model: '模型调用',
+    remember: '记忆写入与整理',
+    recall: '记忆召回',
+    operate: '存储维护与生命周期',
+    remember_index: '记忆检索索引',
+    remember_ingress: '记忆接收'
+  })[
+    String(queue || '')
+      .split('.')
+      .pop()
+  ] || '所属业务待核实'
 export const errorMessage = (error) =>
   [401, 403].includes(error?.response?.status)
     ? '当前登录身份无权读取，请联系管理员核对内容查看权限。'

@@ -16,6 +16,16 @@ test('missing, failed, disabled and empty observations cannot imply healthy zero
   assert.match(observation({ status: 'ok', items: [] }), /没有记录/)
   assert.match(observation({ status: 'stale' }), /过期/)
 })
+test('a sampled runtime is not missing data and explicit failures remain authoritative', () => {
+  const runtime = {
+    worker: 'running',
+    temporal: 'available',
+    reason_code: 'READY',
+    observed_at: '2026-10-06T07:19:40Z'
+  }
+  assert.match(observation(runtime), /已读取/)
+  assert.match(observation({ ...runtime, status: 'unavailable' }), /采集失败/)
+})
 test('memory content distinguishes denied bodies from actual empty text', () => {
   assert.match(memoryText({ status: 'forbidden', body: 'cached secret' }), /无权/)
   assert.match(memoryText({ status: 'deleted', body: 'cached secret' }), /删除/)

@@ -126,9 +126,11 @@
                     @change="filterRecords"
                 /></template>
               </div>
-              <p class="note"
-                >条件在服务端检索。会话状态以最新一次请求为准，时间按会话更新时间筛选。</p
-              >
+              <p class="note">{{
+                userTab === 'memories'
+                  ? '按记忆类型与生命周期检索，点击内容摘要查看正文和来源。'
+                  : '条件在服务端检索。会话状态以最新一次请求为准，时间按会话更新时间筛选。'
+              }}</p>
               <el-alert v-if="listError" :title="listError" type="error" :closable="false" />
               <div class="list-head"
                 ><span class="note"

@@ -56,7 +56,7 @@
 </template>
 <script setup lang="ts">
 import { computed } from 'vue'
-import { observation, sectionItems, scopeText } from './console.mjs'
+import { observation, sectionItems, scopeText, projectionText } from './console.mjs'
 import { formatTime, readable, statusText } from './presentation.mjs'
 const props = defineProps<{ title: string; data?: any; depth?: number }>()
 const rows = computed(() => sectionItems(props.data))
@@ -75,12 +75,12 @@ const visibleFields = computed(() => {
     ['max_attempts', '最多尝试次数', String],
     ['effect_status', '业务效果', statusText],
     ['memory_status', '记忆状态', statusText],
-    ['projection_state', '检索索引状态', statusText],
+    ['projection_state', '检索索引状态', (v: any) => projectionText({ projection_state: v })],
     ['rejected_candidate_count', '未采纳候选数', String],
     ['tier', '当前存储层', readable],
     ['access_count', '已记录访问次数', String],
     ['score', '热度分数', String],
-    ['worker', '本机执行器状态', statusText],
+    ['worker', '本机执行器状态', (v: any) => (v === 'running' ? '运行中' : statusText(v))],
     ['temporal', '调度连接状态', statusText],
     ['worker_restarts', '本机执行器重启次数', String],
     ['started_at', '开始等待', formatTime],
@@ -96,7 +96,11 @@ const visibleFields = computed(() => {
     ['next_run_at', '下次运行（有调度依据）', formatTime],
     ['observed_at', '观测时间', formatTime],
     ['reason', '情况说明', (v: any) => readable(v, '服务报告了处理原因，详见技术记录')],
-    ['reason_code', '处理原因', (v: any) => readable(v, '服务报告异常，错误码见技术详情')],
+    [
+      'reason_code',
+      '处理原因',
+      (v: any) => (v === 'READY' ? '执行器与依赖已就绪' : readable(v, '具体原因见技术详情'))
+    ],
     ['message', '服务说明', (v: any) => readable(v, '服务返回说明，详见技术记录')],
     ['scope_note', '覆盖范围', scopeText],
     ['error_code', '错误说明', (v: any) => readable(v, '服务报告异常，错误码见技术详情')]
