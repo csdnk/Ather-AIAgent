@@ -139,6 +139,9 @@ async function load() {
       memoryNote.value = platform.value
         ? '正在读取当前部署的压缩记录…'
         : '当前企业账号仅显示本企业业务统计；部署级压缩与调度观测由平台管理员查看。'
+      const overview = await getOperations('overview')
+      if (request !== sequence) return
+      data.value = overview
       const memoryRead = platform.value
         ? getConsole('diagnostics', { limit: 1 })
             .then((result) => {
@@ -151,8 +154,6 @@ async function load() {
                 memoryNote.value = '暂时无法读取部署级压缩记录；请稍后刷新。业务趋势可独立查看。'
             })
         : Promise.resolve()
-      const overview = await getOperations('overview')
-      if (request === sequence) data.value = overview
       await memoryRead
     }
   } catch (e: any) {
