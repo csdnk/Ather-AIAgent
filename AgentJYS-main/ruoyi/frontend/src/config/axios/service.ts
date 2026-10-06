@@ -17,6 +17,7 @@ import { resetRouter } from '@/router'
 import { deleteUserCache } from '@/hooks/web/useCache'
 import { ApiEncrypt } from '@/utils/encrypt'
 import { isPublicAuthRequest, isLoginPage } from './authRequest.mjs'
+import { operationsError } from './operationsError.mjs'
 
 const tenantEnable = 'false'
 const { result_code, base_url, request_timeout } = config
@@ -195,6 +196,10 @@ service.interceptors.response.use(
           })
         })
       }
+    } else if (/^\/aether\/ops\//.test(config.url || '') && code !== 0 && code !== 200) {
+      const error = operationsError(code)
+      ElNotification.error({ title: error.message })
+      return Promise.reject(error)
     } else if (code === 500) {
       ElMessage.error(t('sys.api.errMsg500'))
       return Promise.reject(new Error(msg))

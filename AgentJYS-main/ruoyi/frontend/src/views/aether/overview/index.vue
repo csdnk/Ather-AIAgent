@@ -28,7 +28,7 @@
         <el-button type="primary" @click="$router.push('/aether/business')"
           >查找用户与记忆</el-button
         >
-        <el-button @click="$router.push('/aether/tasks')">检查任务与调度</el-button>
+        <el-button v-if="platform" @click="$router.push('/aether/tasks')">检查任务与调度</el-button>
         <el-button @click="$router.push('/aether/faults')">处理异常告警</el-button>
         <el-button @click="$router.push('/aether/history')">核对操作结果</el-button>
       </div>
@@ -101,6 +101,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { getIdentity, getOperations } from '@/api/aether'
+import { canReadTaskDiagnostics } from '../taskAccess.mjs'
 import {
   explainRow,
   formatTime,
@@ -112,6 +113,7 @@ import {
 const data = ref<any>({}),
   error = ref(''),
   loading = ref(false),
+  platform = ref(false),
   forbidden = ref(false)
 const cards = [
   { key: 'requests', label: '请求总数' },
@@ -137,9 +139,11 @@ const attention = computed(() => {
 })
 async function load() {
   loading.value = true
+  platform.value = false
   error.value = ''
   try {
     const who = await getIdentity()
+    platform.value = canReadTaskDiagnostics(who)
     forbidden.value = !who.permissions?.includes('aether:ops:read')
     if (!forbidden.value) data.value = await getOperations('overview')
   } catch (e: any) {

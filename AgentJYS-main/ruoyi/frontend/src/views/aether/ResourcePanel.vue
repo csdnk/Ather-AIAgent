@@ -76,7 +76,7 @@
       :data="visibleRows"
       stripe
       border
-      empty-text="当前查询没有记录"
+      :empty-text="tableEmptyText(data, loading)"
       @row-dblclick="showDetail"
     >
       <el-table-column
@@ -363,7 +363,7 @@ import {
 } from './presentation.mjs'
 import { getIdentity, getOperations, getConsole, sendCommand } from '@/api/aether'
 import EvidencePanel from './EvidencePanel.vue'
-import { errorMessage, taskOutcome, taskAudience, scopeText } from './console.mjs'
+import { errorMessage, taskOutcome, taskAudience, scopeText, tableEmptyText } from './console.mjs'
 import {
   commandLookupParams,
   createCommand,

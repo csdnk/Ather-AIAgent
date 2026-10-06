@@ -1,5 +1,13 @@
 export const sectionItems = (section) =>
   Array.isArray(section) ? section : Array.isArray(section?.items) ? section.items : []
+export function tableEmptyText(data, loading) {
+  if (loading) return '数据读取中，请稍候'
+  if (['forbidden', 'denied'].includes(data?.status)) return '当前账号无权读取此项数据'
+  if (['unavailable', 'failed', 'error', 'timeout'].includes(data?.status))
+    return '数据加载失败，当前无法确认是否有记录'
+  if (!data?.status) return '尚未取得查询结果'
+  return '当前查询没有记录'
+}
 export const taskAudience = (task) =>
   [task?.tenant_name, task?.user_name]
     .filter((name) => typeof name === 'string' && name.trim())
@@ -155,7 +163,7 @@ export const queueBusiness = (queue) =>
       .pop()
   ] || '所属业务待核实'
 export const errorMessage = (error) =>
-  [401, 403].includes(error?.response?.status)
+  [401, 403].includes(Number(error?.code ?? error?.response?.status))
     ? '当前登录身份无权读取，请联系管理员核对内容查看权限。'
     : '暂时无法读取，请检查服务连接后刷新；当前结果不能视为没有记录。'
 export const scopeText = (value) => {
