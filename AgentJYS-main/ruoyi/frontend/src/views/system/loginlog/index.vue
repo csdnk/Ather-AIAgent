@@ -1,5 +1,12 @@
 <template>
-  <doc-alert title="系统日志" url="https://doc.iocoder.cn/system-log/" />
+  <ContentWrap>
+    <h2>登录日志</h2>
+    <p
+      >查看当前授权企业内的登录、退出和登录失败记录。业务内容查看与任务处置记录请前往“Aether 运维 →
+      操作历史”。</p
+    >
+    <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
+  </ContentWrap>
 
   <ContentWrap>
     <!-- 搜索工作栏 -->
@@ -57,7 +64,11 @@
 
   <!-- 列表 -->
   <ContentWrap>
-    <el-table v-loading="loading" :data="list">
+    <el-table
+      v-loading="loading"
+      :data="list"
+      :empty-text="loadError ? '查询失败，请重试' : '当前授权企业与筛选条件下没有登录记录'"
+    >
       <el-table-column label="日志编号" align="center" prop="id" />
       <el-table-column label="登录类型" align="center" prop="logType">
         <template #default="scope">
@@ -118,6 +129,7 @@ const message = useMessage() // 消息弹窗
 const loading = ref(true) // 列表的加载中
 const total = ref(0) // 列表的总页数
 const list = ref([]) // 列表的数据
+const loadError = ref('')
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
@@ -131,10 +143,15 @@ const exportLoading = ref(false) // 导出的加载中
 /** 查询列表 */
 const getList = async () => {
   loading.value = true
+  loadError.value = ''
   try {
     const data = await LoginLogApi.getLoginLogPage(queryParams)
     list.value = data.list
     total.value = data.total
+  } catch {
+    list.value = []
+    total.value = 0
+    loadError.value = '登录日志查询失败，请重试或重新登录；不能据此判断没有登录记录。'
   } finally {
     loading.value = false
   }

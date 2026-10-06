@@ -6,9 +6,11 @@ import { createRequire } from 'node:module'
 const require = createRequire(import.meta.url)
 const { parse, compileScript, compileTemplate } = require('vue/compiler-sfc')
 const root = path.resolve(import.meta.dirname, '../src/views/aether')
-for (const file of fs
-  .readdirSync(root, { recursive: true })
-  .filter((file) => file.endsWith('.vue'))) {
+for (const file of [
+  ...fs.readdirSync(root, { recursive: true }).filter((file) => file.endsWith('.vue')),
+  '../system/loginlog/index.vue',
+  '../system/operatelog/index.vue'
+]) {
   test(`operator component compiles: ${file}`, () => {
     const filename = path.join(root, file)
     const { descriptor, errors } = parse(fs.readFileSync(filename, 'utf8'), { filename })

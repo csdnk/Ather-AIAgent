@@ -16,6 +16,7 @@ import errorCode from './errorCode'
 import { resetRouter } from '@/router'
 import { deleteUserCache } from '@/hooks/web/useCache'
 import { ApiEncrypt } from '@/utils/encrypt'
+import { isPublicAuthRequest, isLoginPage } from './authRequest.mjs'
 
 const tenantEnable = 'false'
 const { result_code, base_url, request_timeout } = config
@@ -32,9 +33,6 @@ export const isRelogin = { show: false }
 let requestList: any[] = []
 // 是否正在刷新中
 let isRefreshToken = false
-// 请求白名单，无须 token 的接口
-const whiteList: string[] = ['/login', '/refresh-token']
-
 // 创建axios实例
 const service: AxiosInstance = axios.create({
   baseURL: base_url, // api 的 base_url
@@ -51,7 +49,7 @@ service.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // 是否需要设置 token；命中白名单的接口（如 /login）不带 token
     let isToken = (config!.headers || {}).isToken !== false
-    if (isToken && whiteList.some((v) => config.url?.includes(v))) {
+    if (isToken && isPublicAuthRequest(config.url)) {
       isToken = false
     }
     if (getAccessToken() && isToken) {
@@ -251,8 +249,8 @@ const handleAuthorized = () => {
   const { t } = useI18n()
   if (!isRelogin.show) {
     // 如果已经到登录页面则不进行弹窗提示
-    if (window.location.href.includes('login')) {
-      return
+    if (isLoginPage(window.location.pathname)) {
+      return Promise.reject(t('sys.api.timeoutMessage'))
     }
     isRelogin.show = true
     ElMessageBox.confirm(t('sys.api.timeoutMessage'), t('common.confirmTitle'), {

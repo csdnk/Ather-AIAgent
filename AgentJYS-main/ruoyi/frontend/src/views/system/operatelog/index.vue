@@ -1,5 +1,12 @@
 <template>
-  <doc-alert title="系统日志" url="https://doc.iocoder.cn/system-log/" />
+  <ContentWrap>
+    <h2>系统操作日志</h2>
+    <p
+      >记录当前授权企业内已接入审计的用户、角色等管理变更。仅打开页面或查询列表不会生成此类记录；业务内容查看与任务处置请前往“Aether
+      运维 → 操作历史”。</p
+    >
+    <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
+  </ContentWrap>
 
   <ContentWrap>
     <!-- 搜索工作栏 -->
@@ -91,7 +98,11 @@
 
   <!-- 列表 -->
   <ContentWrap>
-    <el-table v-loading="loading" :data="list">
+    <el-table
+      v-loading="loading"
+      :data="list"
+      :empty-text="loadError ? '查询失败，请重试' : '当前授权企业与筛选条件下没有系统管理变更记录'"
+    >
       <el-table-column label="日志编号" align="center" prop="id" width="100" />
       <el-table-column label="操作人" align="center" prop="userName" width="120" />
       <el-table-column label="操作模块" align="center" prop="type" width="120" />
@@ -146,6 +157,7 @@ const message = useMessage() // 消息弹窗
 const loading = ref(true) // 列表的加载中
 const total = ref(0) // 列表的总页数
 const list = ref([]) // 列表的数据
+const loadError = ref('')
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
@@ -162,10 +174,15 @@ const exportLoading = ref(false) // 导出的加载中
 /** 查询列表 */
 const getList = async () => {
   loading.value = true
+  loadError.value = ''
   try {
     const data = await OperateLogApi.getOperateLogPage(queryParams)
     list.value = data.list
     total.value = data.total
+  } catch {
+    list.value = []
+    total.value = 0
+    loadError.value = '系统操作日志查询失败，请重试或重新登录；不能据此判断没有操作记录。'
   } finally {
     loading.value = false
   }
