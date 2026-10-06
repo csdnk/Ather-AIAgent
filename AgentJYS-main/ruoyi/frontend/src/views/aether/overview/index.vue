@@ -3,7 +3,7 @@
     <div class="header"
       ><div
         ><h1>值班总览</h1
-        ><p>先判断能否接收业务，再查看受影响请求和待处理事项。请求统计范围为最近 24 小时。</p></div
+        ><p>查看性能目标、业务运行趋势和待处理事项，按需要切换统计时间范围。</p></div
       ><el-button :loading="loading" @click="load">刷新数据</el-button></div
     >
     <el-alert v-if="error" :title="error" type="error" :closable="false" class="mb-4" />
@@ -17,6 +17,12 @@
       <div class="stamp"
         >最近更新 {{ formatTime(data.observed_at) }} · {{ statusText(data.status) }}</div
       >
+      <PerformancePanel
+        :performance="data.performance"
+        :memory-metrics="memoryMetrics"
+        :memory-note="memoryNote"
+        :loading="loading"
+      />
       <el-alert
         :title="attention"
         :type="needsAttention ? 'warning' : 'info'"
@@ -29,6 +35,9 @@
           >查找用户与记忆</el-button
         >
         <el-button v-if="platform" @click="$router.push('/aether/tasks')">检查任务与调度</el-button>
+        <el-button v-if="platform" @click="$router.push('/aether/scheduling')"
+          >查看调度监测</el-button
+        >
         <el-button @click="$router.push('/aether/faults')">处理异常告警</el-button>
         <el-button @click="$router.push('/aether/history')">核对操作结果</el-button>
       </div>
@@ -38,12 +47,6 @@
         :closable="false"
         class="mb-4"
       />
-      <div class="metrics"
-        ><el-card v-for="card in cards" :key="card.key" shadow="never"
-          ><div class="caption">{{ card.label }}</div
-          ><strong>{{ metric(card.key) }}</strong></el-card
-        ></div
-      >
       <div class="panels"
         ><el-card shadow="never"
           ><template #header>服务可用性</template>
@@ -94,32 +97,19 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { getIdentity, getOperations } from '@/api/aether'
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
+import { getIdentity, getOperations, getConsole } from '@/api/aether'
+import PerformancePanel from '../PerformancePanel.vue'
 import { canReadTaskDiagnostics } from '../taskAccess.mjs'
-import {
-  explainRow,
-  formatTime,
-  healthItems,
-  metricTotal,
-  readable,
-  statusText
-} from '../presentation.mjs'
+import { explainRow, formatTime, healthItems, readable, statusText } from '../presentation.mjs'
 const data = ref<any>({}),
   error = ref(''),
   loading = ref(false),
   platform = ref(false),
   forbidden = ref(false)
-const cards = [
-  { key: 'requests', label: '请求总数' },
-  { key: 'complete', label: '已完成' },
-  { key: 'failed', label: '失败请求' },
-  { key: 'pending', label: '等待处理' },
-  { key: 'saved', label: '记忆已保存' }
-]
-function metric(key: string) {
-  return metricTotal(data.value, key)
-}
+const memoryMetrics = ref<any>({}),
+  memoryNote = ref('')
+let sequence = 0
 const needsAttention = computed(
   () =>
     data.value.status !== 'ok' ||
@@ -133,22 +123,50 @@ const attention = computed(() => {
     : '当前没有未恢复的告警。请继续关注失败请求及记忆保存进度。'
 })
 async function load() {
+  const request = ++sequence
   loading.value = true
   platform.value = false
   error.value = ''
+  memoryMetrics.value = {}
+  data.value = {}
+  memoryNote.value = ''
   try {
     const who = await getIdentity()
+    if (request !== sequence) return
     platform.value = canReadTaskDiagnostics(who)
     forbidden.value = !who.permissions?.includes('aether:ops:read')
-    if (!forbidden.value) data.value = await getOperations('overview')
+    if (!forbidden.value) {
+      memoryNote.value = platform.value
+        ? '正在读取当前部署的压缩记录…'
+        : '当前企业账号仅显示本企业业务统计；部署级压缩与调度观测由平台管理员查看。'
+      const memoryRead = platform.value
+        ? getConsole('diagnostics', { limit: 1 })
+            .then((result) => {
+              if (request !== sequence) return
+              memoryMetrics.value = result.memory_observations || {}
+              memoryNote.value = `部署级记忆观测更新于 ${formatTime(result.memory_observations?.observed_at)}。其余合同指标仍需独立测量。`
+            })
+            .catch(() => {
+              if (request === sequence)
+                memoryNote.value = '暂时无法读取部署级压缩记录；请稍后刷新。业务趋势可独立查看。'
+            })
+        : Promise.resolve()
+      const overview = await getOperations('overview')
+      if (request === sequence) data.value = overview
+      await memoryRead
+    }
   } catch (e: any) {
+    if (request !== sequence) return
     error.value = '暂时无法读取运行情况，请检查登录状态和服务连接后刷新。'
     data.value = {}
   } finally {
-    loading.value = false
+    if (request === sequence) loading.value = false
   }
 }
 onMounted(load)
+onBeforeUnmount(() => {
+  sequence++
+})
 </script>
 <style scoped>
 .service-row {

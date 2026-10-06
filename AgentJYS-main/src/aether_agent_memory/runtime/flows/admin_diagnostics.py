@@ -523,10 +523,12 @@ class AdminDiagnostics:
                 "by_state": {},
                 "by_effect_status": {},
             }
+            deployment_tasks = set()
             for task_id, envelope in tx.rows("tasks"):
                 binding = tx.read("temporal_bindings", task_id)
                 if not self.in_deployment(binding):
                     continue
+                deployment_tasks.add(task_id)
                 record = envelope["record"]
                 summary["total"] += 1
                 for output, key in (
@@ -576,6 +578,9 @@ class AdminDiagnostics:
                 next_run_at=None,
                 next_run_status="not_observed",
             )
+            from aether_agent_memory.runtime.flows.dashboard import memory_observations
+
+            memory_metrics = memory_observations(tx, deployment_tasks, now())
         # Bound live describes to the requested page, not all persisted workflows.
         semaphore = asyncio.Semaphore(5)
 
@@ -600,6 +605,7 @@ class AdminDiagnostics:
         )
         return {
             "task_summary": summary,
+            "memory_observations": memory_metrics,
             "tasks": {
                 "items": items,
                 "next_cursor": following,
