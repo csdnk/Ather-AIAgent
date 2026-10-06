@@ -147,13 +147,17 @@ class Diagnostics:
     ) -> dict[str, Any]:
         self.authorize(ctx)
         with self.uow.transaction() as tx:
-            self.identity.revalidate(tx, ctx)
+            # Deployment maintenance authority does not depend on each task.
+            # Resolve it once per request; revalidate again before delivery below.
+            operator = self.identity.is_maintenance_operator(
+                tx, ctx, Permission.DIAGNOSE, self.maintenance_principals
+            )
             items = []
             for _, row in tx.rows("tasks"):
                 task = TaskRecord.model_validate(row["record"])
                 if state is not None and task.state != state:
                     continue
-                if not self.identity.permits_task_maintenance(
+                if not operator and not self.identity.permits_task_maintenance(
                     tx, ctx, Permission.DIAGNOSE, task, self.maintenance_principals
                 ):
                     continue

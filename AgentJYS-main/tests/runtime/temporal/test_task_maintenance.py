@@ -4,6 +4,7 @@ import pytest
 from test_ledger import admit, foundation, ledger  # noqa: F401
 
 from aether_agent_memory.runtime.contracts.models import (
+    ErrorCode,
     PageRequest,
     Permission,
     Principal,
@@ -122,3 +123,58 @@ def test_initial_configuration_activation_uses_absent_version_cas(foundation):  
     assert foundation.lifecycle.configuration(ctx).version == "v1"
     foundation.lifecycle.activate(ctx, snapshot("v2"), expected_version="v1")
     assert foundation.lifecycle.configuration(ctx).version == "v2"
+
+
+def test_operator_task_page_does_not_revalidate_identity_for_every_historical_task(
+    foundation,  # noqa: F811
+    ledger,  # noqa: F811
+    monkeypatch,
+):
+    alice = foundation.identity.context("alice").principal
+    operator = Principal(
+        principal_id="ops",
+        auth_epoch=1,
+        home_scope=Scope(
+            tenant_id="operations", user_id="ops", application_id="app", agent_id="agent"
+        ),
+        permissions=(Permission.DIAGNOSE,),
+    )
+    foundation.identity.provision(
+        [(sha256(p.principal_id.encode()).hexdigest(), p) for p in (alice, operator)]
+    )
+    foundation.diagnostics.maintenance_principals = ("ops",)
+    job, _ = admit(foundation, ledger)
+    with foundation.uow.transaction() as tx:
+        original = tx.read("tasks", job.job_id)
+        for number in range(30):
+            task_id = f"historical-task-{number}"
+            tx.write(
+                "tasks", task_id, {**original, "record": {**original["record"], "task_id": task_id}}
+            )
+    ctx = foundation.identity.context("ops")
+    revalidate = foundation.identity.revalidate
+    calls = []
+
+    def counted(tx, current):
+        calls.append(current.principal.principal_id)
+        return revalidate(tx, current)
+
+    monkeypatch.setattr(foundation.identity, "revalidate", counted)
+    result = foundation.diagnostics.tasks_page(ctx, PageRequest(limit=50))
+    assert len(result["items"]) == 31
+    # Live Ruoyi revalidation performs remote I/O. It must be bounded per page,
+    # while still validating on entry and immediately before delivery.
+    assert len(calls) == 3
+
+    calls.clear()
+
+    def revoked_at_delivery(tx, current):
+        calls.append(current.principal.principal_id)
+        if len(calls) == 3:
+            raise FoundationError(ErrorCode.FORBIDDEN, "authority revoked before delivery")
+        return revalidate(tx, current)
+
+    monkeypatch.setattr(foundation.identity, "revalidate", revoked_at_delivery)
+    with pytest.raises(FoundationError):
+        foundation.diagnostics.tasks_page(ctx, PageRequest(limit=50))
+    assert len(calls) == 3
