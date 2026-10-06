@@ -70,6 +70,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { Echart } from '@/components/Echart'
+import { useAppStore } from '@/store/modules/app'
 import { contractCards, businessCharts, categoryChart } from './dashboard.mjs'
 const props = defineProps<{
   performance?: any
@@ -78,8 +79,9 @@ const props = defineProps<{
   loading?: boolean
 }>()
 const windowKey = ref('24h')
+const appStore = useAppStore()
 const selected = computed(() => props.performance?.windows?.[windowKey.value])
-const charts = computed(() => businessCharts(selected.value?.series || []))
+const charts = computed(() => businessCharts(selected.value?.series || [], appStore.getIsDark))
 const compression = computed(() => props.memoryMetrics?.compression)
 const compressionChart = computed(() =>
   categoryChart(
@@ -87,7 +89,8 @@ const compressionChart = computed(() =>
       '原始正文（KB）': compression.value.original_bytes / 1024,
       '压缩正文（KB）': compression.value.stored_bytes / 1024
     },
-    (v: string) => v
+    (v: string) => v,
+    appStore.getIsDark
   )
 )
 const businessCards = computed(() => {

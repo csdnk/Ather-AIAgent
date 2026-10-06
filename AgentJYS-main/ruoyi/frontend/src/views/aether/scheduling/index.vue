@@ -36,7 +36,7 @@
           ><template #header>任务状态分布</template
           ><Echart
             v-if="data.task_summary?.total"
-            :options="categoryChart(data.task_summary.by_state)"
+            :options="categoryChart(data.task_summary.by_state, statusText, appStore.getIsDark)"
             height="270px" /><el-empty
             v-else
             :description="data.task_summary ? '当前部署没有已绑定任务' : '尚未取得任务统计'"
@@ -46,7 +46,7 @@
           ><template #header>各业务累计任务量</template
           ><Echart
             v-if="data.task_summary?.total"
-            :options="categoryChart(data.task_summary.by_flow, flowLabel)"
+            :options="categoryChart(data.task_summary.by_flow, flowLabel, appStore.getIsDark)"
             height="270px" /><el-empty v-else description="暂无可展示的任务分布" :image-size="70"
         /></el-card>
       </div>
@@ -167,12 +167,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Echart } from '@/components/Echart'
+import { useAppStore } from '@/store/modules/app'
 import { getConsole, getIdentity } from '@/api/aether'
 import { readTaskDiagnostics } from '../taskAccess.mjs'
 import { categoryChart, schedulingCards, flowLabel, actionLabel } from '../dashboard.mjs'
 import { observation, queueBusiness, sectionItems, errorMessage } from '../console.mjs'
 import { formatTime, statusText, readable } from '../presentation.mjs'
 defineOptions({ name: 'AetherScheduling' })
+const appStore = useAppStore()
 const data = ref<any>({}),
   loading = ref(false),
   denied = ref(false),

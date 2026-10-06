@@ -56,15 +56,21 @@ export function schedulingCards(data = {}) {
   ]
 }
 
-export function categoryChart(values = {}, label = statusText) {
+const chartAxis = (dark) => ({
+  axisLabel: { color: dark ? '#cfd3dc' : '#606266' },
+  nameTextStyle: { color: dark ? '#cfd3dc' : '#606266' },
+  splitLine: { lineStyle: { color: dark ? '#414243' : '#e4e7ed' } }
+})
+
+export function categoryChart(values = {}, label = statusText, dark = false) {
   return {
     tooltip: { trigger: 'axis', renderMode: 'richText' },
     grid: { left: 18, right: 30, bottom: 20, top: 15, containLabel: true },
-    xAxis: { type: 'value', minInterval: 1 },
+    xAxis: { ...chartAxis(dark), type: 'value', minInterval: 1 },
     yAxis: {
       type: 'category',
       data: Object.keys(values).map(label),
-      axisLabel: { width: 130, overflow: 'truncate' }
+      axisLabel: { ...chartAxis(dark).axisLabel, width: 130, overflow: 'truncate' }
     },
     series: [
       {
@@ -77,7 +83,7 @@ export function categoryChart(values = {}, label = statusText) {
   }
 }
 
-export function businessCharts(series = []) {
+export function businessCharts(series = [], dark = false) {
   const axis = series.map((p) =>
     new Date(p.at).toLocaleString('zh-CN', {
       month: '2-digit',
@@ -89,15 +95,15 @@ export function businessCharts(series = []) {
   )
   const base = {
     tooltip: { trigger: 'axis', renderMode: 'richText' },
-    legend: { bottom: 0 },
+    legend: { bottom: 0, textStyle: { color: dark ? '#cfd3dc' : '#606266' } },
     grid: { left: 20, right: 24, top: 30, bottom: 55, containLabel: true },
-    xAxis: { type: 'category', data: axis, boundaryGap: false },
-    yAxis: { type: 'value', min: 0 }
+    xAxis: { ...chartAxis(dark), type: 'category', data: axis, boundaryGap: false },
+    yAxis: { ...chartAxis(dark), type: 'value', min: 0 }
   }
   return {
     requests: {
       ...base,
-      yAxis: { type: 'value', minInterval: 1 },
+      yAxis: { ...chartAxis(dark), type: 'value', minInterval: 1 },
       series: [
         { name: '请求总数', key: 'requests', color: '#409eff' },
         { name: '已完成', key: 'complete', color: '#67c23a' },
@@ -112,7 +118,7 @@ export function businessCharts(series = []) {
     },
     latency: {
       ...base,
-      yAxis: { type: 'value', name: '毫秒', min: 0 },
+      yAxis: { ...chartAxis(dark), type: 'value', name: '毫秒', min: 0 },
       series: [
         {
           name: '首字响应 P95',
