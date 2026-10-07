@@ -1,11 +1,12 @@
-export function submission(previous, conversationId, content, turnId, uuid) {
+export function submission(previous, conversationId, content, turnId, uuid, attachments = []) {
+  const refs = attachments.map(({upload_id, name}) => ({upload_id, name}));
   if (previous) {
-    if (previous.conversationId !== conversationId || previous.content !== content) {
+    if (previous.conversationId !== conversationId || previous.content !== content || JSON.stringify(previous.attachments || []) !== JSON.stringify(refs)) {
       throw new Error('上一条消息的发送状态尚未确认，请先刷新对话或重试原消息。');
     }
     return previous;
   }
-  return {conversationId, content, turnId: turnId || uuid()};
+  return {conversationId, content, turnId: turnId || uuid(), attachments: refs};
 }
 
 export function pollDelay(error, failures) {
