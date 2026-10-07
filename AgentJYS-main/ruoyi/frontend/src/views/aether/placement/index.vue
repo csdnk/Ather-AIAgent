@@ -8,40 +8,25 @@
     />
     <template v-else>
       <div class="heading">
-        <div
-          ><h1>冷热分层调度</h1
-          ><p>逐次查看为什么调整记忆的存储层级、调整方向，以及最终是否成功。</p></div
-        >
+        <div><h1>冷热分层调度</h1></div>
         <el-button type="primary" :loading="loading" @click="reset">刷新动作记录</el-button>
       </div>
       <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon />
       <el-alert
         v-if="data.placement_capability === 'unsupported'"
         title="当前存储执行器不支持层级迁移，普通分层评估已停止"
-        description="当前使用热缓存，尚未配置可执行的温层、冷层迁移能力。调低热度阈值也不会产生迁移。系统继续处理记忆删除、失效清理和缓存健康检查。"
         type="warning"
         :closable="false"
         show-icon
         class="capability"
       />
-      <p class="muted"
-        >最近读取：{{ formatTime(data.observed_at) }} ·
-        仅统计当前部署已记录的动作，同一动作重试只计一次。</p
-      >
+      <p class="muted">最近更新 {{ formatTime(data.observed_at) }}</p>
       <div class="cards">
         <el-card v-for="card in cards" :key="card.label" shadow="never">
           <span class="muted">{{ card.label }}</span
-          ><strong>{{ card.value }}</strong
-          ><p>{{ card.note }}</p>
+          ><strong>{{ card.value }}</strong>
         </el-card>
       </div>
-      <el-alert
-        title="分层评估不等于搬迁"
-        description="只有实际生成升层或降层动作才会出现在这里。成功需要存储回执和迁移后的读取验证；模拟完成不会计入真实成功。"
-        type="info"
-        :closable="false"
-        show-icon
-      />
       <div class="toolbar">
         <el-select
           v-model="filter"
@@ -109,9 +94,6 @@
         ><el-button :disabled="loading || cursors.length === 1" @click="previous">上一页</el-button
         ><span>第 {{ cursors.length }} 页</span
         ><el-button :disabled="loading || !data.next_cursor" @click="next">下一页</el-button></div
-      >
-      <p class="muted"
-        >冷层适合长期保存，温层用于常规访问，热层用于快速访问。触发来源未记录表示历史证据缺失，不代表没有触发原因。</p
       >
       <el-drawer
         :model-value="Boolean(selected)"

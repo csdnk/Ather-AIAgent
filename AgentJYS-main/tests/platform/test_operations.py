@@ -155,3 +155,36 @@ def test_first_configuration_snapshot_accepts_absent_previous_version():
     Operations._validate(command)
     with pytest.raises(ValueError):
         Operations._validate(command.model_copy(update={"expected_version": 12}))
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/platform-ops/v1/overview",
+        "/platform-ops/v1/console/diagnostics",
+        "/platform-ops/v1/console/diagnostics?kind=placement",
+    ],
+)
+def test_monitoring_requires_live_read_grant_even_for_platform_role(path):
+    from dataclasses import replace
+
+    client, service = client_for(replace(actor(), permissions=()))
+    response = client.get(path, headers={"Authorization": "Bearer valid"})
+    assert response.status_code == 403
+    assert service.calls == []
+
+
+def test_homepage_ignores_forged_tenant_and_role_headers():
+    client, service = client_for(actor("tenant_admin", "tenant-a"))
+    response = client.get(
+        "/platform-ops/v1/overview?tenant_id=tenant-b&role=platform_admin",
+        headers={
+            "Authorization": "Bearer valid",
+            "X-Tenant-Id": "tenant-b",
+            "visit-tenant-id": "tenant-b",
+            "X-Role": "platform_admin",
+        },
+    )
+    assert response.status_code == 200
+    assert service.calls[-1][0].tenant_id == "tenant-a"
+    assert service.calls[-1][0].role == "tenant_admin"

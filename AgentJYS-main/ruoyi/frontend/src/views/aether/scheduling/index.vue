@@ -8,9 +8,7 @@
     />
     <template v-else>
       <div class="heading"
-        ><div
-          ><h1>调度监测</h1><p>查看任务是否及时执行、队列是否积压，以及执行器最近是否联系。</p></div
-        >
+        ><div><h1>调度监测</h1></div>
         <el-space
           ><el-button @click="$router.push('/aether/tasks')">进入任务处理</el-button
           ><el-button type="primary" :loading="loading" @click="load"
@@ -26,8 +24,7 @@
       <div class="cards"
         ><el-card v-for="card in schedulingCards(data)" :key="card.label" shadow="never"
           ><span class="muted">{{ card.label }}</span
-          ><strong>{{ card.value }}</strong
-          ><p class="muted">{{ card.note }}</p></el-card
+          ><strong>{{ card.value }}</strong></el-card
         ></div
       >
       <div class="charts">
@@ -55,14 +52,9 @@
         >累计 {{ data.task_summary?.total ?? '未知' }} 个任务，最近 24 小时新建
         {{ data.task_summary?.created_last_24h ?? '未知' }} 个；最近一次创建于
         {{ formatTime(data.task_summary?.latest_task_at) }}。
-        分层策略评估用于判断是否需要调整存储，不代表发生搬迁；实际动作与回执请进入独立的“冷热分层调度”页面查看。</p
-      >
+      </p>
       <el-card shadow="never" class="block"
         ><template #header>执行器与队列</template>
-        <p class="muted"
-          >轮询记录表示执行器曾向队列取任务。请结合最后联系时间判断；无轮询者不直接等于服务宕机。积压是
-          Temporal 返回的估计值。</p
-        >
         <el-table
           :data="sectionItems(data.queue_metrics)"
           :empty-text="loading ? '正在查询队列' : observation(data.queue_metrics)"

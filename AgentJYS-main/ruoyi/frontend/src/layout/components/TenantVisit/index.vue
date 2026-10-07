@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div v-if="!isAetherPage">
     <el-select
       filterable
       placeholder="管理范围：平台"
@@ -14,12 +14,15 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import * as TenantApi from '@/api/system/tenant'
 import { getVisitTenantId, setVisitTenantId } from '@/utils/auth'
 import { useMessage } from '@/hooks/web/useMessage'
 import { useTagsView } from '@/hooks/web/useTagsView'
 
+const route = useRoute()
+const isAetherPage = computed(() => route.path === '/index' || route.path.startsWith('/aether/'))
 const message = useMessage() // 消息弹窗
 const tagsView = useTagsView() // 标签页操作
 

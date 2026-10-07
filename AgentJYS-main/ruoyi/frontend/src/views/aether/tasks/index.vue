@@ -14,9 +14,7 @@
     </el-result>
     <template v-else>
       <div class="heading"
-        ><div
-          ><h1>任务与调度</h1
-          ><p>平台管理员查看全局业务任务和工作流执行。取消与核对操作始终跟踪原任务。</p></div
+        ><div><h1>任务与调度</h1></div
         ><el-button :loading="loading" @click="load">刷新调度观测</el-button></div
       >
       <el-alert v-if="error" :title="error" type="error" :closable="false" />
@@ -26,13 +24,6 @@
           ><strong>{{ item.label }}</strong
           ><p>{{ item.summary }}</p></el-card
         ></div
-      >
-      <p class="note"
-        >{{
-          data.task_summary
-            ? `本部署全部绑定任务共 ${data.task_summary.total} 条；概况不受下面筛选与分页影响。`
-            : '尚未取得全部署概况；以上仅为当前页样本。'
-        }}同步召回可能没有后台任务，请从用户会话查看召回证据。</p
       >
       <el-space v-if="data.task_summary" wrap class="mb-4"
         ><el-tag v-for="(count, state) in data.task_summary.by_state" :key="state"
@@ -69,8 +60,7 @@
               :key="state"
               :label="statusText(state)"
               :value="state" /></el-select></el-form-item
-        ><span class="note">筛选由服务端执行</span></el-form
-      >
+      ></el-form>
       <el-tabs>
         <el-tab-pane label="业务任务" lazy
           ><ResourcePanel

@@ -1,5 +1,10 @@
+export const canReadOperations = (identity) =>
+  identity?.role_codes?.some((role) =>
+    ['aether_platform_admin', 'aether_tenant_admin'].includes(role)
+  ) === true && identity?.permissions?.includes('aether:ops:read') === true
+
 export const canReadTaskDiagnostics = (identity) =>
-  identity?.role_codes?.includes('aether_platform_admin') === true
+  canReadOperations(identity) && identity.role_codes.includes('aether_platform_admin')
 
 export async function readTaskDiagnostics(getIdentity, getConsole, params) {
   const identity = await getIdentity()

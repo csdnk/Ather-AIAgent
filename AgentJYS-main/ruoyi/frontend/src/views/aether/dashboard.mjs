@@ -16,7 +16,7 @@ export function contractCards(metrics = {}) {
       note: '99% 的短期记忆接口请求应在 10 毫秒内完成；需专门采集接口耗时。'
     },
     {
-      label: '长期记忆压缩效果',
+      label: '记忆正文压缩比',
       value: Number.isFinite(ratio) ? `${ratio.toFixed(2)} 倍` : '暂无有效样本',
       target: '合同目标 物理压缩 ≥ 5 倍',
       note: `已发布正文样本 ${metrics.compression?.samples ?? '未知'} 条；按总原始字节 ÷ 总压缩字节统计，含历史版本，不等同整体存储节省。`

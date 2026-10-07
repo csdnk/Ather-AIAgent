@@ -1,9 +1,7 @@
 <template>
   <ContentWrap>
     <div class="heading"
-      ><div
-        ><h1>用户与业务</h1><p>先找到用户，再沿会话、记忆和召回查看实际内容与处理过程。</p></div
-      ></div
+      ><div><h1>用户与业务</h1></div></div
     >
     <el-tabs v-model="topTab">
       <el-tab-pane label="按用户查看" name="users">
@@ -24,7 +22,7 @@
           <el-input
             v-model="query"
             clearable
-            placeholder="搜索企业、姓名或登录名（服务端检索）"
+            placeholder="搜索企业、姓名或登录名"
             aria-label="搜索用户"
             @keyup.enter="searchUsers"
           />
@@ -79,7 +77,6 @@
                 >{{ selected.display_name || selected.username }}
                 <small>{{ selected.tenant_name }}</small></h2
               >
-              <p class="note">正文仅按当前账号的授权范围读取，每次查看均记录访问历史。</p>
               <el-tabs v-model="userTab" @tab-change="loadUserData">
                 <el-tab-pane label="会话与召回" name="conversations" />
                 <el-tab-pane label="记忆内容与生命周期" name="memories" />
@@ -126,11 +123,6 @@
                     @change="filterRecords"
                 /></template>
               </div>
-              <p class="note">{{
-                userTab === 'memories'
-                  ? '按记忆类型与生命周期检索，点击内容摘要查看正文和来源。'
-                  : '条件在服务端检索。会话状态以最新一次请求为准，时间按会话更新时间筛选。'
-              }}</p>
               <el-alert v-if="listError" :title="listError" type="error" :closable="false" />
               <div class="list-head"
                 ><span class="note"
@@ -279,8 +271,7 @@
         >
         <h3>记忆全文</h3><div class="body content">{{ memoryText(detail) }}</div>
         <p class="note"
-          >保存成功与可检索分别以处理回执为准。版本
-          {{ detail.memory?.ref?.version ?? detail.memory?.revision ?? '未返回' }}。</p
+          >版本 {{ detail.memory?.ref?.version ?? detail.memory?.revision ?? '未返回' }}。</p
         >
         <h3>来源内容</h3>
         <template v-if="sectionItems(detail.sources).length"
@@ -308,9 +299,6 @@
       <template v-else-if="detailType === 'recalls'">
         <el-alert :title="recallEvidence(detail)" type="info" :closable="false" />
         <EvidencePanel title="召回执行阶段" :data="detail.record" />
-        <p v-if="detail.result?.rendered_context != null" class="note"
-          >服务已返回组装后的上下文。该回执不证明内容已发送给模型或被模型采用。</p
-        >
         <article v-if="typeof detail.result?.rendered_context === 'string'" class="turn">
           <h3>组装后的上下文正文</h3>
           <div class="body">{{ detail.result.rendered_context || '本次组装的上下文为空' }}</div>
