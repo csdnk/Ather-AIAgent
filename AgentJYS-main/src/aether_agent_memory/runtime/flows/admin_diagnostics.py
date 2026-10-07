@@ -13,6 +13,7 @@ from fastapi import FastAPI, Query, Response
 
 from aether_agent_memory.remember.basic.service import memory_ref
 from aether_agent_memory.remember.contracts.models import MemoryKind, MemoryRef, MemoryStatus
+from aether_agent_memory.runtime.contracts.foundation import ResourceLocation
 from aether_agent_memory.runtime.contracts.models import (
     ErrorCode,
     Flow,
@@ -28,6 +29,7 @@ from aether_agent_memory.runtime.foundation.content_diagnostics import (
     authorize_operator,
     diagnostic_read,
 )
+from aether_agent_memory.runtime.foundation.requests import text_hash
 from aether_agent_memory.runtime.temporal.models import WorkflowBinding
 
 
@@ -83,6 +85,57 @@ class AdminDiagnostics:
         ) != RecordRef.model_validate(pointer):
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "memory pointer differs")
         return dict(raw)
+
+    async def retained_body(
+        self, ctx: Any, raw: dict[str, Any], max_chars: int | None = None
+    ) -> dict[str, Any]:
+        """Operator-only inspection, independent of business recall eligibility."""
+        ref = MemoryRef.model_validate(raw["ref"])
+        with self.uow.transaction() as tx:
+            authorize_operator(self.identity, tx, ctx, ref.scope.tenant_id)
+            if self.metadata(tx, ctx, ref.memory_id) != raw or raw["status"] not in {
+                "archived",
+                "deleted",
+            }:
+                raise FoundationError(ErrorCode.RESULT_INVALIDATED, "memory changed during read")
+        content, reason = None, "retained_body"
+        try:
+            if "body_location" in raw:
+                location = ResourceLocation.model_validate(raw["body_location"])
+                bodies = self.runtime.remember.bodies
+                content = (
+                    await bodies.read_prefix(location, raw["body_chars"], max_chars)
+                    if max_chars is not None
+                    else await bodies.read_authority(location)
+                )
+            else:
+                content = raw["content"]
+                if text_hash(content) != raw["content_hash"]:
+                    raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "body hash differs")
+                if max_chars is not None:
+                    content = content[:max_chars]
+        except FoundationError as exc:
+            if exc.code not in {
+                ErrorCode.NOT_FOUND,
+                ErrorCode.DEPENDENCY_UNAVAILABLE,
+                ErrorCode.CONTRACT_VIOLATION,
+            }:
+                raise
+            reason = {
+                ErrorCode.NOT_FOUND: "retained_body_missing",
+                ErrorCode.CONTRACT_VIOLATION: "retained_body_invalid",
+            }.get(exc.code, "retained_body_unavailable")
+            content = None
+        with self.uow.transaction() as tx:
+            authorize_operator(self.identity, tx, ctx, ref.scope.tenant_id)
+            if self.metadata(tx, ctx, ref.memory_id) != raw:
+                raise FoundationError(ErrorCode.RESULT_INVALIDATED, "memory changed during read")
+        return {
+            "content": content,
+            "outcome": "read" if content is not None else "unavailable",
+            "reason_code": reason,
+            "path": "authority" if content is not None else "none",
+        }
 
     async def memories(
         self,
@@ -166,6 +219,23 @@ class AdminDiagnostics:
                 async def preview(item: dict[str, Any]) -> None:
                     async with semaphore:
                         try:
+                            if item["status"] in {"archived", "deleted"}:
+                                with self.uow.transaction() as tx:
+                                    raw = self.metadata(tx, ctx, item["ref"]["memory_id"])
+                                if (
+                                    raw["ref"] != item["ref"]
+                                    or raw["object_revision"] != item["object_revision"]
+                                ):
+                                    raise FoundationError(
+                                        ErrorCode.RESULT_INVALIDATED, "memory changed"
+                                    )
+                                body = await asyncio.wait_for(
+                                    self.retained_body(ctx, raw, 240), timeout=3
+                                )
+                                item.update(
+                                    summary=body["content"], summary_status=body["reason_code"]
+                                )
+                                return
                             result = await asyncio.wait_for(
                                 self.runtime.remember.preview(
                                     ctx, MemoryRef.model_validate(item["ref"]), 240
@@ -218,8 +288,22 @@ class AdminDiagnostics:
         with self.access(ctx, tenant_id, user_id, "memory", memory_id):
             with self.uow.transaction() as tx:
                 raw = self.metadata(tx, ctx, memory_id)
-                if raw["status"] == "deleted":
-                    raise FoundationError(ErrorCode.MEMORY_GONE, "memory deleted")
+            if raw["status"] in {"archived", "deleted"}:
+                body = await self.retained_body(ctx, raw)
+                return {
+                    "memory": fields(
+                        raw,
+                        "ref kind status revision object_revision "
+                        "projection_state created_at expires_at importance",
+                    ),
+                    "body": body,
+                    "sources": [],
+                    "processing": None,
+                    "placement": None,
+                    "read_mode": "retained",
+                    "status": "available" if body["outcome"] == "read" else "unavailable",
+                    "observed_at": now(),
+                }
             ref = MemoryRef.model_validate(raw["ref"])
             body = await self.runtime.remember.read_body(ctx, ref)
             metadata = fields(

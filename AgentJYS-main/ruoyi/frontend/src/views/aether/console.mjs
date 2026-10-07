@@ -31,6 +31,10 @@ export function observation(data) {
 }
 export function memoryText(data) {
   if (['forbidden', 'denied'].includes(data?.status)) return '当前账号无权读取正文'
+  const retainedReason = data?.body?.reason_code || data?.reason_code
+  if (retainedReason === 'retained_body_missing') return '保留正文已不存在，当前仅保留操作记录。'
+  if (retainedReason === 'retained_body_unavailable') return '正文存储暂时无法访问，请稍后重试。'
+  if (retainedReason === 'retained_body_invalid') return '保留正文校验失败，暂不能展示。'
   if (['deleted', 'expired', 'superseded'].includes(data?.status))
     return '内容已删除、过期或被替代，不能从历史记录恢复'
   if (['failed', 'unavailable', 'error'].includes(data?.status)) return '正文读取失败，请刷新后核实'

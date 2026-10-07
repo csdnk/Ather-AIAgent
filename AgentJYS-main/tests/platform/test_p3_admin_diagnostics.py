@@ -170,31 +170,112 @@ async def test_wrong_target_never_returns_content(tmp_path, target):
         ("aether_platform_admin", ["aether:content:read"]),
     ],
 )
-async def test_content_requires_admin_and_explicit_grant(tmp_path, role, grants):
+@pytest.mark.parametrize("status", ["active", "archived", "deleted"])
+async def test_content_requires_admin_and_explicit_grant(tmp_path, role, grants, status):
     from aether_agent_memory.runtime.flows.admin_diagnostics import AdminDiagnostics
 
     identity, ctx, state = operator(tmp_path, role, grants)
     host = runtime(identity, tmp_path)
-    seed(host)
+    seed(host, status=status)
     with pytest.raises(FoundationError) as error:
         await AdminDiagnostics(host, None).memory(ctx, "m1", "old-tenant", "old-user")
     assert error.value.code == "FORBIDDEN"
 
 
 @pytest.mark.asyncio
-async def test_revoked_permission_and_deleted_body_fail_closed(tmp_path):
+async def test_revoked_permission_blocks_retained_deleted_body(tmp_path):
     from aether_agent_memory.runtime.flows.admin_diagnostics import AdminDiagnostics
 
     identity, ctx, state = operator(tmp_path)
     host = runtime(identity, tmp_path)
     seed(host, status="deleted")
+    data = await AdminDiagnostics(host, None).memory(ctx, "m1", "old-tenant", "old-user")
+    assert data["body"]["content"] == "private memory body m1"
+    state["permissions"] = ["aether:ops:read"]
     with pytest.raises(FoundationError) as error:
         await AdminDiagnostics(host, None).memory(ctx, "m1", "old-tenant", "old-user")
-    assert error.value.code == "MEMORY_GONE"
-    state["permissions"] = ["aether:ops:read"]
+    assert error.value.code == "FORBIDDEN"
     with pytest.raises(FoundationError) as error:
         await AdminDiagnostics(host, None).memories(ctx, "old-tenant", "old-user")
     assert error.value.code == "FORBIDDEN"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", ["archived", "deleted"])
+async def test_retained_admin_read_does_not_reactivate_memory(tmp_path, status):
+    from aether_agent_memory.runtime.flows.admin_diagnostics import AdminDiagnostics
+    from aether_agent_memory.runtime.foundation.content_diagnostics import diagnostic_read
+
+    identity, ctx, state = operator(tmp_path)
+    host = runtime(identity, tmp_path)
+    item = seed(host, status=status, text="已停止使用的中文记忆")
+    admin = AdminDiagnostics(host, None)
+    detail = await admin.memory(ctx, "m1", "old-tenant", "old-user")
+    assert detail["body"]["content"] == item.content
+    assert detail["memory"]["status"] == status
+    assert detail["read_mode"] == "retained"
+    assert detail["sources"] == []
+    listing = await admin.memories(ctx, "old-tenant", "old-user", status=status)
+    assert listing["items"][0]["summary"] == item.content
+    with diagnostic_read(identity, ctx, "old-tenant", "old-user"):
+        business = await host.remember.read_body(ctx, item.ref)
+        assert business.outcome == "excluded"
+    with identity.uow.transaction() as tx:
+        assert not tx.rows("tasks")
+        assert host.remember.current(tx, "m1").status == status
+        assert item.content not in str(tx.rows("admin_content_access"))
+    with pytest.raises(FoundationError) as error:
+        await admin.memory(ctx, "m1", "foreign", "old-user")
+    assert error.value.code == "FORBIDDEN"
+
+
+@pytest.mark.asyncio
+async def test_retained_body_missing_does_not_fall_back_to_cached_text(tmp_path):
+    from aether_agent_memory.runtime.flows.admin_diagnostics import AdminDiagnostics
+
+    identity, ctx, _ = operator(tmp_path)
+    host = runtime(identity, tmp_path)
+    item = seed(host, status="deleted")
+    bodies = host.remember.bodies
+    location = bodies.location(item.ref.scope, item.content)
+    assert bodies.verified_text(location) == item.content
+    bodies.path(location).unlink()
+    admin = AdminDiagnostics(host, None)
+    data = await admin.memory(ctx, "m1", "old-tenant", "old-user")
+    assert data["memory"]["status"] == "deleted"
+    assert data["body"]["reason_code"] == "retained_body_missing"
+    assert item.content not in str(data)
+    listing = await admin.memories(ctx, "old-tenant", "old-user")
+    assert listing["items"][0]["summary"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("change", ["permission", "revision"])
+async def test_retained_read_rechecks_authority_after_io(tmp_path, monkeypatch, change):
+    from aether_agent_memory.remember.basic.service import memory_ref
+    from aether_agent_memory.runtime.flows.admin_diagnostics import AdminDiagnostics
+
+    identity, ctx, state = operator(tmp_path)
+    host = runtime(identity, tmp_path)
+    item = seed(host, status="deleted")
+    original = host.remember.bodies.read_authority
+
+    async def changed(location):
+        value = await original(location)
+        if change == "permission":
+            state["permissions"] = ["aether:ops:read"]
+        else:
+            with identity.uow.transaction() as tx:
+                ref = memory_ref(item.ref, versioned=True)
+                raw = tx.get(ref)
+                raw["object_revision"] += 1
+                tx.put_if_revision(ref, raw, tx.revision(ref))
+        return value
+
+    monkeypatch.setattr(host.remember.bodies, "read_authority", changed)
+    with pytest.raises(FoundationError) as error:
+        await AdminDiagnostics(host, None).memory(ctx, "m1", "old-tenant", "old-user")
+    assert error.value.code == ("FORBIDDEN" if change == "permission" else "RESULT_INVALIDATED")
 
 
 @pytest.mark.asyncio

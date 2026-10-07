@@ -1269,7 +1269,6 @@ class RememberPipeline(Revalidation):
                 return {"content": raw["content"][:max_chars], "status": "excerpt"}
             location = ResourceLocation.model_validate(raw["body_location"])
             self.bodies.check_binding(location)
-            target_chars = min(raw["body_chars"], max_chars)
         verified = self.bodies.verified_text(location)
         cached = (
             verified[:max_chars]
@@ -1279,40 +1278,7 @@ class RememberPipeline(Revalidation):
         if cached is not None:
             # The eligibility check above runs even when the bytes are cached.
             return {"content": cached, "status": "excerpt"}
-        if location.provider_id == "local":
-
-            def read_prefix() -> bytes:
-                with self.bodies.path(location).open("rb") as stream:
-                    return stream.read(max_chars * 4)
-
-            data = await asyncio.to_thread(read_prefix)
-        import codecs
-
-        try:
-            decoder = codecs.getincrementaldecoder("utf-8")()
-            if location.provider_id == "local":
-                text = decoder.decode(data, final=False)[:max_chars]
-            else:
-                # P2 ranges require an exact byte end. Without byte-length metadata,
-                # remaining characters give a safe lower bound on remaining bytes.
-                # Incremental decoding avoids dropping a short multibyte body and
-                # never asks past EOF or reads more than four bytes per preview char.
-                text, offset = "", 0
-                while len(text) < target_chars:
-                    count = min(target_chars - len(text), max_chars * 4 - offset)
-                    if count <= 0:
-                        raise ValueError("body character count differs")
-                    part = await self.bodies.p2_call(
-                        "read_range", location.object_key, offset, offset + count
-                    )
-                    if len(part) != count:
-                        raise ValueError("body range incomplete")
-                    text += decoder.decode(part, final=False)
-                    offset += count
-            if len(text) != target_chars:
-                raise ValueError("body character count differs")
-        except (ValueError, TypeError) as exc:
-            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "invalid body prefix") from exc
+        text = await self.bodies.read_prefix(location, raw["body_chars"], max_chars)
         with self.uow.transaction() as tx:
             current = self.final_guard(tx, ctx, (ref,), "recall").items[0]
             if (

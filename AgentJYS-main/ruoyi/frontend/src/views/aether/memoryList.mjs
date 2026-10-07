@@ -2,7 +2,6 @@ export function memorySummary(row) {
   if (typeof row.summary === 'string') return row.summary
   if (typeof row.summary?.text === 'string') return row.summary.text
   if (typeof row.summary?.body === 'string') return row.summary.body
-  if (row.status === 'deleted') return '已删除，正文不可读取'
   if (row.status === 'expired') return '已过期，正文不可读取'
   if (row.status === 'superseded') return '已被新版本替代'
   const reasons = {
@@ -21,5 +20,29 @@ export function memorySummary(row) {
     expired: '已过期，正文不可读取',
     deleted: '已删除，正文不可读取'
   }
-  return reasons[row.summary_status] || '摘要尚不可用，可打开详情查看原因'
+  const retained = {
+    retained_body_missing: '保留正文已不存在，仅有管理记录',
+    retained_body_unavailable: '正文存储暂时无法访问，请稍后重试',
+    retained_body_invalid: '保留正文校验失败，暂不能展示'
+  }
+  return (
+    retained[row.summary_status] ||
+    reasons[row.summary_status] ||
+    (row.status === 'deleted' ? '已逻辑删除，保留正文待读取' : '摘要尚不可用，可打开详情查看原因')
+  )
+}
+
+export function memoryLifecycleNotice(status) {
+  if (status === 'archived') return '已归档：暂停召回使用，正文仍保留，可恢复使用。'
+  if (status === 'deleted')
+    return '已逻辑删除：保留正文仅供后台只读查看，不再参与召回，不能在此恢复使用。'
+  return ''
+}
+
+export function memoryLifecyclePrompt(action) {
+  if (action === 'memory_delete')
+    return '确定逻辑删除这条记忆？删除后停止召回使用，后台仍可只读查看保留正文，但不能在此恢复使用。'
+  if (action === 'memory_archive')
+    return '确定归档这条记忆？归档会暂停召回使用，保留正文，之后可以恢复使用。'
+  return '确定恢复使用这条记忆？恢复后将重新准备检索索引。'
 }

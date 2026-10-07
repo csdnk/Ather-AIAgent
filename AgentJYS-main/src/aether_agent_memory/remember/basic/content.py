@@ -230,6 +230,67 @@ class Bodies:
             return value, "p2" if location.provider_id == "p2" else "authority"
         return await asyncio.to_thread(self.read_local, location), "authority"
 
+    async def read_authority(self, location: ResourceLocation) -> str:
+        """Read retained bytes without consulting or repopulating business caches."""
+        self.check_binding(location)
+        try:
+            if location.provider_id == "local":
+                raw = await asyncio.to_thread(self.path(location).read_bytes)
+            else:
+                raw = await self.p2_call("get_object", location.object_key)
+            if raw is None:
+                raise FoundationError(ErrorCode.NOT_FOUND, "retained body missing")
+            text = bytes(raw).decode("utf-8")
+        except FileNotFoundError:
+            raise FoundationError(ErrorCode.NOT_FOUND, "retained body missing") from None
+        except UnicodeError:
+            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "invalid body encoding") from None
+        except OSError:
+            raise FoundationError(ErrorCode.DEPENDENCY_UNAVAILABLE, "body unavailable") from None
+        if text_hash(text) != location.content_hash:
+            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "body hash mismatch")
+        return text
+
+    async def read_prefix(self, location: ResourceLocation, body_chars: int, max_chars: int) -> str:
+        """Read bounded authority bytes; the caller owns before/after authorization."""
+        import codecs
+
+        self.check_binding(location)
+        if not 1 <= max_chars <= 500:
+            raise FoundationError(ErrorCode.INVALID_ARGUMENT, "preview exceeds read budget")
+        target_chars = min(body_chars, max_chars)
+        try:
+            decoder = codecs.getincrementaldecoder("utf-8")()
+            if location.provider_id == "local":
+
+                def prefix() -> bytes:
+                    with self.path(location).open("rb") as stream:
+                        return stream.read(max_chars * 4)
+
+                text = decoder.decode(await asyncio.to_thread(prefix), final=False)[:max_chars]
+            else:
+                text, offset = "", 0
+                while len(text) < target_chars:
+                    count = min(target_chars - len(text), max_chars * 4 - offset)
+                    if count <= 0:
+                        raise ValueError("body character count differs")
+                    part = await self.p2_call(
+                        "read_range", location.object_key, offset, offset + count
+                    )
+                    if len(part) != count:
+                        raise ValueError("body range incomplete")
+                    text += decoder.decode(part, final=False)
+                    offset += count
+            if len(text) != target_chars:
+                raise ValueError("body character count differs")
+        except FileNotFoundError:
+            raise FoundationError(ErrorCode.NOT_FOUND, "retained body missing") from None
+        except OSError:
+            raise FoundationError(ErrorCode.DEPENDENCY_UNAVAILABLE, "body unavailable") from None
+        except (ValueError, TypeError):
+            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "invalid body prefix") from None
+        return text
+
     def check_binding(self, location: ResourceLocation) -> None:
         if self.object_binding is not None and (
             location.provider_id != self.provider_id

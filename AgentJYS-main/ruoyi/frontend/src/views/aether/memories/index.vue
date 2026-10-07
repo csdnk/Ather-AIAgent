@@ -133,10 +133,19 @@
             ><span>{{ memoryKind(detail.memory.kind) }}</span
             ><el-button :loading="detailLoading" @click="loadDetail">刷新详情</el-button></div
           >
-          <h3>记忆全文</h3><div class="body">{{ memoryText(detail) }}</div>
+          <el-alert
+            v-if="memoryLifecycleNotice(detail.memory.status)"
+            :title="memoryLifecycleNotice(detail.memory.status)"
+            type="info"
+            :closable="false"
+          />
+          <h3>{{ detail.read_mode === 'retained' ? '保留正文' : '记忆全文' }}</h3
+          ><div class="body">{{ memoryText(detail) }}</div>
           <div class="toolbar actions">
             <el-button
-              v-if="allowed('memory_update')"
+              v-if="
+                allowed('memory_update') && ['active', 'archived'].includes(detail.memory.status)
+              "
               :disabled="!canEdit || command.blocked.value"
               @click="edit"
               >修改正文</el-button
@@ -214,7 +223,7 @@ import { getConsole, getIdentity } from '@/api/aether'
 import MemoryUserPicker from '../MemoryUserPicker.vue'
 import MemoryCommandNotice from '../MemoryCommandNotice.vue'
 import { canReadMemory, canManageMemory, editableBody, memoryMutation } from '../memoryAdmin.mjs'
-import { memorySummary } from '../memoryList.mjs'
+import { memorySummary, memoryLifecycleNotice, memoryLifecyclePrompt } from '../memoryList.mjs'
 import { useMemoryCommand } from '../useMemoryCommand'
 import {
   errorMessage,
@@ -407,19 +416,11 @@ async function lifecycle(action: string) {
   if (!user || !hasRevision.value) return
   const mutation = memoryMutation(detail.value)
   try {
-    await ElMessageBox.confirm(
-      action === 'memory_delete'
-        ? '确定删除这条记忆？删除后无法通过此页面恢复正文。'
-        : action === 'memory_archive'
-          ? '确定归档这条记忆？'
-          : '确定恢复使用这条记忆？',
-      '确认操作',
-      {
-        type: action === 'memory_delete' ? 'warning' : 'info',
-        confirmButtonText: '确定',
-        cancelButtonText: '取消'
-      }
-    )
+    await ElMessageBox.confirm(memoryLifecyclePrompt(action), '确认操作', {
+      type: action === 'memory_delete' ? 'warning' : 'info',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
+    })
   } catch {
     return
   }
