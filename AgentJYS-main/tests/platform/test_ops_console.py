@@ -326,6 +326,18 @@ def test_business_filters_are_forwarded_without_expanding_target_scope(console):
         "/p3/admin/memories",
         {"tenant_id": "a", "user_id": "u1", "limit": 50, "kind": "working", "status": "active"},
     )
+    response = client.get(
+        "/platform-ops/v1/console/memories?user_id=u1&include_summary=false&collapse_duplicates=true",
+        headers=HEADERS,
+    )
+    assert response.status_code == 200
+    assert calls[-1][1] == {
+        "tenant_id": "a",
+        "user_id": "u1",
+        "limit": 50,
+        "include_summary": False,
+        "collapse_duplicates": True,
+    }
     verifier.current = replace(ACTOR, role="platform_admin", tenant_id=None)
     service.business_observations = lambda actor: {"items": [], "status": "not_collected"}
     response = client.get(

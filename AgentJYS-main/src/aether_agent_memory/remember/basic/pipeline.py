@@ -1270,6 +1270,15 @@ class RememberPipeline(Revalidation):
             location = ResourceLocation.model_validate(raw["body_location"])
             self.bodies.check_binding(location)
             target_chars = min(raw["body_chars"], max_chars)
+        verified = self.bodies.verified_text(location)
+        cached = (
+            verified[:max_chars]
+            if verified is not None
+            else self.bodies.preview_text(location, max_chars)
+        )
+        if cached is not None:
+            # The eligibility check above runs even when the bytes are cached.
+            return {"content": cached, "status": "excerpt"}
         if location.provider_id == "local":
 
             def read_prefix() -> bytes:
@@ -1311,6 +1320,7 @@ class RememberPipeline(Revalidation):
                 or current.checked_revision != eligible.checked_revision
             ):
                 return {"content": None, "status": "changed_during_read"}
+        self.bodies.remember_preview(location, max_chars, text)
         return {"content": text, "status": "excerpt"}
 
     async def read_body(self, ctx: TrustedContext, ref: MemoryRef) -> FullBodyReadResult:

@@ -46,6 +46,7 @@ class Bodies:
         self.remote_only = False
         self.verified: OrderedDict[str, str] = OrderedDict()
         self.verified_bytes = 0
+        self.previews: OrderedDict[tuple[str, int], str] = OrderedDict()
         self.verified_limit = max(policy.max_input_bytes * 2, 128 * 1024 * 1024)
 
     def remember_verified(self, location: ResourceLocation, text: str) -> None:
@@ -68,6 +69,26 @@ class Bodies:
         if value is not None:
             self.verified.move_to_end(location.object_key)
         return value
+
+    def preview_text(self, location: ResourceLocation, max_chars: int) -> str | None:
+        self.check_binding(location)
+        key = (fingerprint(location.model_dump(mode="json")), max_chars)
+        value = self.previews.get(key)
+        if value is not None:
+            self.previews.move_to_end(key)
+        return value
+
+    def remember_preview(self, location: ResourceLocation, max_chars: int, text: str) -> None:
+        # Bounded immutable excerpts only; callers must still recheck authorization,
+        # current revision and source eligibility before using any cached content.
+        if not 1 <= max_chars <= 500 or len(text) > max_chars:
+            raise ValueError("preview cache bound exceeded")
+        self.check_binding(location)
+        key = (fingerprint(location.model_dump(mode="json")), max_chars)
+        self.previews[key] = text
+        self.previews.move_to_end(key)
+        while len(self.previews) > 512:
+            self.previews.popitem(last=False)
 
     def location(self, scope: Scope, text: str, kind: str = "body") -> ResourceLocation:
         digest = text_hash(text)

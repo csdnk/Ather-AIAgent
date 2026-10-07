@@ -47,6 +47,7 @@
               :value="item"
             />
           </el-select>
+          <el-switch v-model="collapseDuplicates" active-text="合并相同内容" @change="filter" />
           <el-button :loading="loading" @click="load">刷新</el-button>
         </div>
         <el-alert v-if="error" :title="error" type="error" :closable="false" />
@@ -54,10 +55,44 @@
           v-loading="loading"
           :data="records.items || []"
           :empty-text="tableEmptyText(records, loading)"
+          row-key="ref.memory_id"
         >
+          <el-table-column v-if="collapseDuplicates" type="expand" width="44">
+            <template #default="{ row }">
+              <div v-if="row.duplicate_count > 1" class="duplicate-records">
+                <h3>相同内容的 {{ row.duplicate_count }} 条记忆</h3>
+                <el-table :data="row.duplicate_items || []">
+                  <el-table-column label="创建时间" min-width="170"
+                    ><template #default="{ row: item }">{{
+                      formatTime(item.created_at)
+                    }}</template></el-table-column
+                  >
+                  <el-table-column label="状态" min-width="100"
+                    ><template #default="{ row: item }">{{
+                      statusText(item.status)
+                    }}</template></el-table-column
+                  >
+                  <el-table-column label="操作" width="160"
+                    ><template #default="{ row: item }"
+                      ><el-button link type="primary" @click="openDetail(item)"
+                        >查看这条记忆</el-button
+                      ></template
+                    ></el-table-column
+                  >
+                </el-table>
+                <p v-if="row.duplicates_truncated"
+                  >已列出前 20 条，关闭“合并相同内容”可逐条查阅。</p
+                >
+              </div>
+              <div v-else class="duplicate-records">这条记忆没有相同内容的记录。</div>
+            </template>
+          </el-table-column>
           <el-table-column label="记忆内容" min-width="320"
             ><template #default="{ row }"
-              ><div class="summary">{{ summary(row) }}</div></template
+              ><div class="summary">{{ memorySummary(row) }}</div>
+              <el-tag v-if="row.duplicate_count > 1" size="small" class="duplicate-tag"
+                >相同内容 · {{ row.duplicate_count }} 条记录</el-tag
+              ></template
             ></el-table-column
           >
           <el-table-column label="类型" width="200"
@@ -179,6 +214,7 @@ import { getConsole, getIdentity } from '@/api/aether'
 import MemoryUserPicker from '../MemoryUserPicker.vue'
 import MemoryCommandNotice from '../MemoryCommandNotice.vue'
 import { canReadMemory, canManageMemory, editableBody, memoryMutation } from '../memoryAdmin.mjs'
+import { memorySummary } from '../memoryList.mjs'
 import { useMemoryCommand } from '../useMemoryCommand'
 import {
   errorMessage,
@@ -197,7 +233,8 @@ const records = ref<any>({}),
   loading = ref(false),
   error = ref(''),
   kind = ref(''),
-  state = ref(''),
+  state = ref('active'),
+  collapseDuplicates = ref(true),
   page = ref(1),
   cursors = ref<any[]>([undefined])
 const detail = ref<any>({}),
@@ -241,14 +278,6 @@ const command = useMemoryCommand(identity, async (reply, reference) => {
   }
   if (detailOpen.value) await loadDetail()
 })
-function summary(row: any) {
-  if (typeof row.summary === 'string') return row.summary
-  if (typeof row.summary?.text === 'string') return row.summary.text
-  if (typeof row.summary?.body === 'string') return row.summary.body
-  return ['deleted', 'expired', 'superseded'].includes(row.status)
-    ? '当前状态下正文不可读取'
-    : '点击查看全文'
-}
 function clearForm() {
   form.text = ''
   form.category = 'fact'
@@ -280,15 +309,30 @@ async function load() {
   loading.value = false
   if (!selected.value) return
   loading.value = true
+  const params = {
+    user_id: selected.value.id,
+    kind: kind.value || undefined,
+    status: state.value || undefined,
+    collapse_duplicates: collapseDuplicates.value,
+    limit: 20,
+    cursor: cursors.value[page.value - 1]
+  }
   try {
-    const result = await getConsole('memories', {
-      user_id: selected.value.id,
-      kind: kind.value || undefined,
-      status: state.value || undefined,
-      limit: 20,
-      cursor: cursors.value[page.value - 1]
-    })
-    if (request === listGeneration) records.value = result
+    const result = await getConsole('memories', { ...params, include_summary: false })
+    if (request !== listGeneration) return
+    records.value = result
+    loading.value = false
+    try {
+      const complete = await getConsole('memories', { ...params, include_summary: true })
+      if (request === listGeneration) records.value = complete
+    } catch (e: any) {
+      if (request !== listGeneration) return
+      if ([401, 403, 404].includes(Number(e?.code ?? e?.response?.status))) throw e
+      records.value = {
+        ...result,
+        items: (result.items || []).map((row: any) => ({ ...row, summary_status: 'unavailable' }))
+      }
+    }
   } catch (e) {
     if (request === listGeneration) {
       error.value = errorMessage(e)
@@ -426,6 +470,14 @@ onDeactivated(() => selectUser(null))
   background: var(--el-fill-color-light);
   border-radius: 8px;
   overflow-wrap: anywhere;
+}
+
+.duplicate-records {
+  padding: 12px 24px;
+}
+
+.duplicate-tag {
+  margin-top: 8px;
 }
 
 .summary {

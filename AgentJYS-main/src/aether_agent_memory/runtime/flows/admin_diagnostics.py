@@ -93,10 +93,12 @@ class AdminDiagnostics:
         cursor: str | None = None,
         kind: MemoryKind | None = None,
         status: MemoryStatus | None = None,
+        include_summary: bool = True,
+        collapse_duplicates: bool = False,
     ) -> dict[str, Any]:
         with self.access(ctx, tenant_id, user_id, "memory_catalog", None):
             with self.uow.transaction() as tx:
-                values = []
+                groups: dict[Any, list[str]] = {}
                 scope = ctx.principal.home_scope
                 for key, pointer in tx.rows("remember_current"):
                     ref = RecordRef.model_validate(pointer)
@@ -114,8 +116,16 @@ class AdminDiagnostics:
                         or (status is not None and raw["status"] != status)
                     ):
                         continue
-                    # Scope-filter metadata only; no per-history-row authority RPC.
-                    values.append((key, key))
+                    digest = raw.get("content_hash") or raw.get("body_location", {}).get(
+                        "content_hash"
+                    )
+                    group = (
+                        (raw["kind"], raw["status"], digest)
+                        if collapse_duplicates and digest
+                        else key
+                    )
+                    groups.setdefault(group, []).append(key)
+                values = [(min(ids), sorted(ids)) for ids in groups.values()]
                 items, following = tx.page(
                     values,
                     [
@@ -125,46 +135,76 @@ class AdminDiagnostics:
                         user_id,
                         kind,
                         status,
+                        collapse_duplicates,
                     ],
                     PageRequest(limit=limit, cursor=cursor),
                 )
+            columns = (
+                "ref kind status revision object_revision "
+                "projection_state created_at expires_at importance"
+            )
             selected = []
-            preview_deadline = asyncio.get_running_loop().time() + 8
-            for memory_id in items:
+            for ids in items:
                 with self.uow.transaction() as tx:
-                    raw = self.metadata(tx, ctx, memory_id)
-                    item = fields(
-                        raw,
-                        "ref kind status revision object_revision "
-                        "projection_state created_at expires_at importance",
-                    )
-                try:
-                    remaining = preview_deadline - asyncio.get_running_loop().time()
-                    if remaining <= 0:
-                        item.update(summary=None, summary_status="not_checked_on_list")
-                    else:
-                        preview = await asyncio.wait_for(
-                            self.runtime.remember.preview(
-                                ctx, MemoryRef.model_validate(item["ref"]), 240
-                            ),
-                            timeout=min(2, remaining),
-                        )
+                    raw = self.metadata(tx, ctx, ids[0])
+                    item = fields(raw, columns)
+                    if collapse_duplicates:
                         item.update(
-                            summary=preview.get("content"), summary_status=preview["status"]
+                            duplicate_count=len(ids),
+                            duplicate_items=[
+                                fields(self.metadata(tx, ctx, mid), columns) for mid in ids[:20]
+                            ]
+                            if len(ids) > 1
+                            else [],
+                            duplicates_truncated=len(ids) > 20,
                         )
-                except TimeoutError:
-                    item.update(
-                        summary=None,
-                        summary_status="unavailable",
-                        summary_error_code="DEADLINE_EXCEEDED",
-                    )
-                except FoundationError as exc:
-                    if exc.code in {ErrorCode.FORBIDDEN, ErrorCode.DEADLINE_EXCEEDED}:
-                        raise
-                    item.update(
-                        summary=None, summary_status="unavailable", summary_error_code=str(exc.code)
-                    )
+                item.update(summary=None, summary_status="pending")
                 selected.append(item)
+            if include_summary:
+                semaphore = asyncio.Semaphore(4)
+
+                async def preview(item: dict[str, Any]) -> None:
+                    async with semaphore:
+                        try:
+                            result = await asyncio.wait_for(
+                                self.runtime.remember.preview(
+                                    ctx, MemoryRef.model_validate(item["ref"]), 240
+                                ),
+                                timeout=3,
+                            )
+                            item.update(
+                                summary=result.get("content"), summary_status=result["status"]
+                            )
+                        except TimeoutError:
+                            item.update(
+                                summary=None,
+                                summary_status="unavailable",
+                                summary_error_code="DEADLINE_EXCEEDED",
+                            )
+                        except FoundationError as exc:
+                            if exc.code in {ErrorCode.FORBIDDEN, ErrorCode.DEADLINE_EXCEEDED}:
+                                raise
+                            item.update(
+                                summary=None,
+                                summary_status="unavailable",
+                                summary_error_code=str(exc.code),
+                            )
+
+                workers = [asyncio.create_task(preview(item)) for item in selected]
+                try:
+                    await asyncio.wait_for(asyncio.gather(*workers), timeout=8)
+                except TimeoutError:
+                    for item in selected:
+                        if item["summary_status"] == "pending":
+                            item.update(
+                                summary_status="unavailable",
+                                summary_error_code="DEADLINE_EXCEEDED",
+                            )
+                finally:
+                    for worker in workers:
+                        if not worker.done():
+                            worker.cancel()
+                    await asyncio.gather(*workers, return_exceptions=True)
             return {
                 "items": selected,
                 "next_cursor": following,
@@ -761,10 +801,22 @@ def attach(app: FastAPI, runtime: Any, execution: Any) -> None:
         cursor: str | None = None,
         kind: MemoryKind | None = None,
         status: MemoryStatus | None = None,
+        include_summary: bool = True,
+        collapse_duplicates: bool = False,
         ctx: TrustedContext = dependency,
     ) -> dict[str, Any]:
         response.headers["Cache-Control"] = "no-store"
-        return await service.memories(ctx, tenant_id, user_id, limit, cursor, kind, status)
+        return await service.memories(
+            ctx,
+            tenant_id,
+            user_id,
+            limit,
+            cursor,
+            kind,
+            status,
+            include_summary,
+            collapse_duplicates,
+        )
 
     @app.get("/p3/admin/memories/{memory_id}")
     async def memory(

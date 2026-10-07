@@ -457,6 +457,8 @@ def install_console(app, service, identity):
         cursor: str | None = Query(None, max_length=4096),
         kind: Literal["working", "episodic", "semantic"] | None = None,
         status: Literal["active", "archived", "superseded", "expired", "deleted"] | None = None,
+        include_summary: bool | None = None,
+        collapse_duplicates: bool | None = None,
     ):
         actor, token = identity(request)
         return service.content(
@@ -473,6 +475,8 @@ def install_console(app, service, identity):
                 cursor=cursor,
                 kind=kind,
                 status=status,
+                include_summary=include_summary,
+                collapse_duplicates=collapse_duplicates,
             ),
         )
 
