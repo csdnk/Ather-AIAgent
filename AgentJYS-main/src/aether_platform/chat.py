@@ -56,6 +56,7 @@ class Conversations:
                 ALTER TABLE chat_turns ADD COLUMN IF NOT EXISTS phase
                     text NOT NULL DEFAULT 'retrieving';
                 ALTER TABLE chat_turns ADD COLUMN IF NOT EXISTS first_token_at timestamptz;
+                ALTER TABLE chat_turns ADD COLUMN IF NOT EXISTS recall_return_ms double precision;
                 ALTER TABLE chat_turns ADD COLUMN IF NOT EXISTS model_usage jsonb;
                 ALTER TABLE chat_turns ADD COLUMN IF NOT EXISTS model_name text;
                 ALTER TABLE chat_turns ADD COLUMN IF NOT EXISTS attachments
@@ -184,7 +185,8 @@ class Conversations:
                         raise ValueError("A reply is already being generated")
                     conn.execute(
                         "UPDATE chat_turns SET status='pending',error=NULL,started_at=now(),"
-                        "output=NULL,memory_evidence=NULL,first_token_at=NULL,phase='retrieving',"
+                        "output=NULL,memory_evidence=NULL,first_token_at=NULL,recall_return_ms=NULL,"
+                        "phase='retrieving',"
                         "attempt=attempt+1 WHERE id=%s",
                         (turn_id,),
                     )
@@ -247,6 +249,18 @@ class Conversations:
                     attempt,
                 ),
             )
+
+    def record_recall_latency(
+        self, actor: Actor, conversation_id: str, turn_id: str, attempt: int, elapsed_ms: float
+    ) -> bool:
+        """Record verified ContextPack return, independently of downstream answer success."""
+        with self.directory.connection() as conn:
+            self.owned(conn, actor, conversation_id)
+            return conn.execute(
+                "UPDATE chat_turns SET recall_return_ms=%s WHERE id=%s AND conversation_id=%s "
+                "AND attempt=%s AND status='pending' AND recall_return_ms IS NULL",
+                (elapsed_ms, turn_id, conversation_id, attempt),
+            ).rowcount == 1
 
     def progress(
         self,
@@ -485,10 +499,16 @@ class Conversations:
                         (operation + ":" + str(recall_generation)).encode()
                     ).hexdigest()
                     try:
+                        recall_started = time.perf_counter()
                         pack = p3.recall(
                             rows[target_index]["content"], "recall_" + recall_operation[:56]
                         )
                         pack = p3.call("GET", "/p3/recalls/" + pack["recall_id"] + "/result")
+                        recall_elapsed_ms = (time.perf_counter() - recall_started) * 1000
+                        if not self.record_recall_latency(
+                            actor, conversation_id, turn_id, attempt, recall_elapsed_ms
+                        ):
+                            return
                         excerpts = p3.source_excerpts(pack)
                         p3.call("GET", "/p3/recalls/" + pack["recall_id"] + "/result")
                     except P3Error as error:

@@ -31,11 +31,11 @@
           ><Echart :options="charts.requests" height="290px"
         /></el-card>
         <el-card shadow="never"
-          ><template #header>开始回答耗时（P95）</template
+          ><template #header>召回记忆返回耗时（P95）</template
           ><Echart
-            v-if="selected.summary.latency_samples"
+            v-if="selected.summary.recall_latency_samples"
             :options="charts.latency"
-            height="290px" /><el-empty v-else description="暂无响应耗时样本" :image-size="90"
+            height="290px" /><el-empty v-else description="暂无召回耗时样本" :image-size="90"
         /></el-card>
       </div>
     </template>

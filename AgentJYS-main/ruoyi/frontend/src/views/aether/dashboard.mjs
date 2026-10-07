@@ -121,12 +121,13 @@ export function businessCharts(series = [], dark = false) {
       yAxis: { ...chartAxis(dark), type: 'value', name: '毫秒', min: 0 },
       series: [
         {
-          name: '首字响应 P95',
+          name: '召回记忆返回 P95',
           type: 'line',
-          showSymbol: false,
+          showSymbol: true,
+          showAllSymbol: true,
           connectNulls: false,
           itemStyle: { color: '#e6a23c' },
-          data: series.map((p) => p.first_token_p95_ms ?? null)
+          data: series.map((p) => p.recall_return_p95_ms ?? null)
         }
       ]
     }

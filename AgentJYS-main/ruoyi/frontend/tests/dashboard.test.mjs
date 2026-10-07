@@ -35,9 +35,11 @@ test('scheduling uses global summary and does not invent unknown queue metrics',
 
 test('latency chart preserves missing samples as gaps', () => {
   const charts = businessCharts([
-    { at: '2026-10-06T00:00:00Z', requests: 0, complete: 0, failed: 0, first_token_p95_ms: null }
+    { at: '2026-10-06T00:00:00Z', first_token_p95_ms: 9999, recall_return_p95_ms: null },
+    { at: '2026-10-06T00:01:00Z', first_token_p95_ms: 9999, recall_return_p95_ms: 250 }
   ])
   assert.equal(charts.latency.series[0].data[0], null)
+  assert.equal(charts.latency.series[0].data[1], 250)
   assert.equal(charts.latency.series[0].connectNulls, false)
 })
 
