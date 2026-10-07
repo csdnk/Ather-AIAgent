@@ -281,6 +281,27 @@ def test_diagnostics_forwards_cursor_instead_of_returning_only_first_page(consol
     assert response.status_code == 200
 
 
+def test_placement_query_is_platform_only_and_skips_unrelated_business_queries(console):
+    client, _, service, verifier = console
+    calls = []
+
+    def remote(actor, token, path, params=None):
+        calls.append((path, params))
+        return {"items": [], "total": 0, "status": "available"}
+
+    service.p3_read = remote
+    path = "/platform-ops/v1/console/diagnostics?kind=placement&status=unconfirmed&limit=20"
+    assert client.get(path, headers=HEADERS).status_code == 403
+    assert not calls
+    verifier.current = replace(ACTOR, role="platform_admin", tenant_id=None)
+    response = client.get(path, headers=HEADERS)
+    assert response.status_code == 200 and response.json()["total"] == 0
+    assert calls == [
+        ("/p3/admin/diagnostics", {"kind": "placement", "status": "unconfirmed", "limit": 20})
+    ]
+    assert client.get(path.replace("unconfirmed", "invented"), headers=HEADERS).status_code == 422
+
+
 def test_denied_cross_tenant_attempt_does_not_enrich_foreign_user_name(console):
     client, _, _, _ = console
     client.get("/platform-ops/v1/console/conversations?user_id=u3", headers=HEADERS)

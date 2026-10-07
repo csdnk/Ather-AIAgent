@@ -9,8 +9,7 @@
     <template v-else>
       <div class="heading"
         ><div
-          ><h1>调度监测</h1
-          ><p>查看任务是否及时执行、队列是否积压，以及冷热分层动作是否得到确认。</p></div
+          ><h1>调度监测</h1><p>查看任务是否及时执行、队列是否积压，以及执行器最近是否联系。</p></div
         >
         <el-space
           ><el-button @click="$router.push('/aether/tasks')">进入任务处理</el-button
@@ -56,7 +55,7 @@
         >累计 {{ data.task_summary?.total ?? '未知' }} 个任务，最近 24 小时新建
         {{ data.task_summary?.created_last_24h ?? '未知' }} 个；最近一次创建于
         {{ formatTime(data.task_summary?.latest_task_at) }}。
-        分层策略评估用于判断是否需要调整存储，不代表发生搬迁；实际动作与回执见下方“冷热分层调度”。</p
+        分层策略评估用于判断是否需要调整存储，不代表发生搬迁；实际动作与回执请进入独立的“冷热分层调度”页面查看。</p
       >
       <el-card shadow="never" class="block"
         ><template #header>执行器与队列</template>
@@ -96,86 +95,16 @@
           >
         </el-table>
       </el-card>
-      <el-card shadow="never" class="block"
-        ><template #header>周期维护</template>
-        <div class="periodic"
-          ><div
-            ><span class="muted">周期任务绑定</span
-            ><h3>{{ statusText(data.periodic?.status) }}</h3></div
-          ><div
-            ><span class="muted">工作流执行情况</span
-            ><h3>{{
-              statusText(data.periodic?.workflow?.state || data.periodic?.workflow?.status)
-            }}</h3></div
-          ><div
-            ><span class="muted">下一次执行</span
-            ><h3>{{
-              data.periodic?.next_run_at
-                ? formatTime(data.periodic.next_run_at)
-                : '尚未返回计划时间'
-            }}</h3></div
-          ></div
-        >
-        <p class="muted"
-          >周期工作流可能长期保持运行状态。缺少下一次执行时间时，不推算或编造调度计划。</p
-        >
-      </el-card>
-      <el-card shadow="never" class="block"
-        ><template #header>冷热分层调度</template>
-        <p class="muted"
-          >当前部署累计记录 {{ placement?.total ?? '未知' }} 个动作。下表展示最近
-          {{ placement?.items?.length ?? 0 }}
-          条；按原任务绑定筛选，状态未知表示仍需查询原操作结果。</p
-        >
-        <el-table
-          :data="placement?.items || []"
-          :empty-text="placement ? '当前部署尚无已记录的冷热迁移动作' : '尚未取得分层调度记录'"
-        >
-          <el-table-column label="调度意图" min-width="145"
-            ><template #default="{ row }">{{ actionLabel(row.outcome) }}</template></el-table-column
-          >
-          <el-table-column label="原层级 → 目标层级" min-width="180"
-            ><template #default="{ row }"
-              >{{ statusText(row.current_tier) }} → {{ statusText(row.target_tier) }}</template
-            ></el-table-column
-          >
-          <el-table-column label="动作进度" min-width="130"
-            ><template #default="{ row }">{{ statusText(row.state) }}</template></el-table-column
-          >
-          <el-table-column label="存储执行回执" min-width="150"
-            ><template #default="{ row }">{{
-              statusText(row.feedback_state)
-            }}</template></el-table-column
-          >
-          <el-table-column label="执行方式" min-width="145"
-            ><template #default="{ row }">{{
-              row.provider_mode === 'real'
-                ? '真实存储执行'
-                : row.provider_mode === 'simulated'
-                  ? '模拟执行'
-                  : '未识别执行方式'
-            }}</template></el-table-column
-          >
-          <el-table-column label="发起时间" min-width="175"
-            ><template #default="{ row }">{{
-              formatTime(row.created_at)
-            }}</template></el-table-column
-          >
-        </el-table>
-        <p class="muted"
-          >发出迁移意图不代表已经完成迁移；请结合动作进度、真实存储回执和执行方式核对。</p
-        >
-      </el-card>
     </template>
   </ContentWrap>
 </template>
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { Echart } from '@/components/Echart'
 import { useAppStore } from '@/store/modules/app'
 import { getConsole, getIdentity } from '@/api/aether'
 import { readTaskDiagnostics } from '../taskAccess.mjs'
-import { categoryChart, schedulingCards, taskKindLabel, actionLabel } from '../dashboard.mjs'
+import { categoryChart, schedulingCards, taskKindLabel } from '../dashboard.mjs'
 import { observation, queueBusiness, sectionItems, errorMessage } from '../console.mjs'
 import { formatTime, statusText, readable } from '../presentation.mjs'
 defineOptions({ name: 'AetherScheduling' })
@@ -184,7 +113,6 @@ const data = ref<any>({}),
   loading = ref(false),
   denied = ref(false),
   error = ref('')
-const placement = computed(() => data.value.memory_observations?.placement)
 let sequence = 0
 function lastPoll(row: any) {
   const times = (row.pollers || [])
@@ -257,17 +185,11 @@ h1 {
 .block {
   margin-top: 20px;
 }
-.periodic {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
-}
 @media (max-width: 900px) {
   .cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .charts,
-  .periodic {
+  .charts {
     grid-template-columns: 1fr;
   }
 }

@@ -225,7 +225,8 @@
   </ContentWrap>
 </template>
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref } from 'vue'
+import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { getIdentity, getConsole } from '@/api/aether'
 import { readTaskDiagnostics } from '../taskAccess.mjs'
 import ResourcePanel from '../ResourcePanel.vue'
@@ -242,6 +243,7 @@ import {
 } from '../console.mjs'
 import { formatTime, readable, statusText } from '../presentation.mjs'
 defineOptions({ name: 'AetherTasks' })
+const route = useRoute()
 const data = ref<any>({}),
   denied = ref(false),
   error = ref(''),
@@ -343,7 +345,17 @@ async function showTask(row: any) {
     if (request === detailNumber) detailLoading.value = false
   }
 }
-onMounted(load)
+async function openLinkedTask() {
+  const id = route.query.task_id
+  if (!denied.value && typeof id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(id)) {
+    await showTask({ task_id: id })
+  }
+}
+onMounted(async () => {
+  await load()
+  if (!error.value) await openLinkedTask()
+})
+watch(() => route.query.task_id, openLinkedTask)
 onBeforeUnmount(() => {
   requestNumber++
   clearDetail()

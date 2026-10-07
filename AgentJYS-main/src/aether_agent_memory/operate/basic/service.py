@@ -125,6 +125,7 @@ class Operate:
                     event.event_id,
                     cleanup=True,
                     permanent=change.status == "deleted",
+                    trigger_kind=event.event_type,
                 )
             return
         if view["memory"]["version"] < memory.version:
@@ -181,6 +182,7 @@ class Operate:
             event.event_id,
             cleanup=view.get("cleanup", False),
             permanent=view.get("permanent", False),
+            trigger_kind=event.event_type,
         )
 
     def enqueue(
@@ -192,6 +194,7 @@ class Operate:
         *,
         cleanup: bool,
         permanent: bool,
+        trigger_kind: str = "unrecorded",
     ) -> str:
         task_id = fingerprint(["operate", trigger, memory.model_dump(mode="json")])
         ref = RecordRef(
@@ -220,6 +223,8 @@ class Operate:
                 deadline_at=ctx.deadline_at,
             ),
         )
+        if tx.read("operate_evaluation_triggers", task_id) is None:
+            tx.write("operate_evaluation_triggers", task_id, {"kind": trigger_kind})
         return task_id
 
     def decide(self, ctx: TrustedContext, inputs: SchedulingInput) -> PlacementDecision:
@@ -677,6 +682,11 @@ class Operate:
                         reason="prepared; provider submission has not started",
                     ),
                 )
+                tx.write(
+                    "operate_action_triggers",
+                    intent.action_id,
+                    tx.read("operate_evaluation_triggers", task.task_id) or {"kind": "unrecorded"},
+                )
             tx.write("operate_task_actions", task.task_id, intent.model_dump(mode="json"))
             tx.write("operate_pending", key, intent.action_id)
         return {"intent": intent.model_dump(mode="json")}
@@ -749,6 +759,7 @@ class Operate:
                         fingerprint([tick_id, key]),
                         cleanup=view.get("cleanup", False),
                         permanent=view.get("permanent", False),
+                        trigger_kind="periodic",
                     )
                     count += 1
             except FoundationError:

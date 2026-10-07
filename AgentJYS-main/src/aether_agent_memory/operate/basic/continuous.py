@@ -256,8 +256,17 @@ class ContinuousOperate(Operate):
         *,
         cleanup: bool,
         permanent: bool,
+        trigger_kind: str = "unrecorded",
     ) -> str:
-        result = super().enqueue(tx, ctx, memory, trigger, cleanup=cleanup, permanent=permanent)
+        result = super().enqueue(
+            tx,
+            ctx,
+            memory,
+            trigger,
+            cleanup=cleanup,
+            permanent=permanent,
+            trigger_kind=trigger_kind,
+        )
         tx.write("operate_evaluation_inputs", result, self.key(memory))
         return result
 
@@ -296,6 +305,7 @@ class ContinuousOperate(Operate):
                 fingerprint([tick_id, key]),
                 cleanup=view.get("cleanup", False),
                 permanent=view.get("permanent", False),
+                trigger_kind="periodic",
             )
             count += 1
         view["next_evaluation_at"] = later(now, self.settings.retry_seconds)

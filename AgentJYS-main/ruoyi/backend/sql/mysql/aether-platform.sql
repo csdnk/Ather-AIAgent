@@ -42,6 +42,7 @@ INSERT IGNORE INTO system_menu(id,name,permission,type,sort,parent_id,path,icon,
 INSERT IGNORE INTO system_menu(id,name,permission,type,sort,parent_id,path,icon,component,component_name,status) VALUES (60002,'请求诊断','aether:ops:read',2,2,60000,'requests','ep:document','aether/requests/index','AetherRequests',0);
 INSERT IGNORE INTO system_menu(id,name,permission,type,sort,parent_id,path,icon,component,component_name,status) VALUES (60003,'任务与积压','aether:ops:read',2,3,60000,'tasks','ep:document','aether/tasks/index','AetherTasks',0);
 INSERT IGNORE INTO system_menu(id,name,permission,type,sort,parent_id,path,icon,component,component_name,status) VALUES (60015,'调度监测','aether:ops:read',2,2,60000,'scheduling','ep:data-analysis','aether/scheduling/index','AetherScheduling',0);
+INSERT IGNORE INTO system_menu(id,name,permission,type,sort,parent_id,path,icon,component,component_name,status) VALUES (60016,'冷热分层调度','aether:ops:read',2,3,60000,'placement','ep:sort','aether/placement/index','AetherPlacement',0);
 INSERT IGNORE INTO system_menu(id,name,permission,type,sort,parent_id,path,icon,component,component_name,status) VALUES (60004,'记忆状态','aether:ops:read',2,4,60000,'memories','ep:document','aether/memories/index','AetherMemories',0);
 INSERT IGNORE INTO system_menu(id,name,permission,type,sort,parent_id,path,icon,component,component_name,status) VALUES (60005,'故障与告警','aether:ops:read',2,5,60000,'incidents','ep:document','aether/incidents/index','AetherIncidents',0);
 INSERT IGNORE INTO system_menu(id,name,permission,type,sort,parent_id,path,icon,component,component_name,status) VALUES (60006,'告警规则','aether:ops:read',2,6,60000,'rules','ep:document','aether/rules/index','AetherRules',0);
@@ -70,7 +71,7 @@ INSERT INTO system_tenant_package(id,name,status,remark,menu_ids) SELECT 53001,'
 UPDATE system_tenant SET package_id=53001 WHERE id IN(501,502,503) AND package_id=0;
 -- Diagnostics expose deployment-wide tasks and are platform-only. Preserve all other package menus.
 SET @aether_scoped_menus = (SELECT JSON_ARRAYAGG(j.id) FROM system_tenant_package p,
- JSON_TABLE(p.menu_ids,'$[*]' COLUMNS(id BIGINT PATH '$')) j WHERE p.id=53001 AND j.id NOT IN(60003,60015));
+ JSON_TABLE(p.menu_ids,'$[*]' COLUMNS(id BIGINT PATH '$')) j WHERE p.id=53001 AND j.id NOT IN(60003,60015,60016));
 UPDATE system_tenant_package SET menu_ids=@aether_scoped_menus WHERE id=53001 AND @aether_scoped_menus IS NOT NULL;
 -- Remove only surplus initial migration grants outside the approved package.
 DELETE rm FROM system_role_menu rm JOIN system_tenant_package p ON p.id=53001 WHERE rm.role_id IN(51101,51102) AND NOT JSON_CONTAINS(p.menu_ids,CAST(rm.menu_id AS JSON),'$');
