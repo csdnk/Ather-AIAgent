@@ -3871,9 +3871,9 @@
     }
   },
   {
-    "id": "reject-tier-jump",
+    "id": "accept-cold-hot-replica",
     "model": "operate.PlacementDecision",
-    "valid": false,
+    "valid": true,
     "schema_valid": true,
     "payload": {
       "decision_id": "id_1",
@@ -3890,6 +3890,84 @@
       "outcome": "promote",
       "current_tier": "cold",
       "target_tier": "hot",
+      "reason": "id_1",
+      "policy_version": "id_1",
+      "storage_watermark": 1,
+      "access_watermark": 1
+    }
+  },
+  {
+    "id": "accept-hot-cold-replica-removal",
+    "model": "operate.PlacementDecision",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "decision_id": "id_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "outcome": "demote",
+      "current_tier": "hot",
+      "target_tier": "cold",
+      "reason": "id_1",
+      "policy_version": "id_1",
+      "storage_watermark": 1,
+      "access_watermark": 1
+    }
+  },
+  {
+    "id": "reject-cold-hot-demote",
+    "model": "operate.PlacementDecision",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "decision_id": "id_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "outcome": "demote",
+      "current_tier": "cold",
+      "target_tier": "hot",
+      "reason": "id_1",
+      "policy_version": "id_1",
+      "storage_watermark": 1,
+      "access_watermark": 1
+    }
+  },
+  {
+    "id": "reject-hot-cold-promote",
+    "model": "operate.PlacementDecision",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "decision_id": "id_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "outcome": "promote",
+      "current_tier": "hot",
+      "target_tier": "cold",
       "reason": "id_1",
       "policy_version": "id_1",
       "storage_watermark": 1,
