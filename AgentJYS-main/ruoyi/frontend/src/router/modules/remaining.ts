@@ -34,6 +34,12 @@ const { t } = useI18n()
  **/
 const remainingRouter: AppRouteRecordRaw[] = [
   {
+    path: '/aether/overview',
+    redirect: '/index',
+    name: 'AetherOverviewRedirect',
+    meta: { hidden: true, noTagsView: true }
+  },
+  {
     path: '/redirect',
     component: Layout,
     name: 'RedirectRoot',

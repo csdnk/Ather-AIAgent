@@ -43,15 +43,20 @@
             :image-size="70"
         /></el-card>
         <el-card shadow="never"
-          ><template #header>各业务累计任务量</template
+          ><template #header>累计任务构成</template
           ><Echart
             v-if="data.task_summary?.total"
-            :options="categoryChart(data.task_summary.by_flow, flowLabel, appStore.getIsDark)"
-            height="270px" /><el-empty v-else description="暂无可展示的任务分布" :image-size="70"
+            :options="categoryChart(data.task_summary.by_kind, taskKindLabel, appStore.getIsDark)"
+            :height="
+              Math.max(270, Object.keys(data.task_summary.by_kind || {}).length * 32) + 'px'
+            " /><el-empty v-else description="暂无可展示的任务分布" :image-size="70"
         /></el-card>
       </div>
       <p class="muted"
-        >以上是当前部署全部绑定任务的累计记录，包含历史终态；任务完成与业务效果确认分别判断。</p
+        >累计 {{ data.task_summary?.total ?? '未知' }} 个任务，最近 24 小时新建
+        {{ data.task_summary?.created_last_24h ?? '未知' }} 个；最近一次创建于
+        {{ formatTime(data.task_summary?.latest_task_at) }}。
+        分层策略评估用于判断是否需要调整存储，不代表发生搬迁；实际动作与回执见下方“冷热分层调度”。</p
       >
       <el-card shadow="never" class="block"
         ><template #header>执行器与队列</template>
@@ -170,7 +175,7 @@ import { Echart } from '@/components/Echart'
 import { useAppStore } from '@/store/modules/app'
 import { getConsole, getIdentity } from '@/api/aether'
 import { readTaskDiagnostics } from '../taskAccess.mjs'
-import { categoryChart, schedulingCards, flowLabel, actionLabel } from '../dashboard.mjs'
+import { categoryChart, schedulingCards, taskKindLabel, actionLabel } from '../dashboard.mjs'
 import { observation, queueBusiness, sectionItems, errorMessage } from '../console.mjs'
 import { formatTime, statusText, readable } from '../presentation.mjs'
 defineOptions({ name: 'AetherScheduling' })

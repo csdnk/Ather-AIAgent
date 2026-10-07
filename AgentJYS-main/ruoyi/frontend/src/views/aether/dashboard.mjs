@@ -140,6 +140,21 @@ export const flowLabel = (value) =>
     operate: '冷热分层与存储维护',
     runtime: '运行维护'
   })[value] || readable(value)
+export const taskKindLabel = (value) =>
+  ({
+    'operate.evaluate': '分层策略评估（非搬迁）',
+    'runtime.event_delivery': '业务事件投递',
+    'remember.save': '接收记忆',
+    'remember.extract': '提取记忆内容',
+    'remember.project': '建立记忆索引',
+    'remember.cleanup': '清理过期记忆',
+    'remember.distill': '提炼记忆',
+    'remember.revalidate': '重新校验记忆',
+    'remember.correct': '修正记忆',
+    'remember.document': '解析文档',
+    'recall.execute': '检索与召回记忆',
+    operate_repair_cache: '修复缓存副本'
+  })[value] || readable(value)
 export const actionLabel = (value) =>
   ({ promote: '提升存储层级', demote: '降低存储层级', keep: '保持当前层级', remove: '移除副本' })[
     value

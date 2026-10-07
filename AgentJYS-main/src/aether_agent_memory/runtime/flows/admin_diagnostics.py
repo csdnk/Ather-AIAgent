@@ -520,19 +520,32 @@ class AdminDiagnostics:
             summary: dict[str, Any] = {
                 "total": 0,
                 "by_flow": {},
+                "by_kind": {},
                 "by_state": {},
                 "by_effect_status": {},
+                "created_last_24h": 0,
+                "latest_task_at": None,
             }
+            recent_start = datetime.fromisoformat(now()) - timedelta(hours=24)
+            bindings = dict(tx.rows("temporal_bindings"))
             deployment_tasks = set()
             for task_id, envelope in tx.rows("tasks"):
-                binding = tx.read("temporal_bindings", task_id)
+                binding = bindings.get(task_id)
                 if not self.in_deployment(binding):
                     continue
                 deployment_tasks.add(task_id)
                 record = envelope["record"]
                 summary["total"] += 1
+                created = envelope.get("created_at")
+                if created:
+                    stamp = datetime.fromisoformat(created)
+                    summary["created_last_24h"] += int(stamp >= recent_start)
+                    latest = summary["latest_task_at"]
+                    if latest is None or stamp > datetime.fromisoformat(latest):
+                        summary["latest_task_at"] = created
                 for output, key in (
                     ("by_flow", "owner_flow"),
+                    ("by_kind", "kind"),
                     ("by_state", "state"),
                     ("by_effect_status", "effect_status"),
                 ):
