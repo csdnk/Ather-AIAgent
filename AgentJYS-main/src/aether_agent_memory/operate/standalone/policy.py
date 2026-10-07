@@ -18,10 +18,12 @@ class Settings:
     decay_seconds: float = 3600
     hot_up: float = 0.70
     hot_down: float = 0.55
-    warm_up: float = 0.25
-    warm_down: float = 0.15
+    # Legacy construction compatibility only; no polling cap or retry override.
     audit_seconds: float = 300
-    retry_seconds: float = 5
+    retry_seconds: float = 60
+    evaluation_window_seconds: float = 60
+    evaluation_timeout_seconds: float = 86400
+    retry_delays: tuple[float, ...] = (60, 300, 900, 3600)
     io_timeout_seconds: float = 3
     workers: int = 4
     batch_size: int = 64
@@ -53,8 +55,10 @@ class Settings:
             < 1
         ):
             raise ValueError("limits must be positive")
-        if not 0 <= self.warm_down < self.warm_up < self.hot_down < self.hot_up <= 1:
+        if not 0 <= self.hot_down < self.hot_up <= 1:
             raise ValueError("invalid hysteresis thresholds")
+        if not self.retry_delays or tuple(sorted(self.retry_delays)) != self.retry_delays:
+            raise ValueError("retry delays must be nonempty and increasing")
         if any(
             not math.isfinite(n) or n <= 0
             for n in (
@@ -63,6 +67,9 @@ class Settings:
                 self.stats_retention_seconds,
                 self.audit_seconds,
                 self.retry_seconds,
+                self.evaluation_window_seconds,
+                self.evaluation_timeout_seconds,
+                *self.retry_delays,
                 self.io_timeout_seconds,
             )
         ):
@@ -98,22 +105,23 @@ def evaluate(stats: Stats, now: float, settings: Settings) -> Tier:
     stats.evaluated_at = now
     if heat >= settings.hot_up or (stats.desired == "hot" and heat >= settings.hot_down):
         stats.desired = "hot"
-    elif heat >= settings.warm_up or (
-        stats.desired in {"warm", "hot"} and heat >= settings.warm_down
-    ):
-        stats.desired = "warm"
     else:
         stats.desired = "cold"
     return stats.desired
 
 
-def next_delay(stats: Stats, now: float, settings: Settings) -> float:
-    """Find a threshold crossing once per reconciliation, not on every clock tick."""
-    threshold = {"hot": settings.hot_down, "warm": settings.warm_down}.get(stats.desired)
-    if threshold is None or heat_at(stats, now + settings.audit_seconds, settings) >= threshold:
-        return settings.audit_seconds
-    low, high = 0.0, settings.audit_seconds
-    for _ in range(40):
+def next_delay(stats: Stats, now: float, settings: Settings) -> float | None:
+    """Predict cooling without a periodic audit cap; None means no future crossing."""
+    if stats.desired != "hot":
+        return None
+    threshold = settings.hot_down
+    # Importance does not decay. Some custom policies will never cross the threshold.
+    if 0.2 * stats.memory.importance >= threshold:
+        return None
+    low, high = 0.0, settings.decay_seconds
+    while heat_at(stats, now + high, settings) >= threshold:
+        high *= 2
+    for _ in range(48):
         middle = (low + high) / 2
         if heat_at(stats, now + middle, settings) >= threshold:
             low = middle

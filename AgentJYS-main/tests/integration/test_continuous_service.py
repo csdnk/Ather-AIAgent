@@ -11,7 +11,7 @@ import yaml
 from fastapi.testclient import TestClient
 
 from aether_agent_memory.remember.basic.policy import RememberPolicy
-from aether_agent_memory.runtime.contracts.models import Permission, RecordRef
+from aether_agent_memory.runtime.contracts.models import Permission
 from azure_component_service import Service
 from component_configuration import ComponentConfiguration as ServiceConfiguration
 
@@ -69,7 +69,7 @@ def configuration(tmp_path, temporal_server):
         shutdown_seconds=1,
         remember=RememberPolicy(consolidation_messages=1),
         operate_decay_seconds=0.1,
-        operate_audit_seconds=0.1,
+        operate_evaluation_window_seconds=0.1,
     )
 
 
@@ -95,6 +95,22 @@ def save(client, text="I prefer unsweetened coffee.", operation="save_1"):
             "content": {"kind": "text", "text": text},
         },
     )
+
+
+def access_for_heat(client, count=16):
+    for _ in range(count):
+        response = client.post(
+            "/p3/recall",
+            headers=headers(),
+            json={
+                "query": "unsweetened coffee",
+                "selection": {},
+                "sources": "long_term",
+                "token_budget": 1000,
+            },
+        )
+        assert response.status_code == 200, response.text
+        assert "coffee" in response.json()["rendered_context"]
 
 
 def eventually(check, seconds=60):
@@ -284,7 +300,7 @@ def test_shared_recall_and_revocation_use_current_resource_permission(configurat
         )
 
 
-def test_operate_retains_hot_cache_and_defers_unsupported_cooling(configuration, monkeypatch):
+def test_operate_removes_hot_replica_after_decay_and_keeps_ceph(configuration, monkeypatch):
     import aether_agent_memory.operate.basic.continuous as continuous
 
     # Exercise the domain's decay window independently of Temporal/CI latency.
@@ -296,9 +312,7 @@ def test_operate_retains_hot_cache_and_defers_unsupported_cooling(configuration,
         "seconds",
         lambda timestamp: origin + (parse_seconds(timestamp) - origin) * 0.001 + advance[0],
     )
-    configuration = configuration.model_copy(
-        update={"operate_decay_seconds": 4.0, "operate_retry_seconds": 0.1}
-    )
+    configuration = configuration.model_copy(update={"operate_decay_seconds": 4.0})
     service = Service(configuration)
     with TestClient(service.app()) as client:
         assert save(client).status_code == 200
@@ -358,20 +372,21 @@ def test_operate_retains_hot_cache_and_defers_unsupported_cooling(configuration,
 
         def cooled():
             with service.runtime.foundation.uow.transaction() as tx:
-                for _, row in tx.rows("tasks"):
-                    task = row["record"]
-                    if task["kind"] == "operate.evaluate" and task["state"] == "succeeded":
-                        result = tx.get(RecordRef.model_validate(task["result_ref"]))
-                        if (
-                            result
-                            and result.get("decision", {}).get("reason")
-                            == "unsupported_tier_transition"
-                        ):
-                            return result
-            return None
+                return any(
+                    row["intent"]["decision"]["memory"]["memory_id"] == memory_id
+                    and row["intent"]["decision"]["target_tier"] == "cold"
+                    and row["state"] == "succeeded"
+                    for _, row in tx.rows("operate_actions")
+                )
 
         eventually(cooled, seconds=60)
-        assert all(copy.tier == "hot" for copy in service.runtime.executor.copies())
+        assert not service.runtime.executor.inspect(copy.memory, copy.content_hash)
+        ctx = service.runtime.foundation.identity.context("alice", timeout_seconds=60)
+        assert (
+            service.runtime.remember.read_authority(ctx, copy.memory).content_hash
+            == copy.content_hash
+        )
+        assert service.runtime.executor.probe()["tiers"] == ["cold", "hot"]
 
 
 def test_correction_and_delete_invalidate_previous_context(configuration):
@@ -483,8 +498,7 @@ def test_expired_redis_cache_is_refilled_from_authority_on_next_access(configura
     configuration = configuration.model_copy(
         update={
             "operate_stats_retention_seconds": 0.2,
-            "operate_retry_seconds": 0.05,
-            "operate_decay_seconds": 30,
+            "operate_decay_seconds": 3600,
             # Expire the original field explicitly below. The newly filled value
             # must survive the real PG/Ceph reads used to verify it.
             "remember": configuration.remember.model_copy(update={"cache_ttl_seconds": 60}),
@@ -495,8 +509,16 @@ def test_expired_redis_cache_is_refilled_from_authority_on_next_access(configura
         assert save(client).status_code == 200
         memory = eventually(lambda: ready_memory(client))
         mid = memory["ref"]["memory_id"]
-        copy = next(
-            copy for copy in service.runtime.executor.copies() if copy.memory.memory_id == mid
+        access_for_heat(client)
+        copy = eventually(
+            lambda: next(
+                (
+                    copy
+                    for copy in service.runtime.executor.copies()
+                    if copy.memory.memory_id == mid
+                ),
+                None,
+            )
         )
         cache = service.runtime.executor.cache
         key, _, expiry = cache.keys(copy.memory.scope, copy.content_hash)
@@ -514,7 +536,7 @@ def test_expired_redis_cache_is_refilled_from_authority_on_next_access(configura
         )
         assert "coffee" in result.json()["rendered_context"]
         content = client.get(f"/p3/remember/{mid}", headers=headers()).json()["content"]
-        assert cache.get_sync(copy.memory.scope, copy.content_hash) == content
+        eventually(lambda: cache.get_sync(copy.memory.scope, copy.content_hash) == content)
 
 
 def test_slow_extraction_does_not_block_http_or_operate(configuration):
@@ -654,8 +676,8 @@ def test_unknown_action_queries_original_id_after_restart(configuration, monkeyp
 def test_capacity_defers_without_unknown_and_recovers(configuration):
     configuration = configuration.model_copy(
         update={
-            "operate_retry_seconds": 0.05,
             "remember": configuration.remember.model_copy(update={"cache_scope_bytes": 1}),
+            "operate_decay_seconds": 3600,
         }
     )
     service = Service(configuration)
@@ -664,10 +686,13 @@ def test_capacity_defers_without_unknown_and_recovers(configuration):
         memory = eventually(lambda: ready_memory(client))
         mid = memory["ref"]["memory_id"]
 
+        access_for_heat(client)
+
         def deferred():
             with service.runtime.foundation.uow.transaction() as tx:
                 return any(
-                    r["value"] == {"deferred": "cache_capacity"} for _, r in tx.rows("records")
+                    row["memory"]["memory_id"] == mid and row.get("failure_count", 0) > 0
+                    for _, row in tx.rows("operate_views")
                 )
 
         eventually(deferred)
@@ -679,7 +704,8 @@ def test_capacity_defers_without_unknown_and_recovers(configuration):
         def prepared():
             return any(copy.memory.memory_id == mid for copy in service.runtime.executor.copies())
 
-        eventually(prepared)
+        # Real deployment backoff starts at 60 seconds; allow that full timer.
+        eventually(prepared, seconds=90)
 
 
 def test_tenant_reactivation_requires_new_epoch(configuration):

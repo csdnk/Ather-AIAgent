@@ -21,7 +21,7 @@ from aether_agent_memory.runtime.contracts.models import (
 
 class Tier(StrEnum):
     COLD = "cold"
-    WARM = "warm"
+    WARM = "warm"  # Read historical receipts only; active policies use cold/hot.
     HOT = "hot"
 
 
@@ -65,8 +65,14 @@ class PlacementDecision(ContractModel):
         levels = {Tier.COLD: 0, Tier.WARM: 1, Tier.HOT: 2}
         delta = levels[self.target_tier] - levels[self.current_tier]
         expected = {"promote": 1, "demote": -1, "keep": 0, "defer": 0}
-        if delta != expected[self.outcome]:
-            raise ValueError("ordinary placement changes must use adjacent tiers")
+        # Keep historical three-tier receipts readable. New two-tier decisions
+        # directly add/remove the hot replica without moving the authority body.
+        direct = (self.current_tier, self.target_tier, self.outcome) in {
+            (Tier.COLD, Tier.HOT, "promote"),
+            (Tier.HOT, Tier.COLD, "demote"),
+        }
+        if not direct and delta != expected[self.outcome]:
+            raise ValueError("placement direction must agree with the action")
         return self
 
 

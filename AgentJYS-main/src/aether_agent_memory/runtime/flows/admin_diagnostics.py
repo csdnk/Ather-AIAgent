@@ -730,7 +730,9 @@ class AdminDiagnostics:
             "total": len(actions),
             "matching": len(values),
             "by_result": counts,
-            "placement_capability": "unsupported"
+            "placement_capability": "supported"
+            if getattr(getattr(self.runtime, "executor", None), "policy_managed", False)
+            else "unsupported"
             if getattr(getattr(self.runtime, "executor", None), "supported_moves", None) == ()
             else "not_declared",
             "status": "available",

@@ -1,5 +1,5 @@
 export const tierText = (value) =>
-  ({ cold: '冷层', warm: '温层', hot: '热层' })[value] || '层级未记录'
+  ({ cold: '冷层（Ceph 原文）', warm: '温层（历史记录）', hot: '热层（Redis 副本）' })[value] || '层级未记录'
 export const triggerText = (value) =>
   ({
     'memory.changed': '记忆新增或状态变更',
@@ -21,13 +21,21 @@ export const resultType = (value) =>
   ({ succeeded: 'success', failed: 'danger', unconfirmed: 'warning' })[value] || 'info'
 export function decisionText(row) {
   if (row.decision_reason === 'heat_policy' && Number.isFinite(row.heat)) {
-    return `综合访问热度为 ${row.heat.toFixed(6)}，策略判断适合${tierText(row.desired_tier)}；本次只调整相邻一层。`
+    const legacy = row.policy_version === 'continuous_heat_v1'
+    const detail = legacy
+      ? '这是旧版三层策略的历史动作。'
+      : row.desired_tier === 'hot'
+        ? '达到升温条件后建立 Redis 副本，Ceph 原文始终保留。'
+        : '核验 Ceph 原文可读后移除 Redis 副本。'
+    return `综合访问热度为 ${row.heat.toFixed(6)}，策略目标为${tierText(row.desired_tier)}；${detail}`
   }
   return (
     {
-      new_memory: '新记忆已持久保存，建立温层副本以便后续读取。',
-      successful_read: '检测到成功读取，将温层副本提升到热层以加快访问。',
-      no_reads: '当前版本没有成功读取记录，将热层副本降到温层。'
+      create_hot_replica: '检测到成功读取，保留 Ceph 原文并建立 Redis 热副本。',
+      remove_hot_replica: '核验 Ceph 原文可读后移除 Redis 热副本。',
+      new_memory: '历史三层策略：新记忆进入温层。',
+      successful_read: '历史三层策略：检测到成功读取，将温层副本提升到热层。',
+      no_reads: '历史三层策略：无成功读取时从热层降到温层。'
     }[row.decision_reason] || '这条记录未记录可解释的决策依据。'
   )
 }

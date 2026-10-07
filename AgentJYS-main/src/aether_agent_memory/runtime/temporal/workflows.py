@@ -1,6 +1,7 @@
 """Deterministic orchestration. All business I/O and authority checks live in Activities."""
 
 import asyncio
+from contextlib import suppress
 from datetime import datetime, timedelta
 
 from temporalio import workflow
@@ -57,9 +58,17 @@ class P3TaskWorkflow:
         )
         return closed
 
-    async def pause(self, seconds: float) -> None:
+    async def pause(self, seconds: float, *, interruptible: bool = False) -> None:
         try:
-            await workflow.sleep(seconds)
+            if interruptible:
+                controls = len(self.controls)
+                with suppress(TimeoutError):
+                    await workflow.wait_condition(
+                        lambda: len(self.controls) > controls,
+                        timeout=timedelta(seconds=seconds),
+                    )
+            else:
+                await workflow.sleep(seconds)
         except asyncio.CancelledError:
             self.cancel_requested = True
 
@@ -73,6 +82,10 @@ class P3TaskWorkflow:
             retry_policy=RetryPolicy(maximum_attempts=3),
         )
         stage, ordinal, mode = plan.first_stage, 0, job.entry
+        # Keep historical workflow replay on the old timer commands.
+        paced_operate = job.kind == "operate.evaluate"
+        paced_operate = paced_operate and workflow.patched("operate-backoff-v1")
+        failures = 0
         while True:
             policy = plan.stages[stage]
             if self.reconcile_requested:
@@ -116,11 +129,18 @@ class P3TaskWorkflow:
                     if policy.effect_mode == "read" and not self.cancel_requested
                     else "reconcile"
                 )
-                await self.pause(plan.retry_seconds)
+                failures += 1
+                delay = operate_retry_delay(failures) if paced_operate else plan.retry_seconds
+                if paced_operate:
+                    remaining = (datetime.fromisoformat(deadline) - workflow.now()).total_seconds()
+                    await self.pause(min(delay, max(0, remaining)), interruptible=True)
+                else:
+                    await self.pause(delay)
                 continue
             finally:
                 self.active = None
             if result.outcome == "done":
+                failures = 0
                 if result.next_stage is None:
                     return result
                 if self.cancel_requested:
@@ -146,7 +166,17 @@ class P3TaskWorkflow:
                     ),
                 )
             mode = "reconcile" if result.outcome == "query" else "execute"
-            await self.pause(plan.retry_seconds)
+            failures += 1
+            delay = operate_retry_delay(failures) if paced_operate else plan.retry_seconds
+            if paced_operate:
+                remaining = (datetime.fromisoformat(deadline) - workflow.now()).total_seconds()
+                await self.pause(min(delay, max(0, remaining)), interruptible=True)
+            else:
+                await self.pause(delay)
+
+
+def operate_retry_delay(failures: int) -> float:
+    return (60, 300, 900, 3600)[min(max(failures - 1, 0), 3)]
 
 
 @workflow.defn

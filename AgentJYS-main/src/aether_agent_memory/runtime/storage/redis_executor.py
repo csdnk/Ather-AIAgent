@@ -1,12 +1,13 @@
 """Real hot replicas with PostgreSQL intents, fences and queryable receipts.
 
-This provider exposes only Redis hot copies. It never labels a directory or a
-Ceph authority object as an unconfigured warm/cold tier. Such movements have a
-stable failed receipt. Authority and lifecycle decisions stay behind MemoryReadPort.
-All Redis calls occur outside metadata transactions.
+Ceph remains the authority; cold/hot describes the absence/presence of a Redis
+replica. A configured authority reader is required before admitting placement
+actions. Redis-only users retain cache maintenance without claiming cold storage.
+All physical reads/writes occur outside metadata transactions.
 """
 
 import asyncio
+from collections.abc import Callable
 from typing import Any
 
 from aether_agent_memory.operate.basic.cache_port import CacheCapacityError, CacheCopy
@@ -38,8 +39,8 @@ from .redis_cache import RedisCache
 class RedisExecutor:
     provider_id = "redis_hot_cache"
     mode = "real"
-    # Static admission capability: querying Redis cannot enable an absent tier.
-    supported_moves: tuple = ()
+    # Redis alone cannot prove an authoritative cold body.
+    supported_moves: tuple[str, ...] = ()
 
     @property
     def capacity(self) -> int:
@@ -58,10 +59,15 @@ class RedisExecutor:
         identity: Identity,
         memories: MemoryReadPort,
         cache: RedisCache,
+        *,
+        authority_reader: Callable[[TrustedContext, MemoryRef], MemorySnapshot] | None = None,
     ) -> None:
         if uow.backend != "postgresql":
             raise ValueError("Redis execution receipts require PostgreSQL metadata")
         self.uow, self.identity, self.memories, self.cache = uow, identity, memories, cache
+        self.authority_reader = authority_reader
+        self.policy_managed = authority_reader is not None
+        self.supported_moves = ("promote", "demote") if self.policy_managed else ()
         self.capacity = cache.policy.cache_scope_bytes
         self.prefix = "redis_" + fingerprint(cache.namespace)[:24]
         self.instance_id = fingerprint([self.provider_id, cache.namespace, cache.resource_id])
@@ -230,7 +236,7 @@ class RedisExecutor:
         ctx: TrustedContext | None = None,
     ) -> None:
         with self.uow.transaction() as tx:
-            self.authorize(tx, ctx, memory, live=False, deleting=True)
+            self.authorize(tx, ctx, memory, live=False, deleting=permanent)
             if permanent:
                 tombstone = tx.read(self.table("tombstones"), self.group(memory)) or 0
                 tx.write(
@@ -290,7 +296,8 @@ class RedisExecutor:
             "state": "available",
             "provider": self.provider_id,
             "instance_id": self.instance_id,
-            "tiers": ["hot"],
+            "tiers": ["cold", "hot"] if self.policy_managed else ["hot"],
+            "authority": "ceph" if self.policy_managed else "unconfigured",
             "receipt_backend": "postgresql",
         }
 
@@ -322,6 +329,22 @@ class RedisExecutor:
     def observe_sync(
         self, ctx: TrustedContext, memory: MemoryRef, representation_id: str
     ) -> PlacementObservation:
+        if self.policy_managed:
+            original = self._authority(ctx, memory)
+            hot = self.inspect(memory, original.content_hash)
+            with self.uow.transaction() as tx:
+                self.authorize(tx, ctx, memory, live=True)
+                epoch = tx.read(self.table("settings"), "epoch") or 0
+            return PlacementObservation(
+                memory=memory,
+                representation_id=representation_id,
+                provider_instance_id=self.instance_id,
+                tier=Tier.HOT if hot else Tier.COLD,
+                epoch=epoch,
+                readable=True,
+                content_hash=original.content_hash,
+                observed_at=now(),
+            )
         with self.uow.transaction() as tx:
             self.authorize(tx, ctx, memory, live=True)
             row = tx.read(self.table("copies"), self.key(memory))
@@ -344,6 +367,8 @@ class RedisExecutor:
         return await asyncio.to_thread(self.submit_sync, ctx, intent)
 
     def submit_sync(self, ctx: TrustedContext, intent: ActionIntent) -> ExecutionFeedback:
+        if self.policy_managed:
+            return self._submit_placement(ctx, intent)
         with self.uow.transaction() as tx:
             self.authorize(tx, ctx, intent.decision.memory, live=True)
             previous = tx.read(self.table("actions"), intent.action_id)
@@ -390,10 +415,171 @@ class RedisExecutor:
                 )
             intent = ActionIntent.model_validate(row["intent"])
             self.authorize(tx, ctx, intent.decision.memory, live=False)
-        return ExecutionFeedback.model_validate(row["feedback"])
+        feedback = ExecutionFeedback.model_validate(row["feedback"])
+        if self.policy_managed and feedback.state == "running":
+            # The original durable intent is resumed after lost replies/restarts.
+            # Re-applying an add/remove is safe and never invents a new action ID.
+            return self._apply_placement(ctx, intent)
+        return feedback
 
     async def verify_read(self, ctx: TrustedContext, intent: ActionIntent) -> ReadProof:
-        await self.query(ctx, intent.action_id)
-        raise FoundationError(
-            ErrorCode.INVALID_ARGUMENT, "unsupported action has no movement proof"
+        if not self.policy_managed:
+            raise FoundationError(ErrorCode.INVALID_ARGUMENT, "unsupported action has no proof")
+        feedback = await self.query(ctx, intent.action_id)
+        observation = await self.observe(ctx, intent.decision.memory, intent.representation_id)
+        if (
+            feedback.state != "succeeded"
+            or observation.tier != intent.decision.target_tier
+            or observation.content_hash != intent.content_hash
+            or not observation.readable
+        ):
+            raise FoundationError(ErrorCode.COMMIT_UNCONFIRMED, "placement readback differs")
+        return ReadProof(
+            action_id=intent.action_id,
+            memory=intent.decision.memory,
+            provider_instance_id=self.instance_id,
+            content_hash=intent.content_hash,
+            readable=True,
+            verified_at=now(),
+            provider_mode="real",
         )
+
+    def _authority(self, ctx: TrustedContext, memory: MemoryRef) -> MemorySnapshot:
+        with self.uow.transaction() as tx:
+            self.authorize(tx, ctx, memory, live=True)
+        if self.authority_reader is None:
+            raise FoundationError(ErrorCode.DEPENDENCY_UNAVAILABLE, "Ceph reader missing")
+        original = self.authority_reader(ctx, memory)
+        if original.ref != memory or text_hash(original.content) != original.content_hash:
+            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "authority identity/hash differs")
+        with self.uow.transaction() as tx:
+            self.authorize(tx, ctx, memory, live=True)
+            guard = self.memories.final_guard(tx, ctx, (memory,), "actuate").items[0]
+            if guard.checked_revision != original.object_revision:
+                tx.abort(ErrorCode.VERSION_CONFLICT, "authority revision changed")
+        return original
+
+    def _submit_placement(self, ctx: TrustedContext, intent: ActionIntent) -> ExecutionFeedback:
+        with self.uow.transaction() as tx:
+            self.authorize(tx, ctx, intent.decision.memory, live=True)
+            if (
+                intent.provider_id != self.provider_id
+                or intent.provider_instance_id != self.instance_id
+                or intent.provider_mode != "real"
+            ):
+                tx.abort(ErrorCode.VERSION_CONFLICT, "cache provider binding differs")
+            previous = tx.read(self.table("actions"), intent.action_id)
+            if previous:
+                if ActionIntent.model_validate(previous["intent"]) != intent:
+                    tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "cache action binding changed")
+                feedback = ExecutionFeedback.model_validate(previous["feedback"])
+                if feedback.state != "running":
+                    return feedback
+            else:
+                epoch = tx.read(self.table("settings"), "epoch") or 0
+                valid = (intent.decision.current_tier, intent.decision.target_tier) in {
+                    (Tier.COLD, Tier.HOT),
+                    (Tier.HOT, Tier.COLD),
+                }
+                reason = (
+                    "unsupported_tier_transition"
+                    if not valid
+                    else "observation_epoch_changed"
+                    if epoch != intent.expected_epoch
+                    else "intent_durable"
+                )
+                feedback = ExecutionFeedback(
+                    action_id=intent.action_id,
+                    provider_instance_id=self.instance_id,
+                    provider_operation_id=intent.action_id,
+                    state="running" if reason == "intent_durable" else "failed",
+                    observed_at=now(),
+                    reason=reason,
+                )
+                tx.write(
+                    self.table("actions"),
+                    intent.action_id,
+                    {
+                        "intent": intent.model_dump(mode="json"),
+                        "feedback": feedback.model_dump(mode="json"),
+                    },
+                )
+                if feedback.state == "failed":
+                    return feedback
+        return self._apply_placement(ctx, intent)
+
+    def _apply_placement(self, ctx: TrustedContext, intent: ActionIntent) -> ExecutionFeedback:
+        # Historical receipts can contain a warm target. Never interpret these
+        # as a cold demotion when recovering an operation after upgrading.
+        if (intent.decision.current_tier, intent.decision.target_tier) not in {
+            (Tier.COLD, Tier.HOT),
+            (Tier.HOT, Tier.COLD),
+        }:
+            with self.uow.transaction() as tx:
+                self.authorize(tx, ctx, intent.decision.memory, live=True)
+                row = tx.read(self.table("actions"), intent.action_id)
+                feedback = ExecutionFeedback.model_validate(row["feedback"])
+                if feedback.state != "running":
+                    return feedback
+                feedback = feedback.model_copy(
+                    update={
+                        "state": "failed",
+                        "reason": "unsupported_tier_transition",
+                        "observed_at": now(),
+                    }
+                )
+                tx.write(
+                    self.table("actions"),
+                    intent.action_id,
+                    {
+                        **row,
+                        "feedback": feedback.model_dump(mode="json"),
+                    },
+                )
+                return feedback
+        # On any uncertain I/O failure the durable receipt remains running. Query
+        # resumes this same operation; it cannot remove the Ceph original.
+        original = self._authority(ctx, intent.decision.memory)
+        if original.content_hash != intent.content_hash:
+            raise FoundationError(ErrorCode.VERSION_CONFLICT, "action body binding changed")
+        try:
+            if intent.decision.target_tier == Tier.HOT:
+                if not self.inspect(original.ref, original.content_hash):
+                    self._materialize(original, ctx)
+            else:
+                # The authority was freshly read and hashed above. Purge removes
+                # only optional Redis bytes; it never calls an object-store delete.
+                self.purge(original.ref, permanent=False, ctx=ctx)
+            observation = self.observe_sync(ctx, original.ref, intent.representation_id)
+            if observation.tier != intent.decision.target_tier:
+                raise FoundationError(ErrorCode.COMMIT_UNCONFIRMED, "placement not yet visible")
+            feedback = ExecutionFeedback(
+                action_id=intent.action_id,
+                provider_instance_id=self.instance_id,
+                provider_operation_id=intent.action_id,
+                state="succeeded",
+                observation=observation,
+                observed_at=now(),
+                reason="hot_replica_verified"
+                if observation.tier == Tier.HOT
+                else "ceph_verified_hot_removed",
+            )
+        except CacheCapacityError:
+            feedback = ExecutionFeedback(
+                action_id=intent.action_id,
+                provider_instance_id=self.instance_id,
+                provider_operation_id=intent.action_id,
+                state="failed",
+                observed_at=now(),
+                reason="cache_capacity_unavailable",
+            )
+        with self.uow.transaction() as tx:
+            row = tx.read(self.table("actions"), intent.action_id)
+            if row["feedback"]["state"] != "running":
+                return ExecutionFeedback.model_validate(row["feedback"])
+            tx.write(
+                self.table("actions"),
+                intent.action_id,
+                {**row, "feedback": feedback.model_dump(mode="json")},
+            )
+        return feedback

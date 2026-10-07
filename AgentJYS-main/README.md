@@ -21,7 +21,9 @@ P3 将对话、任务信息和文档保存为可追溯记忆，并按请求身�
                          Temporal 编排持久任务；业务底座保留事务、幂等、事件与权限校验
 ```
 
-默认在一个 Python 进程内装配 HTTP 与 Temporal SDK Workers，连接独立 Temporal Server。正文由 Ceph 保存，权威元数据与回执在 PostgreSQL，向量投影在 Milvus，热副本在 Redis；原生 BGE 负责向量编码，LLM 负责语义加工。Working/Episodic/Semantic 是业务记忆类型；当前 Azure 执行层仅声明经过配置的热副本，未配置的温/冷层迁移明确不支持。
+默认在一个 Python 进程内装配 HTTP 与 Temporal SDK Workers，连接独立 Temporal Server。正文由 Ceph 保存，权威元数据与回执在 PostgreSQL，向量投影在 Milvus，热副本在 Redis；原生 BGE 负责向量编码，LLM 负责语义加工。Working/Episodic/Semantic 是业务记忆类型；Operate 采用 Ceph 冷层原文与 Redis 热副本两层策略：升温建立副本，降温核验 Ceph 原文后移除副本，不再经过温层。历史温层回执只供兼容读取。
+
+Operate 的普通访问按默认 60 秒窗口合并评估，热记忆按预测阈值进入持久化到期队列，稳定冷记忆停止周期热度计算；临时失败按 1/5/15/60 分钟退避。访问统计照常累计，删除/过期清理独立准入。配置、升级及限流边界见 [流程架构说明](docs/flow_architecture.md#缓冲区与任务触发机制)。
 
 ## 快速启动
 
@@ -192,7 +194,7 @@ Compose 传递上述四后端与模型的默认密钥变量名；若配置使用
 | 原生 Embedding | 真 BGE 保存与召回已测；业务检索质量和生产吞吐仍需独立验收 |
 | 租户与共享 | 本地已测隔离、共享发现、撤权、停用及重新启用 epoch 栅栏；P4 真实身份平台待集成 |
 | 监测 Web | 已接统一 `/p3` 接口，提供健康、任务、异常和 Trace 瀑布图；尚无跨实例聚合、持久历史指标和云端 APM 接入 |
-| 内部 Operate | 持久热度、定时衰减、缓存准备、读回确认、回收再唤醒已测；Azure 路线使用 Redis 热副本与 PG 回执，不支持未配置的温/冷层迁移 |
+| 内部 Operate | Ceph 原文 + Redis 热副本两层调度，支持阈值升降温、合并唤醒、原动作恢复及 PG 回执；本次使用真实 PG/Redis 验证，Ceph 使用测试替身，完整部署联调仍待验证 |
 | 文档与模型加工 | 原件上传和解析入口、JSON 模型适配已接通；PDF/DOCX 需可选依赖，真实 LLM 质量及 5 倍压缩指标未验收 |
 | 存储 / P2 接管 | PG/Redis/Milvus/Ceph 通过明确的 Azure 接口装配；当前 Ceph HTTP 联调需 opt-in，正式 HTTPS 待补齐；P2 后续按保留接口适配和联调 |
 | 部署与运营 | Docker 实跑、24/72 小时长稳、性能、多实例、完整灾备、Azure/AKS/P4 真实部署待验证 |
@@ -222,7 +224,7 @@ Compose 传递上述四后端与模型的默认密钥变量名；若配置使用
 | `src/aether_agent_memory/runtime/temporal/` | Workflow、Activity、接纳绑定、幂等重放与当前任务恢复 |
 | `src/aether_agent_memory/remember/` | 保存、长期化、文档与模型加工 |
 | `src/aether_agent_memory/recall/` | 原生编码、候选、正文、复核与上下文组装 |
-| `src/aether_agent_memory/operate/` | 热度算法、持续调度和文件缓存执行 |
+| `src/aether_agent_memory/operate/` | 热度算法、持续对账、Redis 热副本控制与回执核验 |
 | `contracts/p3/`、`docs/p3/` | 需求基线、接口契约、架构与开发约束 |
 | `tests/`、`scripts/p3/` | AKS 真实后端回归、契约检查与公开 HTTP 冒烟 |
 | `configs/p3.production.example.yaml` | 统一服务配置样例 |
