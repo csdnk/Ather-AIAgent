@@ -17,9 +17,14 @@ class TieredBodyCache:
         content = await asyncio.to_thread(self.executor.read_cached, scope, digest)
         if content is not None:
             return content
+        if getattr(self.executor, "policy_managed", False):
+            return None
         return await self.redis.get(scope, digest) if self.redis else None
 
     async def put(self, scope: Scope, text: str) -> bool:
+        # Read-through must not bypass heat admission or undo a completed cooling.
+        if getattr(self.executor, "policy_managed", False):
+            return False
         return await self.redis.put(scope, text) if self.redis else False
 
     async def delete(self, scope: Scope, digest: str) -> None:

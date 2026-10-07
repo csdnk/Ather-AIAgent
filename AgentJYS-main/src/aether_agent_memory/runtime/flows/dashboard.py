@@ -42,13 +42,17 @@ def placement_item(task_id, row, trigger):
         else:
             result = "succeeded" if intent.get("provider_mode") == "real" else "simulated"
     reasons = {
+        "successful read creates hot replica": "create_hot_replica",
+        "no reads; remove hot replica": "remove_hot_replica",
         "new durable memory enters warm cache": "new_memory",
         "observed successful read promotes warm copy": "successful_read",
         "no successful reads in current version": "no_reads",
     }
     reason = decision.get("reason", "")
     heat_match = re.fullmatch(
-        r"heat=([0-9]+\.[0-9]{6}); desired=(cold|warm|hot); hysteresis_v1", reason
+        r"heat=([0-9]+\.[0-9]{6}); desired=(cold|warm|hot); "
+        r"(?:hysteresis_v1|two_tier_hysteresis_v2)",
+        reason,
     )
     duration = None
     if result in {"succeeded", "simulated", "failed", "cancelled"}:
@@ -78,6 +82,7 @@ def placement_item(task_id, row, trigger):
         "current_tier": decision.get("current_tier"),
         "target_tier": decision.get("target_tier"),
         "outcome": decision.get("outcome"),
+        "policy_version": decision.get("policy_version"),
         "state": state,
         "result": result,
         "provider_mode": intent.get("provider_mode"),
@@ -119,6 +124,7 @@ def memory_observations(tx, task_ids, observed_at):
             "state": row.get("state"),
             "created_at": detail.get("created_at"),
             "outcome": decision.get("outcome"),
+            "policy_version": decision.get("policy_version"),
             "current_tier": decision.get("current_tier"),
             "target_tier": decision.get("target_tier"),
             "provider_mode": detail.get("provider_mode"),

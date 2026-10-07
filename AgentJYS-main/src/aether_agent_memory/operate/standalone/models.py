@@ -3,8 +3,8 @@
 from dataclasses import dataclass
 from typing import Literal
 
-Tier = Literal["cold", "warm", "hot"]
-Operation = Literal["ensure_hot_replica", "remove_hot_replica", "move_base"]
+Tier = Literal["cold", "hot"]
+Operation = Literal["ensure_hot_replica", "remove_hot_replica"]
 
 
 @dataclass(frozen=True)

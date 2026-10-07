@@ -110,7 +110,10 @@ class StorageProviders:
         identity: Identity,
         memories: MemoryReadPort,
     ) -> RedisExecutor:
-        return RedisExecutor(uow, identity, memories, self.cache)
+        reader = getattr(memories, "read_authority", None)
+        if not callable(reader):
+            raise ValueError("Ceph/Redis scheduling requires an authoritative memory reader")
+        return RedisExecutor(uow, identity, memories, self.cache, authority_reader=reader)
 
     def runtime_options(self) -> dict[str, Any]:
         return {

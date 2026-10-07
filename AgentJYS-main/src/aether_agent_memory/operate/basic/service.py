@@ -14,6 +14,7 @@ from aether_agent_memory.operate.contracts.models import (
     ActionState,
     ExecutionFeedback,
     PlacementDecision,
+    PlacementObservation,
     SchedulingInput,
     Tier,
 )
@@ -45,6 +46,7 @@ from aether_agent_memory.runtime.foundation.transactions import native
 from aether_agent_memory.runtime.storage.ports import MetadataTransaction, MetadataUnitOfWork
 
 from .cache_port import CacheCapacityError, CacheExecutor
+from .record_sync import MemoryRecordSync
 
 
 @observed("operate")
@@ -61,8 +63,15 @@ class Operate:
     ) -> None:
         self.uow, self.identity, self.tasks, self.events = uow, identity, tasks, events
         self.remember, self.memories, self.executor = remember, memories, executor
+        self.record_sync = MemoryRecordSync(executor)
         self.paused = False
-        tasks.register("operate.evaluate", "operate", self, permission=Permission.READ)
+        tasks.register(
+            "operate.evaluate",
+            "operate",
+            self,
+            permission=Permission.READ,
+            attempt_limit=self.evaluation_attempt_budget(cleanup=False),
+        )
         events.register_type(
             "operate.action_changed", self.validate_event, permission=Permission.READ
         )
@@ -170,8 +179,6 @@ class Operate:
                 view["scheduler_event"] = event.model_dump(mode="json")
         view["event"] = event.model_dump(mode="json")
         sql.write("operate_views", key, view)
-        if not self.should_evaluate(cleanup=view.get("cleanup", False)):
-            return
         scheduling_event = view.get("scheduler_event")
         if scheduling_event is None and not change:
             # A shared reader does not acquire authority over the owner's scheduler.
@@ -181,7 +188,7 @@ class Operate:
             ctx = event_context(
                 sql, EventEnvelope.model_validate(scheduling_event), self.identity.clock()
             )
-        self.enqueue(
+        self.schedule_evaluation(
             sql,
             ctx,
             memory,
@@ -190,6 +197,31 @@ class Operate:
             permanent=view.get("permanent", False),
             trigger_kind=event.event_type,
         )
+
+    def schedule_evaluation(
+        self,
+        tx: MetadataTransaction,
+        ctx: TrustedContext,
+        memory: MemoryRef,
+        trigger: str,
+        *,
+        cleanup: bool,
+        permanent: bool,
+        trigger_kind: str,
+    ) -> None:
+        if self.should_evaluate(cleanup=cleanup):
+            self.enqueue(
+                tx,
+                ctx,
+                memory,
+                trigger,
+                cleanup=cleanup,
+                permanent=permanent,
+                trigger_kind=trigger_kind,
+            )
+
+    def evaluation_attempt_budget(self, *, cleanup: bool) -> int:
+        return self.tasks.max_attempts
 
     def enqueue(
         self,
@@ -213,6 +245,13 @@ class Operate:
         }
         if tx.get(ref) is None:
             tx.put_if_revision(ref, content, None)
+        previous = tx.read("tasks", task_id)
+        # Preserve the signature and execution budget when replaying pre-upgrade inputs.
+        attempt_budget = (
+            previous["record"]["max_attempts"]
+            if previous
+            else self.evaluation_attempt_budget(cleanup=cleanup)
+        )
         self.tasks.enqueue(
             tx,
             ctx,
@@ -227,6 +266,7 @@ class Operate:
                 initiator_id=ctx.principal.principal_id,
                 initiator_auth_epoch=ctx.principal.auth_epoch,
                 deadline_at=ctx.deadline_at,
+                max_attempts=attempt_budget,
             ),
         )
         if tx.read("operate_evaluation_triggers", task_id) is None:
@@ -238,18 +278,15 @@ class Operate:
         reason = "current placement satisfies basic cache policy"
         if self.paused or inputs.coverage != "complete":
             outcome, reason = "defer", "new actions paused or observation incomplete"
-        elif inputs.available_bytes < inputs.content_bytes:
-            outcome, reason = "defer", "insufficient capacity for verified copy before cleanup"
-        elif inputs.current_tier == Tier.COLD:
-            target, outcome, reason = Tier.WARM, "promote", "new durable memory enters warm cache"
-        elif inputs.current_tier == Tier.WARM and inputs.successful_reads >= 1:
-            target, outcome, reason = (
-                Tier.HOT,
-                "promote",
-                "observed successful read promotes warm copy",
-            )
+        elif inputs.current_tier == Tier.WARM:
+            outcome, reason = "defer", "legacy warm placement requires verified observation"
+        elif inputs.current_tier == Tier.COLD and inputs.successful_reads >= 1:
+            if inputs.available_bytes < inputs.content_bytes:
+                outcome, reason = "defer", "copy capacity unavailable"
+            else:
+                target, outcome, reason = Tier.HOT, "promote", "successful read creates hot replica"
         elif inputs.current_tier == Tier.HOT and inputs.successful_reads == 0:
-            target, outcome, reason = Tier.WARM, "demote", "no successful reads in current version"
+            target, outcome, reason = Tier.COLD, "demote", "no reads; remove hot replica"
         return PlacementDecision(
             decision_id=fingerprint(inputs.model_dump(mode="json")),
             memory=inputs.memory,
@@ -257,7 +294,7 @@ class Operate:
             current_tier=inputs.current_tier,
             target_tier=target,
             reason=reason,
-            policy_version="basic_cache_v1",
+            policy_version="ceph_redis_basic_v2",
             storage_watermark=inputs.storage_watermark,
             access_watermark=inputs.access_watermark,
         )
@@ -301,6 +338,25 @@ class Operate:
         )
 
     async def execute(self, ctx: TrustedContext, intent: ActionIntent) -> ActionRecord:
+        prepared = await asyncio.to_thread(self.prepare_submission, ctx, intent)
+        if isinstance(prepared, ActionRecord):
+            return prepared
+        submit = prepared
+        if not submit:
+            return await self.reconcile(ctx, intent.action_id)
+        try:
+            feedback = await self.executor.submit(ctx, intent)
+        except Exception:
+            feedback = ExecutionFeedback(
+                action_id=intent.action_id,
+                provider_instance_id=intent.provider_instance_id,
+                state="unknown",
+                observed_at=self.identity.clock(),
+                reason="execution response unavailable",
+            )
+        return await self.accept_feedback(ctx, intent, feedback)
+
+    def prepare_submission(self, ctx: TrustedContext, intent: ActionIntent) -> ActionRecord | bool:
         with self.uow.transaction() as tx:
             self.identity.authorize(
                 tx,
@@ -335,6 +391,7 @@ class Operate:
                     )
                     self.save_action(tx, ctx, cancelled)
                     return cancelled
+                self.record_sync.reserve(tx, intent)
                 action = ActionRecord(
                     intent=intent,
                     state=ActionState.SUBMITTED,
@@ -343,23 +400,15 @@ class Operate:
                     reason="intent durable before submission",
                 )
                 self.save_action(tx, ctx, action)
-        if not submit:
-            return await self.reconcile(ctx, intent.action_id)
-        try:
-            feedback = await self.executor.submit(ctx, intent)
-        except Exception:
-            feedback = ExecutionFeedback(
-                action_id=intent.action_id,
-                provider_instance_id=intent.provider_instance_id,
-                state="unknown",
-                observed_at=self.identity.clock(),
-                reason="execution response unavailable",
-            )
-        return await self.accept_feedback(ctx, intent, feedback)
+        return submit
 
     async def accept_feedback(
         self, ctx: TrustedContext, intent: ActionIntent, feedback: ExecutionFeedback
     ) -> ActionRecord:
+        prepared = await asyncio.to_thread(self.prepare_feedback, ctx, intent)
+        if isinstance(prepared, ActionRecord):
+            return prepared
+        evidence = prepared
         valid_binding = (
             feedback.action_id == intent.action_id
             and feedback.provider_instance_id == intent.provider_instance_id
@@ -368,7 +417,12 @@ class Operate:
         if valid_binding and feedback.state == "succeeded":
             try:
                 proof = await self.executor.verify_read(ctx, intent)
-                feedback = feedback.model_copy(update={"read_proof": proof})
+                observation = await self.executor.observe(
+                    ctx, intent.decision.memory, intent.representation_id
+                )
+                feedback = feedback.model_copy(
+                    update={"read_proof": proof, "observation": observation}
+                )
                 candidate = ActionRecord(
                     intent=intent,
                     state=ActionState.SUCCEEDED,
@@ -381,16 +435,90 @@ class Operate:
                 state = ActionState.UNKNOWN
         elif valid_binding and feedback.state == "failed":
             state = ActionState.FAILED
+        try:
+            return await asyncio.to_thread(
+                self.commit_feedback, ctx, intent, feedback, state, evidence
+            )
+        except Exception:
+            if state != ActionState.SUCCEEDED:
+                raise
+            # Redis may already be changed. Roll back the entire metadata/action
+            # conclusion, persist UNKNOWN and recover this exact original ID.
+            return await asyncio.to_thread(
+                self.commit_feedback,
+                ctx,
+                intent,
+                feedback.model_copy(update={"reason": "memory_record_sync_pending"}),
+                ActionState.UNKNOWN,
+                None,
+            )
+
+    def prepare_feedback(
+        self, ctx: TrustedContext, intent: ActionIntent
+    ) -> ActionRecord | dict[str, Any] | None:
         with self.uow.transaction() as tx:
+            self.authorize_action(tx, ctx, intent)
             previous = ActionRecord.model_validate(tx.read("operate_actions", intent.action_id))
+            if previous.intent != intent:
+                tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "feedback intent changed")
+            # A delayed callback must not re-open a terminal action or overwrite
+            # the metadata published by a later cooling/promotion.
+            if previous.state in {ActionState.SUCCEEDED, ActionState.FAILED, ActionState.CANCELLED}:
+                return previous
+            self.record_sync.reserve(tx, intent)
+            return self.record_sync.evidence(tx, intent.decision.memory)
+
+    def capture_evidence(self, memory: MemoryRef) -> dict[str, Any] | None:
+        with self.uow.transaction() as tx:
+            return self.record_sync.evidence(tx, memory)
+
+    def authorize_action(
+        self, tx: MetadataTransaction, ctx: TrustedContext, intent: ActionIntent
+    ) -> None:
+        self.identity.authorize(
+            tx,
+            ctx,
+            Permission.READ,
+            RecordRef(
+                owner=Flow.OPERATE,
+                object_type="action",
+                object_id=intent.action_id,
+                scope=intent.decision.memory.scope,
+            ),
+        )
+
+    def commit_feedback(
+        self,
+        ctx: TrustedContext,
+        intent: ActionIntent,
+        feedback: ExecutionFeedback,
+        state: ActionState,
+        evidence: dict[str, Any] | None,
+    ) -> ActionRecord:
+        with self.uow.transaction() as tx:
+            self.authorize_action(tx, ctx, intent)
+            previous = ActionRecord.model_validate(tx.read("operate_actions", intent.action_id))
+            if previous.intent != intent:
+                tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "feedback intent changed")
+            if previous.state in {ActionState.SUCCEEDED, ActionState.FAILED, ActionState.CANCELLED}:
+                return previous
             if (
                 self.memories.final_guard(tx, ctx, (intent.decision.memory,), "actuate")
                 .items[0]
                 .decision
                 != "allowed"
-                and state != ActionState.UNKNOWN
+                and feedback.action_id == intent.action_id
+                and feedback.provider_instance_id == intent.provider_instance_id
+                and feedback.state in {"succeeded", "failed"}
             ):
                 state = ActionState.CANCELLED
+                feedback = feedback.model_copy(update={"reason": "memory_no_longer_schedulable"})
+            if state == ActionState.SUCCEEDED:
+                assert feedback.observation is not None
+                synced = self.record_sync.publish(tx, feedback.observation, evidence, action=intent)
+                if synced == "superseded":
+                    state = ActionState.CANCELLED
+                    feedback = feedback.model_copy(update={"reason": "memory_record_superseded"})
             action = ActionRecord(
                 intent=intent,
                 state=state,
@@ -403,10 +531,27 @@ class Operate:
                 else "pending",
                 reason=feedback.reason or state.value,
             )
+            self.record_sync.conclude(tx, intent, state)
             self.save_action(tx, ctx, action)
             return action
 
-    async def reconcile(self, ctx: TrustedContext, action_id: str) -> ActionRecord:
+    def sync_observation(
+        self,
+        ctx: TrustedContext,
+        observation: PlacementObservation,
+        evidence: dict[str, Any] | None,
+    ) -> str:
+        with self.uow.transaction() as tx:
+            if (
+                self.memories.final_guard(tx, ctx, (observation.memory,), "actuate")
+                .items[0]
+                .decision
+                != "allowed"
+            ):
+                return "ineligible"
+            return self.record_sync.publish(tx, observation, evidence)
+
+    def load_action(self, ctx: TrustedContext, action_id: str) -> ActionRecord:
         with self.uow.transaction() as tx:
             raw = tx.read("operate_actions", action_id)
             if raw is None:
@@ -423,6 +568,12 @@ class Operate:
                     scope=action.intent.decision.memory.scope,
                 ),
             )
+        return action
+
+    async def reconcile(self, ctx: TrustedContext, action_id: str) -> ActionRecord:
+        action = await asyncio.to_thread(self.load_action, ctx, action_id)
+        if action.state in {ActionState.SUCCEEDED, ActionState.FAILED, ActionState.CANCELLED}:
+            return action
         try:
             feedback = await self.executor.query(ctx, action_id)
         except Exception:
@@ -487,11 +638,29 @@ class Operate:
                 await asyncio.to_thread(
                     self.executor.purge, memory, permanent=prepared["permanent"], ctx=ctx
                 )
-            with self.uow.transaction() as tx:
-                self.tasks.guard(tx, task)
+            if valid:
+                await asyncio.to_thread(self.complete_cleanup_record, ctx, task, memory)
             return {"cache_cleanup": "completed" if valid else "ineligible"}
         intent = ActionIntent.model_validate(prepared["intent"])
         return self.evaluation_feedback(ctx, task, await self.execute(ctx, intent))
+
+    def complete_cleanup_record(
+        self, ctx: TrustedContext, task: TaskRecord, memory: MemoryRef
+    ) -> None:
+        with self.uow.transaction() as tx:
+            self.tasks.guard(tx, task)
+            if (
+                self.memories.final_guard(tx, ctx, (memory,), "cleanup").items[0].decision
+                != "allowed"
+            ):
+                tx.abort(ErrorCode.COMMIT_UNCONFIRMED, "cleanup metadata authorization changed")
+            # Active status alone does not imply eligibility: expiry, replacement
+            # or invalidated source can also require removal of the old pointer.
+            if (
+                self.memories.final_guard(tx, ctx, (memory,), "actuate").items[0].decision
+                != "allowed"
+            ):
+                self.record_sync.clear_inactive(tx, memory)
 
     def evaluation_feedback(
         self, ctx: TrustedContext, task: TaskRecord, action: ActionRecord
@@ -535,10 +704,14 @@ class Operate:
             intent = ActionRecord.model_validate(existing).intent
         else:
             try:
-                await asyncio.to_thread(self.executor.ensure, item, ctx)
+                if not getattr(self.executor, "policy_managed", False):
+                    await asyncio.to_thread(self.executor.ensure, item, ctx)
             except CacheCapacityError:
                 return {"value": {"deferred": "cache_capacity"}}
+            evidence = await asyncio.to_thread(self.capture_evidence, memory)
             observation = await self.executor.observe(ctx, memory, "original")
+            if observation.readable and observation.tier in {Tier.COLD, Tier.HOT}:
+                await asyncio.to_thread(self.sync_observation, ctx, observation, evidence)
             resources = await self.executor.resources(ctx)
             decision = await asyncio.to_thread(
                 self.evaluation_decision, ctx, item, memory, key, observation, resources
@@ -661,7 +834,7 @@ class Operate:
                 content_bytes=len(item.content.encode()),
                 coverage="complete" if observation.readable else "unknown",
                 observed_at=self.identity.clock(),
-                policy_version="basic_cache_v1",
+                policy_version="ceph_redis_basic_v2",
             ),
         )
 

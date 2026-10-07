@@ -28,6 +28,7 @@ from .periodic_workflow import P3PeriodicWorkflow as P3PeriodicWorkflow
 
 Commit = Callable[[MetadataTransaction, str, int, Any], Any]
 Prepare = Callable[[str], Awaitable[Any]]
+Page = Callable[[MetadataTransaction, str, int], list[tuple[str, Any]]]
 _TERMINAL_STATUS_RECHECK_SECONDS = 900
 _TERMINAL_STATUS_REFRESH_BUDGET = 16
 
@@ -40,12 +41,22 @@ class PeriodicActivities:
     def __init__(self, ledger: ExecutionLedger, gateway: TemporalGateway | None) -> None:
         self.ledger, self.gateway = ledger, gateway
         self.routes: dict[str, tuple[Commit, Prepare | None]] = {}
+        self.pages: dict[str, Page] = {}
         self.max_batch_seconds = 10.0
 
-    def register(self, table: str, commit: Commit, prepare: Prepare | None = None) -> None:
+    def register(
+        self,
+        table: str,
+        commit: Commit,
+        prepare: Prepare | None = None,
+        *,
+        page: Page | None = None,
+    ) -> None:
         if table in self.routes:
             raise ValueError("periodic route already registered")
         self.routes[table] = commit, prepare
+        if page is not None:
+            self.pages[table] = page
 
     @staticmethod
     def _terminal_status_proof(
@@ -150,9 +161,19 @@ class PeriodicActivities:
         route_names = list(self.routes)
 
         def begin(state: PeriodicState) -> tuple[PeriodicState, int | None]:
+            nonlocal route_names
             with uow.transaction() as tx:
                 prior = tx.read("temporal_ticks", tick_key)
                 if prior:
+                    # Complete a pre-upgrade tick using its recorded route order. The
+                    # retained operate_views route is a no-op; operate_due starts next tick.
+                    if (
+                        "operate_due" in route_names
+                        and "operate_views" in route_names
+                        and prior["routes"]
+                        == [name for name in route_names if name != "operate_due"]
+                    ):
+                        route_names = prior["routes"]
                     if (
                         prior["routes"] != route_names
                         or prior["interval_seconds"] != state.interval_seconds
@@ -190,7 +211,11 @@ class PeriodicActivities:
 
             def page(table: str, cursor: str, remaining: int) -> list[tuple[str, Any]]:
                 with uow.transaction() as tx:
-                    rows = tx.rows_after(table, cursor, limit=remaining)
+                    rows = (
+                        self.pages[table](tx, cursor, remaining)
+                        if table in self.pages
+                        else tx.rows_after(table, cursor, limit=remaining)
+                    )
                 return rows
 
             rows = await asyncio.to_thread(page, table, cursor, remaining)
@@ -447,9 +472,18 @@ def register_p3_periodic(
         lambda tx, key, tick, _: remember.reflection.periodic_item(tx, key),
         lambda key: hydrate_route("remember_reflection_policies", key),
     )
-    runner.register(
-        "operate_views", lambda tx, key, tick, _: operate.periodic_item(tx, key, str(tick))
-    )
+    if hasattr(operate, "periodic_rows"):
+        # Keep legacy in-flight tick cursors valid without scanning all views.
+        runner.register("operate_views", lambda *args: None, page=lambda *args: [])
+        runner.register(
+            "operate_due",
+            lambda tx, key, tick, _: operate.periodic_due(tx, key, str(tick)),
+            page=operate.periodic_rows,
+        )
+    else:
+        runner.register(
+            "operate_views", lambda tx, key, tick, _: operate.periodic_item(tx, key, str(tick))
+        )
 
     def sample_context(key: str) -> TrustedContext:
         with host.foundation.uow.transaction() as tx:

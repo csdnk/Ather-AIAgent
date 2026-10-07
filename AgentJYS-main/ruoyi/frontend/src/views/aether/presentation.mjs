@@ -78,7 +78,7 @@ const terms = {
   recalls: '记忆召回',
   content_access: '内容访问',
   hot: '热存储',
-  warm: '温存储',
+  warm: '温存储（历史）',
   cold: '冷存储',
   validate: '校验请求',
   select: '确定检索范围',

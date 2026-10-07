@@ -83,6 +83,7 @@ class Tasks:
             raise ValueError("class limits must be positive")
         self.handlers: dict[str, tuple[str, TaskHandler]] = {}
         self.permissions: dict[str, Permission] = {}
+        self.attempt_limits: dict[str, int] = {}
         self.on_recovery: (
             Callable[[MetadataTransaction, TrustedContext, RecoveryRequest], OperationRecord] | None
         ) = None
@@ -99,11 +100,17 @@ class Tasks:
         handler: TaskHandler,
         *,
         permission: Permission = Permission.WRITE,
+        attempt_limit: int | None = None,
     ) -> None:
+        limit = self.max_attempts if attempt_limit is None else attempt_limit
+        if limit <= 0:
+            raise ValueError("task attempt limit must be positive")
         if kind in self.handlers or execution_class not in self.class_limits:
             raise ValueError("duplicate task kind or unknown execution class")
         self.handlers[kind] = (execution_class, handler)
         self.permissions[kind] = permission
+        # Only trusted handler registration can change a kind's admission budget.
+        self.attempt_limits[kind] = limit
 
     @staticmethod
     def load(tx: MetadataTransaction, task_id: str) -> tuple[dict[str, Any], TaskRecord]:
@@ -206,7 +213,7 @@ class Tasks:
         if (
             spec.deadline_at > ctx.deadline_at
             or spec.deadline_at <= self.clock()
-            or spec.max_attempts > self.max_attempts
+            or spec.max_attempts > self.attempt_limits[spec.kind]
         ):
             sql.abort(ErrorCode.INVALID_ARGUMENT, "invalid task deadline or attempt budget")
         content = sql.get(spec.input_ref)

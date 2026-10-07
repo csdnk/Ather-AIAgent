@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  tierText,
   decisionText,
   resultText,
   triggerText,
@@ -24,4 +25,15 @@ test('simulation and missing confirmation never look like a successful real migr
   assert.equal(resultText('unconfirmed'), '结果待确认')
   assert.equal(durationText(null), '未取得完成回执')
   assert.equal(durationText(0), '0 秒')
+})
+
+
+test('two-tier placement describes replicas and preserves historical warm labels', () => {
+  assert.equal(tierText('cold'), '冷层（Ceph 原文）')
+  assert.equal(tierText('hot'), '热层（Redis 副本）')
+  assert.match(tierText('warm'), /历史记录/)
+  assert.match(decisionText({ decision_reason: 'create_hot_replica' }), /保留 Ceph 原文.*Redis 热副本/)
+  assert.match(decisionText({ decision_reason: 'remove_hot_replica' }), /核验 Ceph 原文可读后移除/)
+  assert.match(decisionText({ decision_reason: 'heat_policy', policy_version: 'ceph_redis_heat_v2', heat: 0.4, desired_tier: 'cold' }), /核验 Ceph 原文可读后移除 Redis 副本/)
+  assert.match(decisionText({ decision_reason: 'heat_policy', policy_version: 'continuous_heat_v1', heat: 0.4, desired_tier: 'warm' }), /旧版三层策略的历史动作/)
 })
