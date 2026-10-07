@@ -74,7 +74,20 @@ def placement_item(task_id, row, trigger):
         "observed_at": feedback.get("observed_at"),
         "duration_seconds": duration,
         "trigger": kind
-        if kind in {"memory.changed", "recall.access", "periodic"}
+        if kind
+        in {
+            "memory.changed",
+            "recall.access",
+            "periodic",
+            "new_input",
+            "threshold_crossing",
+            "upgrade",
+            "capability_change",
+            "pending_completion",
+            "temporary_failure",
+            "placement_unconfirmed",
+            "due",
+        }
         else "unrecorded",
         "decision_reason": "heat_policy" if heat_match else reasons.get(reason, "unrecorded"),
         "heat": float(heat_match[1]) if heat_match else None,

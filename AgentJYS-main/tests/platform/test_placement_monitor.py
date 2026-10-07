@@ -165,6 +165,34 @@ def test_unknown_provider_messages_are_not_exposed():
     assert "secret" not in str(result) and "private-url" not in str(result)
 
 
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "new_input",
+        "threshold_crossing",
+        "upgrade",
+        "capability_change",
+        "pending_completion",
+        "temporary_failure",
+        "placement_unconfirmed",
+        "due",
+    ],
+)
+def test_continuous_scheduler_trigger_is_visible_in_action_record(kind):
+    from aether_agent_memory.runtime.flows.dashboard import placement_item
+
+    assert placement_item("task", action(), {"kind": kind})["trigger"] == kind
+
+
+def test_unknown_trigger_remains_redacted():
+    from aether_agent_memory.runtime.flows.dashboard import placement_item
+
+    assert (
+        placement_item("task", action(), {"kind": "private-provider-url"})["trigger"]
+        == "unrecorded"
+    )
+
+
 @pytest.mark.asyncio
 async def test_tenant_cannot_query_global_actions(tmp_path):
     identity, ctx, _ = operator(tmp_path, role="aether_tenant_admin")

@@ -4,7 +4,15 @@ export const triggerText = (value) =>
   ({
     'memory.changed': '记忆新增或状态变更',
     'recall.access': '记忆被成功读取',
-    periodic: '到期自动检查'
+    periodic: '到期自动检查',
+    new_input: '记忆内容或访问次数发生变化',
+    threshold_crossing: '访问热度预计降至阈值，到期重新评估',
+    upgrade: '调度策略升级后重新评估',
+    capability_change: '存储调度能力恢复或发生变化，重新评估',
+    pending_completion: '等待上次调度完成后重新检查',
+    temporary_failure: '上次执行暂时失败，按退避间隔重试',
+    placement_unconfirmed: '上次存储状态尚未确认，重新核验',
+    due: '到期自动检查'
   })[value] || '触发来源未记录'
 
 export const resultLabels = {
