@@ -44,6 +44,14 @@
       "title": "DocumentInput",
       "type": "object"
     },
+    "MemoryMode": {
+      "enum": [
+        "automatic",
+        "reference_only"
+      ],
+      "title": "MemoryMode",
+      "type": "string"
+    },
     "ScopeSelector": {
       "additionalProperties": false,
       "description": "A requested restriction. Missing fields never grant access.",
@@ -224,6 +232,10 @@
       "title": "Importance Category",
       "type": "string"
     },
+    "memory_mode": {
+      "$ref": "#/$defs/MemoryMode",
+      "default": "automatic"
+    },
     "selection": {
       "$ref": "#/$defs/ScopeSelector"
     },
@@ -237,7 +249,7 @@
       "type": "string"
     },
     "trigger": {
-      "default": "remember",
+      "default": "observe",
       "enum": [
         "remember",
         "observe",

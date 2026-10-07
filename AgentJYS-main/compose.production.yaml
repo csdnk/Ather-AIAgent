@@ -1,6 +1,9 @@
 # Standalone unified P3 deployment with the current Azure storage bundle.
 # Required: validated images, deployment/service.yaml with profile=production,
 # host=0.0.0.0 and data_dir=/runtime, Azure storage bundle and production Temporal.
+# Remember requires the separate Worker/Beat below and P3_CELERY_BROKER_URL.
+# Use an independently managed durable broker, or --profile local-broker with
+# protected deployment/celery/redis.conf (authentication/TLS + AOF + noeviction).
 # Missing storage credentials fail startup; this template is not release acceptance.
 # docker compose -f compose.production.yaml up -d
 services:
@@ -10,7 +13,8 @@ services:
     init: true
     restart: unless-stopped
     stop_grace_period: 45s
-    environment:
+    environment: &p3-environment
+      P3_CELERY_BROKER_URL: ${P3_CELERY_BROKER_URL:?Set the dedicated durable broker URL}
       AETHER_LLM_API_KEY: ${AETHER_LLM_API_KEY:-}
       AETHER_POSTGRES_DSN: ${AETHER_POSTGRES_DSN:-}
       AETHER_REDIS_PASSWORD: ${AETHER_REDIS_PASSWORD:-}
@@ -28,3 +32,33 @@ services:
       interval: 15s
       timeout: 5s
       retries: 3
+  p3-celery-worker:
+    image: ${AETHER_P3_IMAGE:?Set the validated P3 image by digest}
+    command: [python, -m, aether_agent_memory, celery-worker, --config, /deployment/service.yaml, --concurrency, "2"]
+    environment: *p3-environment
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 120s
+    volumes:
+      - ${AETHER_DEPLOYMENT_DIR}:/deployment:ro
+      - ${AETHER_MODELS_DIR}:/models:ro
+      - celery-worker-runtime:/runtime
+  p3-celery-beat:
+    image: ${AETHER_P3_IMAGE:?Set the validated P3 image by digest}
+    command: [python, -m, aether_agent_memory, celery-beat, --config, /deployment/service.yaml]
+    environment: *p3-environment
+    restart: unless-stopped
+    init: true
+    volumes:
+      - ${AETHER_DEPLOYMENT_DIR}:/deployment:ro
+  p3-celery-broker:
+    profiles: [local-broker]
+    image: redis:7-alpine
+    command: [redis-server, /etc/redis/redis.conf]
+    restart: unless-stopped
+    volumes:
+      - ${AETHER_DEPLOYMENT_DIR}/celery/redis.conf:/etc/redis/redis.conf:ro
+      - celery-broker-data:/data
+volumes:
+  celery-worker-runtime:
+  celery-broker-data:

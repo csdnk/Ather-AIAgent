@@ -235,7 +235,10 @@ def create_app(
                 controls = path == "/p3/recovery" or (
                     path.startswith("/p3/tasks/") and path.endswith("/control")
                 )
-                if path not in local_reads and not controls:
+                # This endpoint dispatches both Remember and Recall; its authorized
+                # handler calls accept(kind), which checks the selected backend.
+                routed_admin = path == "/p3/admin/memory-commands"
+                if path not in local_reads and not controls and not routed_admin:
                     if hasattr(execution, "celery"):
                         execution.require_ready(
                             "remember"

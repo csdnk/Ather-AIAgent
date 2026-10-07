@@ -9996,5 +9996,170 @@
       },
       "unexpected": "rejected"
     }
+  },
+  {
+    "id": "positive-remember.SourceSearchRequest",
+    "model": "remember.SourceSearchRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "sources": [
+        {
+          "source_id": "id_1",
+          "source_version": 1,
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "locator": "id_1"
+        }
+      ],
+      "query": "fact"
+    }
+  },
+  {
+    "id": "extra-field-remember.SourceSearchRequest",
+    "model": "remember.SourceSearchRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "sources": [
+        {
+          "source_id": "id_1",
+          "source_version": 1,
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "locator": "id_1"
+        }
+      ],
+      "query": "fact",
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.SourcePassage",
+    "model": "remember.SourcePassage",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "source": {
+        "source_id": "id_1",
+        "source_version": 1,
+        "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "locator": "id_1"
+      },
+      "content": "source fact",
+      "start_char": 0,
+      "end_char": 11,
+      "range_hash": "0783e35bad61252429edbbbde3f921bef9395b221aa6536bad9897e8bc21ab0b",
+      "score": 1.0,
+      "seed": true
+    }
+  },
+  {
+    "id": "extra-field-remember.SourcePassage",
+    "model": "remember.SourcePassage",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "source": {
+        "source_id": "id_1",
+        "source_version": 1,
+        "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "locator": "id_1"
+      },
+      "content": "source fact",
+      "start_char": 0,
+      "end_char": 11,
+      "range_hash": "0783e35bad61252429edbbbde3f921bef9395b221aa6536bad9897e8bc21ab0b",
+      "score": 1.0,
+      "seed": true,
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "positive-remember.SourceSearchResult",
+    "model": "remember.SourceSearchResult",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "passages": [
+        {
+          "source": {
+            "source_id": "id_1",
+            "source_version": 1,
+            "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "locator": "id_1"
+          },
+          "content": "source fact",
+          "start_char": 0,
+          "end_char": 11,
+          "range_hash": "0783e35bad61252429edbbbde3f921bef9395b221aa6536bad9897e8bc21ab0b",
+          "score": 1.0,
+          "seed": true
+        }
+      ]
+    }
+  },
+  {
+    "id": "extra-field-remember.SourceSearchResult",
+    "model": "remember.SourceSearchResult",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "passages": [
+        {
+          "source": {
+            "source_id": "id_1",
+            "source_version": 1,
+            "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "locator": "id_1"
+          },
+          "content": "source fact",
+          "start_char": 0,
+          "end_char": 11,
+          "range_hash": "0783e35bad61252429edbbbde3f921bef9395b221aa6536bad9897e8bc21ab0b",
+          "score": 1.0,
+          "seed": true
+        }
+      ],
+      "unexpected_field": "reject"
+    }
+  },
+  {
+    "id": "reference-only-remember.RememberRequest",
+    "model": "remember.RememberRequest",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "source": {
+        "kind": "conversation",
+        "external_id": "id_1",
+        "external_version": "id_1",
+        "occurred_at": "2026-09-19T08:00:00.000Z"
+      },
+      "selection": {},
+      "content": {
+        "kind": "text",
+        "text": "id_1"
+      },
+      "memory_mode": "reference_only"
+    }
+  },
+  {
+    "id": "unknown-mode-remember.RememberRequest",
+    "model": "remember.RememberRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "source": {
+        "kind": "conversation",
+        "external_id": "id_1",
+        "external_version": "id_1",
+        "occurred_at": "2026-09-19T08:00:00.000Z"
+      },
+      "selection": {},
+      "content": {
+        "kind": "text",
+        "text": "id_1"
+      },
+      "memory_mode": "unknown"
+    }
   }
 ]

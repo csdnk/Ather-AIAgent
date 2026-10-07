@@ -36,14 +36,14 @@ def engine() -> Any:
     return _engine
 
 
-@app.task(name="p3.celery.step", ignore_result=True)
+@app.task(name="p3.celery.step", ignore_result=True)  # type: ignore[untyped-decorator]
 def step(job_id: str, generation: int, input_hash: str, deployment_id: str) -> None:
     runtime = engine()
     assert _runner is not None
     _runner.run(runtime.run(job_id, generation, input_hash, deployment_id))
 
 
-@app.task(name="p3.celery.tick", ignore_result=True)
+@app.task(name="p3.celery.tick", ignore_result=True)  # type: ignore[untyped-decorator]
 def tick() -> None:
     from .dispatch import CeleryDispatcher
 
@@ -54,7 +54,7 @@ def tick() -> None:
     _runner.run(CeleryDispatcher(runtime, app).flush())
 
 
-@worker_process_shutdown.connect
+@worker_process_shutdown.connect  # type: ignore[untyped-decorator]
 def shutdown(**kwargs: Any) -> None:
     if _runner is not None:
         if _service is not None:

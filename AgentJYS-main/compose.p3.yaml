@@ -1,16 +1,20 @@
-# Single P3 service. Set service.yaml temporal.endpoint to an address reachable
+# P3 API plus separate Remember Celery Worker and Beat. Supply a dedicated broker
+# through P3_CELERY_BROKER_URL. Optional --profile local-broker starts the broker
+# below using protected deployment/celery/redis.conf (authentication + AOF).
+# Set service.yaml temporal.endpoint to an address reachable
 # from this container. The loopback-only development CLI is for host execution;
 # use a private-network Temporal server or an explicitly configured local proxy
 # for containers. Validate TCP/gRPC reachability separately on each platform.
 services:
   p3:
-    build:
+    build: &p3-build
       context: .
       dockerfile: Dockerfile.p3
     restart: unless-stopped
     init: true
     stop_grace_period: 30s
-    environment:
+    environment: &p3-environment
+      P3_CELERY_BROKER_URL: ${P3_CELERY_BROKER_URL:?Set the dedicated durable broker URL}
       AETHER_LLM_API_KEY: ${AETHER_LLM_API_KEY:-}
       AETHER_POSTGRES_DSN: ${AETHER_POSTGRES_DSN:-}
       AETHER_REDIS_PASSWORD: ${AETHER_REDIS_PASSWORD:-}
@@ -28,6 +32,33 @@ services:
       interval: 15s
       timeout: 5s
       retries: 3
+  p3-celery-worker:
+    build: *p3-build
+    command: [python, -m, aether_agent_memory, celery-worker, --config, /deployment/service.yaml, --concurrency, "2"]
+    environment: *p3-environment
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 120s
+    volumes:
+      - ${AETHER_DEPLOYMENT_DIR}:/deployment:ro
+      - ${AETHER_MODELS_DIR}:/models:ro
+      - celery-worker-runtime:/runtime
+  p3-celery-beat:
+    build: *p3-build
+    command: [python, -m, aether_agent_memory, celery-beat, --config, /deployment/service.yaml]
+    environment: *p3-environment
+    restart: unless-stopped
+    init: true
+    volumes:
+      - ${AETHER_DEPLOYMENT_DIR}:/deployment:ro
+  p3-celery-broker:
+    profiles: [local-broker]
+    image: redis:7-alpine
+    command: [redis-server, /etc/redis/redis.conf]
+    restart: unless-stopped
+    volumes:
+      - ${AETHER_DEPLOYMENT_DIR}/celery/redis.conf:/etc/redis/redis.conf:ro
+      - celery-broker-data:/data
   engine:
     profiles: [p2]
     build:
@@ -38,4 +69,6 @@ services:
     volumes:
       - p2-data:/var/lib/aether-engine
 volumes:
+  celery-worker-runtime:
+  celery-broker-data:
   p2-data:

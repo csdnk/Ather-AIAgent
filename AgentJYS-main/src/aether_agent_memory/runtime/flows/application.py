@@ -267,45 +267,10 @@ class Service:
         self.runtime.foundation.monitoring.required += ("deployment_dependencies",)
 
     def check_postgres_execution_binding(self) -> None:
-        """Apply the same pre-admission transport checks to migrated PG records."""
-        from aether_agent_memory.runtime.foundation.tasks import TERMINAL
-        from aether_agent_memory.runtime.temporal.config import deployment_configuration
+        """Audit both pinned backends without changing the routing marker."""
+        from aether_agent_memory.runtime.celery.migration import inspect_bindings
 
-        config = self.config.temporal
-        expected = deployment_configuration(config)
-        with self.runtime.foundation.uow.transaction() as tx:
-            marker = tx.read("meta", "execution_backend")
-            if marker and marker != {
-                "backend": "temporal",
-                "deployment_id": config.deployment_id,
-                "namespace": config.namespace,
-                "task_queue_prefix": expected.task_queue_prefix,
-            }:
-                raise ValueError(
-                    "Temporal backend binding differs; use the original environment "
-                    "or a fresh development schema"
-                )
-            bindings = dict(tx.rows("temporal_bindings"))
-            for key, row in tx.rows("tasks"):
-                if row["record"]["state"] not in TERMINAL and key not in bindings:
-                    raise ValueError(
-                        "task is missing its Temporal binding; recover the original execution "
-                        "or use a fresh development schema"
-                    )
-            for key, row in tx.rows("deliveries"):
-                if (
-                    row["state"] not in {"acknowledged", "attention_required"}
-                    and key not in bindings
-                ):
-                    raise ValueError(
-                        "delivery is missing its Temporal binding; "
-                        "investigate the original execution"
-                    )
-            for key, row in tx.rows("recall_requests"):
-                if row["record"]["state"] in {"accepted", "running"} and key not in bindings:
-                    raise ValueError(
-                        "Recall is missing its Temporal binding; investigate the original request"
-                    )
+        inspect_bindings(self.runtime.foundation.uow, self.config)
 
     def reload_identity(self) -> None:
         from aether_agent_memory.runtime.foundation.common import fingerprint

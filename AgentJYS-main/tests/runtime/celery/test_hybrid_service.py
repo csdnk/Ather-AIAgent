@@ -61,6 +61,9 @@ def test_http_remember_real_celery_without_temporal(tmp_path, owned_azure_resour
                     assert not tx.pending_intent_rows("start")
                 repeated = client.post("/p3/remember", json=request(), headers=headers())
                 assert repeated.headers["x-p3-job-id"] == job_id
+                if repeated.status_code == 400:
+                    assert repeated.json()["code"] == "REQUEST_IN_PROGRESS"
+                    repeated = wait_result(client, repeated.headers["location"])
                 assert repeated.json() == result.json()
         finally:
             worker.terminate()

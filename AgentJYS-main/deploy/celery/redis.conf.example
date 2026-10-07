@@ -1,0 +1,13 @@
+# Copy into the protected deployment directory as celery/redis.conf.
+# Replace the placeholder and set the matching URL in P3_CELERY_BROKER_URL.
+# This broker is never exposed on a host port by the supplied Compose files.
+bind 0.0.0.0
+protected-mode yes
+port 6379
+requirepass REPLACE_WITH_A_NEW_BROKER_ONLY_SECRET
+dir /data
+appendonly yes
+appendfsync everysec
+maxmemory 384mb
+maxmemory-policy noeviction
+# For untrusted networks, configure Redis TLS and use rediss:// with verified CA.
