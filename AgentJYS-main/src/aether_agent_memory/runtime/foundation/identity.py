@@ -42,6 +42,9 @@ class Identity:
         self.uow, self.clock = uow, clock
         self.ruoyi_revalidate: Callable[[Any, dict[str, Any], TrustedContext], None] | None = None
         self.admin_target_check: Callable[[str, str], None] | None = None
+        self.placement_revalidate: Callable[[Any, dict[str, Any], TrustedContext], None] | None = (
+            None
+        )
 
     def provision(
         self,
@@ -346,7 +349,10 @@ class Identity:
 
     def revalidate(self, tx: Transaction, ctx: TrustedContext) -> None:
         from .admin_execution import revalidate_admin_context
+        from .placement_authority import revalidate_placement_context
 
+        if revalidate_placement_context(self, native(tx), ctx):
+            return
         if revalidate_admin_context(self, tx, ctx):
             return
         sql = native(tx)
@@ -439,6 +445,11 @@ class Identity:
         self.revalidate(tx, ctx)
         sql = native(tx)
         principal = ctx.principal
+        from .placement_authority import permits_placement
+
+        placement = permits_placement(sql, ctx, permission, target)
+        if placement is not None:
+            return placement
         home, scope = principal.home_scope, target.scope
         if permission not in principal.permissions or home.tenant_id != scope.tenant_id:
             return False

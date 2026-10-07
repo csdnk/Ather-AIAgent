@@ -126,6 +126,65 @@ def h(two_tier, monkeypatch):
     return Harness(two_tier, monkeypatch)
 
 
+async def test_scoped_ruoyi_binding_executes_after_interactive_credential_expiry(h):
+    """Real PG/Redis action; Ruoyi status and Ceph are explicit test doubles."""
+    from aether_agent_memory.operate.contracts.models import ActionRecord
+    from aether_agent_memory.runtime.contracts.models import ErrorCode, TrustedContext
+    from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
+
+    h.access(12)
+    event = EventEnvelope.model_validate(h.view()["scheduler_event"])
+    with h.host.uow.transaction() as tx:
+        row = tx.read("identities", event.initiator_id)
+        row.update(ruoyi_source="test", ruoyi_policy="test", ruoyi_authority="unchanged")
+        tx.write("identities", event.initiator_id, row)
+        tx.write(
+            "ruoyi_request_grants",
+            event.request_id,
+            {
+                "principal_id": event.initiator_id,
+                "auth_epoch": event.initiator_auth_epoch,
+                "expires": 1,
+            },
+        )
+
+    def expired(*args):
+        raise FoundationError(ErrorCode.FORBIDDEN, "interactive credential expired")
+
+    h.host.identity.ruoyi_revalidate = expired
+    h.host.identity.placement_revalidate = lambda *args: None
+    assert h.service.periodic("after-login-expiry") == 1
+    task = h.task()
+    with h.host.uow.transaction() as tx:
+        ctx = TrustedContext.model_validate(tx.read("tasks", task.task_id)["context"])
+    action = intent(h.service.executor, ctx, h.item, Tier.HOT, "temporary")
+    action = action.model_copy(
+        update={
+            "action_id": fingerprint(
+                [
+                    h.item.ref.model_dump(mode="json"),
+                    action.decision.current_tier,
+                    action.decision.target_tier,
+                    action.expected_epoch,
+                    task.task_id,
+                ]
+            )
+        }
+    )
+    with h.host.uow.transaction() as tx:
+        h.service.save_action(
+            tx,
+            ctx,
+            ActionRecord(
+                intent=action, state="generated", revision=1, cleanup_state="not_required"
+            ),
+        )
+    result = await h.service.execute(ctx, action)
+    assert result.state == "succeeded"
+    assert result.feedback.read_proof.readable
+    assert h.cache.get_sync(h.item.ref.scope, h.item.content_hash) == h.item.content
+
+
 async def test_continuous_access_records_all_inputs_without_sliding_the_window(h):
     h.access()
     assert h.service.periodic("first") == 1
