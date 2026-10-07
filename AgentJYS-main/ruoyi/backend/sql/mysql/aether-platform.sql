@@ -102,4 +102,10 @@ SELECT 4,'Aether database files',1,'Owned database storage',
  CASE WHEN EXISTS(SELECT 1 FROM infra_file_config f WHERE f.master=b'1' AND f.deleted=b'0') THEN b'0' ELSE b'1' END,
  JSON_OBJECT('@class','cn.iocoder.yudao.module.infra.framework.file.core.client.db.DBFileClientConfig','domain',@aether_file_domain),
  'aether','aether',b'0';
+
+-- Scheduling monitoring is integrated into tasks. Retain the hidden route for old bookmarks.
+UPDATE system_menu SET name='任务与调度', visible=b'1', update_time=NOW()
+ WHERE id=60003 AND path='tasks' AND deleted=b'0';
+UPDATE system_menu SET visible=b'0', keep_alive=b'0', update_time=NOW()
+ WHERE id=60015 AND path='scheduling' AND deleted=b'0';
 COMMIT;

@@ -4,6 +4,15 @@
     <el-alert v-if="identityError" :title="identityError" type="error" :closable="false" />
     <template v-if="canReadMemory(identity)">
       <MemoryUserPicker @change="selectUser" />
+      <div class="toolbar memory-types">
+        <span id="memory-type-label">记忆类型</span>
+        <el-radio-group v-model="kind" aria-labelledby="memory-type-label" @change="filter">
+          <el-radio-button value="">全部</el-radio-button>
+          <el-radio-button value="working">工作记忆</el-radio-button>
+          <el-radio-button value="episodic">情景记忆</el-radio-button>
+          <el-radio-button value="semantic">语义记忆</el-radio-button>
+        </el-radio-group>
+      </div>
       <MemoryCommandNotice
         :pending="command.pending.value"
         :busy="command.busy.value"
@@ -24,20 +33,6 @@
           >
         </div>
         <div class="toolbar filters">
-          <el-select
-            v-model="kind"
-            clearable
-            placeholder="全部记忆类型"
-            aria-label="记忆类型"
-            @change="filter"
-          >
-            <el-option
-              v-for="item in ['working', 'episodic', 'semantic']"
-              :key="item"
-              :label="memoryKind(item)"
-              :value="item"
-            />
-          </el-select>
           <el-select
             v-model="state"
             clearable
