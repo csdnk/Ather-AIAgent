@@ -6,12 +6,45 @@ import {
   businessCharts,
   actionLabel
 } from '../src/views/aether/dashboard.mjs'
+import * as dashboard from '../src/views/aether/dashboard.mjs'
 
 test('missing contract evidence never looks like zero or passing', () => {
   const cards = contractCards({})
-  assert.equal(cards.length, 5)
+  assert.equal(cards.length, 3)
   assert.ok(cards.every((card) => card.state !== 'success'))
   assert.ok(cards.every((card) => card.value !== '0'))
+})
+
+test('live observations stay separate from unverified contract benchmarks', () => {
+  const cards = contractCards({ embedding: { rate: 3000 }, compression: { ratio: 6 } })
+  assert.ok(cards.every((card) => !card.target))
+  const benchmarks = dashboard.contractBenchmarks()
+  assert.equal(benchmarks.length, 5)
+  assert.ok(benchmarks.every((row) => row.status === '未验收'))
+  assert.ok(benchmarks.every((row) => row.target && !row.value))
+})
+
+test('phase rows preserve missing data and expose only readable whitelisted phases', () => {
+  const rows = dashboard.phaseRows({
+    embedding: {
+      phase_breakdown: {
+        items: [
+          { phase: 'embedding_compute', samples: 2, avg_ms: 12.345, p95_ms: 20 },
+          { phase: 'embedding_prepare', samples: 0, avg_ms: null, p95_ms: null },
+          { phase: 'unknown_body_secret', samples: 2, avg_ms: 99, p95_ms: 99 }
+        ]
+      }
+    },
+    working_memory: {
+      phase_breakdown: { items: [{ phase: 'memory_fetch', samples: 1, avg_ms: 0, p95_ms: 0 }] }
+    }
+  })
+  assert.equal(rows.length, 3)
+  assert.equal(rows[0].avg, '12.35')
+  assert.equal(rows[1].avg, '暂无样本')
+  assert.equal(rows[2].avg, '0.00')
+  assert.ok(rows.every((row) => !row.label.includes('_')))
+  assert.deepEqual(dashboard.phaseRows({}), [])
 })
 
 test('text compression does not claim full physical acceptance', () => {

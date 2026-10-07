@@ -19,36 +19,64 @@ export function contractCards(metrics = {}) {
         : empty
   return [
     {
-      label: '向量化处理速度',
+      label: '向量化单次处理效率',
       value: measured(embedding, embedding.rate, '条/秒', '暂无向量化样本'),
-      target: '合同目标 ≥ 2,000 次/秒',
       note: `最近 24 小时成功处理 ${embedding.items ?? 0} 条，按成功条数 ÷ 累计调用耗时统计；实际负载观测，不代表容量压测。`
     },
     {
-      label: '短期记忆响应时间',
+      label: '记忆正文读取 P99',
       value: measured(working, working.p99_ms, '毫秒', '暂无读取样本'),
-      target: '合同目标 P99 < 10 毫秒',
-      note: `最近 24 小时 ${working.samples ?? 0} 次完整短期记忆正文读取的 P99，包含权限核验、存储读取和结果复核；不含向量检索和回答生成。`
+      note: `最近 24 小时 ${working.samples ?? 0} 次 Working Memory（短期记忆）正文读取的 P99，包含权限核验、存储读取和结果复核；不含向量检索和回答生成。`
     },
     {
-      label: '记忆正文压缩比',
+      label: '正文压缩比',
       value: Number.isFinite(ratio) ? `${ratio.toFixed(2)} 倍` : compressionEmpty,
-      target: '合同目标 物理压缩 ≥ 5 倍',
       note: `已发布正文样本 ${metrics.compression?.samples ?? '未知'} 条；按总原始字节 ÷ 总压缩字节统计，含历史版本，不等同整体存储节省。`
-    },
-    {
-      label: '缓存命中改善',
-      value: '待基线验证',
-      target: '合同目标 比 MVP 基线提升 10%+',
-      note: '需要同一负载下的基线命中率和当前命中率；比较口径尚待验收确认。'
-    },
-    {
-      label: '连续稳定运行',
-      value: '待专项验证',
-      target: '合同目标 连续无故障 72 小时',
-      note: '需要生产级环境连续观测及故障判据；容器启动时长不能作为验收依据。'
     }
   ].map((card) => ({ ...card, state: 'info' }))
+}
+
+export function contractBenchmarks() {
+  return [
+    { label: '向量化并发吞吐', target: '≥ 2,000 次/秒' },
+    { label: 'Redis 缓存读取', target: 'P99 < 10 毫秒' },
+    { label: '整体存储物理压缩', target: '≥ 5 倍' },
+    { label: '缓存命中改善', target: '比 MVP 基线提升 10%+' },
+    { label: '连续稳定运行', target: '连续无故障 72 小时' }
+  ].map((row) => ({ ...row, status: '未验收' }))
+}
+
+const phaseLabels = {
+  embedding_prepare: '向量化准备',
+  embedding_compute: '向量计算',
+  embedding_evidence: '向量证据写入',
+  embedding_finalize: '向量结果提交',
+  memory_prepare: '读取准备与权限核验',
+  memory_fetch: '正文存储读取',
+  memory_validate: '正文结果复核',
+  postgres_local_wait: '数据库本地排队',
+  postgres_lock_wait: '数据库锁等待',
+  postgres_transaction: '数据库事务',
+  log_write: '过程日志写入'
+}
+
+export function phaseRows(metrics = {}) {
+  const duration = (value, samples) =>
+    samples > 0 && Number.isFinite(value) && value >= 0 ? value.toFixed(2) : '暂无样本'
+  return [
+    ['embedding', '向量化'],
+    ['working_memory', '正文读取']
+  ].flatMap(([key, label]) =>
+    (metrics[key]?.phase_breakdown?.items || [])
+      .filter((row) => Object.hasOwn(phaseLabels, row.phase))
+      .map((row) => ({
+        path: label,
+        label: phaseLabels[row.phase],
+        samples: row.samples ?? 0,
+        avg: duration(row.avg_ms, row.samples),
+        p95: duration(row.p95_ms, row.samples)
+      }))
+  )
 }
 
 export function schedulingCards(data = {}) {

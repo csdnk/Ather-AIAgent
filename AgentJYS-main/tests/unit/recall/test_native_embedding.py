@@ -151,6 +151,41 @@ async def test_native_formats_usage_normalizes_and_saves_evidence(model):
         await backend.close()
 
 
+async def test_native_separates_compute_from_evidence_and_preserves_task_context(
+    model, monkeypatch
+):
+    from contextlib import contextmanager
+    from contextvars import ContextVar
+
+    marker = ContextVar("embedding_test_marker", default=None)
+    events = []
+
+    @contextmanager
+    def stage(name):
+        events.append(("start", name, marker.get()))
+        try:
+            yield
+        finally:
+            events.append(("end", name, marker.get()))
+
+    monkeypatch.setattr(native, "measure_stage", stage, raising=False)
+    backend = native.NativeEmbeddingBackend(native.NativeEmbeddingSettings(backend="openvino"))
+    binding = binding_for(backend)
+    backend.bind(binding, records=InMemoryRecallRecords())
+    token = marker.set("this-call")
+    try:
+        await backend.compute(request_for(binding), "input")
+        assert events == [
+            ("start", "embedding_compute", "this-call"),
+            ("end", "embedding_compute", "this-call"),
+            ("start", "embedding_evidence", "this-call"),
+            ("end", "embedding_evidence", "this-call"),
+        ]
+    finally:
+        marker.reset(token)
+        await backend.close()
+
+
 @pytest.mark.parametrize(
     "field,value",
     [

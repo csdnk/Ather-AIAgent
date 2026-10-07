@@ -62,6 +62,7 @@ from aether_agent_memory.runtime.foundation.common import FoundationError, finge
 from aether_agent_memory.runtime.foundation.content_diagnostics import authorize_content_read
 from aether_agent_memory.runtime.foundation.requests import select_scope, text_hash
 from aether_agent_memory.runtime.foundation.telemetry import observed
+from aether_agent_memory.runtime.foundation.timings import measure_stage
 from aether_agent_memory.runtime.foundation.transactions import native
 from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
@@ -921,14 +922,42 @@ class RememberPipeline(Revalidation):
                             pending.append(ref["memory_id"])
         return memory_ids, selected_tasks
 
+    def processing_task_rows(
+        self, tx: MetadataTransaction, memory_id: str
+    ) -> tuple[set[str], dict[str, Any]]:
+        lookup = getattr(tx, "processing_tasks_for_memories", None)
+        if not callable(lookup):
+            envelopes = dict(tx.rows("tasks"))
+            memory_ids, selected = self.processing_task_closure(
+                tx, memory_id, [value["record"] for value in envelopes.values()]
+            )
+            return memory_ids, {key: value for key, value in envelopes.items() if key in selected}
+
+        # Keep the same transaction snapshot and transitive batch/result closure,
+        # while fetching only related envelopes from providers with a targeted read.
+        memory_ids, pending = {memory_id}, [memory_id]
+        selected_envelopes: dict[str, Any] = {}
+        while pending:
+            frontier, pending = pending[:1000], pending[1000:]
+            for key, envelope in lookup(tuple(frontier)):
+                if key in selected_envelopes:
+                    continue
+                selected_envelopes[key] = envelope
+                row = envelope["record"]
+                if row.get("result_ref"):
+                    result = required_record(tx, RecordRef.model_validate(row["result_ref"]))
+                    for ref in result.get("memories", []):
+                        if ref["memory_id"] not in memory_ids:
+                            memory_ids.add(ref["memory_id"])
+                            pending.append(ref["memory_id"])
+        return memory_ids, dict(sorted(selected_envelopes.items()))
+
     def processing(self, ctx: TrustedContext, memory_id: str) -> dict[str, Any]:
         with self.uow.transaction() as tx:
             item = self.current(tx, memory_id)
             authorize_content_read(self.identity, tx, ctx, memory_ref(item.ref))
-            task_envelopes = dict(tx.rows("tasks"))
-            all_rows = [row["record"] for row in task_envelopes.values()]
-            memory_ids, selected_tasks = self.processing_task_closure(tx, memory_id, all_rows)
-            rows = [row for row in all_rows if row["task_id"] in selected_tasks]
+            memory_ids, task_envelopes = self.processing_task_rows(tx, memory_id)
+            rows = [row["record"] for row in task_envelopes.values()]
             current_rows = [
                 r
                 for r in rows
@@ -1290,10 +1319,11 @@ class RememberPipeline(Revalidation):
         return {"content": text, "status": "excerpt"}
 
     async def read_body(self, ctx: TrustedContext, ref: MemoryRef) -> FullBodyReadResult:
-        await self.hydrate(ctx, (ref,))
-
-        def inspect_body() -> FullBodyReadResult | tuple[MemorySnapshot, ResourceLocation]:
+        def inspect_body() -> (
+            FullBodyReadResult | tuple[MemoryRecord | MemorySnapshot, ResourceLocation]
+        ):
             with self.uow.transaction() as tx:
+                authorize_content_read(self.identity, tx, ctx, memory_ref(ref))
                 eligibility = self.final_guard(tx, ctx, (ref,), "recall")
                 if eligibility.items[0].decision != "allowed":
                     return FullBodyReadResult(
@@ -1302,15 +1332,25 @@ class RememberPipeline(Revalidation):
                         path="none",
                         reason_code=eligibility.items[0].reason,
                     )
-                item = self.current(tx, ref.memory_id)
-                location = self.bodies.location(ref.scope, item.content)
+                # Capture the immutable authority address without decoding or fetching
+                # its body. A later current() would hide another full read here.
+                raw = required_record(tx, memory_ref(ref, versioned=True))
+                item: MemoryRecord | MemorySnapshot
+                if "body_location" in raw:
+                    item = MemoryRecord.model_validate(raw)
+                    location = item.body_location
+                else:
+                    item = MemorySnapshot.model_validate(raw)
+                    location = self.bodies.location(ref.scope, item.content)
             return item, location
 
-        selected = await asyncio.to_thread(inspect_body)
+        with measure_stage("memory_prepare"):
+            selected = await asyncio.to_thread(inspect_body)
         if isinstance(selected, FullBodyReadResult):
             return selected
         item, location = selected
-        content, path = await self.bodies.read(ref.scope, location)
+        with measure_stage("memory_fetch"):
+            content, path = await self.bodies.read(ref.scope, location)
 
         def recheck_body() -> FullBodyReadResult | GuardStamp:
             with self.uow.transaction() as tx:
@@ -1327,12 +1367,13 @@ class RememberPipeline(Revalidation):
                     object_revision=item.object_revision,
                     relations_revision=item.revision,
                     authorization_epoch=ctx.principal.auth_epoch,
-                    body_hash=item.content_hash,
+                    body_hash=location.content_hash,
                     checked_at=self.identity.clock(),
                 )
             return guard
 
-        guard = await asyncio.to_thread(recheck_body)
+        with measure_stage("memory_validate"):
+            guard = await asyncio.to_thread(recheck_body)
         if isinstance(guard, FullBodyReadResult):
             return guard
         return FullBodyReadResult(

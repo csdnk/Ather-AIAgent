@@ -12,6 +12,7 @@ import asyncio
 import json
 import re
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from threading import Lock
@@ -49,6 +50,7 @@ from aether_agent_memory.runtime.contract_types import (
     utcnow,
     vector_bytes,
 )
+from aether_agent_memory.runtime.foundation.timings import measure_stage
 
 MODEL_NAME = "BAAI/bge-small-zh-v1.5"
 SCHEMA_VERSION = "bge-cls-l2-float32-v1"
@@ -241,7 +243,7 @@ class NativeEmbeddingBackend:
         if not self._busy.acquire(blocking=False):
             raise SemanticEmbeddingError("EMBEDDING_BUSY")
         try:
-            future = self._pool.submit(self._compute, request, text)
+            future = self._pool.submit(copy_context().run, self._compute, request, text)
         except BaseException:
             self._busy.release()
             raise
@@ -254,20 +256,21 @@ class NativeEmbeddingBackend:
         if utcnow() >= request.deadline_at:
             raise SemanticEmbeddingError("EMBEDDING_DEADLINE_EXCEEDED")
         try:
-            vectors = self._backend.embed(
-                [self._formatted(text, request.usage)],
-                [request.usage.lower()],
-                batch_size=1,
-            )
-            if len(vectors) != 1:
-                raise ValueError("expected one vector")
-            vector = np.asarray(vectors[0], dtype=np.float32)
-            if vector.shape != (512,) or not np.isfinite(vector).all():
-                raise ValueError("invalid vector shape or non-finite components")
-            norm = float(np.linalg.norm(vector.astype(np.float64)))
-            if not np.isfinite(norm) or norm <= 0:
-                raise ValueError("invalid vector norm")
-            vector = (vector.astype(np.float64) / norm).astype(np.float32)
+            with measure_stage("embedding_compute"):
+                vectors = self._backend.embed(
+                    [self._formatted(text, request.usage)],
+                    [request.usage.lower()],
+                    batch_size=1,
+                )
+                if len(vectors) != 1:
+                    raise ValueError("expected one vector")
+                vector = np.asarray(vectors[0], dtype=np.float32)
+                if vector.shape != (512,) or not np.isfinite(vector).all():
+                    raise ValueError("invalid vector shape or non-finite components")
+                norm = float(np.linalg.norm(vector.astype(np.float64)))
+                if not np.isfinite(norm) or norm <= 0:
+                    raise ValueError("invalid vector norm")
+                vector = (vector.astype(np.float64) / norm).astype(np.float32)
         except Exception as exc:
             raise SemanticEmbeddingError("EMBEDDING_COMPUTE_FAILED") from exc
         if utcnow() >= request.deadline_at:
@@ -287,7 +290,7 @@ class NativeEmbeddingBackend:
             "computed_at": utcnow().isoformat(),
         }
         assert self._records is not None
-        with self._records.transaction() as tx:
+        with measure_stage("embedding_evidence"), self._records.transaction() as tx:
             tx.put(
                 "semantic-backend-evidence", request.tenant_id, evidence_ref, json.dumps(evidence)
             )

@@ -32,6 +32,7 @@ from aether_agent_memory.runtime.contracts.foundation import NodeLogRecord
 from aether_agent_memory.runtime.contracts.models import TrustedContext
 
 from .common import FoundationError, now
+from .timings import StageTimings, current_timings, measure_stage
 
 # Only these scalar fields may contain clear-text strings. Everything else is
 # represented by type/length. In particular exception messages are never stored.
@@ -132,6 +133,7 @@ class Node:
         )
         self.output: Any = None
         self.started = time.monotonic()
+        self.timings = StageTimings()
 
 
 current_node: ContextVar[Node | None] = ContextVar("p3_trace_node", default=None)
@@ -218,7 +220,10 @@ class Telemetry:
             self.dropped += 1
             self.last_error = "InvalidNodeLogRecord"
             return
-        self._write(ctx, data)
+        if phase in {"returned", "failed", "cancelled"}:
+            data.update(node.timings.finish(partial=phase != "returned"))
+        with measure_stage("log_write"):
+            self._write(ctx, data)
 
     def emit_record(self, ctx: TrustedContext, record: NodeLogRecord) -> None:
         record = NodeLogRecord.model_validate_json(record.model_dump_json())
@@ -288,6 +293,7 @@ class Telemetry:
         node = Node(self, ctx, name)
         with self._trace_span(node):
             token = current_node.set(node)
+            timing_token = current_timings.set(node.timings)
             start = time.monotonic()
             try:
                 await self._async_emit(node, "started", input=summary(inputs))
@@ -317,6 +323,8 @@ class Telemetry:
                     elapsed_ms=round((time.monotonic() - start) * 1000, 3),
                 )
             finally:
+                node.timings.finish(partial=True)
+                current_timings.reset(timing_token)
                 current_node.reset(token)
 
     async def _async_emit(self, node: Node, phase: str, **fields: Any) -> None:
@@ -332,6 +340,7 @@ class Telemetry:
     @contextmanager
     def _local_span(self, node: Node, inputs: Any) -> Iterator[Node]:
         token = current_node.set(node)
+        timing_token = current_timings.set(node.timings)
         start = time.monotonic()
         self.emit(node, "started", input=summary(inputs))
         try:
@@ -362,6 +371,8 @@ class Telemetry:
                 elapsed_ms=round((time.monotonic() - start) * 1000, 3),
             )
         finally:
+            node.timings.finish(partial=True)
+            current_timings.reset(timing_token)
             current_node.reset(token)
 
     def traces(

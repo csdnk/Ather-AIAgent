@@ -37,6 +37,8 @@ class LocalLogs:
         phase="returned",
         at="2026-10-07T11:00:00.000Z",
         operation="op_business",
+        timings=None,
+        timing_counts=None,
     ):
         output = (
             summary({"operation_id": operation, "items": [None] * count})
@@ -51,6 +53,8 @@ class LocalLogs:
             "output": output,
             "input": {"body": "NEVER_EXPOSE_BODY"},
             "secret": "NEVER_EXPOSE_SECRET",
+            "timings_ms": timings,
+            "timing_counts": timing_counts,
         }
         self.db.execute(
             "INSERT INTO node_logs(occurred_at,phase,data) VALUES (?,?,?)",
@@ -204,6 +208,87 @@ def test_database_failure_is_unavailable_without_exception_details(logs):
     assert result["embedding"]["status"] == "unavailable"
     assert result["embedding"]["rate"] is None
     assert result["working_memory"]["status"] == "unavailable"
+
+
+def test_phase_samples_exclude_older_logs_and_keep_inclusive_timings_separate(logs):
+    logs.add(
+        elapsed=100,
+        timings={"embedding_compute": 20, "postgres_transaction": 30},
+        timing_counts={"embedding_compute": 1, "postgres_transaction": 3},
+    )
+    logs.add(elapsed=200, timings={"embedding_compute": 80}, timing_counts={"embedding_compute": 1})
+    logs.add(elapsed=300)
+    logs.add(phase="failed", timings={"embedding_compute": 999})
+    metric = observe(logs)["embedding"]
+    assert metric["batch_count"] == 3
+    breakdown = metric["phase_breakdown"]
+    assert breakdown["timed_samples"] == 2
+    assert breakdown["missing_samples"] == 1
+    assert breakdown["inclusive"] is True
+    assert breakdown["excludes_terminal_write"] is True
+    phases = {row["phase"]: row for row in breakdown["items"]}
+    assert phases["embedding_compute"]["samples"] == 2
+    assert phases["embedding_compute"]["avg_ms"] == 50
+    assert phases["embedding_compute"]["p95_ms"] == 80
+    assert phases["embedding_compute"]["calls"] == 2
+    assert phases["postgres_transaction"]["avg_ms"] == 30
+    assert phases["postgres_transaction"]["samples"] == 1
+    assert phases["embedding_prepare"]["avg_ms"] is None
+    assert phases["embedding_prepare"]["samples"] == 0
+
+
+def test_working_phase_statistics_keep_zero_and_require_verified_membership(logs):
+    from aether_agent_memory.runtime.flows.performance_observations import performance_observations
+
+    logs.add("remember.read_body", timings={"memory_fetch": 0}, timing_counts={"memory_fetch": 1})
+    metric = observe(logs)["working_memory"]
+    phases = {row["phase"]: row for row in metric["phase_breakdown"]["items"]}
+    assert phases["memory_fetch"]["avg_ms"] == 0
+    assert phases["memory_fetch"]["samples"] == 1
+    assert (
+        performance_observations(logs, OBSERVED_AT)["working_memory"]["phase_breakdown"][
+            "timed_samples"
+        ]
+        == 0
+    )
+
+
+def test_phase_p95_uses_nearest_rank_of_recorded_call_durations(logs):
+    for duration in range(20):
+        logs.add("remember.read_body", timings={"memory_fetch": duration})
+    logs.add("remember.read_body", operation="health_working", timings={"memory_fetch": 999})
+    phases = observe(logs)["working_memory"]["phase_breakdown"]["items"]
+    fetch = next(row for row in phases if row["phase"] == "memory_fetch")
+    assert fetch["p95_ms"] == 18
+    assert fetch["avg_ms"] == 9.5
+    assert fetch["samples"] == 20
+    assert fetch["calls"] is None
+
+
+@pytest.mark.parametrize("bad", [True, "12", {}, [], -1, 1e300, None])
+def test_phase_projection_rejects_invalid_or_unbounded_values_without_payloads(logs, bad):
+    logs.add(
+        timings={"embedding_compute": bad, "unknown": "NEVER_EXPOSE_BODY"},
+        timing_counts={"embedding_compute": bad},
+    )
+    result = observe(logs)
+    breakdown = result["embedding"]["phase_breakdown"]
+    assert breakdown["timed_samples"] == 0
+    assert all(row["avg_ms"] is None for row in breakdown["items"])
+    assert "NEVER_EXPOSE" not in json.dumps(result)
+    from aether_agent_memory.runtime.flows.performance_observations import _query
+
+    projected = logs.db.execute(
+        _query(False),
+        (
+            "2026-10-06T12:00:00.000Z",
+            OBSERVED_AT,
+            "embedding.native.embed",
+            "embedding.embed",
+            "remember.read_body",
+        ),
+    ).fetchone()
+    assert "NEVER_EXPOSE" not in repr(projected)
 
 
 def test_production_telemetry_decorator_is_readable_without_raw_payloads():

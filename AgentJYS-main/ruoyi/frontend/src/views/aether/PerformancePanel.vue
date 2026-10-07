@@ -1,16 +1,43 @@
 <template>
   <section class="performance">
     <template v-if="platform">
-      <div class="section-heading"><h2>性能指标</h2></div>
-      <div class="contract-grid">
+      <div class="section-heading"><h2>实时性能观测</h2></div>
+      <div class="observation-grid">
         <el-card v-for="card in contractCards(memoryMetrics)" :key="card.label" shadow="never">
           <div class="muted">{{ card.label }}</div>
           <el-tooltip :content="card.note" placement="top" :show-after="300">
             <strong class="metric-value">{{ card.value }}</strong>
           </el-tooltip>
-          <div class="target">{{ card.target }}</div>
         </el-card>
       </div>
+      <div class="section-heading">
+        <el-tooltip
+          content="最近 24 小时成功调用；仅统计有阶段记录的样本。阶段包含内部子步骤，数据库事务包含锁等待，向量计算可能包含证据写入，各行不可相加。过程日志不含最后一条返回日志自身的写入耗时。"
+          placement="top"
+          :show-after="300"
+          ><h2>耗时分解</h2></el-tooltip
+        >
+        <el-radio-group v-model="timingPath" size="small" aria-label="耗时调用类型">
+          <el-radio-button value="向量化">向量化</el-radio-button>
+          <el-radio-button value="正文读取">正文读取</el-radio-button>
+        </el-radio-group>
+      </div>
+      <el-table :data="timingRows" size="small" empty-text="暂无阶段耗时样本">
+        <el-table-column prop="label" label="阶段" min-width="160" />
+        <el-table-column prop="samples" label="样本数" width="90" align="right" />
+        <el-table-column prop="avg" label="平均（毫秒）" min-width="130" align="right" />
+        <el-table-column prop="p95" label="P95（毫秒）" min-width="130" align="right" />
+      </el-table>
+      <div class="section-heading"><h2>合同专项验收</h2></div>
+      <el-table :data="contractBenchmarks()" size="small">
+        <el-table-column prop="label" label="验收项目" min-width="160" />
+        <el-table-column prop="target" label="合同目标" min-width="200" />
+        <el-table-column label="验收状态" width="100">
+          <template #default="{ row }"
+            ><el-tag type="info" size="small">{{ row.status }}</el-tag></template
+          >
+        </el-table-column>
+      </el-table>
     </template>
     <div class="section-heading"
       ><h2>业务运行趋势</h2>
@@ -56,7 +83,13 @@
 import { computed, ref } from 'vue'
 import { Echart } from '@/components/Echart'
 import { useAppStore } from '@/store/modules/app'
-import { contractCards, businessCharts, categoryChart } from './dashboard.mjs'
+import {
+  contractCards,
+  contractBenchmarks,
+  phaseRows,
+  businessCharts,
+  categoryChart
+} from './dashboard.mjs'
 const props = defineProps<{
   performance?: any
   memoryMetrics?: any
@@ -64,6 +97,10 @@ const props = defineProps<{
   loading?: boolean
 }>()
 const windowKey = ref('24h')
+const timingPath = ref('向量化')
+const timingRows = computed(() =>
+  phaseRows(props.memoryMetrics).filter((row) => row.path === timingPath.value)
+)
 const appStore = useAppStore()
 const selected = computed(() => props.performance?.windows?.[windowKey.value])
 const charts = computed(() => businessCharts(selected.value?.series || [], appStore.getIsDark))
@@ -116,9 +153,9 @@ p {
   color: var(--el-text-color-secondary);
   font-size: 13px;
 }
-.contract-grid {
+.observation-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
 .metric-value {
@@ -126,10 +163,6 @@ p {
   margin: 14px 0;
   font-size: 25px;
   line-height: 1.25;
-}
-.target {
-  font-size: 13px;
-  color: var(--el-color-primary);
 }
 .business-grid {
   display: grid;
@@ -145,13 +178,8 @@ p {
 .compression {
   margin-top: 16px;
 }
-@media (max-width: 1250px) {
-  .contract-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
 @media (max-width: 800px) {
-  .contract-grid,
+  .observation-grid,
   .business-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
