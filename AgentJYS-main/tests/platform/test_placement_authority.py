@@ -212,6 +212,7 @@ def test_only_this_evaluation_and_its_real_action_are_permitted(tmp_path):
 @pytest.mark.parametrize("kind,cleanup", [("recall.execute", False), ("operate.evaluate", True)])
 def test_binding_cannot_enqueue_another_flow_or_cleanup(tmp_path, kind, cleanup):
     from types import SimpleNamespace
+
     from aether_agent_memory.runtime.foundation.tasks import Tasks
 
     _, identity, _, _, ctx, memory, _ = scheduled(tmp_path)
