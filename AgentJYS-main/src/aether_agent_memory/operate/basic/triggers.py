@@ -119,7 +119,11 @@ class TriggerSchedule(Operate):
     ) -> bool:
         # O(1): do not enumerate the complete task history on every notification.
         head = tx.read("operate_evaluation_head", self.key(memory))
-        if head and head["task_id"] != exclude_task_id:
+        if (
+            head
+            and head["memory"] == memory.model_dump(mode="json")
+            and head["task_id"] != exclude_task_id
+        ):
             row = tx.read("tasks", head["task_id"])
             if row and row["record"]["state"] in ACTIVE:
                 return True

@@ -39,6 +39,9 @@ def install_operations(
     from aether_platform.operations.console import Console, install_console
 
     install_console(app, console or Console(config, directory), identity)
+    from aether_platform.operations.memory_admin import install_memory_admin
+
+    install_memory_admin(app, service, identity)
 
     @app.get("/platform-ops/v1/{resource}")
     def read(
@@ -50,8 +53,19 @@ def install_operations(
             None, min_length=8, max_length=128, pattern=r"^[A-Za-z0-9_-]+$"
         ),
         cursor: str | None = Query(None, max_length=4096),
+        q: str | None = Query(None, max_length=64),
+        task_id: str | None = Query(None, max_length=128, pattern=r"^[A-Za-z0-9_-]+$"),
+        status: str | None = Query(None, max_length=64),
     ):
         actor, token = identity(request)
+        if resource == "support" and (q == "task_cases" or task_id):
+            if actor.role != "platform_admin":
+                raise HTTPException(403, detail={"code": "CASE_PERMISSION_REQUIRED"})
+            from aether_platform.operations.task_cases import TaskCases
+
+            return TaskCases(service).read(
+                actor, task_id=task_id, state=status, limit=limit, offset=offset
+            )
         if resource in GLOBAL_RESOURCES and actor.role != "platform_admin":
             raise HTTPException(403, "仅平台运维可访问")
         if command_id:

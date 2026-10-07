@@ -31,4 +31,5 @@ class AetherOpsGatewayTest {
  @Test void rejectsConsoleUnknownQueryBeforeNetwork(){assertThrows(IllegalArgumentException.class,()->gateway.console("users",null,"Bearer opaque-token",Map.of("url","https://attacker")));assertEquals(0,calls.get());}
  @Test void rejectsConsoleLongSelectorBeforeNetwork(){assertThrows(IllegalArgumentException.class,()->gateway.console("users",null,"Bearer opaque-token",Map.of("user_id","x".repeat(257))));assertEquals(0,calls.get());}
  @Test void forwardsConsoleBusinessFilters(){assertEquals("ok",gateway.console("diagnostics",null,"Bearer opaque-token",Map.of("state","failed","flow","recall")).path("status").asText());assertEquals(1,calls.get());}
+ @Test void forwardsBoundedMemoryListOptions(){assertEquals("ok",gateway.console("memories",null,"Bearer opaque-token",Map.of("user_id","demo_user_a","include_summary","false","collapse_duplicates","true")).path("status").asText());assertEquals(1,calls.get());}
 }

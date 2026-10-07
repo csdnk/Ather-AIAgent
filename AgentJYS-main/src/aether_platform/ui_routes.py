@@ -6,6 +6,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from aether_platform.chat import Conversations
+from aether_platform.chat_documents import Attachment
 from aether_platform.directory import AccessDeniedError
 from aether_platform.operations.quotas import QuotaExceededError
 
@@ -14,6 +15,7 @@ class Message(BaseModel):
     model_config = ConfigDict(extra="forbid")
     content: str = Field(min_length=1, max_length=12000)
     turn_id: str = Field(min_length=1, max_length=64)
+    attachments: list[Attachment] = Field(default_factory=list, max_length=3)
 
 
 class Title(BaseModel):
@@ -64,7 +66,13 @@ def install_chat(
         _, session, actor = current(request)
         csrf(request, session)
         try:
-            turn = chat.begin(actor, conversation_id, body.turn_id, body.content)
+            turn = chat.begin(
+                actor,
+                conversation_id,
+                body.turn_id,
+                body.content,
+                attachments=[item.model_dump() for item in body.attachments],
+            )
         except AccessDeniedError:
             raise
         except QuotaExceededError as exc:

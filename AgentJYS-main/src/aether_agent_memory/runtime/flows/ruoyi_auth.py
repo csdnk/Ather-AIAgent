@@ -29,6 +29,59 @@ class RuoyiAuthenticator:
             for role, permissions in config["role_permissions"].items()
         }
         identity.ruoyi_revalidate = self.revalidate
+        identity.admin_target_check = self.check_admin_target
+
+    def check_admin_target(self, tenant: str, user: str) -> None:
+        """Resolve approved business ownership without requiring a target login."""
+        try:
+            matches = [
+                m
+                for m in self.verifier._bindings.values()
+                if m["business_user_id"] == user and m["business_tenant_id"] == tenant
+            ]
+            if not matches and self.verifier.config.get("auto_provision") is True:
+                native_user = user.removeprefix("ry_user_")
+                native_tenants = [
+                    key for key, value in self.verifier._tenants.items() if value == tenant
+                ]
+                if tenant.startswith("ry_tenant_"):
+                    native_tenants.append(tenant.removeprefix("ry_tenant_"))
+                if (
+                    user.startswith("ry_user_")
+                    and native_user.isdecimal()
+                    and len(native_user) <= 20
+                ):
+                    matches = [
+                        {"ruoyi_user_id": native_user, "ruoyi_tenant_id": value}
+                        for value in set(native_tenants)
+                        if value.isdecimal()
+                    ]
+            if len(matches) != 1:
+                raise AccessDeniedError("Target has no unique business mapping")
+            target = matches[0]
+            current = self.verifier.remote(
+                "POST",
+                "/admin-api/aether/identity/status",
+                auth=httpx.BasicAuth(self.verifier.config["client_id"], self.verifier._secret),
+                data={"user_id": target["ruoyi_user_id"], "tenant_id": target["ruoyi_tenant_id"]},
+            )
+            mapped = self.verifier.binding(current)
+            if (
+                str(current.get("user_id")) != str(target["ruoyi_user_id"])
+                or str(current.get("tenant_id")) != str(target["ruoyi_tenant_id"])
+                or current.get("user_enabled") is not True
+                or current.get("tenant_enabled") is not True
+                or "aether_platform_admin" in current.get("role_codes", [])
+                or mapped["business_tenant_id"] != tenant
+                or mapped["business_user_id"] != user
+            ):
+                raise AccessDeniedError("Target ownership unavailable")
+        except RuoyiUnavailableError:
+            raise FoundationError(
+                ErrorCode.DEPENDENCY_UNAVAILABLE, "target authority unavailable"
+            ) from None
+        except (AccessDeniedError, KeyError, TypeError, ValueError):
+            raise FoundationError(ErrorCode.FORBIDDEN, "target ownership unavailable") from None
 
     @staticmethod
     def authority(current: dict[str, Any]) -> str:

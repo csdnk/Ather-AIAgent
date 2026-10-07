@@ -33,6 +33,7 @@ from aether_agent_memory.runtime.foundation.transactions import _active, busines
 
 from .common import FoundationError, encode
 from .telemetry import Telemetry, current_node
+from .timings import measure_stage
 from .transactions import StorageTransaction
 
 # A stable signed bigint shared by every process using this schema contract.
@@ -203,7 +204,9 @@ class PostgresCapabilityStore:
 
     @contextmanager
     def transaction(self) -> Iterator[_PostgresRecordTransaction]:
-        if not self._lock.acquire(timeout=_LOCAL_LOCK_TIMEOUT_SECONDS):
+        with measure_stage("postgres_local_wait"):
+            acquired = self._lock.acquire(timeout=_LOCAL_LOCK_TIMEOUT_SECONDS)
+        if not acquired:
             raise FoundationError(
                 ErrorCode.DEPENDENCY_UNAVAILABLE, "PostgreSQL local transaction wait timed out"
             )
@@ -215,8 +218,11 @@ class PostgresCapabilityStore:
                 # Only a NEW transaction may reconnect. Never replay a failed
                 # transaction: its commit may already have reached PostgreSQL.
                 self._connection = self._connect()
-            with self._connection.transaction():
-                self._connection.execute("SELECT pg_advisory_xact_lock(%s)", (_TRANSACTION_LOCK,))
+            with measure_stage("postgres_transaction"), self._connection.transaction():
+                with measure_stage("postgres_lock_wait"):
+                    self._connection.execute(
+                        "SELECT pg_advisory_xact_lock(%s)", (_TRANSACTION_LOCK,)
+                    )
                 raw = _PostgresRecordTransaction(self._connection)
                 # Acquire the shared lock before entering pipeline mode. Reads
                 # flush preceding commands; exit receives every result before
@@ -309,6 +315,33 @@ class PostgresTransaction(StorageTransaction):
             "SELECT key,value FROM capability_records WHERE namespace='p3_rf_tasks' "
             "AND document #>> '{record,state}'=ANY(%s) ORDER BY key",
             (states,),
+        )
+
+    def processing_tasks_for_memories(self, memory_ids: tuple[str, ...]) -> list[tuple[str, Any]]:
+        """Fetch one closure frontier, retaining terminal history and batch edges.
+
+        Task envelopes remain in the system record partition; domain tenant
+        authorization and result-record validation stay with the caller.
+        No state or latest-attempt filter is valid while discovering descendants.
+        """
+        self.check()
+        if len(memory_ids) > 1000 or any(
+            not isinstance(memory_id, str) or not memory_id or len(memory_id) > 160
+            for memory_id in memory_ids
+        ):
+            raise ValueError("invalid processing memory frontier")
+        if not memory_ids:
+            return []
+        ids = list(memory_ids)
+        return self._query(
+            "SELECT t.key,t.value FROM capability_records t "
+            "WHERE t.namespace='p3_rf_tasks' AND t.tenant='system' AND ("
+            "t.value::jsonb#>>'{record,subject,object_id}'=ANY(%s) OR EXISTS ("
+            "SELECT 1 FROM capability_records b "
+            "CROSS JOIN LATERAL jsonb_array_elements(b.value::jsonb->'refs') AS ref "
+            "WHERE b.namespace='p3_rf_remember_batches' AND b.tenant=t.tenant "
+            "AND b.key=t.key AND ref->>'memory_id'=ANY(%s))) ORDER BY t.key",
+            (ids, ids),
         )
 
     def pending_delivery_rows(self, *, include_attention: bool = False) -> list[tuple[str, Any]]:

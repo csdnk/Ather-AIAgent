@@ -30,7 +30,7 @@ def test_performance_empty_windows_keep_latency_unknown_and_scope_every_query():
     )
     assert set(result["windows"]) == {"1h", "24h", "7d"}
     for value in result["windows"].values():
-        assert value["summary"]["first_token_p95_ms"] is None
+        assert value["summary"]["recall_return_p95_ms"] is None
         assert value["summary"]["success_rate"] is None
         assert value["summary"]["requests"] == 0
     assert all(False in args and "a" in args for _, args in conn.queries)
@@ -42,6 +42,7 @@ def test_memory_observations_include_only_deployment_tasks_and_safe_fields():
         def rows(self, table):
             return iter(
                 {
+                    "tasks": [],
                     "remember_artifacts": [
                         (
                             "a",

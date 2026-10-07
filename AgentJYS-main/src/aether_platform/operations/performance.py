@@ -11,8 +11,7 @@ def performance(directory, actor):
           SELECT date_bin(%s * interval '1 second',t.created_at,
                           timestamptz '2000-01-01') AS bucket,
                  t.status,t.memory_evidence->>'status' AS memory_status,
-                 CASE WHEN t.first_token_at>=t.started_at THEN
-                   EXTRACT(EPOCH FROM (t.first_token_at-t.started_at))*1000 END AS latency
+                 t.recall_return_ms AS latency
           FROM chat_turns t JOIN conversations c ON c.id=t.conversation_id
           WHERE (%s OR c.tenant_id=%s) AND t.created_at>=%s AND t.created_at<%s
         )
@@ -21,8 +20,8 @@ def performance(directory, actor):
           count(*) FILTER(WHERE status='failed') AS failed,
           count(*) FILTER(WHERE status='pending') AS pending,
           count(*) FILTER(WHERE memory_status='saved') AS saved,
-          count(latency) AS latency_samples,
-          percentile_cont(0.95) WITHIN GROUP(ORDER BY latency) AS first_token_p95_ms
+          count(latency) AS recall_latency_samples,
+          percentile_cont(0.95) WITHIN GROUP(ORDER BY latency) AS recall_return_p95_ms
         FROM scoped GROUP BY GROUPING SETS ((bucket),()) ORDER BY bucket NULLS LAST
     """
     with directory.connection() as conn:
@@ -37,8 +36,8 @@ def performance(directory, actor):
                 failed=0,
                 pending=0,
                 saved=0,
-                latency_samples=0,
-                first_token_p95_ms=None,
+                recall_latency_samples=0,
+                recall_return_p95_ms=None,
             )
             summary = next((dict(r) for r in rows if r["at"] is None), dict(empty))
             terminal = summary["complete"] + summary["failed"]

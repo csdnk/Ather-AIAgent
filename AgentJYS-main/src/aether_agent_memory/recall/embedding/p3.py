@@ -37,6 +37,7 @@ from aether_agent_memory.runtime.foundation.common import FoundationError, finge
 from aether_agent_memory.runtime.foundation.identity import Identity
 from aether_agent_memory.runtime.foundation.requests import text_hash
 from aether_agent_memory.runtime.foundation.telemetry import observed
+from aether_agent_memory.runtime.foundation.timings import measure_stage
 from aether_agent_memory.runtime.storage.ports import MetadataUnitOfWork
 
 
@@ -194,7 +195,8 @@ class NativeP3Embedding:
                 tx.write("native_embedding_inputs", key, {"digest": digest})
                 tx.write("native_embedding_attempts", attempt_id, row)
 
-        await asyncio.to_thread(begin_attempt)
+        with measure_stage("embedding_prepare"):
+            await asyncio.to_thread(begin_attempt)
         evidence: list[str] = []
         try:
             seconds = (
@@ -274,7 +276,8 @@ class NativeP3Embedding:
                             },
                         )
 
-                await asyncio.to_thread(complete_attempt)
+                with measure_stage("embedding_finalize"):
+                    await asyncio.to_thread(complete_attempt)
                 return result
         # 失败或取消也落尝试记录；取消信号继续上抛，不伪装成成功或内部重试。
         except BaseException as exc:

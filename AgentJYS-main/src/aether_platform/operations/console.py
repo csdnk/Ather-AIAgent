@@ -317,6 +317,8 @@ class Console:
             )
             if kind == "placement" and not task_id:
                 return attach_names(result, "tasks", actor, self.directory)
+            if kind == "performance" and not task_id:
+                return result
             if not task_id:
                 result = {**result, "business": self.business_observations(actor)}
             rows = [result["task"]] if task_id else result.get("tasks", {}).get("items", [])
@@ -393,7 +395,7 @@ def install_console(app, service, identity):
     @app.middleware("http")
     async def prevent_content_cache(request: Request, call_next):
         response = await call_next(request)
-        if request.url.path.startswith(prefix + "/"):
+        if request.url.path.startswith("/platform-ops/v1/"):
             response.headers["Cache-Control"] = "no-store"
             response.headers["Pragma"] = "no-cache"
         return response
@@ -457,6 +459,8 @@ def install_console(app, service, identity):
         cursor: str | None = Query(None, max_length=4096),
         kind: Literal["working", "episodic", "semantic"] | None = None,
         status: Literal["active", "archived", "superseded", "expired", "deleted"] | None = None,
+        include_summary: bool | None = None,
+        collapse_duplicates: bool | None = None,
     ):
         actor, token = identity(request)
         return service.content(
@@ -473,6 +477,8 @@ def install_console(app, service, identity):
                 cursor=cursor,
                 kind=kind,
                 status=status,
+                include_summary=include_summary,
+                collapse_duplicates=collapse_duplicates,
             ),
         )
 
@@ -505,7 +511,7 @@ def install_console(app, service, identity):
         cursor: str | None = Query(None, max_length=4096),
         flow: str | None = Query(None, max_length=64, pattern=r"^[a-z_]+$"),
         state: str | None = Query(None, max_length=64, pattern=r"^[a-z_]+$"),
-        kind: Literal["placement"] | None = None,
+        kind: Literal["placement", "performance"] | None = None,
         status: Literal[
             "succeeded", "failed", "pending", "running", "unconfirmed", "simulated", "cancelled"
         ]

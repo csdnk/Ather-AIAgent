@@ -456,5 +456,8 @@ def create_app(
     from .admin_diagnostics import attach as attach_admin_diagnostics
 
     attach_admin_diagnostics(app, runtime, execution)
+    from .admin_memory_commands import attach as attach_admin_memory_commands
+
+    attach_admin_memory_commands(app, runtime, execution)
     app.add_middleware(RequestObservability, telemetry=telemetry)
     return app

@@ -23,6 +23,7 @@ from aether_agent_memory.operate.standalone.policy import (
     next_delay,
 )
 from aether_agent_memory.recall.basic.service import Recall
+from aether_agent_memory.remember.basic.service import memory_ref
 from aether_agent_memory.runtime.contracts.models import EventEnvelope, Flow, RecordRef, TaskRecord
 from aether_agent_memory.runtime.foundation.common import later, now
 from aether_agent_memory.runtime.temporal.workflows import operate_retry_delay
@@ -612,3 +613,48 @@ def test_pre_upgrade_task_replay_keeps_original_budget_and_signature(h, monkeypa
             == task_id
         )
         assert tx.read("tasks", task_id) == original
+
+
+@pytest.mark.parametrize(
+    "state", ["pending", "running", "retry_wait", "recovery_wait", "attention_required"]
+)
+def test_old_version_evaluation_does_not_block_new_version_admission(h, state):
+    h.access()
+    assert h.service.periodic("old-version") == 1
+    old_task = h.task()
+    new_memory = h.item.ref.model_copy(update={"version": h.item.ref.version + 1})
+    with h.host.uow.transaction() as tx:
+        row = tx.read("tasks", old_task.task_id)
+        row["record"]["state"] = state
+        tx.write("tasks", old_task.task_id, row)
+        # This is admission before any replica action; the original task remains intact.
+        assert tx.rows("operate_actions") == []
+        assert h.service.pending(tx, h.item.ref)
+        assert not h.service.pending(tx, new_memory)
+        different_scope = h.item.ref.model_copy(
+            update={"scope": h.item.ref.scope.model_copy(update={"user_id": "other"})}
+        )
+        assert not h.service.pending(tx, different_scope)
+
+    old_memory = h.item.ref
+    h.item = h.item.model_copy(update={"ref": new_memory})
+    new_ref = memory_ref(new_memory, versioned=True)
+    with h.host.uow.transaction() as tx:
+        tx.put_if_revision(new_ref, h.item.model_dump(mode="json"), None)
+        tx.write("remember_current", new_memory.memory_id, new_ref.model_dump(mode="json"))
+    h.access()
+    assert h.service.periodic("new-version") == 1
+    new_task = h.task()
+    assert new_task.task_id != old_task.task_id
+    with h.host.uow.transaction() as tx:
+        assert tx.read("tasks", old_task.task_id) == row
+        assert h.service.pending(tx, new_memory)
+        assert not h.service.pending(tx, old_memory)
+        assert tx.rows("operate_actions") == []
+        current = tx.read("tasks", new_task.task_id)
+        current["record"]["state"] = "attention_required"
+        tx.write("tasks", new_task.task_id, current)
+    h.access()
+    assert h.service.periodic("same-version-attention") == 0
+    assert h.task().task_id == new_task.task_id
+    assert h.view()["wake_reason"] == "pending_completion"

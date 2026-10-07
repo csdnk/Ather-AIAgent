@@ -53,6 +53,38 @@ async def test_partial_periodic_batch_resumes_without_skipping(foundation, ledge
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("batch_size", [16, 100])
+async def test_bounded_domain_pages_do_not_starve_later_due_items(foundation, ledger, batch_size):
+    api = module()
+    keys = [f"{index:03d}" for index in range(74)]
+    with foundation.uow.transaction() as tx:
+        for key in keys:
+            tx.write("due", key, {})
+
+    def execute(tx, key, tick, prepared):
+        tx.write("counts", key, (tx.read("counts", key) or 0) + 1)
+
+    runner = api.PeriodicActivities(ledger, None)
+    runner.max_batch_seconds = 60
+    runner.register(
+        "due",
+        execute,
+        page=lambda tx, cursor, limit: tx.rows_after("due", cursor, limit=min(64, limit)),
+    )
+    initial = api.PeriodicState(deployment_id="test", last_tick=10, batch_size=batch_size)
+    state = initial
+    for _ in range(10):
+        state = await runner.run_periodic_batch(state)
+        if state.cursor is None:
+            break
+    assert state.cursor is None
+    # Lost responses must not replay the first page or skip the tail.
+    await runner.run_periodic_batch(initial)
+    with foundation.uow.transaction() as tx:
+        assert dict(tx.rows("counts")) == dict.fromkeys(keys, 1)
+
+
+@pytest.mark.asyncio
 async def test_continue_as_new_preserves_pending_controls(foundation, ledger, workflow_client):
     api = module()
     runner = api.PeriodicActivities(ledger, TemporalGateway(workflow_client, ledger))

@@ -268,6 +268,10 @@ class PeriodicActivities:
                 await asyncio.sleep(0)
                 if remaining == 0 or asyncio.get_running_loop().time() >= stop_at:
                     return state.model_copy(update={"cursor": next_cursor})
+            if rows:
+                # Domain pagers can cap below our remaining budget. A short page
+                # is not exhaustion; continue from its committed last key.
+                continue
             route_index, cursor = route_index + 1, ""
 
             def advance_route(route_index: int, cursor: str, prepare: Prepare | None) -> None:

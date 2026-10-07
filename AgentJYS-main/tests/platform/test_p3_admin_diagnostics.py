@@ -170,31 +170,112 @@ async def test_wrong_target_never_returns_content(tmp_path, target):
         ("aether_platform_admin", ["aether:content:read"]),
     ],
 )
-async def test_content_requires_admin_and_explicit_grant(tmp_path, role, grants):
+@pytest.mark.parametrize("status", ["active", "archived", "deleted"])
+async def test_content_requires_admin_and_explicit_grant(tmp_path, role, grants, status):
     from aether_agent_memory.runtime.flows.admin_diagnostics import AdminDiagnostics
 
     identity, ctx, state = operator(tmp_path, role, grants)
     host = runtime(identity, tmp_path)
-    seed(host)
+    seed(host, status=status)
     with pytest.raises(FoundationError) as error:
         await AdminDiagnostics(host, None).memory(ctx, "m1", "old-tenant", "old-user")
     assert error.value.code == "FORBIDDEN"
 
 
 @pytest.mark.asyncio
-async def test_revoked_permission_and_deleted_body_fail_closed(tmp_path):
+async def test_revoked_permission_blocks_retained_deleted_body(tmp_path):
     from aether_agent_memory.runtime.flows.admin_diagnostics import AdminDiagnostics
 
     identity, ctx, state = operator(tmp_path)
     host = runtime(identity, tmp_path)
     seed(host, status="deleted")
+    data = await AdminDiagnostics(host, None).memory(ctx, "m1", "old-tenant", "old-user")
+    assert data["body"]["content"] == "private memory body m1"
+    state["permissions"] = ["aether:ops:read"]
     with pytest.raises(FoundationError) as error:
         await AdminDiagnostics(host, None).memory(ctx, "m1", "old-tenant", "old-user")
-    assert error.value.code == "MEMORY_GONE"
-    state["permissions"] = ["aether:ops:read"]
+    assert error.value.code == "FORBIDDEN"
     with pytest.raises(FoundationError) as error:
         await AdminDiagnostics(host, None).memories(ctx, "old-tenant", "old-user")
     assert error.value.code == "FORBIDDEN"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", ["archived", "deleted"])
+async def test_retained_admin_read_does_not_reactivate_memory(tmp_path, status):
+    from aether_agent_memory.runtime.flows.admin_diagnostics import AdminDiagnostics
+    from aether_agent_memory.runtime.foundation.content_diagnostics import diagnostic_read
+
+    identity, ctx, state = operator(tmp_path)
+    host = runtime(identity, tmp_path)
+    item = seed(host, status=status, text="已停止使用的中文记忆")
+    admin = AdminDiagnostics(host, None)
+    detail = await admin.memory(ctx, "m1", "old-tenant", "old-user")
+    assert detail["body"]["content"] == item.content
+    assert detail["memory"]["status"] == status
+    assert detail["read_mode"] == "retained"
+    assert detail["sources"] == []
+    listing = await admin.memories(ctx, "old-tenant", "old-user", status=status)
+    assert listing["items"][0]["summary"] == item.content
+    with diagnostic_read(identity, ctx, "old-tenant", "old-user"):
+        business = await host.remember.read_body(ctx, item.ref)
+        assert business.outcome == "excluded"
+    with identity.uow.transaction() as tx:
+        assert not tx.rows("tasks")
+        assert host.remember.current(tx, "m1").status == status
+        assert item.content not in str(tx.rows("admin_content_access"))
+    with pytest.raises(FoundationError) as error:
+        await admin.memory(ctx, "m1", "foreign", "old-user")
+    assert error.value.code == "FORBIDDEN"
+
+
+@pytest.mark.asyncio
+async def test_retained_body_missing_does_not_fall_back_to_cached_text(tmp_path):
+    from aether_agent_memory.runtime.flows.admin_diagnostics import AdminDiagnostics
+
+    identity, ctx, _ = operator(tmp_path)
+    host = runtime(identity, tmp_path)
+    item = seed(host, status="deleted")
+    bodies = host.remember.bodies
+    location = bodies.location(item.ref.scope, item.content)
+    assert bodies.verified_text(location) == item.content
+    bodies.path(location).unlink()
+    admin = AdminDiagnostics(host, None)
+    data = await admin.memory(ctx, "m1", "old-tenant", "old-user")
+    assert data["memory"]["status"] == "deleted"
+    assert data["body"]["reason_code"] == "retained_body_missing"
+    assert item.content not in str(data)
+    listing = await admin.memories(ctx, "old-tenant", "old-user")
+    assert listing["items"][0]["summary"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("change", ["permission", "revision"])
+async def test_retained_read_rechecks_authority_after_io(tmp_path, monkeypatch, change):
+    from aether_agent_memory.remember.basic.service import memory_ref
+    from aether_agent_memory.runtime.flows.admin_diagnostics import AdminDiagnostics
+
+    identity, ctx, state = operator(tmp_path)
+    host = runtime(identity, tmp_path)
+    item = seed(host, status="deleted")
+    original = host.remember.bodies.read_authority
+
+    async def changed(location):
+        value = await original(location)
+        if change == "permission":
+            state["permissions"] = ["aether:ops:read"]
+        else:
+            with identity.uow.transaction() as tx:
+                ref = memory_ref(item.ref, versioned=True)
+                raw = tx.get(ref)
+                raw["object_revision"] += 1
+                tx.put_if_revision(ref, raw, tx.revision(ref))
+        return value
+
+    monkeypatch.setattr(host.remember.bodies, "read_authority", changed)
+    with pytest.raises(FoundationError) as error:
+        await AdminDiagnostics(host, None).memory(ctx, "m1", "old-tenant", "old-user")
+    assert error.value.code == ("FORBIDDEN" if change == "permission" else "RESULT_INVALIDATED")
 
 
 @pytest.mark.asyncio
@@ -767,3 +848,155 @@ async def test_placement_retains_real_nested_action_and_view_fields(tmp_path):
     assert placement["actions"][0]["decision"]["target_tier"] == "warm"
     assert placement["actions"][0]["feedback"]["provider_operation_id"] == "original-op"
     assert "must-not-leak" not in str(placement)
+
+
+@pytest.mark.asyncio
+async def test_catalog_metadata_load_does_not_read_bodies(tmp_path):
+    identity, ctx, state = operator(tmp_path)
+    host = runtime(identity, tmp_path)
+    seed(host)
+
+    async def forbidden_preview(*args):
+        raise AssertionError("metadata page must not fetch physical bodies")
+
+    host.remember.preview = forbidden_preview
+    from aether_agent_memory.runtime.flows.admin_diagnostics import AdminDiagnostics
+
+    result = await AdminDiagnostics(host, None).memories(
+        ctx, "old-tenant", "old-user", include_summary=False
+    )
+    assert result["items"][0]["summary_status"] == "pending"
+
+
+@pytest.mark.asyncio
+async def test_catalog_groups_exact_content_without_deleting_sources(tmp_path):
+    identity, ctx, state = operator(tmp_path)
+    host = runtime(identity, tmp_path)
+    seed(host, "a1", text="same content")
+    seed(host, "a2", text="same content")
+    seed(host, "other", user="someone-else", text="same content")
+    seed(host, "archived", status="archived", text="same content")
+    from aether_agent_memory.runtime.flows.admin_diagnostics import AdminDiagnostics
+
+    admin = AdminDiagnostics(host, None)
+    result = await admin.memories(
+        ctx,
+        "old-tenant",
+        "old-user",
+        status="active",
+        collapse_duplicates=True,
+        include_summary=False,
+    )
+    assert len(result["items"]) == 1
+    item = result["items"][0]
+    assert item["duplicate_count"] == 2
+    assert {row["ref"]["memory_id"] for row in item["duplicate_items"]} == {"a1", "a2"}
+    ungrouped = await admin.memories(
+        ctx, "old-tenant", "old-user", status="active", include_summary=False
+    )
+    assert len(ungrouped["items"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_catalog_previews_use_bounded_concurrency_and_keep_order(tmp_path):
+    import asyncio
+
+    identity, ctx, state = operator(tmp_path)
+    host = runtime(identity, tmp_path)
+    for index in range(9):
+        seed(host, f"m{index}")
+    running = peak = 0
+
+    async def preview(ctx, ref, max_chars):
+        nonlocal running, peak
+        running += 1
+        peak = max(peak, running)
+        try:
+            await asyncio.sleep(0.01)
+            return {"content": ref.memory_id, "status": "excerpt"}
+        finally:
+            running -= 1
+
+    host.remember.preview = preview
+    from aether_agent_memory.runtime.flows.admin_diagnostics import AdminDiagnostics
+
+    result = await AdminDiagnostics(host, None).memories(ctx, "old-tenant", "old-user")
+    assert 1 < peak <= 4
+    assert all(row["summary"] == row["ref"]["memory_id"] for row in result["items"])
+    assert running == 0
+
+
+@pytest.mark.asyncio
+async def test_preview_cache_reuses_immutable_body_but_rechecks_sources(tmp_path):
+    from aether_agent_memory.remember.basic.content import Bodies
+
+    identity, ctx, state = operator(tmp_path)
+    host = runtime(identity, tmp_path)
+
+    class Store:
+        def __init__(self):
+            self.data = {}
+            self.reads = 0
+
+        def put_object_sync(self, key, value):
+            self.data[key] = value
+
+        def get_object_sync(self, key):
+            return self.data.get(key)
+
+        async def read_range(self, key, start, end):
+            self.reads += 1
+            return self.data[key][start:end]
+
+    store = Store()
+    host.remember.bodies = Bodies(tmp_path / "remote", host.remember.policy, p2=store)
+    seed(host, text="中文正文摘要" * 30)
+    host.remember.bodies.verified.clear()
+    host.remember.bodies.verified_bytes = 0
+    from aether_agent_memory.runtime.flows.admin_diagnostics import AdminDiagnostics
+
+    admin = AdminDiagnostics(host, None)
+    first = await admin.memories(ctx, "old-tenant", "old-user")
+    reads = store.reads
+    second = await admin.memories(ctx, "old-tenant", "old-user")
+    assert first["items"][0]["summary"] == second["items"][0]["summary"]
+    assert store.reads == reads
+    with identity.uow.transaction() as tx:
+        source = tx.read("remember_sources", "source_m1")
+        tx.write("remember_sources", "source_m1", {**source, "valid": False})
+    third = await admin.memories(ctx, "old-tenant", "old-user")
+    assert third["items"][0]["summary"] is None
+    assert third["items"][0]["summary_status"] == "source_deleted"
+
+
+@pytest.mark.asyncio
+async def test_catalog_has_overall_preview_deadline_and_drains_workers(tmp_path, monkeypatch):
+    import asyncio
+
+    identity, ctx, state = operator(tmp_path)
+    host = runtime(identity, tmp_path)
+    for index in range(20):
+        seed(host, f"m{index}")
+    running = 0
+
+    async def blocked_preview(*args):
+        nonlocal running
+        running += 1
+        try:
+            await asyncio.sleep(1)
+        finally:
+            running -= 1
+
+    original = asyncio.wait_for
+
+    async def short_overall(awaitable, timeout):
+        return await original(awaitable, 0.02 if timeout == 8 else timeout)
+
+    monkeypatch.setattr(asyncio, "wait_for", short_overall)
+    host.remember.preview = blocked_preview
+    from aether_agent_memory.runtime.flows.admin_diagnostics import AdminDiagnostics
+
+    result = await AdminDiagnostics(host, None).memories(ctx, "old-tenant", "old-user")
+    assert len(result["items"]) == 20
+    assert all(row["summary_status"] == "unavailable" for row in result["items"])
+    assert running == 0

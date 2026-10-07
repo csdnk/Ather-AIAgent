@@ -21,7 +21,7 @@ public class AetherOpsGateway {
  private static final Set<String> QUERY=Set.of("limit","offset","status","request_id","task_id","command_id","cursor","q","from","to");
  private static final Set<String> CONSOLE_RESOURCES=Set.of("users","conversations","memories","recalls","diagnostics","tasks","history");
  private static final Set<String> CONSOLE_DETAILS=Set.of("conversations","memories","recalls","tasks");
- private static final Set<String> CONSOLE_QUERY=Set.of("limit","offset","cursor","q","user_id","tenant_id","flow","state","kind","status","from","to");
+ private static final Set<String> CONSOLE_QUERY=Set.of("limit","offset","cursor","q","user_id","tenant_id","flow","state","kind","status","from","to","include_summary","collapse_duplicates");
  private final String origin; private final ObjectMapper json;
  private final HttpClient http=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).followRedirects(HttpClient.Redirect.NEVER).build();
  public AetherOpsGateway(@Value("${aether.ops.base-url:http://aether-python:8000}") String origin,ObjectMapper json){

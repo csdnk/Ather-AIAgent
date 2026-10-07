@@ -84,6 +84,18 @@ def console():
 HEADERS = {"Authorization": "Bearer valid"}
 
 
+def test_performance_route_preserves_admin_boundary_and_skips_business_queries(console):
+    client, _, service, verifier = console
+    payload = {"memory_observations": {"embedding": {"rate": 2.5}}, "status": "available"}
+    service.p3_read = lambda *args, **kwargs: payload
+    path = "/platform-ops/v1/console/diagnostics?kind=performance"
+    assert client.get(path, headers=HEADERS).status_code == 403
+    verifier.current = replace(ACTOR, role="platform_admin")
+    response = client.get(path, headers=HEADERS)
+    assert response.status_code == 200
+    assert response.json() == payload
+
+
 def test_console_users_filters_in_database_and_returns_true_total(console):
     client, _, _, _ = console
     response = client.get("/platform-ops/v1/console/users?q=ali&limit=1", headers=HEADERS)
@@ -326,6 +338,18 @@ def test_business_filters_are_forwarded_without_expanding_target_scope(console):
         "/p3/admin/memories",
         {"tenant_id": "a", "user_id": "u1", "limit": 50, "kind": "working", "status": "active"},
     )
+    response = client.get(
+        "/platform-ops/v1/console/memories?user_id=u1&include_summary=false&collapse_duplicates=true",
+        headers=HEADERS,
+    )
+    assert response.status_code == 200
+    assert calls[-1][1] == {
+        "tenant_id": "a",
+        "user_id": "u1",
+        "limit": 50,
+        "include_summary": False,
+        "collapse_duplicates": True,
+    }
     verifier.current = replace(ACTOR, role="platform_admin", tenant_id=None)
     service.business_observations = lambda actor: {"items": [], "status": "not_collected"}
     response = client.get(

@@ -25,3 +25,15 @@ test('transient poll errors retry while terminal authentication errors stop', ()
   assert.equal(pollDelay({status:403}, 1), null);
   assert.equal(pollDelay({status:503}, 6), null);
 });
+
+test('ambiguous delivery binds original attachment IDs, names and order with the question',()=>{
+ const files=[{upload_id:'upload-1',name:'a.pdf'}];
+ const first=submission(null,'c1','question',null,()=> 'turn-1',files);
+ assert.deepEqual(first.attachments,[{upload_id:'upload-1',name:'a.pdf'}]);
+ files[0].upload_id='changed';
+ assert.equal(first.attachments[0].upload_id,'upload-1');
+ assert.throws(()=>submission(first,'c1','question',null,()=> 'new',files));
+ assert.throws(()=>submission(first,'c1','question',null,()=> 'new',[]));
+ const retry=submission(first,'c1','question',null,()=> 'new',[{upload_id:'upload-1',name:'a.pdf'}]);
+ assert.equal(retry.turnId,'turn-1');
+});

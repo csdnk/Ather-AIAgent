@@ -1,6 +1,6 @@
 # Operate 的 MemoryRecord 写回闭环
 
-更新日期：2026-10-07。业务代码改动限定在 Operate，Recall、Remember、Runtime 本次均未修改。
+更新日期：2026-10-07。MemoryRecord 写回逻辑位于 Operate；配套修改包括 Remember 的权威正文读取接口，以及 Runtime 的真实 Redis 执行器和 Temporal 到期调度接入。Recall 本次未修改。
 
 ## 1. 现在的顺序
 
@@ -73,7 +73,7 @@ Operate 在写回事务内读取最新完整记录，只替换 `cache_location`�
 
 ### Remember 后续保存时又清空了 cache_location
 
-目前 Remember 的保存逻辑可能重新构造 MemoryRecord，并把 cache_location 设回空。本次按要求不修改 Remember。
+目前 Remember 的保存逻辑可能重新构造 MemoryRecord，并把 cache_location 设回空。本次未修改 Remember 的保存写入逻辑。
 已有的 memory.changed、访问信号或到期评估触发 Operate 时，会重新核验实际副本并补写，即使当时不需要迁移也会处理。
 
 因此，**只修改 Operate 能做到核验后可靠写回、失败恢复，以及后续评估时修复；不能保证其他模块任意写入后的瞬间一致**。

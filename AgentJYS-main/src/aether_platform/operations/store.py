@@ -10,6 +10,24 @@ from psycopg.types.json import Jsonb
 from aether_platform.operations.models import Command, page
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS ops_recall_schemes (
+ id text PRIMARY KEY, tenant_id text NOT NULL, user_id text NOT NULL, payload jsonb NOT NULL,
+ version integer NOT NULL DEFAULT 1, deleted boolean NOT NULL DEFAULT false,
+ updated_by text NOT NULL, updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ops_recall_schemes_scope ON ops_recall_schemes(tenant_id,user_id);
+CREATE TABLE IF NOT EXISTS ops_memory_commands (
+ id text PRIMARY KEY, actor_id text NOT NULL,
+ tenant_id text NOT NULL, user_id text NOT NULL, action text NOT NULL, request jsonb NOT NULL,
+ status text NOT NULL DEFAULT 'pending', result jsonb NOT NULL DEFAULT '{}',
+ created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ops_memory_commands_scope
+ ON ops_memory_commands(tenant_id,user_id,created_at DESC);
+CREATE TABLE IF NOT EXISTS ops_task_cases (
+ task_id text PRIMARY KEY, tenant_id text, payload jsonb NOT NULL,
+ version integer NOT NULL DEFAULT 1, updated_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE TABLE IF NOT EXISTS ops_commands (
  id text PRIMARY KEY, actor_id text NOT NULL, tenant_id text, resource text NOT NULL,
  action text NOT NULL, target_id text, fingerprint text NOT NULL,

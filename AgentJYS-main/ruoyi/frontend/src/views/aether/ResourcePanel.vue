@@ -117,20 +117,20 @@
               >编辑</el-button
             >
             <el-button
-              v-if="resource === 'tasks'"
+              v-if="resource === 'tasks' && controlAvailability(scope.row).allowed"
               link
               type="warning"
               :disabled="blocked"
               @click="openAction('cancel', scope.row)"
-              >取消</el-button
+              >申请取消</el-button
             >
             <el-button
-              v-if="resource === 'tasks'"
+              v-if="resource === 'tasks' && controlAvailability(scope.row).allowed"
               link
               type="primary"
               :disabled="blocked"
               @click="openAction('reconcile', scope.row)"
-              >核对状态</el-button
+              >核对原执行</el-button
             >
             <el-button
               v-if="resource === 'incidents'"
@@ -314,6 +314,7 @@
     </el-dialog>
     <el-drawer v-model="detailOpen" title="处理详情" size="60%">
       <template v-if="resource === 'tasks'">
+        <TaskHandlingPanel v-if="taskDetail.task" :data="taskDetail" />
         <p v-if="taskAudience(taskDetail.task)">影响范围：{{ taskAudience(taskDetail.task) }}</p>
         <el-alert :title="taskOutcome(taskDetail)" type="info" :closable="false" />
         <el-alert v-if="taskDetailError" :title="taskDetailError" type="error" :closable="false" />
@@ -350,6 +351,8 @@ import {
 } from './presentation.mjs'
 import { getIdentity, getOperations, getConsole, sendCommand } from '@/api/aether'
 import EvidencePanel from './EvidencePanel.vue'
+import TaskHandlingPanel from './TaskHandlingPanel.vue'
+import { controlAvailability } from './triage.mjs'
 import { errorMessage, taskOutcome, taskAudience, tableEmptyText } from './console.mjs'
 import {
   commandLookupParams,
@@ -610,6 +613,7 @@ function editRecord(row?: any) {
   dialog.value = true
 }
 function openAction(value: string, row?: any) {
+  if (['cancel', 'reconcile'].includes(value) && !controlAvailability(row).allowed) return
   if (value === 'activate' && data.value.current_status !== 'available') return
   action.value = value
   editing.value = !!row

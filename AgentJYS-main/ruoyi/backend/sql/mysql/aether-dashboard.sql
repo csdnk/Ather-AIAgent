@@ -15,5 +15,11 @@ SELECT 51001,60015,1 WHERE NOT EXISTS
 INSERT INTO system_role_menu(role_id,menu_id,tenant_id)
 SELECT 51001,60016,1 WHERE NOT EXISTS
  (SELECT 1 FROM system_role_menu WHERE role_id=51001 AND menu_id=60016 AND deleted=b'0');
+
+-- Scheduling monitoring is integrated into tasks. Retain the hidden route for old bookmarks.
+UPDATE system_menu SET name='任务与调度', visible=b'1', update_time=NOW()
+ WHERE id=60003 AND path='tasks' AND deleted=b'0';
+UPDATE system_menu SET visible=b'0', keep_alive=b'0', update_time=NOW()
+ WHERE id=60015 AND path='scheduling' AND deleted=b'0';
 COMMIT;
 -- Running deployments must refresh native menu and role-menu caches via the admin API.

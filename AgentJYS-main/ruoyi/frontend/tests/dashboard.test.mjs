@@ -6,12 +6,45 @@ import {
   businessCharts,
   actionLabel
 } from '../src/views/aether/dashboard.mjs'
+import * as dashboard from '../src/views/aether/dashboard.mjs'
 
 test('missing contract evidence never looks like zero or passing', () => {
   const cards = contractCards({})
-  assert.equal(cards.length, 5)
+  assert.equal(cards.length, 3)
   assert.ok(cards.every((card) => card.state !== 'success'))
   assert.ok(cards.every((card) => card.value !== '0'))
+})
+
+test('live observations stay separate from unverified contract benchmarks', () => {
+  const cards = contractCards({ embedding: { rate: 3000 }, compression: { ratio: 6 } })
+  assert.ok(cards.every((card) => !card.target))
+  const benchmarks = dashboard.contractBenchmarks()
+  assert.equal(benchmarks.length, 5)
+  assert.ok(benchmarks.every((row) => row.status === '未验收'))
+  assert.ok(benchmarks.every((row) => row.target && !row.value))
+})
+
+test('phase rows preserve missing data and expose only readable whitelisted phases', () => {
+  const rows = dashboard.phaseRows({
+    embedding: {
+      phase_breakdown: {
+        items: [
+          { phase: 'embedding_compute', samples: 2, avg_ms: 12.345, p95_ms: 20 },
+          { phase: 'embedding_prepare', samples: 0, avg_ms: null, p95_ms: null },
+          { phase: 'unknown_body_secret', samples: 2, avg_ms: 99, p95_ms: 99 }
+        ]
+      }
+    },
+    working_memory: {
+      phase_breakdown: { items: [{ phase: 'memory_fetch', samples: 1, avg_ms: 0, p95_ms: 0 }] }
+    }
+  })
+  assert.equal(rows.length, 3)
+  assert.equal(rows[0].avg, '12.35')
+  assert.equal(rows[1].avg, '暂无样本')
+  assert.equal(rows[2].avg, '0.00')
+  assert.ok(rows.every((row) => !row.label.includes('_')))
+  assert.deepEqual(dashboard.phaseRows({}), [])
 })
 
 test('text compression does not claim full physical acceptance', () => {
@@ -19,6 +52,30 @@ test('text compression does not claim full physical acceptance', () => {
   assert.equal(card.value, '6.00 倍')
   assert.notEqual(card.state, 'success')
   assert.match(card.note, /正文/)
+})
+
+test('home cards display measured values and keep unavailable metrics unknown', () => {
+  const cards = contractCards({
+    embedding: { status: 'available', rate: 12.345, items: 25, batch_count: 5 },
+    working_memory: { status: 'available', p99_ms: 19.872, samples: 30 },
+    compression: { ratio: 2.125, samples: 4 }
+  })
+  assert.equal(cards[0].value, '12.35 条/秒')
+  assert.equal(cards[1].value, '19.87 毫秒')
+  assert.equal(cards[2].value, '2.13 倍')
+  assert.ok(cards.every((card) => card.state !== 'success'))
+  const failed = contractCards({
+    embedding: { status: 'unavailable' },
+    working_memory: { status: 'no_samples' }
+  })
+  assert.equal(failed[0].value, '暂时无法读取')
+  assert.equal(failed[1].value, '暂无读取样本')
+})
+
+test('compression no-sample states explain the actual processing stage', () => {
+  assert.equal(contractCards({ compression: { reason: 'not_triggered' } })[2].value, '尚未触发压缩')
+  assert.equal(contractCards({ compression: { reason: 'pending' } })[2].value, '压缩处理中')
+  assert.equal(contractCards({ compression: { reason: 'failed' } })[2].value, '压缩处理失败')
 })
 
 test('scheduling uses global summary and does not invent unknown queue metrics', () => {
@@ -35,9 +92,11 @@ test('scheduling uses global summary and does not invent unknown queue metrics',
 
 test('latency chart preserves missing samples as gaps', () => {
   const charts = businessCharts([
-    { at: '2026-10-06T00:00:00Z', requests: 0, complete: 0, failed: 0, first_token_p95_ms: null }
+    { at: '2026-10-06T00:00:00Z', first_token_p95_ms: 9999, recall_return_p95_ms: null },
+    { at: '2026-10-06T00:01:00Z', first_token_p95_ms: 9999, recall_return_p95_ms: 250 }
   ])
   assert.equal(charts.latency.series[0].data[0], null)
+  assert.equal(charts.latency.series[0].data[1], 250)
   assert.equal(charts.latency.series[0].connectNulls, false)
 })
 

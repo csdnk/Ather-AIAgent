@@ -13,6 +13,7 @@ from fastapi import FastAPI, Query, Response
 
 from aether_agent_memory.remember.basic.service import memory_ref
 from aether_agent_memory.remember.contracts.models import MemoryKind, MemoryRef, MemoryStatus
+from aether_agent_memory.runtime.contracts.foundation import ResourceLocation
 from aether_agent_memory.runtime.contracts.models import (
     ErrorCode,
     Flow,
@@ -28,6 +29,7 @@ from aether_agent_memory.runtime.foundation.content_diagnostics import (
     authorize_operator,
     diagnostic_read,
 )
+from aether_agent_memory.runtime.foundation.requests import text_hash
 from aether_agent_memory.runtime.temporal.models import WorkflowBinding
 
 
@@ -84,6 +86,57 @@ class AdminDiagnostics:
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "memory pointer differs")
         return dict(raw)
 
+    async def retained_body(
+        self, ctx: Any, raw: dict[str, Any], max_chars: int | None = None
+    ) -> dict[str, Any]:
+        """Operator-only inspection, independent of business recall eligibility."""
+        ref = MemoryRef.model_validate(raw["ref"])
+        with self.uow.transaction() as tx:
+            authorize_operator(self.identity, tx, ctx, ref.scope.tenant_id)
+            if self.metadata(tx, ctx, ref.memory_id) != raw or raw["status"] not in {
+                "archived",
+                "deleted",
+            }:
+                raise FoundationError(ErrorCode.RESULT_INVALIDATED, "memory changed during read")
+        content, reason = None, "retained_body"
+        try:
+            if "body_location" in raw:
+                location = ResourceLocation.model_validate(raw["body_location"])
+                bodies = self.runtime.remember.bodies
+                content = (
+                    await bodies.read_prefix(location, raw["body_chars"], max_chars)
+                    if max_chars is not None
+                    else await bodies.read_authority(location)
+                )
+            else:
+                content = raw["content"]
+                if text_hash(content) != raw["content_hash"]:
+                    raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "body hash differs")
+                if max_chars is not None:
+                    content = content[:max_chars]
+        except FoundationError as exc:
+            if exc.code not in {
+                ErrorCode.NOT_FOUND,
+                ErrorCode.DEPENDENCY_UNAVAILABLE,
+                ErrorCode.CONTRACT_VIOLATION,
+            }:
+                raise
+            reason = {
+                ErrorCode.NOT_FOUND: "retained_body_missing",
+                ErrorCode.CONTRACT_VIOLATION: "retained_body_invalid",
+            }.get(exc.code, "retained_body_unavailable")
+            content = None
+        with self.uow.transaction() as tx:
+            authorize_operator(self.identity, tx, ctx, ref.scope.tenant_id)
+            if self.metadata(tx, ctx, ref.memory_id) != raw:
+                raise FoundationError(ErrorCode.RESULT_INVALIDATED, "memory changed during read")
+        return {
+            "content": content,
+            "outcome": "read" if content is not None else "unavailable",
+            "reason_code": reason,
+            "path": "authority" if content is not None else "none",
+        }
+
     async def memories(
         self,
         ctx: Any,
@@ -93,10 +146,12 @@ class AdminDiagnostics:
         cursor: str | None = None,
         kind: MemoryKind | None = None,
         status: MemoryStatus | None = None,
+        include_summary: bool = True,
+        collapse_duplicates: bool = False,
     ) -> dict[str, Any]:
         with self.access(ctx, tenant_id, user_id, "memory_catalog", None):
             with self.uow.transaction() as tx:
-                values = []
+                groups: dict[Any, list[str]] = {}
                 scope = ctx.principal.home_scope
                 for key, pointer in tx.rows("remember_current"):
                     ref = RecordRef.model_validate(pointer)
@@ -114,8 +169,16 @@ class AdminDiagnostics:
                         or (status is not None and raw["status"] != status)
                     ):
                         continue
-                    # Scope-filter metadata only; no per-history-row authority RPC.
-                    values.append((key, key))
+                    digest = raw.get("content_hash") or raw.get("body_location", {}).get(
+                        "content_hash"
+                    )
+                    group = (
+                        (raw["kind"], raw["status"], digest)
+                        if collapse_duplicates and digest
+                        else key
+                    )
+                    groups.setdefault(group, []).append(key)
+                values = [(min(ids), sorted(ids)) for ids in groups.values()]
                 items, following = tx.page(
                     values,
                     [
@@ -125,46 +188,93 @@ class AdminDiagnostics:
                         user_id,
                         kind,
                         status,
+                        collapse_duplicates,
                     ],
                     PageRequest(limit=limit, cursor=cursor),
                 )
+            columns = (
+                "ref kind status revision object_revision "
+                "projection_state created_at expires_at importance"
+            )
             selected = []
-            preview_deadline = asyncio.get_running_loop().time() + 8
-            for memory_id in items:
+            for ids in items:
                 with self.uow.transaction() as tx:
-                    raw = self.metadata(tx, ctx, memory_id)
-                    item = fields(
-                        raw,
-                        "ref kind status revision object_revision "
-                        "projection_state created_at expires_at importance",
-                    )
-                try:
-                    remaining = preview_deadline - asyncio.get_running_loop().time()
-                    if remaining <= 0:
-                        item.update(summary=None, summary_status="not_checked_on_list")
-                    else:
-                        preview = await asyncio.wait_for(
-                            self.runtime.remember.preview(
-                                ctx, MemoryRef.model_validate(item["ref"]), 240
-                            ),
-                            timeout=min(2, remaining),
-                        )
+                    raw = self.metadata(tx, ctx, ids[0])
+                    item = fields(raw, columns)
+                    if collapse_duplicates:
                         item.update(
-                            summary=preview.get("content"), summary_status=preview["status"]
+                            duplicate_count=len(ids),
+                            duplicate_items=[
+                                fields(self.metadata(tx, ctx, mid), columns) for mid in ids[:20]
+                            ]
+                            if len(ids) > 1
+                            else [],
+                            duplicates_truncated=len(ids) > 20,
                         )
-                except TimeoutError:
-                    item.update(
-                        summary=None,
-                        summary_status="unavailable",
-                        summary_error_code="DEADLINE_EXCEEDED",
-                    )
-                except FoundationError as exc:
-                    if exc.code in {ErrorCode.FORBIDDEN, ErrorCode.DEADLINE_EXCEEDED}:
-                        raise
-                    item.update(
-                        summary=None, summary_status="unavailable", summary_error_code=str(exc.code)
-                    )
+                item.update(summary=None, summary_status="pending")
                 selected.append(item)
+            if include_summary:
+                semaphore = asyncio.Semaphore(4)
+
+                async def preview(item: dict[str, Any]) -> None:
+                    async with semaphore:
+                        try:
+                            if item["status"] in {"archived", "deleted"}:
+                                with self.uow.transaction() as tx:
+                                    raw = self.metadata(tx, ctx, item["ref"]["memory_id"])
+                                if (
+                                    raw["ref"] != item["ref"]
+                                    or raw["object_revision"] != item["object_revision"]
+                                ):
+                                    raise FoundationError(
+                                        ErrorCode.RESULT_INVALIDATED, "memory changed"
+                                    )
+                                body = await asyncio.wait_for(
+                                    self.retained_body(ctx, raw, 240), timeout=3
+                                )
+                                item.update(
+                                    summary=body["content"], summary_status=body["reason_code"]
+                                )
+                                return
+                            result = await asyncio.wait_for(
+                                self.runtime.remember.preview(
+                                    ctx, MemoryRef.model_validate(item["ref"]), 240
+                                ),
+                                timeout=3,
+                            )
+                            item.update(
+                                summary=result.get("content"), summary_status=result["status"]
+                            )
+                        except TimeoutError:
+                            item.update(
+                                summary=None,
+                                summary_status="unavailable",
+                                summary_error_code="DEADLINE_EXCEEDED",
+                            )
+                        except FoundationError as exc:
+                            if exc.code in {ErrorCode.FORBIDDEN, ErrorCode.DEADLINE_EXCEEDED}:
+                                raise
+                            item.update(
+                                summary=None,
+                                summary_status="unavailable",
+                                summary_error_code=str(exc.code),
+                            )
+
+                workers = [asyncio.create_task(preview(item)) for item in selected]
+                try:
+                    await asyncio.wait_for(asyncio.gather(*workers), timeout=8)
+                except TimeoutError:
+                    for item in selected:
+                        if item["summary_status"] == "pending":
+                            item.update(
+                                summary_status="unavailable",
+                                summary_error_code="DEADLINE_EXCEEDED",
+                            )
+                finally:
+                    for worker in workers:
+                        if not worker.done():
+                            worker.cancel()
+                    await asyncio.gather(*workers, return_exceptions=True)
             return {
                 "items": selected,
                 "next_cursor": following,
@@ -178,8 +288,22 @@ class AdminDiagnostics:
         with self.access(ctx, tenant_id, user_id, "memory", memory_id):
             with self.uow.transaction() as tx:
                 raw = self.metadata(tx, ctx, memory_id)
-                if raw["status"] == "deleted":
-                    raise FoundationError(ErrorCode.MEMORY_GONE, "memory deleted")
+            if raw["status"] in {"archived", "deleted"}:
+                body = await self.retained_body(ctx, raw)
+                return {
+                    "memory": fields(
+                        raw,
+                        "ref kind status revision object_revision "
+                        "projection_state created_at expires_at importance",
+                    ),
+                    "body": body,
+                    "sources": [],
+                    "processing": None,
+                    "placement": None,
+                    "read_mode": "retained",
+                    "status": "available" if body["outcome"] == "read" else "unavailable",
+                    "observed_at": now(),
+                }
             ref = MemoryRef.model_validate(raw["ref"])
             body = await self.runtime.remember.read_body(ctx, ref)
             metadata = fields(
@@ -294,6 +418,61 @@ class AdminDiagnostics:
                 "sources_truncated": len(body.sources) > 8,
                 "processing": processing,
                 "placement": placement,
+                "status": "available",
+                "observed_at": now(),
+            }
+
+    def recalls(
+        self,
+        ctx: Any,
+        tenant_id: str,
+        user_id: str,
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> dict[str, Any]:
+        with self.access(ctx, tenant_id, user_id, "recall_catalog", None):
+            with self.uow.transaction() as tx:
+                scope = ctx.principal.home_scope
+                values = []
+                for recall_id, row in tx.rows("recall_requests"):
+                    record = row.get("record", {})
+                    target = record.get("scope", {})
+                    if tuple(
+                        target.get(key)
+                        for key in ("tenant_id", "user_id", "application_id", "agent_id")
+                    ) != (tenant_id, user_id, scope.application_id, scope.agent_id):
+                        continue
+                    task = tx.read("tasks", recall_id) or {}
+                    created_at = task.get("created_at")
+                    item = fields(record, "recall_id state stage result_available")
+                    query = row.get("request", {}).get("query")
+                    item.update(
+                        query=query[:12000] if isinstance(query, str) else None,
+                        created_at=created_at,
+                        statistics={},
+                        candidate_count=None,
+                    )
+                    # Provider reason strings and cached packs are never list payloads.
+                    item["reason_code"] = task.get("record", {}).get("error_code")
+                    order = (
+                        10**20 - int(datetime.fromisoformat(created_at).timestamp() * 1_000_000)
+                        if created_at
+                        else 10**20
+                    )
+                    values.append((f"{order:021d}:{recall_id}", item))
+                items, following = tx.page(
+                    values,
+                    [
+                        "admin_recall_catalog",
+                        ctx.principal.model_dump(mode="json"),
+                        tenant_id,
+                        user_id,
+                    ],
+                    PageRequest(limit=limit, cursor=cursor),
+                )
+            return {
+                "items": items,
+                "next_cursor": following,
                 "status": "available",
                 "observed_at": now(),
             }
@@ -560,6 +739,54 @@ class AdminDiagnostics:
             "observed_at": now(),
         }
 
+    def performance(self, ctx: Any) -> dict[str, Any]:
+        """Read persisted observations without Temporal polling or business execution."""
+        self.platform(ctx)
+        from .dashboard import memory_observations
+        from .performance_observations import performance_observations
+
+        stamp = now()
+        telemetry = self.runtime.foundation.telemetry
+        if getattr(telemetry, "backend", None) == "postgresql":
+            from .performance_metadata import performance_metadata
+
+            config = getattr(getattr(self.execution, "ledger", None), "config", None)
+            working_ids, metrics = performance_metadata(
+                telemetry,
+                namespace=config.namespace if config else "",
+                deployment_id=config.deployment_id if config else "",
+                observed_at=stamp,
+            )
+        else:
+            # Engineering stores use a local transaction, with set reads rather than N+1 lookups.
+            with self.uow.transaction() as tx:
+                deployment_tasks = {
+                    task_id
+                    for task_id, binding in tx.rows("temporal_bindings")
+                    if self.in_deployment(binding)
+                }
+                working_ids = {
+                    row["value"]["ref"]["memory_id"]
+                    for _, row in tx.rows("records")
+                    if row.get("ref", {}).get("object_type") == "memory"
+                    and (row.get("value") or {}).get("kind") == "working"
+                }
+                metrics = memory_observations(tx, deployment_tasks, stamp)
+        # The log pool is independent; never hold the metadata transaction across log I/O.
+        try:
+            metrics.update(
+                performance_observations(
+                    self.runtime.foundation.telemetry, stamp, working_memory_ids=working_ids
+                )
+            )
+        except Exception:
+            metrics.update(
+                embedding={"status": "unavailable", "rate": None},
+                working_memory={"status": "unavailable", "p99_ms": None},
+            )
+        self.platform(ctx)
+        return {"memory_observations": metrics, "observed_at": stamp, "status": "available"}
+
     async def diagnostics(
         self,
         ctx: Any,
@@ -708,10 +935,22 @@ def attach(app: FastAPI, runtime: Any, execution: Any) -> None:
         cursor: str | None = None,
         kind: MemoryKind | None = None,
         status: MemoryStatus | None = None,
+        include_summary: bool = True,
+        collapse_duplicates: bool = False,
         ctx: TrustedContext = dependency,
     ) -> dict[str, Any]:
         response.headers["Cache-Control"] = "no-store"
-        return await service.memories(ctx, tenant_id, user_id, limit, cursor, kind, status)
+        return await service.memories(
+            ctx,
+            tenant_id,
+            user_id,
+            limit,
+            cursor,
+            kind,
+            status,
+            include_summary,
+            collapse_duplicates,
+        )
 
     @app.get("/p3/admin/memories/{memory_id}")
     async def memory(
@@ -723,6 +962,18 @@ def attach(app: FastAPI, runtime: Any, execution: Any) -> None:
     ) -> dict[str, Any]:
         response.headers["Cache-Control"] = "no-store"
         return await service.memory(ctx, memory_id, tenant_id, user_id)
+
+    @app.get("/p3/admin/recalls")
+    async def recalls(
+        response: Response,
+        tenant_id: Identifier,
+        user_id: Identifier,
+        limit: int = Query(50, ge=1, le=100),
+        cursor: str | None = None,
+        ctx: TrustedContext = dependency,
+    ) -> dict[str, Any]:
+        response.headers["Cache-Control"] = "no-store"
+        return await asyncio.to_thread(service.recalls, ctx, tenant_id, user_id, limit, cursor)
 
     @app.get("/p3/admin/recalls/{recall_id}")
     async def recall(
@@ -742,7 +993,7 @@ def attach(app: FastAPI, runtime: Any, execution: Any) -> None:
         cursor: str | None = None,
         flow: Flow | None = None,
         state: TaskState | None = None,
-        kind: Literal["placement"] | None = None,
+        kind: Literal["placement", "performance"] | None = None,
         status: Literal[
             "succeeded", "failed", "pending", "running", "unconfirmed", "simulated", "cancelled"
         ]
@@ -750,6 +1001,8 @@ def attach(app: FastAPI, runtime: Any, execution: Any) -> None:
         ctx: TrustedContext = dependency,
     ) -> dict[str, Any]:
         response.headers["Cache-Control"] = "no-store"
+        if kind == "performance":
+            return await asyncio.to_thread(service.performance, ctx)
         if kind == "placement":
             return await service.placements(ctx, limit, cursor, status)
         return await service.diagnostics(ctx, limit, cursor, flow, state)

@@ -8,6 +8,18 @@ import {
   durationText
 } from '../src/views/aether/placement.mjs'
 
+test('continuous scheduler reasons explain automatic migration and cooling', () => {
+  assert.equal(triggerText('new_input'), '记忆内容或访问次数发生变化')
+  assert.equal(triggerText('threshold_crossing'), '访问热度预计降至阈值，到期重新评估')
+  assert.match(triggerText('upgrade'), /升级/)
+  assert.match(triggerText('capability_change'), /恢复/)
+  assert.match(triggerText('pending_completion'), /等待/)
+  assert.match(triggerText('temporary_failure'), /重试/)
+  assert.match(triggerText('placement_unconfirmed'), /核验/)
+  assert.match(triggerText('due'), /到期/)
+  assert.match(triggerText('private-provider-url'), /未记录/)
+})
+
 test('tier monitoring explains policy and event separately in Chinese', () => {
   assert.equal(triggerText('periodic'), '到期自动检查')
   assert.match(
