@@ -290,6 +290,7 @@ class ContinuousOperate(Operate):
             not view
             or view.get("cleanup_completed")
             or view.get("dormant")
+            or not self.should_evaluate(cleanup=view.get("cleanup", False))
             or not view.get("scheduler_event")
             or view.get("next_evaluation_at", "") > now
         ):

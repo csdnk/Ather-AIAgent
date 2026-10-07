@@ -38,6 +38,8 @@ from .redis_cache import RedisCache
 class RedisExecutor:
     provider_id = "redis_hot_cache"
     mode = "real"
+    # Static admission capability: querying Redis cannot enable an absent tier.
+    supported_moves: tuple = ()
 
     @property
     def capacity(self) -> int:
@@ -306,7 +308,7 @@ class RedisExecutor:
             epoch=epoch,
             available_bytes=max(0, min(self.capacity, self.cache.policy.cache_scope_bytes) - used),
             observed_at=now(),
-            supported_moves=(),
+            supported_moves=self.supported_moves,
         )
 
     async def observe(

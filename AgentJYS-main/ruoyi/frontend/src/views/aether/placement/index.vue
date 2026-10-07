@@ -15,6 +15,15 @@
         <el-button type="primary" :loading="loading" @click="reset">刷新动作记录</el-button>
       </div>
       <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon />
+      <el-alert
+        v-if="data.placement_capability === 'unsupported'"
+        title="当前存储执行器不支持层级迁移，普通分层评估已停止"
+        description="当前使用热缓存，尚未配置可执行的温层、冷层迁移能力。调低热度阈值也不会产生迁移。系统继续处理记忆删除、失效清理和缓存健康检查。"
+        type="warning"
+        :closable="false"
+        show-icon
+        class="capability"
+      />
       <p class="muted"
         >最近读取：{{ formatTime(data.observed_at) }} ·
         仅统计当前部署已记录的动作，同一动作重试只计一次。</p
@@ -315,6 +324,9 @@ h1 {
 }
 .task-link {
   margin-top: 20px;
+}
+.capability {
+  margin-top: 16px;
 }
 @media (max-width: 900px) {
   .cards {

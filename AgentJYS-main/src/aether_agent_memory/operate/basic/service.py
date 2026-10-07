@@ -80,6 +80,10 @@ class Operate:
         ):
             raise ValueError("action event binding mismatch")
 
+    def should_evaluate(self, *, cleanup: bool) -> bool:
+        """Skip impossible placement work; lifecycle cleanup keeps its own authority."""
+        return cleanup or getattr(self.executor, "supported_moves", None) != ()
+
     def consume(self, tx: Transaction, event: EventEnvelope) -> None:
         sql = native(tx)
         ctx = event_context(sql, event, self.identity.clock())
@@ -166,6 +170,8 @@ class Operate:
                 view["scheduler_event"] = event.model_dump(mode="json")
         view["event"] = event.model_dump(mode="json")
         sql.write("operate_views", key, view)
+        if not self.should_evaluate(cleanup=view.get("cleanup", False)):
+            return
         scheduling_event = view.get("scheduler_event")
         if scheduling_event is None and not change:
             # A shared reader does not acquire authority over the owner's scheduler.
@@ -750,6 +756,8 @@ class Operate:
             try:
                 with self.uow.transaction() as tx:
                     view = tx.read("operate_views", key)
+                    if not self.should_evaluate(cleanup=view.get("cleanup", False)):
+                        continue
                     event = EventEnvelope.model_validate(view.get("scheduler_event", view["event"]))
                     ctx = event_context(tx, event, self.identity.clock())
                     self.enqueue(
