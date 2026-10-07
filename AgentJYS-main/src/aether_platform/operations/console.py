@@ -393,7 +393,7 @@ def install_console(app, service, identity):
     @app.middleware("http")
     async def prevent_content_cache(request: Request, call_next):
         response = await call_next(request)
-        if request.url.path.startswith(prefix + "/"):
+        if request.url.path.startswith("/platform-ops/v1/"):
             response.headers["Cache-Control"] = "no-store"
             response.headers["Pragma"] = "no-cache"
         return response

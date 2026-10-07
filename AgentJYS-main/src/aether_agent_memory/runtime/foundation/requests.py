@@ -51,8 +51,14 @@ def event_context(tx: MetadataTransaction, event: EventEnvelope, now: str) -> Tr
         raise FoundationError(ErrorCode.FORBIDDEN, "event initiator revoked")
     original = tx.read("outbox", event.event_id)
     parent = (original or {}).get("context", {}).get("span_id", secrets.token_hex(8))
+    binding = tx.read("admin_execution_bindings", event.request_id)
+    principal = identity["principal"]
+    if binding:
+        if binding["actor_context"]["principal"] != principal:
+            raise FoundationError(ErrorCode.FORBIDDEN, "admin event initiator changed")
+        principal = binding["projected_principal"]
     return TrustedContext(
-        principal=Principal.model_validate(identity["principal"]),
+        principal=Principal.model_validate(principal),
         request_id=event.request_id,
         operation_id=event.event_id,
         trace_id=event.trace_id,

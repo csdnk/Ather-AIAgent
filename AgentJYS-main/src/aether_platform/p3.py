@@ -37,6 +37,7 @@ class P3Client(AbstractContextManager["P3Client"]):
         wait_seconds: float = 240,
         operator: bool = False,
         admin_read: bool = False,
+        admin_write: bool = False,
         trusted_http_host: str | None = None,
     ):
         url = urlsplit(base_url)
@@ -61,9 +62,10 @@ class P3Client(AbstractContextManager["P3Client"]):
             raise ValueError(
                 "P3 requires HTTPS, loopback, or an explicitly trusted cluster service"
             )
-        if admin_read:
+        if admin_read or admin_write:
             if (
                 operator
+                or (admin_read and admin_write)
                 or actor.role not in {"platform_admin", "tenant_admin"}
                 or (actor.role == "tenant_admin" and not actor.tenant_id)
             ):
@@ -73,11 +75,12 @@ class P3Client(AbstractContextManager["P3Client"]):
         ):
             raise P3Error("USER_IDENTITY_REQUIRED")
         self.admin_read = admin_read
+        self.admin_write = admin_write
         self.token = token
         self.actor, self.wait_seconds = actor, wait_seconds
         self.tenant_id = (
             "aether_platform_operations"
-            if operator or (admin_read and actor.role == "platform_admin")
+            if operator or ((admin_read or admin_write) and actor.role == "platform_admin")
             else actor.tenant_id
         )
         assert self.tenant_id is not None
@@ -108,6 +111,14 @@ class P3Client(AbstractContextManager["P3Client"]):
         if not path.startswith("/p3/") or ".." in path or "?" in path or "#" in path:
             raise P3Error("INVALID_ROUTE")
         if self.admin_read and (method != "GET" or not path.startswith("/p3/admin/")):
+            raise P3Error("INVALID_ROUTE")
+        if self.admin_write and not (
+            (method == "POST" and path == "/p3/admin/memory-commands")
+            or (
+                method == "GET"
+                and re.fullmatch(r"/p3/admin/memory-commands/[A-Za-z0-9_-]{1,128}", path)
+            )
+        ):
             raise P3Error("INVALID_ROUTE")
         headers = {"X-Operation-ID": identifier(operation_id)} if operation_id else {}
         headers["Authorization"] = "Bearer " + (

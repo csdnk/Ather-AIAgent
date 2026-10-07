@@ -39,6 +39,9 @@ def install_operations(
     from aether_platform.operations.console import Console, install_console
 
     install_console(app, console or Console(config, directory), identity)
+    from aether_platform.operations.memory_admin import install_memory_admin
+
+    install_memory_admin(app, service, identity)
 
     @app.get("/platform-ops/v1/{resource}")
     def read(

@@ -298,6 +298,61 @@ class AdminDiagnostics:
                 "observed_at": now(),
             }
 
+    def recalls(
+        self,
+        ctx: Any,
+        tenant_id: str,
+        user_id: str,
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> dict[str, Any]:
+        with self.access(ctx, tenant_id, user_id, "recall_catalog", None):
+            with self.uow.transaction() as tx:
+                scope = ctx.principal.home_scope
+                values = []
+                for recall_id, row in tx.rows("recall_requests"):
+                    record = row.get("record", {})
+                    target = record.get("scope", {})
+                    if tuple(
+                        target.get(key)
+                        for key in ("tenant_id", "user_id", "application_id", "agent_id")
+                    ) != (tenant_id, user_id, scope.application_id, scope.agent_id):
+                        continue
+                    task = tx.read("tasks", recall_id) or {}
+                    created_at = task.get("created_at")
+                    item = fields(record, "recall_id state stage result_available")
+                    query = row.get("request", {}).get("query")
+                    item.update(
+                        query=query[:12000] if isinstance(query, str) else None,
+                        created_at=created_at,
+                        statistics={},
+                        candidate_count=None,
+                    )
+                    # Provider reason strings and cached packs are never list payloads.
+                    item["reason_code"] = task.get("record", {}).get("error_code")
+                    order = (
+                        10**20 - int(datetime.fromisoformat(created_at).timestamp() * 1_000_000)
+                        if created_at
+                        else 10**20
+                    )
+                    values.append((f"{order:021d}:{recall_id}", item))
+                items, following = tx.page(
+                    values,
+                    [
+                        "admin_recall_catalog",
+                        ctx.principal.model_dump(mode="json"),
+                        tenant_id,
+                        user_id,
+                    ],
+                    PageRequest(limit=limit, cursor=cursor),
+                )
+            return {
+                "items": items,
+                "next_cursor": following,
+                "status": "available",
+                "observed_at": now(),
+            }
+
     async def recall(
         self, ctx: Any, recall_id: str, tenant_id: str, user_id: str
     ) -> dict[str, Any]:
@@ -721,6 +776,18 @@ def attach(app: FastAPI, runtime: Any, execution: Any) -> None:
     ) -> dict[str, Any]:
         response.headers["Cache-Control"] = "no-store"
         return await service.memory(ctx, memory_id, tenant_id, user_id)
+
+    @app.get("/p3/admin/recalls")
+    async def recalls(
+        response: Response,
+        tenant_id: Identifier,
+        user_id: Identifier,
+        limit: int = Query(50, ge=1, le=100),
+        cursor: str | None = None,
+        ctx: TrustedContext = dependency,
+    ) -> dict[str, Any]:
+        response.headers["Cache-Control"] = "no-store"
+        return await asyncio.to_thread(service.recalls, ctx, tenant_id, user_id, limit, cursor)
 
     @app.get("/p3/admin/recalls/{recall_id}")
     async def recall(

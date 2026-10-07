@@ -41,6 +41,7 @@ class Identity:
     def __init__(self, uow: MetadataUnitOfWork, clock: Callable[[], str] = now) -> None:
         self.uow, self.clock = uow, clock
         self.ruoyi_revalidate: Callable[[Any, dict[str, Any], TrustedContext], None] | None = None
+        self.admin_target_check: Callable[[str, str], None] | None = None
 
     def provision(
         self,
@@ -344,6 +345,10 @@ class Identity:
         )
 
     def revalidate(self, tx: Transaction, ctx: TrustedContext) -> None:
+        from .admin_execution import revalidate_admin_context
+
+        if revalidate_admin_context(self, tx, ctx):
+            return
         sql = native(tx)
         current = sql.read("identities", ctx.principal.principal_id)
         tenants = sql.read("settings", "business_tenants")
@@ -447,6 +452,10 @@ class Identity:
         )
         if own and restricted:
             return True
+        # A delegated admin action is confined to its selected target tuple.
+        # The original actor's ambient grants cannot widen that delegation.
+        if sql.read("admin_execution_bindings", ctx.request_id) is not None:
+            return False
         for raw in sql.read("settings", "grants") or []:
             grant = AuthorizationGrant.model_validate(raw)
             if (

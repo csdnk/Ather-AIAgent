@@ -243,6 +243,19 @@ class Operations:
         record = self.store.command_record(actor, command_id)
         if not record:
             raise HTTPException(404, "没有此操作")
+        if record["resource"] == "memories":
+            from aether_platform.operations.memory_admin import MemoryAdmin, require
+
+            require(actor, record["action"])
+            if record["status"] == "abandoned":
+                if record["actor_id"] != actor.id:
+                    raise HTTPException(404, "没有此操作")
+                return page([{**record, "command_id": command_id}], 1)
+            if record["action"].startswith("recall_scheme_"):
+                if record["actor_id"] != actor.id:
+                    raise HTTPException(404, "没有此操作")
+                return page([{**record, "command_id": command_id, "status": "succeeded"}], 1)
+            return page([MemoryAdmin(self).status(actor, token, command_id)], 1)
         if (
             record["resource"] == "configuration"
             and record["action"] == "activate"
@@ -479,6 +492,10 @@ class Operations:
             return self.store.finish(command.command_id, "complete", result, connection=conn)
 
     def command(self, actor, token, command: Command):
+        if command.resource == "memories":
+            from aether_platform.operations.memory_admin import MemoryAdmin
+
+            return MemoryAdmin(self).command(actor, token, command)
         if command.resource == "support" and command.action.startswith("case_"):
             from aether_platform.operations.task_cases import TaskCases
 
