@@ -2,8 +2,7 @@
   <ContentWrap>
     <div class="toolbar">
       <div
-        ><h2>{{ title }}</h2
-        ><p>{{ description }}</p></div
+        ><h2>{{ title }}</h2></div
       >
       <el-button :loading="loading" @click="load">刷新</el-button>
     </div>
@@ -14,13 +13,6 @@
       type="warning"
       :closable="false"
       show-icon
-      class="mb-4"
-    />
-    <el-alert
-      v-if="data.scope_note || data.metering_scope"
-      :title="scopeDescription"
-      type="info"
-      :closable="false"
       class="mb-4"
     />
     <div class="metadata"
@@ -358,7 +350,7 @@ import {
 } from './presentation.mjs'
 import { getIdentity, getOperations, getConsole, sendCommand } from '@/api/aether'
 import EvidencePanel from './EvidencePanel.vue'
-import { errorMessage, taskOutcome, taskAudience, scopeText, tableEmptyText } from './console.mjs'
+import { errorMessage, taskOutcome, taskAudience, tableEmptyText } from './console.mjs'
 import {
   commandLookupParams,
   createCommand,
@@ -517,11 +509,6 @@ const actionNames: Record<string, string> = {
 }
 const rows = computed(() => normalizeRows(data.value))
 const columns = computed(() => columnsFor(props.resource))
-const scopeDescription = computed(() =>
-  props.resource === 'usage'
-    ? '统计最近 24 小时内模型服务已返回的用量，包含重试；尚未计量的请求和记忆服务内部调用未计入。费用未配置时显示未知。'
-    : scopeText(data.value.scope_note)
-)
 const visibleRows = computed(() =>
   rows.value.filter(
     (row: any) =>

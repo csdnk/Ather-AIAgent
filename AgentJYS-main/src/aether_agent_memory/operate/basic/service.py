@@ -80,6 +80,10 @@ class Operate:
         ):
             raise ValueError("action event binding mismatch")
 
+    def should_evaluate(self, *, cleanup: bool) -> bool:
+        """Skip impossible placement work; lifecycle cleanup keeps its own authority."""
+        return cleanup or getattr(self.executor, "supported_moves", None) != ()
+
     def consume(self, tx: Transaction, event: EventEnvelope) -> None:
         sql = native(tx)
         ctx = event_context(sql, event, self.identity.clock())
@@ -125,6 +129,7 @@ class Operate:
                     event.event_id,
                     cleanup=True,
                     permanent=change.status == "deleted",
+                    trigger_kind=event.event_type,
                 )
             return
         if view["memory"]["version"] < memory.version:
@@ -165,6 +170,8 @@ class Operate:
                 view["scheduler_event"] = event.model_dump(mode="json")
         view["event"] = event.model_dump(mode="json")
         sql.write("operate_views", key, view)
+        if not self.should_evaluate(cleanup=view.get("cleanup", False)):
+            return
         scheduling_event = view.get("scheduler_event")
         if scheduling_event is None and not change:
             # A shared reader does not acquire authority over the owner's scheduler.
@@ -181,6 +188,7 @@ class Operate:
             event.event_id,
             cleanup=view.get("cleanup", False),
             permanent=view.get("permanent", False),
+            trigger_kind=event.event_type,
         )
 
     def enqueue(
@@ -192,6 +200,7 @@ class Operate:
         *,
         cleanup: bool,
         permanent: bool,
+        trigger_kind: str = "unrecorded",
     ) -> str:
         task_id = fingerprint(["operate", trigger, memory.model_dump(mode="json")])
         ref = RecordRef(
@@ -220,6 +229,8 @@ class Operate:
                 deadline_at=ctx.deadline_at,
             ),
         )
+        if tx.read("operate_evaluation_triggers", task_id) is None:
+            tx.write("operate_evaluation_triggers", task_id, {"kind": trigger_kind})
         return task_id
 
     def decide(self, ctx: TrustedContext, inputs: SchedulingInput) -> PlacementDecision:
@@ -677,6 +688,11 @@ class Operate:
                         reason="prepared; provider submission has not started",
                     ),
                 )
+                tx.write(
+                    "operate_action_triggers",
+                    intent.action_id,
+                    tx.read("operate_evaluation_triggers", task.task_id) or {"kind": "unrecorded"},
+                )
             tx.write("operate_task_actions", task.task_id, intent.model_dump(mode="json"))
             tx.write("operate_pending", key, intent.action_id)
         return {"intent": intent.model_dump(mode="json")}
@@ -740,6 +756,8 @@ class Operate:
             try:
                 with self.uow.transaction() as tx:
                     view = tx.read("operate_views", key)
+                    if not self.should_evaluate(cleanup=view.get("cleanup", False)):
+                        continue
                     event = EventEnvelope.model_validate(view.get("scheduler_event", view["event"]))
                     ctx = event_context(tx, event, self.identity.clock())
                     self.enqueue(
@@ -749,6 +767,7 @@ class Operate:
                         fingerprint([tick_id, key]),
                         cleanup=view.get("cleanup", False),
                         permanent=view.get("permanent", False),
+                        trigger_kind="periodic",
                     )
                     count += 1
             except FoundationError:

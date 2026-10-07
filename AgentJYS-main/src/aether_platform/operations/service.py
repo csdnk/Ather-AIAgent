@@ -185,9 +185,12 @@ class Operations:
                 else "not_configured",
             )
         if resource == "overview":
+            from aether_platform.operations.performance import performance
+
             result: dict[str, Any] = {
                 "observed_at": now(),
                 "usage": self.usage(actor),
+                "performance": performance(self.directory, actor),
                 "alerts": self.store.alerts(actor),
                 "status": "ok",
             }

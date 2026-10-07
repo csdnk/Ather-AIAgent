@@ -25,7 +25,7 @@ test('platform identity reads real diagnostics with the exact filters and cursor
   const params = { limit: 30, state: 'failed', cursor: 'original-cursor' }
   const expected = { tasks: { items: [{ task_id: 'existing-task' }] }, status: 'available' }
   const actual = await readTaskDiagnostics(
-    async () => ({ role_codes: ['aether_platform_admin'] }),
+    async () => ({ role_codes: ['aether_platform_admin'], permissions: ['aether:ops:read'] }),
     async (resource, query) => {
       assert.equal(resource, 'diagnostics')
       assert.deepEqual(query, params)

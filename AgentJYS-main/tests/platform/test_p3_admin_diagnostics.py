@@ -471,7 +471,9 @@ async def test_actual_workflow_description_is_bounded_and_has_steps(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_task_monitor_scopes_deployment_and_keeps_unknown_workflow_explicit(tmp_path):
+async def test_task_monitor_scopes_deployment_and_keeps_unknown_workflow_explicit(
+    tmp_path, monkeypatch
+):
     from aether_agent_memory.remember.basic.service import memory_ref
     from aether_agent_memory.runtime.flows.admin_diagnostics import AdminDiagnostics
     from aether_agent_memory.runtime.temporal.config import TemporalConfiguration
@@ -508,6 +510,7 @@ async def test_task_monitor_scopes_deployment_and_keeps_unknown_workflow_explici
                         "task_id": task_id,
                         "subject": memory_ref(item.ref).model_dump(mode="json"),
                         "state": "recovery_wait",
+                        "kind": "operate.evaluate",
                         "effect_status": "unknown",
                         "payload": "private-task-input",
                     },
@@ -551,7 +554,20 @@ async def test_task_monitor_scopes_deployment_and_keeps_unknown_workflow_explici
             },
         )
     admin = AdminDiagnostics(host, execution)
-    result = await admin.diagnostics(ctx)
+    from aether_agent_memory.runtime.foundation.transactions import StorageTransaction
+
+    original_read = StorageTransaction.read
+    binding_reads = []
+
+    def counted_read(tx, table, key):
+        if table == "temporal_bindings":
+            binding_reads.append(key)
+        return original_read(tx, table, key)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(StorageTransaction, "read", counted_read)
+        result = await admin.diagnostics(ctx)
+    assert binding_reads == [], "global task summaries must not issue one query per task"
     assert len(result["tasks"]["items"]) == 12
     assert result["tasks"]["items"][0]["task_id"] == "task11"
     assert result["tasks"]["items"][0]["workflow"]["state"] == "not_found"
@@ -559,6 +575,9 @@ async def test_task_monitor_scopes_deployment_and_keeps_unknown_workflow_explici
     assert result["queue_metrics"]["status"] == "not_collected"
     assert result["task_summary"]["total"] == 12
     assert result["task_summary"]["by_state"] == {"recovery_wait": 12}
+    assert result["task_summary"]["by_kind"] == {"operate.evaluate": 12}
+    assert result["task_summary"]["latest_task_at"] == "2026-01-12T00:00:00.000Z"
+    assert result["task_summary"]["created_last_24h"] == 0
     filtered = await admin.diagnostics(ctx, state="running")
     assert filtered["tasks"]["items"] == []
     assert filtered["task_summary"]["total"] == 12

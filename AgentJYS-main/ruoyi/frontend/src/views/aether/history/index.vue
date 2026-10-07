@@ -1,8 +1,7 @@
 <template>
   <ContentWrap>
     <div class="heading"
-      ><div
-        ><h1>操作历史</h1><p>按时间查看内容访问和系统操作，区分已受理、执行完成与结果未知。</p></div
+      ><div><h1>操作历史</h1></div
       ><el-button :loading="loading" @click="load">刷新</el-button></div
     >
     <el-alert v-if="error" :title="error" type="error" :closable="false" />

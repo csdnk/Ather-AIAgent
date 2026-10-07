@@ -7,7 +7,7 @@ import secrets
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, Query, Response
 
@@ -505,6 +505,59 @@ class AdminDiagnostics:
             "scope_note": "deployment queues; backlog is estimated; absent metrics are unknown",
         }
 
+    async def placements(
+        self, ctx: Any, limit: int = 50, cursor: str | None = None, status: str | None = None
+    ) -> dict[str, Any]:
+        from aether_agent_memory.runtime.flows.dashboard import placement_item
+
+        self.platform(ctx)
+        config = getattr(getattr(self.execution, "ledger", None), "config", None)
+        with self.uow.transaction() as tx:
+            bindings = dict(tx.rows("temporal_bindings"))
+            actions, counts = {}, {}
+            for task_id, intent in tx.rows("operate_task_actions"):
+                action_id = intent.get("action_id")
+                if not self.in_deployment(bindings.get(task_id)) or action_id in actions:
+                    continue
+                raw = tx.read("operate_actions", action_id)
+                if not raw:
+                    continue
+                item = placement_item(task_id, raw, tx.read("operate_action_triggers", action_id))
+                actions[action_id] = item
+                counts[item["result"]] = counts.get(item["result"], 0) + 1
+            values = []
+            for action_id, item in actions.items():
+                if status and item["result"] != status:
+                    continue
+                try:
+                    stamp = datetime.fromisoformat(item["created_at"]).timestamp()
+                except (ValueError, TypeError):
+                    stamp = 0
+                values.append((f"{10**20 - int(stamp * 1_000_000):021d}:{action_id}", item))
+            items, following = tx.page(
+                values,
+                [
+                    "admin_placements",
+                    ctx.principal.model_dump(mode="json"),
+                    config.deployment_id if config else None,
+                    status,
+                ],
+                PageRequest(limit=limit, cursor=cursor),
+            )
+        self.platform(ctx)
+        return {
+            "items": items,
+            "next_cursor": following,
+            "total": len(actions),
+            "matching": len(values),
+            "by_result": counts,
+            "placement_capability": "unsupported"
+            if getattr(getattr(self.runtime, "executor", None), "supported_moves", None) == ()
+            else "not_declared",
+            "status": "available",
+            "observed_at": now(),
+        }
+
     async def diagnostics(
         self,
         ctx: Any,
@@ -520,17 +573,32 @@ class AdminDiagnostics:
             summary: dict[str, Any] = {
                 "total": 0,
                 "by_flow": {},
+                "by_kind": {},
                 "by_state": {},
                 "by_effect_status": {},
+                "created_last_24h": 0,
+                "latest_task_at": None,
             }
+            recent_start = datetime.fromisoformat(now()) - timedelta(hours=24)
+            bindings = dict(tx.rows("temporal_bindings"))
+            deployment_tasks = set()
             for task_id, envelope in tx.rows("tasks"):
-                binding = tx.read("temporal_bindings", task_id)
+                binding = bindings.get(task_id)
                 if not self.in_deployment(binding):
                     continue
+                deployment_tasks.add(task_id)
                 record = envelope["record"]
                 summary["total"] += 1
+                created = envelope.get("created_at")
+                if created:
+                    stamp = datetime.fromisoformat(created)
+                    summary["created_last_24h"] += int(stamp >= recent_start)
+                    latest = summary["latest_task_at"]
+                    if latest is None or stamp > datetime.fromisoformat(latest):
+                        summary["latest_task_at"] = created
                 for output, key in (
                     ("by_flow", "owner_flow"),
+                    ("by_kind", "kind"),
                     ("by_state", "state"),
                     ("by_effect_status", "effect_status"),
                 ):
@@ -576,6 +644,9 @@ class AdminDiagnostics:
                 next_run_at=None,
                 next_run_status="not_observed",
             )
+            from aether_agent_memory.runtime.flows.dashboard import memory_observations
+
+            memory_metrics = memory_observations(tx, deployment_tasks, now())
         # Bound live describes to the requested page, not all persisted workflows.
         semaphore = asyncio.Semaphore(5)
 
@@ -600,6 +671,7 @@ class AdminDiagnostics:
         )
         return {
             "task_summary": summary,
+            "memory_observations": memory_metrics,
             "tasks": {
                 "items": items,
                 "next_cursor": following,
@@ -668,9 +740,16 @@ def attach(app: FastAPI, runtime: Any, execution: Any) -> None:
         cursor: str | None = None,
         flow: Flow | None = None,
         state: TaskState | None = None,
+        kind: Literal["placement"] | None = None,
+        status: Literal[
+            "succeeded", "failed", "pending", "running", "unconfirmed", "simulated", "cancelled"
+        ]
+        | None = None,
         ctx: TrustedContext = dependency,
     ) -> dict[str, Any]:
         response.headers["Cache-Control"] = "no-store"
+        if kind == "placement":
+            return await service.placements(ctx, limit, cursor, status)
         return await service.diagnostics(ctx, limit, cursor, flow, state)
 
     @app.get("/p3/admin/tasks/{task_id}")

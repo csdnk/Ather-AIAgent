@@ -1,7 +1,6 @@
 <template>
   <ContentWrap>
-    <h1>{{ config.title }}</h1
-    ><p class="note">{{ config.description }}</p>
+    <h1>{{ config.title }}</h1>
     <el-tabs v-model="tab">
       <el-tab-pane
         v-for="item in visibleTabs"
