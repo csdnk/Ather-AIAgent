@@ -59,13 +59,13 @@ async function load() {
       if (request !== sequence) return
       data.value = overview
       const memoryRead = platform.value
-        ? getConsole('diagnostics', { limit: 1 })
+        ? getConsole('diagnostics', { kind: 'performance' })
             .then((result) => {
               if (request !== sequence) return
               memoryMetrics.value = result.memory_observations || {}
             })
             .catch(() => {
-              if (request === sequence) error.value = '压缩指标读取失败，请刷新重试。'
+              if (request === sequence) error.value = '性能指标读取失败，请刷新重试。'
             })
         : Promise.resolve()
       await memoryRead

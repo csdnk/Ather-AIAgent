@@ -5,7 +5,9 @@
       <div class="contract-grid">
         <el-card v-for="card in contractCards(memoryMetrics)" :key="card.label" shadow="never">
           <div class="muted">{{ card.label }}</div>
-          <strong class="metric-value">{{ card.value }}</strong>
+          <el-tooltip :content="card.note" placement="top" :show-after="300">
+            <strong class="metric-value">{{ card.value }}</strong>
+          </el-tooltip>
           <div class="target">{{ card.target }}</div>
         </el-card>
       </div>

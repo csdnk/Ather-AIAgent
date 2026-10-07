@@ -737,6 +737,54 @@ class AdminDiagnostics:
             "observed_at": now(),
         }
 
+    def performance(self, ctx: Any) -> dict[str, Any]:
+        """Read persisted observations without Temporal polling or business execution."""
+        self.platform(ctx)
+        from .dashboard import memory_observations
+        from .performance_observations import performance_observations
+
+        stamp = now()
+        telemetry = self.runtime.foundation.telemetry
+        if getattr(telemetry, "backend", None) == "postgresql":
+            from .performance_metadata import performance_metadata
+
+            config = getattr(getattr(self.execution, "ledger", None), "config", None)
+            working_ids, metrics = performance_metadata(
+                telemetry,
+                namespace=config.namespace if config else "",
+                deployment_id=config.deployment_id if config else "",
+                observed_at=stamp,
+            )
+        else:
+            # Engineering stores use a local transaction, with set reads rather than N+1 lookups.
+            with self.uow.transaction() as tx:
+                deployment_tasks = {
+                    task_id
+                    for task_id, binding in tx.rows("temporal_bindings")
+                    if self.in_deployment(binding)
+                }
+                working_ids = {
+                    row["value"]["ref"]["memory_id"]
+                    for _, row in tx.rows("records")
+                    if row.get("ref", {}).get("object_type") == "memory"
+                    and (row.get("value") or {}).get("kind") == "working"
+                }
+                metrics = memory_observations(tx, deployment_tasks, stamp)
+        # The log pool is independent; never hold the metadata transaction across log I/O.
+        try:
+            metrics.update(
+                performance_observations(
+                    self.runtime.foundation.telemetry, stamp, working_memory_ids=working_ids
+                )
+            )
+        except Exception:
+            metrics.update(
+                embedding={"status": "unavailable", "rate": None},
+                working_memory={"status": "unavailable", "p99_ms": None},
+            )
+        self.platform(ctx)
+        return {"memory_observations": metrics, "observed_at": stamp, "status": "available"}
+
     async def diagnostics(
         self,
         ctx: Any,
@@ -943,7 +991,7 @@ def attach(app: FastAPI, runtime: Any, execution: Any) -> None:
         cursor: str | None = None,
         flow: Flow | None = None,
         state: TaskState | None = None,
-        kind: Literal["placement"] | None = None,
+        kind: Literal["placement", "performance"] | None = None,
         status: Literal[
             "succeeded", "failed", "pending", "running", "unconfirmed", "simulated", "cancelled"
         ]
@@ -951,6 +999,8 @@ def attach(app: FastAPI, runtime: Any, execution: Any) -> None:
         ctx: TrustedContext = dependency,
     ) -> dict[str, Any]:
         response.headers["Cache-Control"] = "no-store"
+        if kind == "performance":
+            return await asyncio.to_thread(service.performance, ctx)
         if kind == "placement":
             return await service.placements(ctx, limit, cursor, status)
         return await service.diagnostics(ctx, limit, cursor, flow, state)

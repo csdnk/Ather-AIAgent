@@ -42,6 +42,7 @@ def test_memory_observations_include_only_deployment_tasks_and_safe_fields():
         def rows(self, table):
             return iter(
                 {
+                    "tasks": [],
                     "remember_artifacts": [
                         (
                             "a",

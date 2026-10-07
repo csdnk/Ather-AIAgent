@@ -2,22 +2,37 @@ import { readable, statusText } from './presentation.mjs'
 
 export function contractCards(metrics = {}) {
   const ratio = metrics.compression?.ratio
+  const embedding = metrics.embedding || {}
+  const working = metrics.working_memory || {}
+  const compressionEmpty =
+    {
+      not_triggered: '尚未触发压缩',
+      pending: '压缩处理中',
+      failed: '压缩处理失败',
+      no_published_artifacts: '尚无已发布产物'
+    }[metrics.compression?.reason] || '暂无有效样本'
+  const measured = (metric, value, unit, empty) =>
+    metric.status === 'unavailable'
+      ? '暂时无法读取'
+      : Number.isFinite(value) && value >= 0
+        ? `${value.toFixed(2)} ${unit}${metric.truncated ? '（部分样本）' : ''}`
+        : empty
   return [
     {
       label: '向量化处理速度',
-      value: '待压测',
+      value: measured(embedding, embedding.rate, '条/秒', '暂无向量化样本'),
       target: '合同目标 ≥ 2,000 次/秒',
-      note: '旁路拦截与向量化的稳定吞吐能力，需要带负载和环境信息的压测结果。'
+      note: `最近 24 小时成功处理 ${embedding.items ?? 0} 条，按成功条数 ÷ 累计调用耗时统计；实际负载观测，不代表容量压测。`
     },
     {
       label: '短期记忆响应时间',
-      value: '尚未采集',
+      value: measured(working, working.p99_ms, '毫秒', '暂无读取样本'),
       target: '合同目标 P99 < 10 毫秒',
-      note: '99% 的短期记忆接口请求应在 10 毫秒内完成；需专门采集接口耗时。'
+      note: `最近 24 小时 ${working.samples ?? 0} 次完整短期记忆正文读取的 P99，包含权限核验、存储读取和结果复核；不含向量检索和回答生成。`
     },
     {
       label: '记忆正文压缩比',
-      value: Number.isFinite(ratio) ? `${ratio.toFixed(2)} 倍` : '暂无有效样本',
+      value: Number.isFinite(ratio) ? `${ratio.toFixed(2)} 倍` : compressionEmpty,
       target: '合同目标 物理压缩 ≥ 5 倍',
       note: `已发布正文样本 ${metrics.compression?.samples ?? '未知'} 条；按总原始字节 ÷ 总压缩字节统计，含历史版本，不等同整体存储节省。`
     },

@@ -317,6 +317,8 @@ class Console:
             )
             if kind == "placement" and not task_id:
                 return attach_names(result, "tasks", actor, self.directory)
+            if kind == "performance" and not task_id:
+                return result
             if not task_id:
                 result = {**result, "business": self.business_observations(actor)}
             rows = [result["task"]] if task_id else result.get("tasks", {}).get("items", [])
@@ -509,7 +511,7 @@ def install_console(app, service, identity):
         cursor: str | None = Query(None, max_length=4096),
         flow: str | None = Query(None, max_length=64, pattern=r"^[a-z_]+$"),
         state: str | None = Query(None, max_length=64, pattern=r"^[a-z_]+$"),
-        kind: Literal["placement"] | None = None,
+        kind: Literal["placement", "performance"] | None = None,
         status: Literal[
             "succeeded", "failed", "pending", "running", "unconfirmed", "simulated", "cancelled"
         ]

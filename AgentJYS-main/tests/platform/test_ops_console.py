@@ -84,6 +84,18 @@ def console():
 HEADERS = {"Authorization": "Bearer valid"}
 
 
+def test_performance_route_preserves_admin_boundary_and_skips_business_queries(console):
+    client, _, service, verifier = console
+    payload = {"memory_observations": {"embedding": {"rate": 2.5}}, "status": "available"}
+    service.p3_read = lambda *args, **kwargs: payload
+    path = "/platform-ops/v1/console/diagnostics?kind=performance"
+    assert client.get(path, headers=HEADERS).status_code == 403
+    verifier.current = replace(ACTOR, role="platform_admin")
+    response = client.get(path, headers=HEADERS)
+    assert response.status_code == 200
+    assert response.json() == payload
+
+
 def test_console_users_filters_in_database_and_returns_true_total(console):
     client, _, _, _ = console
     response = client.get("/platform-ops/v1/console/users?q=ali&limit=1", headers=HEADERS)
