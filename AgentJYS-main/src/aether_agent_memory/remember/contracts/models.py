@@ -136,7 +136,7 @@ class RememberRequest(ContractModel):
     source: SourceInput
     selection: ScopeSelector
     content: TextInput | DocumentInput = Field(discriminator="kind")
-    trigger: Literal["remember", "observe", "task_complete", "review"] = "remember"
+    trigger: Literal["remember", "observe", "task_complete", "review"] = "observe"
     task_context: str = Field(default="", max_length=4096)
     importance_category: Literal[
         "observation", "event", "fact", "decision", "explicit_constraint"

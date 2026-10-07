@@ -207,6 +207,49 @@ async def test_compression_is_model_view_but_evidence_still_binds_original():
     assert result.proposals[0].candidate.evidence[0].start_char == len("The log says: ")
 
 
+@pytest.mark.parametrize("role", ["context", "old_evidence"])
+async def test_historical_views_preserve_original_evidence_and_source_role(role):
+    new = snapshot("new", "Alice still uses Linux.")
+    original = snapshot("history", "Historical log: Alice uses Linux. " + "padding " * 6000)
+    value = fact(new.content, "src_new").model_dump()
+    value["evidence"].append({"source_id": "src_history", "quote": "Alice uses Linux."})
+    value = ConsolidatedMemory.model_validate(value)
+    manager = Manager(lambda _: [row("generated", value)])
+    kwargs = {"context_items" if role == "context" else "existing_evidence": (original,)}
+    result = await OfficialLangMemConsolidation(manager, "test").consolidate(
+        None,
+        (new,),
+        (),
+        "p1",
+        representations=[{"source_id": "src_history", "text": "Alice uses Linux."}],
+        **kwargs,
+    )
+    sources = json.loads(manager.calls[0]["messages"][0]["content"])["sources"]
+    historical = next(s for s in sources if s["source_id"] == "src_history")
+    assert historical == {"source_id": "src_history", "role": role, "text": "Alice uses Linux."}
+    evidence = result.proposals[0].candidate.evidence[1]
+    assert evidence.start_char == len("Historical log: ")
+    assert evidence.source.content_hash == original.sources[0].content_hash
+
+
+async def test_historical_view_cannot_authorize_quote_absent_from_original():
+    new, original = snapshot("new", "Alice uses Linux."), snapshot("history", "Bob uses Mac.")
+    value = fact(new.content, "src_new").model_dump()
+    value["evidence"].append({"source_id": "src_history", "quote": "Bob uses Linux."})
+    manager = Manager(lambda _: [row("generated", value)])
+    from aether_agent_memory.remember.basic.extraction import EvidenceValidationError
+
+    with pytest.raises(EvidenceValidationError, match="quote_not_in_source"):
+        await OfficialLangMemConsolidation(manager, "test").consolidate(
+            None,
+            (new,),
+            (),
+            "p1",
+            existing_evidence=(original,),
+            representations=[{"source_id": "src_history", "text": "Bob uses Linux."}],
+        )
+
+
 async def test_real_official_manager_calls_tools_for_multi_insert_and_keeps_old_id():
     from langchain_core.language_models import BaseChatModel
     from langchain_core.messages import AIMessage

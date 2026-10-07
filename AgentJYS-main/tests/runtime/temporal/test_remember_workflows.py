@@ -169,7 +169,7 @@ async def test_changed_model_space_before_first_delivery_rejects_job(runtime, wo
         ("project", "projection", "ready"),
         ("cleanup", "physical_erasure", False),
         ("revalidate", "requires_new_evidence", True),
-        ("summarize", "summary_state", "ready"),
+        ("summarize", None, None),
         ("distill", "candidate_count", 0),
     ],
 )
@@ -178,10 +178,6 @@ async def test_background_workflow_commits_domain_result(
 ):
     from aether_agent_memory.remember.contracts.models import ExtractionResult
 
-    if kind == "summarize":
-        runtime.remember.policy = runtime.remember.policy.model_copy(
-            update={"working_summary_min_bytes": 1}
-        )
     if kind == "distill":
 
         class Review:
@@ -202,6 +198,12 @@ async def test_background_workflow_commits_domain_result(
         )
         with runtime.foundation.uow.transaction() as tx:
             task = ledger.tasks.load(tx, job.job_id)[1]
+            if kind == "summarize":
+                # New Working records have no summary input. A stale/manual
+                # summary job is cancelled rather than recreating the removed flow.
+                assert task.state == "cancelled", task
+                assert tx.rows("remember_working_summaries") == []
+                return
             assert task.state == "succeeded", task
             assert tx.get(task.result_ref)[field] == value
     finally:

@@ -96,7 +96,12 @@ def test_threshold_zero_output_and_timer(app):
         tx.write(
             "remember_pending",
             third.memories[0].memory_id,
-            {**row, "created_at": later(row["created_at"], -601)},
+            {
+                **row,
+                "created_at": later(
+                    row["created_at"], -app.remember.policy.consolidation_seconds - 1
+                ),
+            },
         )
     assert app.remember.periodic() == 1
     drain(app)
@@ -222,7 +227,10 @@ def test_compression_ratio_and_independent_quality_gate(app, passed, ratio_ok, p
     with app.foundation.uow.transaction() as tx:
         artifact = tx.read("remember_artifacts", app.remember.refkey(receipt.memories[0]))
     assert artifact["published"] is published
-    assert app.remember.get(context(app), receipt.memories[0].memory_id).content == "fact " * 50
+    working = app.remember.get(context(app), receipt.memories[0].memory_id)
+    assert "全文请通过来源读取" in working.content
+    originals = asyncio.run(app.remember.source_access.originals(context(app), (working,)))
+    assert originals[0].content == "fact " * 50
     assert facts(app, receipt)  # Compression rejection never blocks extraction.
 
 

@@ -60,6 +60,7 @@ def save(app, text="我喜欢无糖咖啡", session="session_1", user="alice", o
         app.remember.save(
             context(app, user, operation),
             RememberRequest(
+                trigger="remember",
                 source=source(),
                 selection=ScopeSelector(session_id=session),
                 content=TextInput(kind="text", text=text),
@@ -76,7 +77,10 @@ def drain(app):
 
 def facts(app, receipt):
     ctx = context(app)
-    task = app.foundation.diagnostics.task(ctx, receipt.task_ids[0])
+    with app.foundation.uow.transaction() as tx:
+        pending = tx.read("remember_pending", receipt.memories[0].memory_id) or {}
+    task_id = pending.get("task_id") or receipt.task_ids[0]
+    task = app.foundation.diagnostics.task(ctx, task_id)
     assert task.state == "succeeded", task
     with app.foundation.uow.transaction() as tx:
         return [MemoryRef.model_validate(ref) for ref in tx.get(task.result_ref)["memories"]]

@@ -256,7 +256,9 @@ class OfficialLangMemConsolidation:
         views: dict[str, str] = {}
         for representation in representations or ():
             source_id, text = representation["source_id"], representation["text"]
-            if source_id not in new_ids or source_id in views or not text.strip():
+            # All roles may use qualified model views. Authority and quote offsets
+            # still come exclusively from the complete originals in sources.
+            if source_id not in sources or source_id in views or not text.strip():
                 raise ValueError("invalid consolidation representation")
             views[source_id] = text
 

@@ -8,7 +8,7 @@ from aether_agent_memory.runtime.contracts.models import ContractModel, Identifi
 
 
 class RememberPolicy(ContractModel):
-    version: Identifier = "remember_v5"
+    version: Identifier = "remember_v6"
     working_summary_min_bytes: int = Field(default=65536, ge=1)
     working_summary_max_chars: int = Field(default=2048, ge=256, le=16384)
     summary_part_chars: int = Field(default=256, ge=32, le=2048)
@@ -17,7 +17,7 @@ class RememberPolicy(ContractModel):
     source_page_chars: int = Field(default=4096, ge=256, le=65536)
     source_read_max_chars: int = Field(default=65536, ge=256, le=262144)
     max_input_bytes: int = Field(default=64 * 1024 * 1024, ge=1)
-    compression_min_bytes: int = Field(default=65536, ge=1)
+    compression_min_bytes: int = Field(default=8000, ge=1)
     compression_target_ratio: float = Field(default=5.0, ge=5, allow_inf_nan=False)
     cache_max_body_bytes: int = Field(default=1024 * 1024, ge=1)
     cache_scope_bytes: int = Field(default=16 * 1024 * 1024, ge=1)
@@ -25,7 +25,10 @@ class RememberPolicy(ContractModel):
     processing_seconds: int = Field(default=86400, ge=60)
     consolidation_messages: int = Field(default=32, ge=1)
     consolidation_tokens: int = Field(default=8000, ge=1)
-    consolidation_seconds: int = Field(default=600, ge=1)
+    # Tokens remain readable in old task snapshots; new admission uses UTF-8 bytes.
+    consolidation_bytes: int = Field(default=8000, ge=1)
+    consolidation_seconds: int = Field(default=3600, ge=1)
+    consolidation_overlap_messages: int = Field(default=2, ge=0, le=2)
     extraction_chunk_tokens: int = Field(default=4096, ge=16)
     projection_chunk_tokens: int = Field(default=256, ge=8)
     max_candidates: int = Field(default=32, ge=1, le=256)

@@ -66,6 +66,7 @@ from aether_agent_memory.runtime.foundation.timings import measure_stage
 from aether_agent_memory.runtime.foundation.transactions import native
 from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
+from .batching import select_batch, source_descriptor
 from .comparison import (
     ComparisonDecision,
     ComparisonPort,
@@ -234,6 +235,14 @@ class RememberPipeline(Revalidation):
                 },
             )
         tx.write("remember_latest_task", fingerprint([memory.ref.memory_id, kind]), task_id)
+        if kind == "remember.compress" and memory.kind == MemoryKind.WORKING:
+            pending = tx.read("remember_pending", memory.ref.memory_id)
+            if pending and pending["ref"] == memory.ref.model_dump(mode="json"):
+                tx.write(
+                    "remember_pending",
+                    memory.ref.memory_id,
+                    {**pending, "compression_task_id": task_id},
+                )
         if kind == "remember.extract" and memory.kind == MemoryKind.WORKING:
             pending = tx.read("remember_pending", memory.ref.memory_id)
             if pending and pending["ref"] == memory.ref.model_dump(mode="json"):
@@ -330,8 +339,39 @@ class RememberPipeline(Revalidation):
             importance_policy_version=snapshot.importance_policy_version,
         )
         ref = memory_ref(snapshot.ref, versioned=True)
+        previous = tx.get(ref)
+        # Projection/relations revisions retain a valid cache address. Content versions
+        # and withdrawn records never inherit another body's admission marker.
+        if (
+            previous
+            and previous.get("body_location") == record.body_location.model_dump(mode="json")
+            and snapshot.status == MemoryStatus.ACTIVE
+        ):
+            cache = previous.get("cache_location")
+            if cache is not None:
+                record = record.model_copy(
+                    update={"cache_location": ResourceLocation.model_validate(cache)}
+                )
         tx.put_if_revision(ref, record.model_dump(mode="json"), tx.revision(ref))
         tx.write("remember_current", snapshot.ref.memory_id, ref.model_dump(mode="json"))
+        admission = tx.read("remember_cache_admission", snapshot.ref.memory_id)
+        if admission and (
+            admission.get("memory") != snapshot.ref.model_dump(mode="json")
+            or snapshot.status != MemoryStatus.ACTIVE
+        ):
+            tx.write(
+                "remember_cache_admission",
+                snapshot.ref.memory_id,
+                {
+                    "memory": snapshot.ref.model_dump(mode="json"),
+                    "content_hash": snapshot.content_hash,
+                    "state": "not_attempted"
+                    if snapshot.status == MemoryStatus.ACTIVE
+                    else "invalidated",
+                    "checked_at": self.identity.clock(),
+                    "bytes": len(snapshot.content.encode("utf-8")),
+                },
+            )
 
     @staticmethod
     def space_key(scope: Scope) -> str:
@@ -560,7 +600,7 @@ class RememberPipeline(Revalidation):
         duplicate_result = await asyncio.to_thread(inspect_source)
         if duplicate_result is not None:
             return duplicate_result
-        summarized = self.summaries.needed(text, request.content.kind == "document")
+        summarized = len(text.encode("utf-8")) >= self.policy.compression_min_bytes
         source_ref = SourceRef(
             source_id=fingerprint([key, "source"]),
             source_version=1,
@@ -568,7 +608,9 @@ class RememberPipeline(Revalidation):
             locator=self.bodies.location(scope, text).object_key,
         )
         working_text = (
-            self.summaries.descriptor(source_ref, text, request.task_context)
+            source_descriptor(
+                source_ref.source_id, source_ref.source_version, len(text.encode("utf-8"))
+            )
             if summarized
             else text
         )
@@ -638,19 +680,20 @@ class RememberPipeline(Revalidation):
                 {
                     "ref": item.ref.model_dump(mode="json"),
                     "tokens": self.tokenizer.count(text),
+                    "bytes": len(text.encode("utf-8")),
                     "created_at": item.created_at,
-                    "state": "waiting_summary" if summarized else "pending",
+                    "state": "waiting_compression" if summarized else "pending",
                     "context": ctx.model_dump(mode="json"),
                 },
             )
             if summarized:
-                self.summaries.register(tx, item, request.task_context)
-                task_ids = [self.enqueue(tx, ctx, item, "remember.summarize")]
+                self.register_source_reference(tx, item, len(text.encode("utf-8")))
+                task_ids = [self.enqueue(tx, ctx, item, "remember.compress")]
+                row = tx.read("remember_pending", key)
+                tx.write("remember_pending", key, {**row, "compression_task_id": task_ids[0]})
             else:
                 task_ids = list(self.schedule(tx, ctx, scope, force=request.trigger != "observe"))
                 task_ids.append(self.enqueue(tx, ctx, item, "remember.project"))
-            if not summarized and len(text.encode("utf-8")) >= self.policy.compression_min_bytes:
-                task_ids.append(self.enqueue(tx, ctx, item, "remember.compress"))
             self.emit(tx, ctx, item, "saved")
             result = RememberReceipt(
                 operation_id=ctx.operation_id,
@@ -674,11 +717,47 @@ class RememberPipeline(Revalidation):
     async def admit_save_cache(
         self, ctx: TrustedContext, prepared: dict[str, Any], result: RememberReceipt
     ) -> RememberReceipt:
-        if "previous" in prepared:
-            return result
-        scope, key = Scope.model_validate(prepared["scope"]), prepared["key"]
-        working_text = prepared["working_text"]
         memory = result.memories[0]
+        key = memory.memory_id
+        if "previous" in prepared:
+            # Retrying a durable save also retries optional cache admission. The
+            # receipt's exact version must still be current before loading its body.
+            try:
+                await self.hydrate(ctx, (memory,), "recall")
+            except FoundationError as exc:
+                if exc.code in {
+                    ErrorCode.MEMORY_GONE,
+                    ErrorCode.NOT_FOUND,
+                    ErrorCode.FORBIDDEN,
+                    ErrorCode.VERSION_CONFLICT,
+                }:
+                    return result
+                raise
+
+            def prior_text() -> str | None:
+                with self.uow.transaction() as tx:
+                    if (
+                        self.final_guard(tx, ctx, (memory,), "recall").items[0].decision
+                        != "allowed"
+                    ):
+                        return None
+                    item = self.current(tx, key)
+                    return item.content if item.ref == memory else None
+
+            working_text = await asyncio.to_thread(prior_text)
+            if working_text is None:
+                return result
+        else:
+            working_text = prepared["working_text"]
+
+        await self.admit_verified_cache(ctx, memory, working_text)
+        return result
+
+    async def admit_verified_cache(
+        self, ctx: TrustedContext, memory: MemoryRef, working_text: str
+    ) -> None:
+        """Admit a confirmed body, fencing both physical I/O and metadata updates."""
+        scope, key = memory.scope, memory.memory_id
 
         def allowed_before_cache() -> bool:
             with self.uow.transaction() as tx:
@@ -714,26 +793,76 @@ class RememberPipeline(Revalidation):
 
         def record_cache() -> None:
             with self.uow.transaction() as tx:
+                state = {
+                    "state": cache,
+                    "bytes": len(working_text.encode("utf-8")),
+                    "memory": memory.model_dump(mode="json"),
+                    "content_hash": text_hash(working_text),
+                    "checked_at": self.identity.clock(),
+                }
+                tx.write("remember_cache_admission_history", self.refkey(memory), state)
+                current = tx.read("remember_current", key)
+                ref = memory_ref(memory, versioned=True)
+                if current != ref.model_dump(mode="json"):
+                    return
+                raw = tx.get(ref)
+                if raw is None or raw.get("body_location", {}).get("content_hash") != text_hash(
+                    working_text
+                ):
+                    return
+                record = MemoryRecord.model_validate(raw)
+                cache_location = None
+                provider = self.bodies.cache
+                current_allowed = (
+                    self.final_guard(tx, ctx, (memory,), "recall").items[0].decision == "allowed"
+                )
+                if not current_allowed:
+                    state["state"] = "ineligible"
+                if (
+                    cache == "cached"
+                    and current_allowed
+                    and record.status == MemoryStatus.ACTIVE
+                    and hasattr(provider, "keys")
+                ):
+                    bucket, field, _ = provider.keys(scope, record.body_location.content_hash)
+                    cache_location = record.body_location.model_copy(
+                        update={
+                            "kind": "cache",
+                            "provider_id": "redis",
+                            "provider_instance_id": provider.namespace,
+                            "namespace": provider.namespace,
+                            "object_key": bucket + "/" + field,
+                        }
+                    )
+                    state["expires_at"] = later(
+                        self.identity.clock(), self.policy.cache_ttl_seconds
+                    )
+                changed = record.model_copy(update={"cache_location": cache_location})
+                tx.put_if_revision(ref, changed.model_dump(mode="json"), tx.revision(ref))
                 tx.write(
                     "remember_cache_admission",
                     key,
-                    {"state": cache, "bytes": len(working_text.encode("utf-8"))},
+                    state,
                 )
 
         await asyncio.to_thread(record_cache)
-        return result
 
     def schedule(
         self, tx: MetadataTransaction, ctx: TrustedContext, scope: Scope, *, force: bool = False
     ) -> tuple[str, ...]:
-        pending = [
+        scoped = [
             (key, row)
             for key, row in tx.rows("remember_pending")
-            if row["state"] == "pending" and row["ref"]["scope"] == scope.model_dump(mode="json")
+            if row["ref"]["scope"] == scope.model_dump(mode="json")
         ]
-        pending.sort(key=lambda x: (x[1]["created_at"], x[0]))
+        scoped.sort(key=lambda x: (x[1]["created_at"], x[0]))
+        pending = [(key, row) for key, row in scoped if row["state"] == "pending"]
         if not pending:
             return ()
+        # Old rows predate byte accounting. Source manifests retain exact byte ends.
+        pending = [
+            (key, {**row, "bytes": self.pending_bytes(tx, key, row)}) for key, row in pending
+        ]
         due = (
             later(pending[0][1]["created_at"], self.policy.consolidation_seconds)
             <= self.identity.clock()
@@ -742,11 +871,11 @@ class RememberPipeline(Revalidation):
             force
             or due
             or len(pending) >= self.policy.consolidation_messages
-            or sum(r["tokens"] for _, r in pending) >= self.policy.consolidation_tokens
+            or sum(r["bytes"] for _, r in pending) >= self.policy.consolidation_bytes
         ):
             return ()
         # Bound one task's input count; subsequent ticks pick up the remainder.
-        pending = pending[: self.policy.consolidation_messages]
+        pending = select_batch(pending, self.policy)
         items = []
         for key, row in pending:
             item = self.current(tx, key)
@@ -757,8 +886,25 @@ class RememberPipeline(Revalidation):
         if not items:
             return ()
         task_id = self.enqueue(tx, ctx, items[0], "remember.extract")
+        context_refs = []
+        first_index = next(i for i, (key, _) in enumerate(scoped) if key == items[0].ref.memory_id)
+        for _key, row in reversed(scoped[:first_index]):
+            if len(context_refs) >= self.policy.consolidation_overlap_messages:
+                break
+            # Only immediately adjacent, processed, still-authorized same-scope messages.
+            if row["state"] != "processed":
+                break
+            ref = MemoryRef.model_validate(row["ref"])
+            if self.final_guard(tx, ctx, (ref,), "recall").items[0].decision != "allowed":
+                break
+            context_refs.append(ref.model_dump(mode="json"))
         tx.write(
-            "remember_batches", task_id, {"refs": [x.ref.model_dump(mode="json") for x in items]}
+            "remember_batches",
+            task_id,
+            {
+                "refs": [x.ref.model_dump(mode="json") for x in items],
+                "context_refs": list(reversed(context_refs)),
+            },
         )
         for item in items:
             row = tx.read("remember_pending", item.ref.memory_id)
@@ -768,6 +914,33 @@ class RememberPipeline(Revalidation):
                 {**row, "state": "scheduled", "task_id": task_id},
             )
         return (task_id,)
+
+    def pending_bytes(self, tx: MetadataTransaction, key: str, row: dict[str, Any]) -> int:
+        if "bytes" in row:
+            return int(row["bytes"])
+        item = self.current(tx, key)
+        total = 0
+        for source in item.sources:
+            manifest = tx.read("remember_source_ranges", source.source_id)
+            if manifest and manifest.get("pages"):
+                total += manifest["pages"][-1]["end_byte"]
+            else:
+                total += len(item.content.encode("utf-8"))
+        return total
+
+    def register_source_reference(
+        self, tx: MetadataTransaction, item: MemorySnapshot, byte_size: int
+    ) -> None:
+        tx.write(
+            "remember_working_representations",
+            item.ref.memory_id,
+            {
+                "memory": item.ref.model_dump(mode="json"),
+                "source": item.sources[0].model_dump(mode="json"),
+                "representation": "source_reference",
+                "original_bytes": byte_size,
+            },
+        )
 
     def consolidate(
         self,
@@ -826,7 +999,11 @@ class RememberPipeline(Revalidation):
                 raise FoundationError(
                     ErrorCode.MEMORY_GONE, "inactive memory cannot be reprocessed"
                 )
-            kind = "remember.extract" if item.kind == MemoryKind.WORKING else "remember.project"
+            kind = (
+                self.working_task_kind(tx, item)
+                if item.kind == MemoryKind.WORKING
+                else "remember.project"
+            )
             summary = tx.read("remember_working_summaries", memory_id)
             if (
                 item.kind == MemoryKind.WORKING
@@ -980,6 +1157,24 @@ class RememberPipeline(Revalidation):
                 )
             )
             pending = tx.read("remember_pending", memory_id)
+            if (
+                pending
+                and pending["state"] == "processed"
+                and pending.get("compression_terminal") == "failed"
+                and current_rows
+                and all(
+                    r.get("effect_status") != "unknown"
+                    and (
+                        r["state"] in {"succeeded", "cancelled"}
+                        or (
+                            r["task_id"] == pending.get("compression_task_id")
+                            and r["state"] in {"failed", "attention_required"}
+                        )
+                    )
+                    for r in current_rows
+                )
+            ):
+                state = "completed_with_compression_failure"
             if pending and pending["state"] == "pending" and item.status == MemoryStatus.ACTIVE:
                 state = "awaiting_consolidation"
             if (
@@ -1085,6 +1280,8 @@ class RememberPipeline(Revalidation):
                 ],
                 "artifact": tx.read("remember_artifacts", self.refkey(item.ref)),
                 "working_summary": summary,
+                "working_representation": tx.read("remember_working_representations", memory_id),
+                "cache_admission": tx.read("remember_cache_admission", memory_id),
                 "recovery": recovery,
                 "sources": [s.model_dump(mode="json") for s in item.sources],
                 "physical_erasure": False,
@@ -1097,15 +1294,11 @@ class RememberPipeline(Revalidation):
             count += self.reflection.periodic()
         with self.uow.transaction() as tx:
             pending = [
-                (key, row) for key, row in tx.rows("remember_pending") if row["state"] == "pending"
+                (key, row)
+                for key, row in tx.rows("remember_pending")
+                if row["state"] in {"pending", "waiting_compression"}
             ]
-        seen = set()
-        for _, row in pending:
-            scope = MemoryRef.model_validate(row["ref"]).scope
-            scope_key = fingerprint(scope.model_dump(mode="json"))
-            if scope_key in seen:
-                continue
-            seen.add(scope_key)
+        for key, row in pending:
             ctx = TrustedContext.model_validate(row["context"])
             ctx = ctx.model_copy(
                 update={
@@ -1116,7 +1309,7 @@ class RememberPipeline(Revalidation):
             try:
                 with self.uow.transaction() as tx:
                     self.identity.revalidate(tx, ctx)
-                    count += len(self.schedule(tx, ctx, scope))
+                    count += self.periodic_pending(tx, key)
             except FoundationError:
                 # Revoked principals must never run using maintenance authority.
                 continue
@@ -1124,7 +1317,7 @@ class RememberPipeline(Revalidation):
 
     def periodic_pending(self, tx: MetadataTransaction, key: str) -> int:
         row = tx.read("remember_pending", key)
-        if not row or row["state"] != "pending":
+        if not row or row["state"] not in {"pending", "waiting_compression"}:
             return 0
         scope = MemoryRef.model_validate(row["ref"]).scope
         ctx = TrustedContext.model_validate(row["context"]).model_copy(
@@ -1134,7 +1327,24 @@ class RememberPipeline(Revalidation):
             }
         )
         self.identity.revalidate(tx, ctx)
-        return len(self.schedule(tx, ctx, scope))
+        force = False
+        if row["state"] == "waiting_compression":
+            task_id = row.get("compression_task_id")
+            envelope = tx.read("tasks", task_id) if task_id else None
+            task = (envelope or {}).get("record", {})
+            # Uncertain/running external effects must be reconciled, never guessed.
+            if (
+                task.get("state") not in {"failed", "cancelled", "attention_required", "succeeded"}
+                or task.get("effect_status") == "unknown"
+            ):
+                return 0
+            tx.write(
+                "remember_pending",
+                key,
+                {**row, "state": "pending", "compression_terminal": "failed"},
+            )
+            force = True
+        return len(self.schedule(tx, ctx, scope, force=force))
 
     async def correct_async(
         self, ctx: TrustedContext, memory_id: str, request: CorrectionRequest
@@ -1160,16 +1370,15 @@ class RememberPipeline(Revalidation):
         if item.kind == MemoryKind.WORKING:
             with self.uow.transaction() as tx:
                 key, _ = self.replay(tx, ctx, "correct_" + memory_id, request)
-                prior = tx.read("remember_working_summaries", memory_id)
-            if self.summaries.needed(request.content, request.source.kind == "document"):
+            if len(request.content.encode("utf-8")) >= self.policy.compression_min_bytes:
                 source = SourceRef(
                     source_id=fingerprint([key, "correction_source"]),
                     source_version=1,
                     content_hash=text_hash(request.content),
                     locator=self.bodies.location(item.ref.scope, request.content).object_key,
                 )
-                body = self.summaries.descriptor(
-                    source, request.content, (prior or {}).get("task_context", "")
+                body = source_descriptor(
+                    source.source_id, source.source_version, len(request.content.encode("utf-8"))
                 )
                 working_text = body
         return {
@@ -1188,13 +1397,16 @@ class RememberPipeline(Revalidation):
         request: CorrectionRequest,
     ) -> str:
         prior = tx.read("remember_working_summaries", item.ref.memory_id)
-        summarize = self.summaries.needed(request.content, request.source.kind == "document")
+        summarize = len(request.content.encode("utf-8")) >= self.policy.compression_min_bytes
         new_ref = item.ref.model_copy(update={"version": item.ref.version + 1})
         if summarize:
-            task_context = (prior or {}).get("task_context", "")
-            body = self.summaries.descriptor(source, request.content, task_context)
-            self.summaries.register(
-                tx, item.model_copy(update={"ref": new_ref, "sources": (source,)}), task_context
+            body = source_descriptor(
+                source.source_id, source.source_version, len(request.content.encode("utf-8"))
+            )
+            self.register_source_reference(
+                tx,
+                item.model_copy(update={"ref": new_ref, "sources": (source,)}),
+                len(request.content.encode("utf-8")),
             )
         else:
             body = request.content
@@ -1210,14 +1422,22 @@ class RememberPipeline(Revalidation):
             {
                 "ref": new_ref.model_dump(mode="json"),
                 "tokens": self.tokenizer.count(request.content),
+                "bytes": len(request.content.encode("utf-8")),
                 "created_at": self.identity.clock(),
                 "context": ctx.model_dump(mode="json"),
-                "state": "waiting_summary" if summarize else "pending",
+                "state": "waiting_compression" if summarize else "pending",
             },
         )
         return body
 
     def working_task_kind(self, tx: MetadataTransaction, item: MemorySnapshot) -> str:
+        pending = tx.read("remember_pending", item.ref.memory_id)
+        if (
+            pending
+            and pending["ref"] == item.ref.model_dump(mode="json")
+            and pending["state"] == "waiting_compression"
+        ):
+            return "remember.compress"
         row = tx.read("remember_working_summaries", item.ref.memory_id)
         if row and row["memory"] == item.ref.model_dump(mode="json") and row["state"] != "ready":
             return "remember.summarize"
@@ -1226,6 +1446,9 @@ class RememberPipeline(Revalidation):
     def projection_buildable(self, tx: MetadataTransaction, item: MemorySnapshot) -> bool:
         if item.kind != MemoryKind.WORKING:
             return True
+        representation = tx.read("remember_working_representations", item.ref.memory_id)
+        if representation and representation["memory"] == item.ref.model_dump(mode="json"):
+            return False
         row = tx.read("remember_working_summaries", item.ref.memory_id)
         return (
             not row or row["memory"] != item.ref.model_dump(mode="json") or row["state"] == "ready"
@@ -1382,6 +1605,10 @@ class RememberPipeline(Revalidation):
         item, location = selected
         with measure_stage("memory_fetch"):
             content, path = await self.bodies.read(ref.scope, location)
+        if path != "cache":
+            # A corrupt/missing hot replica must not retain a stale cached marker.
+            # Reuse the same version/permission fences as initial admission.
+            await self.admit_verified_cache(ctx, ref, content)
 
         def recheck_body() -> FullBodyReadResult | GuardStamp:
             with self.uow.transaction() as tx:
@@ -1513,7 +1740,9 @@ class RememberPipeline(Revalidation):
         if task.kind in {"remember.extract", "remember.compress"}:
             return await self.source_access.originals(ctx, items)
         if task.kind == "remember.distill":
-            if not hasattr(self.extraction, "review_episodes"):
+            if not hasattr(self.extraction, "review_episodes") and not getattr(
+                self.extraction, "supports_consolidation", False
+            ):
                 return RunResult(
                     outcome="failed",
                     effect_status=EffectStatus.NO_EFFECT,
@@ -1807,6 +2036,22 @@ class RememberPipeline(Revalidation):
             if result["published"]:
                 updated = self.change(tx, self.current(tx, item.ref.memory_id))
                 self.emit(tx, ctx, updated, "artifact_ready")
+            pending = tx.read("remember_pending", item.ref.memory_id)
+            if (
+                pending
+                and pending["ref"] == item.ref.model_dump(mode="json")
+                and pending["state"] == "waiting_compression"
+            ):
+                tx.write(
+                    "remember_pending",
+                    item.ref.memory_id,
+                    {
+                        **pending,
+                        "state": "pending",
+                        "compression_terminal": "published" if result["published"] else "failed",
+                    },
+                )
+                self.schedule(tx, ctx, item.ref.scope, force=True)
             return self.finish(tx, ctx, task, result)
 
     async def occurrence_evidence_context(
@@ -2406,7 +2651,12 @@ class RememberPipeline(Revalidation):
         self, ctx: TrustedContext, task: TaskRecord, items: tuple[MemorySnapshot, ...]
     ) -> RunResult:
         for _ in range(self.policy.max_commit_retries + 1):
-            prepared = await self.generate_extraction(ctx, task, items)
+            try:
+                prepared = await self.generate_extraction(ctx, task, items)
+            except FoundationError as exc:
+                if exc.code != ErrorCode.RESULT_INVALIDATED:
+                    raise
+                continue
             for candidate, decision, _ in prepared["proposals"]:
                 # Commit may preserve an earlier equivalence as a conflict after
                 # a batch amendment. Its immutable body must already be confirmed.
@@ -2424,13 +2674,24 @@ class RememberPipeline(Revalidation):
     async def generate_extraction(
         self, ctx: TrustedContext, task: TaskRecord, items: tuple[MemorySnapshot, ...]
     ) -> dict[str, Any]:
-        candidates = await self.candidates(ctx, task, items)
+        formation = None
+        validation_items = items
+        if getattr(self.extraction, "supports_consolidation", False):
+            from .consolidation import prepare_consolidation
+
+            formation = await prepare_consolidation(self, ctx, task, items)
+            candidates = formation["candidates"]
+            validation_items = formation["validation_items"]
+        else:
+            candidates = await self.candidates(ctx, task, items)
         if task.kind == "remember.distill":
             candidates = tuple(c for c in candidates if c.kind == "semantic")
         with self.uow.transaction() as tx:
             batch = tx.read("remember_batches", task.task_id)
             candidate_checkpoint = tx.read("remember_candidates", task.task_id) or {}
             rejections = candidate_checkpoint.get("rejections", [])
+            if formation is not None:
+                rejections = formation["rejections"]
         refs = (
             tuple(MemoryRef.model_validate(r) for r in batch["refs"])
             if batch
@@ -2447,7 +2708,9 @@ class RememberPipeline(Revalidation):
                 )
             space_key = self.space_key(items[0].ref.scope)
             expected_space_seq = tx.read("remember_space_seq", space_key) or 0
-            source_binding = self.comparison_source_binding(tx, items)
+            if formation is not None:
+                expected_space_seq = formation["expected_space_seq"]
+            source_binding = self.comparison_source_binding(tx, validation_items)
             processing_binding = self.checkpoint_binding()
             checkpoint_key = fingerprint(
                 [
@@ -2456,6 +2719,7 @@ class RememberPipeline(Revalidation):
                     task.kind,
                     task.input_ref.model_dump(mode="json"),
                     processing_binding,
+                    formation["binding"] if formation is not None else None,
                     attempt,
                     space_key,
                     expected_space_seq,
@@ -2476,7 +2740,7 @@ class RememberPipeline(Revalidation):
                 raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "invalid comparison cursor")
             proposals = [
                 (
-                    self.validate_candidate(CandidateFact.model_validate(c), items),
+                    self.validate_candidate(CandidateFact.model_validate(c), validation_items),
                     ComparisonDecision.model_validate(d),
                     MemorySnapshot.model_validate(t) if t else None,
                 )
@@ -2491,8 +2755,13 @@ class RememberPipeline(Revalidation):
         for candidate_index, candidate in enumerate(candidates[cursor:], start=cursor):
             verified_amend_identity = False
             existing: tuple[MemorySnapshot, ...]
-            duplicate = self.duplicate(ctx, candidate, items[0].ref.scope)
-            if duplicate is not None:
+            duplicate = (
+                self.duplicate(ctx, candidate, items[0].ref.scope) if formation is None else None
+            )
+            if formation is not None:
+                existing = (*formation["existing"], *virtual.values())
+                decision = formation["proposals"][candidate_index].decision
+            elif duplicate is not None:
                 existing = (duplicate,)
                 decision = ComparisonDecision(
                     outcome="no_change",
@@ -2807,7 +3076,7 @@ class RememberPipeline(Revalidation):
                         "attempts", 0
                     )
                     == attempt
-                    and self.comparison_source_binding(tx, items) == source_binding
+                    and self.comparison_source_binding(tx, validation_items) == source_binding
                     and self.checkpoint_binding() == processing_binding
                 ):
                     tx.write(
@@ -2830,6 +3099,18 @@ class RememberPipeline(Revalidation):
                         },
                     )
         return {
+            "official_guard": None
+            if formation is None
+            else {
+                "refs": [
+                    r.model_dump(mode="json")
+                    for r in (*formation["context_refs"], *(i.ref for i in formation["existing"]))
+                ],
+                "versions": {i.ref.memory_id: i.object_revision for i in formation["existing"]},
+                "sources": [s.model_dump(mode="json") for i in validation_items for s in i.sources],
+                "source_binding": formation["source_binding"],
+                "discovery": formation["discovery"],
+            },
             "attempt": attempt,
             "space_key": space_key,
             "expected_space_seq": expected_space_seq,
@@ -2885,6 +3166,35 @@ class RememberPipeline(Revalidation):
         ]
         with self.uow.transaction() as tx:
             self.tasks.guard(tx, task)
+            official_guard = prepared.get("official_guard")
+            if official_guard is not None:
+                guard_refs = tuple(MemoryRef.model_validate(r) for r in official_guard["refs"])
+                if guard_refs and any(
+                    x.decision != "allowed"
+                    for x in self.final_guard(tx, ctx, guard_refs, "recall").items
+                ):
+                    return RunResult(
+                        outcome="obsolete",
+                        effect_status=EffectStatus.NO_EFFECT,
+                        reason="consolidation history or context no longer eligible",
+                    )
+                evidence_items = (
+                    items[0].model_copy(
+                        update={
+                            "sources": tuple(
+                                SourceRef.model_validate(s) for s in official_guard["sources"]
+                            )
+                        }
+                    ),
+                )
+                if self.comparison_source_binding(tx, evidence_items) != official_guard[
+                    "source_binding"
+                ] or any(
+                    self.current(tx, key).object_revision != version
+                    for key, version in official_guard["versions"].items()
+                ):
+                    tx.write("remember_comparison_retries", task.task_id, {"attempts": attempt + 1})
+                    return None
             if (tx.read("remember_space_seq", space_key) or 0) != expected_space_seq:
                 tx.write("remember_comparison_retries", task.task_id, {"attempts": attempt + 1})
                 return None
@@ -3162,6 +3472,9 @@ class RememberPipeline(Revalidation):
                     "candidate_count": prepared["candidate_count"],
                     "rejected_candidate_count": len(prepared.get("candidate_rejections", [])),
                     "candidate_rejections": prepared.get("candidate_rejections", []),
+                    "consolidation_discovery": (prepared.get("official_guard") or {}).get(
+                        "discovery"
+                    ),
                     "zero_output": not outputs,
                     "zero_output_reason": (
                         "all_candidates_rejected"
