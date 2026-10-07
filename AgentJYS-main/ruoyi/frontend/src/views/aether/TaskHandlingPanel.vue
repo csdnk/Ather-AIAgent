@@ -1,5 +1,6 @@
 <template>
   <section class="handling">
+    <TaskCasePanel :task-id="(data.task || data).task_id" :data="data" />
     <h3>怎么处理这条任务</h3>
     <el-descriptions :column="1" border>
       <el-descriptions-item label="问题">{{ guidance.cause }}</el-descriptions-item>
@@ -15,7 +16,7 @@
     >
     <el-space
       ><el-button @click="copy">复制排查信息</el-button
-      ><el-button @click="$router.push('/aether/faults?tab=support')"
+      ><el-button @click="$router.push('/aether/faults?tab=task_cases')"
         >打开工单跟进</el-button
       ></el-space
     >
@@ -28,6 +29,7 @@ import { taskTriage } from './triage.mjs'
 import { taskAudience } from './console.mjs'
 import { taskKindLabel } from './dashboard.mjs'
 import { statusText } from './presentation.mjs'
+import TaskCasePanel from './TaskCasePanel.vue'
 const props = defineProps<{ data: any }>()
 const guidance = computed(() => taskTriage(props.data))
 const copyResult = ref('')

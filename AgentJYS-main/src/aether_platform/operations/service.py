@@ -291,9 +291,70 @@ class Operations:
                     if k in {"operation_id", "state", "phase", "task_ids", "outcome"}
                 }
                 record = self.store.finish(command_id, status, result)
-            except P3Error:
-                pass
+            except P3Error as exc:
+                if exc.code in {"NOT_FOUND", "HTTP_404"}:
+                    record = {**record, "lookup_status": "not_found"}
         return page([record], 1)
+
+    def resume_task_control(self, actor, token, command):
+        """Resume only an exact original control after an authoritative missing lookup."""
+        from aether_platform.operations.task_cases import require
+
+        require(actor, "aether:tasks:execute")
+        self._validate(command)
+        if command.resource != "tasks" or command.action not in {"cancel", "reconcile"}:
+            raise HTTPException(409, detail={"code": "CASE_ACTION_INVALID"})
+        record, _ = self.store.admit(actor, command)
+        if record["status"] not in {"submitted", "unknown"}:
+            return record
+        try:
+            # Recheck absence here, not merely at the caller. Repeated POST uses
+            # ControlAdmission.existing's durable operation-id/signature fence.
+            observed = self.p3_call(
+                actor, token, "GET", "/p3/controls/" + identifier(command.command_id)
+            )
+            return self.store.finish(
+                command.command_id,
+                {"completed": "complete", "failed": "failed", "unknown": "unknown"}.get(
+                    observed.get("state"), "accepted"
+                ),
+                {
+                    k: v
+                    for k, v in observed.items()
+                    if k in {"operation_id", "state", "phase", "revision", "task_ids", "outcome"}
+                },
+            )
+        except P3Error as exc:
+            if exc.code not in {"NOT_FOUND", "HTTP_404"}:
+                return record
+        try:
+            result = self.p3_call(
+                actor,
+                token,
+                "POST",
+                "/p3/tasks/" + identifier(command.target_id) + "/control",
+                body={
+                    "operation_id": command.command_id,
+                    "action": command.action,
+                    "expected_revision": command.expected_version,
+                    "reason": command.parameters["reason"],
+                },
+            )
+            safe = {
+                k: v
+                for k, v in result.items()
+                if k in {"operation_id", "state", "phase", "revision", "task_ids", "outcome"}
+            }
+            return self.store.finish(command.command_id, "accepted", safe)
+        except P3Error as exc:
+            unknown = exc.code in {
+                "CONNECTION_UNCONFIRMED",
+                "REQUEST_IN_PROGRESS",
+                "INVALID_RESPONSE",
+            }
+            return self.store.finish(
+                command.command_id, "unknown" if unknown else "failed", {"code": exc.code}
+            )
 
     def finish_backup(self, actor, record, result):
         with self.directory.connection() as conn:
@@ -418,6 +479,10 @@ class Operations:
             return self.store.finish(command.command_id, "complete", result, connection=conn)
 
     def command(self, actor, token, command: Command):
+        if command.resource == "support" and command.action.startswith("case_"):
+            from aether_platform.operations.task_cases import TaskCases
+
+            return TaskCases(self).command(actor, token, command)
         admitted = False
         recovery_evidence = {}
         try:

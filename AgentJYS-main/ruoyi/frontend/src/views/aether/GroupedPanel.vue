@@ -9,7 +9,9 @@
         :name="item.resource"
         lazy
       >
+        <TaskCasesBoard v-if="item.resource === 'task_cases'" />
         <ResourcePanel
+          v-else
           :resource="item.resource"
           :title="item.title"
           :description="item.description"
@@ -23,12 +25,14 @@ import { computed, ref, onMounted } from 'vue'
 import { getIdentity } from '@/api/aether'
 import { useRoute } from 'vue-router'
 import ResourcePanel from './ResourcePanel.vue'
+import TaskCasesBoard from './TaskCasesBoard.vue'
 const props = defineProps<{ group: string }>()
 const groups: Record<string, any> = {
   faults: {
     title: '故障处理',
     description: '从告警定位影响，记录处置过程并跟踪恢复。',
     tabs: [
+      { resource: 'task_cases', title: '任务处置' },
       {
         resource: 'incidents',
         title: '告警与处置',
@@ -90,7 +94,9 @@ const visibleTabs = computed(() =>
   config.value.tabs.filter(
     (item: any) =>
       platform.value ||
-      !['resources', 'quotas', 'rules', 'configuration', 'backups'].includes(item.resource)
+      !['task_cases', 'resources', 'quotas', 'rules', 'configuration', 'backups'].includes(
+        item.resource
+      )
   )
 )
 const route = useRoute()

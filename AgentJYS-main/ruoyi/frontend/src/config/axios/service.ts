@@ -197,7 +197,7 @@ service.interceptors.response.use(
         })
       }
     } else if (/^\/aether\/ops\//.test(config.url || '') && code !== 0 && code !== 200) {
-      const error = operationsError(code)
+      const error = operationsError(code, msg)
       ElNotification.error({ title: error.message })
       return Promise.reject(error)
     } else if (code === 500) {

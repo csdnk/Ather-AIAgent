@@ -10,6 +10,10 @@ from psycopg.types.json import Jsonb
 from aether_platform.operations.models import Command, page
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS ops_task_cases (
+ task_id text PRIMARY KEY, tenant_id text, payload jsonb NOT NULL,
+ version integer NOT NULL DEFAULT 1, updated_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE TABLE IF NOT EXISTS ops_commands (
  id text PRIMARY KEY, actor_id text NOT NULL, tenant_id text, resource text NOT NULL,
  action text NOT NULL, target_id text, fingerprint text NOT NULL,

@@ -8,6 +8,36 @@
       <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon />
       <p class="muted">最近更新 {{ formatTime(data.observed_at) }}</p>
       <div class="cards">
+        <el-card v-for="item in liveCards" :key="item.state" shadow="never"
+          ><span>{{ item.label }}</span
+          ><h2>{{
+            data.task_summary ? data.task_summary.by_state?.[item.state] || 0 : '—'
+          }}</h2></el-card
+        >
+      </div>
+      <div class="charts">
+        <el-card shadow="never"
+          ><template #header><h2>累计任务状态分布</h2></template
+          ><Echart
+            v-if="data.task_summary"
+            :options="categoryChart(data.task_summary.by_state, statusText, appStore.getIsDark)"
+            height="360px"
+        /></el-card>
+        <el-card shadow="never"
+          ><template #header><h2>累计任务构成</h2></template
+          ><Echart
+            v-if="data.task_summary"
+            :options="categoryChart(data.task_summary.by_kind, taskKindLabel, appStore.getIsDark)"
+            height="360px"
+        /></el-card>
+      </div>
+      <div class="heading block"
+        ><h2>异常任务与处置</h2
+        ><el-button @click="router.push('/aether/faults?tab=task_cases')"
+          >查看处置工单</el-button
+        ></div
+      >
+      <div class="cards">
         <button
           v-for="item in issueCards"
           :key="item.state"
@@ -102,18 +132,6 @@
           >
         </el-table>
       </el-card>
-      <el-collapse class="block"
-        ><el-collapse-item title="查看历史任务统计" name="history">
-          <p
-            >累计 {{ data.task_summary?.total ?? '—' }} 个任务，最近 24 小时新增
-            {{ data.task_summary?.created_last_24h ?? '—' }} 个。</p
-          >
-          <Echart
-            v-if="data.task_summary"
-            :options="categoryChart(data.task_summary.by_kind, taskKindLabel, appStore.getIsDark)"
-            :height="Math.max(270, Object.keys(data.task_summary.by_kind || {}).length * 32) + 'px'"
-          /> </el-collapse-item
-      ></el-collapse>
     </template>
   </ContentWrap>
 </template>
@@ -139,9 +157,15 @@ const problemState = ref('attention_required'),
   cursors = ref<any[]>([undefined])
 const queues = computed(() => businessQueues(data.value.queue_metrics))
 const issueCards = [
-  { state: 'attention_required', label: '已中断，待排查' },
-  { state: 'failed', label: '处理失败' },
+  { state: 'attention_required', label: '历史中断任务' },
+  { state: 'failed', label: '历史失败任务' },
   { state: 'recovery_wait', label: '等待恢复检查' },
+  { state: 'retry_wait', label: '等待自动重试' }
+]
+const liveCards = [
+  { state: 'pending', label: '排队等待' },
+  { state: 'running', label: '正在执行' },
+  { state: 'recovery_wait', label: '等待恢复' },
   { state: 'retry_wait', label: '等待自动重试' }
 ]
 let sequence = 0
@@ -222,6 +246,11 @@ h2 {
   gap: 16px;
   margin: 20px 0;
 }
+.charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
 .issue-card {
   text-align: left;
   padding: 20px;
@@ -249,6 +278,9 @@ h2 {
   margin-top: 20px;
 }
 @media (max-width: 900px) {
+  .charts {
+    grid-template-columns: 1fr;
+  }
   .cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
