@@ -177,6 +177,24 @@ class Tasks:
 
     def enqueue(self, tx: Transaction, ctx: TrustedContext, spec: TaskSpec) -> TaskRecord:
         sql = native(tx)
+        placement = sql.read("operate_scheduler_bindings", ctx.request_id)
+        if placement:
+            if (
+                spec.kind != "operate.evaluate"
+                or spec.task_id != placement["task_id"]
+                or spec.subject != spec.input_ref
+                or spec.subject.owner != Flow.OPERATE
+                or spec.subject.object_type != "evaluation"
+                or spec.subject.object_id != placement["task_id"]
+            ):
+                sql.abort(ErrorCode.FORBIDDEN, "placement binding cannot admit other tasks")
+            inputs = sql.get(spec.input_ref) or {}
+            if (
+                inputs.get("memory") != placement["memory"]
+                or inputs.get("cleanup") is not False
+                or inputs.get("permanent") is not False
+            ):
+                sql.abort(ErrorCode.FORBIDDEN, "placement binding cannot admit lifecycle cleanup")
         backend = sql.read("meta", "execution_backend")
         if backend and backend.get("backend") == "temporal" and self.on_admitted is None:
             sql.abort(ErrorCode.CONTRACT_VIOLATION, "Temporal admission binding is required")

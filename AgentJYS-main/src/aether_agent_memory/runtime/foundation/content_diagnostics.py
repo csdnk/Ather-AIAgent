@@ -32,6 +32,11 @@ _target: ContextVar[DiagnosticTarget | None] = ContextVar("content_diagnostic_ta
 
 def authorize_operator(identity: Any, tx: Any, ctx: Any, tenant_id: str | None = None) -> None:
     identity.revalidate(tx, ctx)
+    authorize_operator_grants(tx, ctx, tenant_id)
+
+
+def authorize_operator_grants(tx: Any, ctx: Any, tenant_id: str | None = None) -> None:
+    """Check scope and explicit grants after the caller has revalidated identity."""
     row = native(tx).read("identities", ctx.principal.principal_id) or {}
     roles = row.get("ruoyi_roles", [])
     grants = row.get("ruoyi_permissions", [])

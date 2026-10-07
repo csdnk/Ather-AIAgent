@@ -6,7 +6,7 @@ from typing import Any
 from aether_agent_memory.runtime.contracts.models import ErrorCode, Permission, TrustedContext
 
 from .common import FoundationError, fingerprint
-from .content_diagnostics import authorize_operator
+from .content_diagnostics import authorize_operator, authorize_operator_grants
 from .transactions import native
 
 ACTION_GRANTS = {
@@ -23,6 +23,14 @@ def authorize_admin_execution(
     identity: Any, tx: Any, ctx: TrustedContext, tenant: str, user: str, action: str
 ) -> None:
     authorize_operator(identity, tx, ctx, tenant)
+    authorize_admin_grants(identity, tx, ctx, tenant, user, action)
+
+
+def authorize_admin_grants(
+    identity: Any, tx: Any, ctx: TrustedContext, tenant: str, user: str, action: str
+) -> None:
+    """Current action/target checks; caller must first revalidate actor authority."""
+    authorize_operator_grants(tx, ctx, tenant)
     row = native(tx).read("identities", ctx.principal.principal_id)
     required = {"aether:memories:execute", ACTION_GRANTS[action]}
     grants = row.get("ruoyi_permissions", [])

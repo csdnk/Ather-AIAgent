@@ -11,6 +11,7 @@ from aether_agent_memory.operate.standalone.policy import Settings
 from aether_agent_memory.remember.contracts.models import MemoryRef
 from aether_agent_memory.runtime.contracts.models import ErrorCode, EventEnvelope, TrustedContext
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint, later
+from aether_agent_memory.runtime.foundation.placement_authority import placement_context
 from aether_agent_memory.runtime.foundation.requests import event_context
 from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
@@ -224,7 +225,18 @@ class TriggerSchedule(Operate):
             )
             return 0
         try:
-            ctx = event_context(tx, EventEnvelope.model_validate(view["scheduler_event"]), now)
+            trigger = fingerprint([tick_id, key, due])
+            ctx = (
+                event_context(tx, EventEnvelope.model_validate(view["scheduler_event"]), now)
+                if view.get("cleanup")
+                else placement_context(
+                    self.identity,
+                    tx,
+                    key,
+                    fingerprint(["operate", trigger, memory.model_dump(mode="json")]),
+                )
+            )
+            self.identity.revalidate(tx, ctx)
         except FoundationError as exc:
             if exc.code not in {ErrorCode.FORBIDDEN, ErrorCode.UNAUTHENTICATED}:
                 raise
@@ -232,7 +244,6 @@ class TriggerSchedule(Operate):
             view["dormant"] = True
             self.schedule_at(tx, key, view, None, "authorization_required")
             return 0
-        self.identity.revalidate(tx, ctx)
         if not view.get("cleanup"):
             # Autonomous reconciliation may outlive the originating request. Each
             # stage still rechecks current identity/epoch and memory permission.
@@ -243,7 +254,7 @@ class TriggerSchedule(Operate):
             tx,
             ctx,
             memory,
-            fingerprint([tick_id, key, due]),
+            trigger,
             cleanup=view.get("cleanup", False),
             permanent=view.get("permanent", False),
             trigger_kind=view.get("wake_reason", "due"),

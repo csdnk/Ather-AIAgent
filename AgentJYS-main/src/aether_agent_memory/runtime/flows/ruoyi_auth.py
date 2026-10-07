@@ -30,6 +30,7 @@ class RuoyiAuthenticator:
         }
         identity.ruoyi_revalidate = self.revalidate
         identity.admin_target_check = self.check_admin_target
+        identity.placement_revalidate = self.revalidate_placement
 
     def check_admin_target(self, tenant: str, user: str) -> None:
         """Resolve approved business ownership without requiring a target login."""
@@ -232,26 +233,7 @@ class RuoyiAuthenticator:
                 or grant.get("expires", 0) <= time.time()
             ):
                 raise AccessDeniedError("Ruoyi authority expired or changed")
-            current = self.verifier.remote(
-                "POST",
-                "/admin-api/aether/identity/status",
-                auth=httpx.BasicAuth(self.verifier.config["client_id"], self.verifier._secret),
-                data={
-                    "user_id": row["ruoyi_user_id"],
-                    "tenant_id": row["ruoyi_tenant_id"],
-                    "token_hash": grant["token_hash"],
-                },
-            )
-            if (
-                current.get("user_enabled") is not True
-                or current.get("tenant_enabled") is not True
-                or self.authority(current) != row["ruoyi_authority"]
-            ):
-                raise AccessDeniedError("Ruoyi authority revoked or changed")
-            projected = self.principal(current, self.verifier.binding(current))
-            stored = Principal.model_validate(row["principal"])
-            if projected.model_copy(update={"auth_epoch": stored.auth_epoch}) != stored:
-                raise AccessDeniedError("Ruoyi scope or permissions changed")
+            self._revalidate_live(row, ctx, grant["token_hash"])
         except RuoyiUnavailableError:
             raise FoundationError(
                 ErrorCode.DEPENDENCY_UNAVAILABLE, "Ruoyi authority unavailable"
@@ -260,6 +242,52 @@ class RuoyiAuthenticator:
             raise FoundationError(
                 ErrorCode.FORBIDDEN, "Ruoyi authority revoked or changed"
             ) from None
+
+    def revalidate_placement(self, tx: Any, row: dict[str, Any], ctx: Any) -> None:
+        """Internal one-memory placement bindings use current service-side authority.
+
+        The Foundation validates the durable binding before calling this method.
+        Interactive requests and other jobs retain their credential lifetime.
+        """
+        try:
+            if (
+                row.get("ruoyi_source") != self.verifier.config["issuer"]
+                or row.get("ruoyi_policy") != self.policy
+            ):
+                raise AccessDeniedError("Ruoyi trust policy changed")
+            self._revalidate_live(row, ctx)
+        except RuoyiUnavailableError:
+            raise FoundationError(
+                ErrorCode.DEPENDENCY_UNAVAILABLE, "Ruoyi authority unavailable"
+            ) from None
+        except (AccessDeniedError, KeyError, TypeError, ValueError):
+            raise FoundationError(
+                ErrorCode.FORBIDDEN, "Ruoyi authority revoked or changed"
+            ) from None
+
+    def _revalidate_live(
+        self, row: dict[str, Any], ctx: Any, token_hash: str | None = None
+    ) -> None:
+        current = self.verifier.remote(
+            "POST",
+            "/admin-api/aether/identity/status",
+            auth=httpx.BasicAuth(self.verifier.config["client_id"], self.verifier._secret),
+            data={
+                "user_id": row["ruoyi_user_id"],
+                "tenant_id": row["ruoyi_tenant_id"],
+                **({"token_hash": token_hash} if token_hash is not None else {}),
+            },
+        )
+        if (
+            current.get("user_enabled") is not True
+            or current.get("tenant_enabled") is not True
+            or self.authority(current) != row["ruoyi_authority"]
+        ):
+            raise AccessDeniedError("Ruoyi authority revoked or changed")
+        projected = self.principal(current, self.verifier.binding(current))
+        stored = Principal.model_validate(row["principal"])
+        if projected.model_copy(update={"auth_epoch": stored.auth_epoch}) != stored:
+            raise AccessDeniedError("Ruoyi scope or permissions changed")
 
     def close(self) -> None:
         self.verifier.close()
