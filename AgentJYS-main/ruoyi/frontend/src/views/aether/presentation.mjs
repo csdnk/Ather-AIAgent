@@ -21,7 +21,7 @@ const states = {
   save_failed: '记忆保存失败',
   save_queued: '已排队等待保存',
   not_connected: '尚无保存回执',
-  attention_required: '需要人工处理',
+  attention_required: '已中断，待排查',
   retry_wait: '等待自动重试',
   recovery_wait: '等待恢复检查',
   not_ready: '暂不能接收业务请求',

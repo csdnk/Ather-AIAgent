@@ -199,7 +199,9 @@
           :title="detailError"
           type="error"
           :closable="false" /><template v-else-if="!detailLoading"
-          ><p>{{ taskOutcome(selected) }}</p
+          ><TaskHandlingPanel v-if="selected.task" :data="selected" /><p>{{
+            taskOutcome(selected)
+          }}</p
           ><EvidencePanel title="业务与执行观测" :data="selected.task || selected" /><EvidencePanel
             v-if="selected.workflow"
             title="工作流状态"
@@ -220,6 +222,8 @@ import { useRoute } from 'vue-router'
 import { getIdentity, getConsole } from '@/api/aether'
 import { readTaskDiagnostics } from '../taskAccess.mjs'
 import ResourcePanel from '../ResourcePanel.vue'
+import TaskHandlingPanel from '../TaskHandlingPanel.vue'
+import { taskStateFilter } from '../triage.mjs'
 import EvidencePanel from '../EvidencePanel.vue'
 import {
   errorMessage,
@@ -245,7 +249,7 @@ const data = ref<any>({}),
   page = ref(1),
   cursors = ref<any[]>([undefined])
 const flowFilter = ref(''),
-  stateFilter = ref('')
+  stateFilter = ref(taskStateFilter(route.query.state))
 const taskStates = [
   'pending',
   'running',
@@ -346,6 +350,13 @@ onMounted(async () => {
   if (!error.value) await openLinkedTask()
 })
 watch(() => route.query.task_id, openLinkedTask)
+watch(
+  () => route.query.state,
+  (value) => {
+    stateFilter.value = taskStateFilter(value)
+    filterTasks()
+  }
+)
 onBeforeUnmount(() => {
   requestNumber++
   clearDetail()
