@@ -4,9 +4,7 @@ Shared policy and models provide the heat calculation. Runtime scheduling has
 one owner: Foundation. Every due time, input and action survives process exit.
 """
 
-import asyncio
 from dataclasses import asdict
-from datetime import datetime
 from typing import Any
 
 from aether_agent_memory.operate.contracts.models import (
@@ -29,26 +27,17 @@ from aether_agent_memory.runtime.contracts.models import (
     TrustedContext,
 )
 from aether_agent_memory.runtime.contracts.ports import Transaction
-from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint, later
-from aether_agent_memory.runtime.foundation.requests import event_context
+from aether_agent_memory.runtime.foundation.common import fingerprint, later
 from aether_agent_memory.runtime.foundation.transactions import native
 from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
-from .service import Operate
+from .triggers import ACTIVE, TriggerSchedule, seconds
 
 
-def seconds(timestamp: str) -> float:
-    return datetime.fromisoformat(timestamp.replace("Z", "+00:00")).timestamp()
-
-
-class ContinuousOperate(Operate):
+class ContinuousOperate(TriggerSchedule):
     def __init__(self, *args: Any, settings: Settings | None = None, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.settings = settings or Settings()
-
-    @staticmethod
-    def key(memory: MemoryRef) -> str:
-        return fingerprint([memory.scope.model_dump(mode="json"), memory.memory_id])
 
     def consume(self, tx: Transaction, event: EventEnvelope) -> None:
         sql = native(tx)
@@ -64,8 +53,14 @@ class ContinuousOperate(Operate):
         view = sql.read("operate_views", key)
         if view is None or view["memory"] != memory.model_dump(mode="json"):
             return
-        view["next_evaluation_at"] = self.identity.clock()
-        view["dormant"] = False
+        # Parent admission rejected old/duplicate/non-read events: do not wake them.
+        if view.get("event", {}).get("event_id") != event.event_id or (
+            old and old.get("event", {}).get("event_id") == event.event_id
+        ):
+            return
+        if old and old.get("due_key") and old["due_key"] != view.get("due_key"):
+            # Version replacement resets the view; remove its superseded queue pointer.
+            sql.raw.delete("p3_rf_operate_due", "system", old["due_key"])
         raw = sql.read("operate_heat", key)
         if raw and raw["version"] != memory.version:
             sql.raw.delete("p3_rf_operate_heat", "system", key)
@@ -127,30 +122,27 @@ class ContinuousOperate(Operate):
             if target != Tier.COLD:
                 stats.cold_since = None
             outcome = "keep"
-            reason = f"heat={stats.heat:.6f}; desired={target.value}; hysteresis_v1"
-            levels = [Tier.COLD, Tier.WARM, Tier.HOT]
-            current_index, target_index = levels.index(inputs.current_tier), levels.index(target)
-            if self.paused or inputs.coverage != "complete":
+            reason = f"heat={stats.heat:.6f}; desired={target.value}; two_tier_hysteresis_v2"
+            if self.paused or inputs.coverage != "complete" or inputs.current_tier == Tier.WARM:
                 outcome, target, reason = (
                     "defer",
                     inputs.current_tier,
                     "observation incomplete or paused",
                 )
-            elif current_index != target_index and inputs.available_bytes < inputs.content_bytes:
+            elif (
+                target == Tier.HOT
+                and inputs.current_tier != target
+                and inputs.available_bytes < inputs.content_bytes
+            ):
                 outcome, target, reason = "defer", inputs.current_tier, "copy capacity unavailable"
-            elif current_index < target_index:
-                outcome, target = "promote", levels[current_index + 1]
-            elif current_index > target_index:
-                outcome, target = "demote", levels[current_index - 1]
+            elif inputs.current_tier != target:
+                outcome = "promote" if target == Tier.HOT else "demote"
             tx.write("operate_heat", key, {**asdict(stats), "version": inputs.memory.version})
             view = tx.read("operate_views", key)
             if view:
-                delay = (
-                    self.settings.retry_seconds
-                    if outcome != "keep"
-                    else next_delay(stats, seconds(self.identity.clock()), self.settings)
-                )
-                view["next_evaluation_at"] = later(self.identity.clock(), delay)
+                view["last_evaluated_at"] = self.identity.clock()
+                view["evaluated_access_watermark"] = view["access_watermark"]
+                view["evaluated_storage_watermark"] = inputs.storage_watermark
                 tx.write("operate_views", key, view)
         return PlacementDecision(
             decision_id=fingerprint([inputs.model_dump(mode="json"), asdict(stats), outcome]),
@@ -159,31 +151,10 @@ class ContinuousOperate(Operate):
             current_tier=inputs.current_tier,
             target_tier=target,
             reason=reason,
-            policy_version="continuous_heat_v1",
+            policy_version="ceph_redis_heat_v2",
             storage_watermark=inputs.storage_watermark,
             access_watermark=inputs.access_watermark,
         )
-
-    def pending(
-        self, tx: MetadataTransaction, memory: MemoryRef, exclude_task_id: str | None = None
-    ) -> bool:
-        for _, row in tx.rows("tasks"):
-            task = row["record"]
-            if task["task_id"] == exclude_task_id:
-                continue
-            if task["kind"] != "operate.evaluate" or task["state"] not in {
-                "pending",
-                "running",
-                "retry_wait",
-                "recovery_wait",
-            }:
-                continue
-            if task["subject"]["scope"] != memory.scope.model_dump(mode="json"):
-                continue
-            content = tx.read("operate_evaluation_inputs", task["task_id"])
-            if content == self.key(memory):
-                return True
-        return False
 
     async def before_completion(
         self, ctx: TrustedContext, task: TaskRecord, value: dict[str, Any]
@@ -198,54 +169,95 @@ class ContinuousOperate(Operate):
             if view is None or view["memory"] != memory.model_dump(mode="json"):
                 return
             if inputs["cleanup"]:
-                output = value
                 if (
-                    output == {"cache_cleanup": "completed"}
+                    value == {"cache_cleanup": "completed"}
                     and view.get("cleanup")
                     and view.get("permanent", False) == inputs["permanent"]
                 ):
                     view["cleanup_completed"] = True
-                    tx.write("operate_views", key, view)
+                    self.schedule_at(tx, key, view, None, "cleanup_completed")
                     tx.raw.delete("p3_rf_operate_heat", "system", key)
                 return
+            if view.get("cleanup") or self.pending(tx, memory, task.task_id):
+                return
+            head = tx.read("operate_evaluation_head", key)
+            if (head and head["task_id"] != task.task_id) or view.get(
+                "trigger_completion_task"
+            ) == task.task_id:
+                return  # Lost completion response: never advance backoff/retention twice.
+            decision = value.get("decision", {})
+            if decision.get("reason") == "unsupported_tier_transition":
+                view["trigger_completion_task"] = task.task_id
+                self.park_capability(tx, key, view)
+                return
+            succeeded = (
+                decision.get("outcome") == "keep" or value.get("action_state") == "succeeded"
+            )
+            if not succeeded:
+                view["trigger_completion_task"] = task.task_id
+                self.retry_evaluation(tx, key, view, "temporary_failure")
+                return
             heat = tx.read("operate_heat", key)
-            if not heat or heat["desired"] != "cold" or self.pending(tx, memory, task.task_id):
+            if not heat:
+                # Upgrading an already running task: re-evaluate with the new policy.
+                view["trigger_completion_task"] = task.task_id
+                self.schedule_at(tx, key, view, self.evaluation_not_before(view), "upgrade")
                 return
-            now = seconds(self.identity.clock())
-            since = heat.get("cold_since")
-            if since is None:
-                heat["cold_since"] = now
-                tx.write("operate_heat", key, heat)
+            view["failure_count"] = 0
+            view.pop("retry_not_before", None)
+            dirty = view["access_watermark"] > view.get("evaluated_access_watermark", -1) or view[
+                "storage_watermark"
+            ] > view.get("evaluated_storage_watermark", -1)
+            if dirty:
+                view["trigger_completion_task"] = task.task_id
+                self.schedule_at(tx, key, view, self.evaluation_not_before(view), "new_input")
                 return
-            if now - since < self.settings.stats_retention_seconds:
-                return
-            pending = tx.read("operate_pending", key)
-            action = tx.read("operate_actions", pending) if pending else None
-            if action and action["state"] not in {"succeeded", "failed", "cancelled"}:
-                return
+            tx.write("operate_views", key, view)
+        # Fresh evidence before sleeping: a keep/defer label is not storage proof.
         observation = await self.executor.observe(ctx, memory, "original")
-        if observation.tier != Tier.COLD or not observation.readable:
-            return
         with self.uow.transaction() as tx:
             self.identity.revalidate(tx, ctx)
             if tx.read("operate_views", key) != view or tx.read("operate_heat", key) != heat:
-                return
+                return  # A new event already installed its own wake-up.
             if (
                 self.memories.final_guard(tx, ctx, (memory,), "actuate").items[0].decision
                 != "allowed"
             ):
                 return
-        await asyncio.to_thread(self.executor.purge, memory, permanent=False, ctx=ctx)
-        with self.uow.transaction() as tx:
-            self.identity.revalidate(tx, ctx)
-            if tx.read("operate_views", key) != view or tx.read("operate_heat", key) != heat:
+            view["trigger_completion_task"] = task.task_id
+            if not observation.readable or observation.tier.value != heat["desired"]:
+                self.retry_evaluation(tx, key, view, "placement_unconfirmed")
                 return
-            # Keep the durable storage/authority watermark for the next read event.
-            # Only heat and optional bytes are disposable, not scheduling provenance.
-            view["dormant"] = True
-            tx.write("operate_views", key, view)
-            tx.raw.delete("p3_rf_operate_heat", "system", key)
-        return
+            if observation.tier == Tier.COLD:
+                view["dormant"] = True
+                # One metadata-only expiry, not another heat calculation or P2 read.
+                heat["cold_since"] = seconds(self.identity.clock())
+                tx.write("operate_heat", key, heat)
+                self.schedule_at(
+                    tx,
+                    key,
+                    view,
+                    later(self.identity.clock(), self.settings.stats_retention_seconds),
+                    "retire_stats",
+                )
+            else:
+                stats = self.stats(
+                    memory,
+                    heat["memory"]["content_hash"],
+                    heat["memory"]["size"],
+                    heat["memory"]["importance"],
+                    heat,
+                )
+                delay = next_delay(stats, seconds(self.identity.clock()), self.settings)
+                view["dormant"] = False
+                # No repeated five-minute audit; the next wake is the predicted crossing.
+                self.schedule_at(
+                    tx,
+                    key,
+                    view,
+                    later(self.identity.clock(), delay) if delay is not None else None,
+                    "threshold_crossing",
+                )
 
     def enqueue(
         self,
@@ -258,6 +270,17 @@ class ContinuousOperate(Operate):
         permanent: bool,
         trigger_kind: str = "unrecorded",
     ) -> str:
+        # Coalesce notifications, never the access statistics. Cleanup has its
+        # own admission path so archive/delete cannot hide behind a read task.
+        head = tx.read("operate_evaluation_head", self.key(memory)) if not cleanup else None
+        row = tx.read("tasks", head["task_id"]) if head else None
+        if (
+            head
+            and head["memory"] == memory.model_dump(mode="json")
+            and row
+            and row["record"]["state"] in ACTIVE
+        ):
+            return str(head["task_id"])
         result = super().enqueue(
             tx,
             ctx,
@@ -268,47 +291,10 @@ class ContinuousOperate(Operate):
             trigger_kind=trigger_kind,
         )
         tx.write("operate_evaluation_inputs", result, self.key(memory))
-        return result
-
-    def periodic(self, tick_id: str) -> int:
-        with self.uow.transaction() as tx:
-            keys = [key for key, _ in tx.rows("operate_views")]
-        count = 0
-        for key in keys:
-            try:
-                with self.uow.transaction() as tx:
-                    count += self.periodic_item(tx, key, tick_id)
-            except FoundationError:
-                continue
-        return count
-
-    def periodic_item(self, tx: MetadataTransaction, key: str, tick_id: str) -> int:
-        count = 0
-        now = self.identity.clock()
-        view = tx.read("operate_views", key)
-        if (
-            not view
-            or view.get("cleanup_completed")
-            or view.get("dormant")
-            or not self.should_evaluate(cleanup=view.get("cleanup", False))
-            or not view.get("scheduler_event")
-            or view.get("next_evaluation_at", "") > now
-        ):
-            return count
-        memory = MemoryRef.model_validate(view["memory"])
-        ctx = event_context(tx, EventEnvelope.model_validate(view["scheduler_event"]), now)
-        self.identity.revalidate(tx, ctx)
-        if not self.pending(tx, memory):
-            self.enqueue(
-                tx,
-                ctx,
-                memory,
-                fingerprint([tick_id, key]),
-                cleanup=view.get("cleanup", False),
-                permanent=view.get("permanent", False),
-                trigger_kind="periodic",
+        if not cleanup:
+            tx.write(
+                "operate_evaluation_head",
+                self.key(memory),
+                {"task_id": result, "memory": memory.model_dump(mode="json")},
             )
-            count += 1
-        view["next_evaluation_at"] = later(now, self.settings.retry_seconds)
-        tx.write("operate_views", key, view)
-        return count
+        return result

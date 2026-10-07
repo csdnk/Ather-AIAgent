@@ -254,6 +254,10 @@ class RememberPipeline(Revalidation):
         else:
             text = self.bodies.read_local(record.body_location)
         self.bodies.prepared[record.body_location.object_key] = record.body_location
+        return self.authority_snapshot(record, text)
+
+    @staticmethod
+    def authority_snapshot(record: MemoryRecord, text: str) -> MemorySnapshot:
         return MemorySnapshot(
             ref=record.ref,
             revision=record.revision,
@@ -1312,6 +1316,33 @@ class RememberPipeline(Revalidation):
             ):
                 return {"content": None, "status": "changed_during_read"}
         return {"content": text, "status": "excerpt"}
+
+    def read_authority(self, ctx: TrustedContext, ref: MemoryRef) -> MemorySnapshot:
+        """Fresh Ceph proof for placement; bypass Redis and the process body cache."""
+        with self.uow.transaction() as tx:
+            authorize_content_read(self.identity, tx, ctx, memory_ref(ref))
+            guard = self.final_guard(tx, ctx, (ref,), "actuate").items[0]
+            if guard.decision != "allowed":
+                tx.abort(ErrorCode.MEMORY_GONE, "authority version no longer eligible")
+            raw = required_record(tx, memory_ref(ref, versioned=True))
+            if "body_location" not in raw:
+                tx.abort(ErrorCode.DEPENDENCY_UNAVAILABLE, "Ceph authority location missing")
+            record = MemoryRecord.model_validate(raw)
+            if record.body_location.provider_id != "ceph":
+                tx.abort(ErrorCode.DEPENDENCY_UNAVAILABLE, "Ceph authority is not configured")
+        # Physical I/O is outside the metadata transaction, and never falls back
+        # to Redis, an in-process copy or inline metadata as a durability proof.
+        text = self.bodies.read_local(record.body_location)
+        with self.uow.transaction() as tx:
+            authorize_content_read(self.identity, tx, ctx, memory_ref(ref))
+            current = self.final_guard(tx, ctx, (ref,), "actuate").items[0]
+            if (
+                current.decision != "allowed"
+                or current.checked_revision != guard.checked_revision
+                or tx.get(memory_ref(ref, versioned=True)) != raw
+            ):
+                tx.abort(ErrorCode.VERSION_CONFLICT, "authority changed during verification")
+        return self.authority_snapshot(record, text)
 
     async def read_body(self, ctx: TrustedContext, ref: MemoryRef) -> FullBodyReadResult:
         await self.hydrate(ctx, (ref,))

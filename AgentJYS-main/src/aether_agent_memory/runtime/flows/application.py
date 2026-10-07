@@ -176,8 +176,8 @@ class Service:
                 ContinuousOperate,
                 settings=Settings(
                     decay_seconds=config.operate_decay_seconds,
-                    audit_seconds=config.operate_audit_seconds,
-                    retry_seconds=config.operate_retry_seconds,
+                    evaluation_window_seconds=config.operate_evaluation_window_seconds,
+                    evaluation_timeout_seconds=config.operate_evaluation_timeout_seconds,
                     stats_retention_seconds=config.operate_stats_retention_seconds,
                 ),
             ),

@@ -179,7 +179,10 @@ def test_trigger_metadata_survives_idempotent_enqueue_without_changing_task_inpu
     from aether_agent_memory.remember.contracts.models import MemoryRef
 
     identity, ctx, _ = operator(tmp_path)
-    service = SimpleNamespace(tasks=SimpleNamespace(enqueue=lambda *args: None))
+    service = SimpleNamespace(
+        tasks=SimpleNamespace(enqueue=lambda *args: None),
+        evaluation_attempt_budget=lambda **kwargs: 3,
+    )
     memory = MemoryRef.model_validate(action()["intent"]["decision"]["memory"])
     with identity.uow.transaction() as tx:
         task_id = Operate.enqueue(
@@ -226,3 +229,37 @@ def test_resuming_an_action_preserves_its_original_trigger(tmp_path):
     with identity.uow.transaction() as tx:
         assert tx.read("operate_action_triggers", "action1") == {"kind": "recall.access"}
         assert tx.read("operate_task_actions", "retry")["action_id"] == "action1"
+
+
+@pytest.mark.asyncio
+async def test_two_tier_policy_is_reported_as_supported_with_new_reason(tmp_path):
+    identity, ctx, _ = operator(tmp_path)
+    host = runtime(identity, tmp_path)
+    host.executor = SimpleNamespace(policy_managed=True, supported_moves=("promote", "demote"))
+    admin = AdminDiagnostics(
+        host,
+        SimpleNamespace(
+            ledger=SimpleNamespace(
+                config=SimpleNamespace(namespace="isolated", deployment_id="one")
+            )
+        ),
+    )
+    row = action()
+    decision = row["intent"]["decision"]
+    decision.update(
+        current_tier="cold",
+        policy_version="ceph_redis_heat_v2",
+        reason="heat=0.900000; desired=hot; two_tier_hysteresis_v2",
+    )
+    with identity.uow.transaction() as tx:
+        tx.write("operate_actions", "action1", row)
+        tx.write("operate_task_actions", "task1", {"action_id": "action1"})
+        tx.write(
+            "temporal_bindings", "task1", {"namespace": "isolated", "job": {"deployment_id": "one"}}
+        )
+    result = await admin.placements(ctx)
+    assert result["placement_capability"] == "supported"
+    assert result["items"][0]["policy_version"] == "ceph_redis_heat_v2"
+    assert result["items"][0]["decision_reason"] == "heat_policy"
+    assert result["items"][0]["current_tier"] == "cold"
+    assert result["items"][0]["heat"] == 0.9

@@ -14,8 +14,15 @@
       <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon />
       <el-alert
         v-if="data.placement_capability === 'unsupported'"
-        title="当前存储执行器不支持层级迁移，普通分层评估已停止"
+        title="未配置可核验的原文读取器，自动冷热调度已停止"
         type="warning"
+        :closable="false"
+        show-icon
+        class="capability"
+      />
+      <el-alert
+        title="两层调度：Ceph 始终保留原文，Redis 只保存热副本；降温只移除热副本。"
+        type="info"
         :closable="false"
         show-icon
         class="capability"
@@ -67,7 +74,7 @@
             ><p class="reason">{{ decisionText(row) }}</p></template
           ></el-table-column
         >
-        <el-table-column label="原层级 → 目标层级" min-width="170"
+        <el-table-column label="原状态 → 目标状态" min-width="170"
           ><template #default="{ row }"
             >{{ tierText(row.current_tier) }} → {{ tierText(row.target_tier) }}</template
           ></el-table-column

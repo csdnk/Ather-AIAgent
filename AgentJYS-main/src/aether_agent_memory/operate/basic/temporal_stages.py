@@ -191,6 +191,7 @@ class OperateStages(StoredStages):
                 self.owner.executor.cleanup_complete, memory, permanent=data["permanent"]
             ):
                 return self.unknown(c.task.task_id)
+            await c.blocking(partial(self.owner.complete_cleanup_record, c.context, c.task, memory))
             result = {"cache_cleanup": "completed"}
         else:
             result = data.get("value", {"cache_cleanup": "ineligible"})
