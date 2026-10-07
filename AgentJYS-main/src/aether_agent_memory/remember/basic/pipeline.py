@@ -29,6 +29,7 @@ from aether_agent_memory.remember.contracts.models import (
     ExtractionResult,
     FactEvidence,
     MemoryKind,
+    MemoryMode,
     MemoryReadBatch,
     MemoryRef,
     MemorySnapshot,
@@ -40,6 +41,8 @@ from aether_agent_memory.remember.contracts.models import (
     RememberRequest,
     SourceInput,
     SourceRef,
+    SourceSearchRequest,
+    SourceSearchResult,
 )
 from aether_agent_memory.runtime.contracts.foundation import ResourceLocation
 from aether_agent_memory.runtime.contracts.http_evidence import HttpRequestEvidence
@@ -96,6 +99,7 @@ from .reflection import Reflection
 from .retention import Retention
 from .revalidation import Revalidation
 from .service import memory_ref
+from .source_search import SourceSearch
 from .sources import PreparedDocument, SourceAccess
 from .summaries import SummaryPort, WorkingSummaries
 
@@ -200,6 +204,7 @@ class RememberPipeline(Revalidation):
         self.documents = documents or {}
         self.support_verifier = support_verifier
         self.source_access = SourceAccess(self)
+        self.source_search = SourceSearch(self)
         self.summaries = WorkingSummaries(self, summarizer)
         super().__init__(*args, **kwargs)
         self.tasks.register("remember.compress", "remember", self, permission=Permission.READ)
@@ -660,6 +665,7 @@ class RememberPipeline(Revalidation):
                     "trigger": request.trigger,
                     "principal_id": ctx.principal.principal_id,
                     "task_context": request.task_context,
+                    "memory_mode": request.memory_mode.value,
                 },
             )
             if document is not None:
@@ -682,18 +688,28 @@ class RememberPipeline(Revalidation):
                     "tokens": self.tokenizer.count(text),
                     "bytes": len(text.encode("utf-8")),
                     "created_at": item.created_at,
-                    "state": "waiting_compression" if summarized else "pending",
+                    "state": (
+                        "reference_only"
+                        if request.memory_mode == MemoryMode.REFERENCE_ONLY
+                        else "waiting_compression"
+                        if summarized and self.policy.precompression_enabled
+                        else "pending"
+                    ),
                     "context": ctx.model_dump(mode="json"),
                 },
             )
             if summarized:
                 self.register_source_reference(tx, item, len(text.encode("utf-8")))
+            if request.memory_mode == MemoryMode.REFERENCE_ONLY:
+                task_ids = []
+            elif summarized and self.policy.precompression_enabled:
                 task_ids = [self.enqueue(tx, ctx, item, "remember.compress")]
                 row = tx.read("remember_pending", key)
                 tx.write("remember_pending", key, {**row, "compression_task_id": task_ids[0]})
             else:
                 task_ids = list(self.schedule(tx, ctx, scope, force=request.trigger != "observe"))
-                task_ids.append(self.enqueue(tx, ctx, item, "remember.project"))
+                if not summarized:
+                    task_ids.append(self.enqueue(tx, ctx, item, "remember.project"))
             self.emit(tx, ctx, item, "saved")
             result = RememberReceipt(
                 operation_id=ctx.operation_id,
@@ -985,6 +1001,14 @@ class RememberPipeline(Revalidation):
         with self.uow.transaction() as tx:
             item = self.current(tx, memory_id)
             self.identity.authorize(tx, ctx, Permission.WRITE, memory_ref(item.ref))
+            if (
+                item.kind == MemoryKind.WORKING
+                and self.memory_mode(tx, item) == MemoryMode.REFERENCE_ONLY
+            ):
+                raise FoundationError(
+                    ErrorCode.INVALID_ARGUMENT,
+                    "reference-only sources are excluded from automatic reprocessing",
+                )
             mutation = self.mutations.begin(
                 tx,
                 ctx,
@@ -1012,6 +1036,10 @@ class RememberPipeline(Revalidation):
                 and summary["memory"] == item.ref.model_dump(mode="json")
             ):
                 kind = "remember.summarize"
+            if kind is None:
+                raise FoundationError(
+                    ErrorCode.INVALID_ARGUMENT, "no processing task for reference"
+                )
             task_id = self.enqueue(tx, ctx, item, kind)
             mutation.finish({"task_id": task_id}, task_ids=(task_id,))
             return task_id
@@ -1262,6 +1290,7 @@ class RememberPipeline(Revalidation):
                     r["state"] in {"failed", "attention_required"} for r in rows
                 ),
                 "memory_status": item.status.value,
+                "memory_mode": self.memory_mode(tx, item).value,
                 "projection_state": item.projection_state.value,
                 "derived_memory_ids": sorted(memory_ids - {memory_id}),
                 "rejected_candidate_count": len(rejections),
@@ -1397,6 +1426,11 @@ class RememberPipeline(Revalidation):
         request: CorrectionRequest,
     ) -> str:
         prior = tx.read("remember_working_summaries", item.ref.memory_id)
+        mode = self.memory_mode(tx, item)
+        source_policy = tx.read("remember_source_policy", item.sources[0].source_id) or {}
+        tx.write(
+            "remember_source_policy", source.source_id, {**source_policy, "memory_mode": mode.value}
+        )
         summarize = len(request.content.encode("utf-8")) >= self.policy.compression_min_bytes
         new_ref = item.ref.model_copy(update={"version": item.ref.version + 1})
         if summarize:
@@ -1425,12 +1459,29 @@ class RememberPipeline(Revalidation):
                 "bytes": len(request.content.encode("utf-8")),
                 "created_at": self.identity.clock(),
                 "context": ctx.model_dump(mode="json"),
-                "state": "waiting_compression" if summarize else "pending",
+                "state": (
+                    "reference_only"
+                    if mode == MemoryMode.REFERENCE_ONLY
+                    else "waiting_compression"
+                    if summarize and self.policy.precompression_enabled
+                    else "pending"
+                ),
             },
         )
         return body
 
-    def working_task_kind(self, tx: MetadataTransaction, item: MemorySnapshot) -> str:
+    def memory_mode(self, tx: MetadataTransaction, item: MemorySnapshot) -> MemoryMode:
+        modes = [
+            (tx.read("remember_source_policy", source.source_id) or {}).get(
+                "memory_mode", "automatic"
+            )
+            for source in item.sources
+        ]
+        return MemoryMode.REFERENCE_ONLY if "reference_only" in modes else MemoryMode.AUTOMATIC
+
+    def working_task_kind(self, tx: MetadataTransaction, item: MemorySnapshot) -> str | None:
+        if self.memory_mode(tx, item) == MemoryMode.REFERENCE_ONLY:
+            return None
         pending = tx.read("remember_pending", item.ref.memory_id)
         if (
             pending
@@ -1446,6 +1497,8 @@ class RememberPipeline(Revalidation):
     def projection_buildable(self, tx: MetadataTransaction, item: MemorySnapshot) -> bool:
         if item.kind != MemoryKind.WORKING:
             return True
+        if self.memory_mode(tx, item) == MemoryMode.REFERENCE_ONLY:
+            return False
         representation = tx.read("remember_working_representations", item.ref.memory_id)
         if representation and representation["memory"] == item.ref.model_dump(mode="json"):
             return False
@@ -1700,6 +1753,12 @@ class RememberPipeline(Revalidation):
     ) -> dict[str, Any]:
         """Agent/file-tool entry point. Source reads do not count as packed memory use."""
         return await self.source_access.read(ctx, source, start, end)
+
+    async def search_sources(
+        self, ctx: TrustedContext, request: SourceSearchRequest
+    ) -> SourceSearchResult:
+        """Source-scoped file retrieval, independent of compression and Recall."""
+        return await self.source_search.search(ctx, request)
 
     async def run(self, ctx: TrustedContext, task: TaskRecord) -> RunResult:
         with self.uow.transaction() as tx:

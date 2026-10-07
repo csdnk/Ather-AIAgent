@@ -47,3 +47,10 @@ temporal:
 maintenance_principals: [bootstrap_admin]
 shutdown_seconds: 30
 http_wait_seconds: 30
+
+# Separate durable broker; value is supplied only by the protected environment.
+celery:
+  broker_url_env: P3_CELERY_BROKER_URL
+  queue_prefix: p3.remember
+  repair_seconds: 30
+  visibility_timeout: 7200

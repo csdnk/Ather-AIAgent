@@ -58,7 +58,8 @@ def lookup_operation(
         if bound is None:
             raise FoundationError(ErrorCode.VERSION_CONFLICT, "original Temporal binding missing")
         job = WorkflowInput.model_validate(bound["job"])
-        expected_workflow = f"p3/{ledger.config.deployment_id}/{kind}/{job_id}"
+        prefix = "celery" if bound.get("backend") == "celery" else "p3"
+        expected_workflow = f"{prefix}/{ledger.config.deployment_id}/{kind}/{job_id}"
         if (
             job.job_id != job_id
             or job.kind != kind

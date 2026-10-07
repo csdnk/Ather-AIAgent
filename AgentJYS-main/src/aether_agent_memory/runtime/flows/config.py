@@ -8,6 +8,7 @@ import yaml
 from pydantic import AnyHttpUrl, Field, model_validator
 
 from aether_agent_memory.remember.basic.policy import RememberPolicy
+from aether_agent_memory.runtime.celery.config import CeleryConfiguration
 from aether_agent_memory.runtime.contracts.models import (
     AuthorizationGrant,
     ContractModel,
@@ -218,6 +219,7 @@ class BrowserIdentityConfiguration(ContractModel):
 
 class ServiceConfiguration(ContractModel):
     temporal: TemporalConfiguration
+    celery: CeleryConfiguration = Field(default_factory=CeleryConfiguration)
     http_wait_seconds: float = Field(default=30, gt=0, le=300)
     request_timeout_seconds: float = Field(default=60, gt=0, le=3600, allow_inf_nan=False)
     health_probe_timeout_seconds: float = Field(default=2, gt=0, le=60, allow_inf_nan=False)

@@ -196,7 +196,11 @@ class Tasks:
             ):
                 sql.abort(ErrorCode.FORBIDDEN, "placement binding cannot admit lifecycle cleanup")
         backend = sql.read("meta", "execution_backend")
-        if backend and backend.get("backend") == "temporal" and self.on_admitted is None:
+        if (
+            backend
+            and backend.get("backend") in {"temporal", "hybrid_v1"}
+            and self.on_admitted is None
+        ):
             sql.abort(ErrorCode.CONTRACT_VIOLATION, "Temporal admission binding is required")
         spec = TaskSpec.model_validate_json(spec.model_dump_json())
         self.identity.authorize(

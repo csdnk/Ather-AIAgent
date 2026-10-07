@@ -12,6 +12,8 @@ from aether_agent_memory.remember.contracts.models import (
     ReflectionRequest,
     RetentionRequest,
     SourceRef,
+    SourceSearchRequest,
+    SourceSearchResult,
 )
 from aether_agent_memory.runtime.contracts.http_evidence import HttpRequestEvidence
 from aether_agent_memory.runtime.contracts.models import (
@@ -121,6 +123,15 @@ def attach_routes(
         ctx: TrustedContext = trusted_dependency,
     ) -> Any:
         return await remember.read_source(ctx, ref, start, end)
+
+    @app.post("/p3/remember/sources/search", response_model=SourceSearchResult)
+    async def source_search(
+        request: SourceSearchRequest,
+        response: Response,
+        ctx: TrustedContext = trusted_dependency,
+    ) -> SourceSearchResult:
+        response.headers["Cache-Control"] = "no-store"
+        return await remember.search_sources(ctx, request)
 
     @app.get("/p3/sources/{source_id}")
     def source_metadata(

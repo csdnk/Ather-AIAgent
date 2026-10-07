@@ -6,6 +6,7 @@ readme = "README.md"
 authors = [{ name = "Jarstii", email = "xy_jxnu@163.com" }]
 requires-python = ">=3.13"
 dependencies = [
+  "celery[redis]==5.6.3",
   "fastapi>=0.141.1,<1",
   "grpcio>=1.82.1,<2",
   "grpcio-tools>=1.82.1,<2",
@@ -148,6 +149,7 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = [
+  "celery.*",
   "fastapi.*",
   "fastembed.*",
   "google.protobuf.*",

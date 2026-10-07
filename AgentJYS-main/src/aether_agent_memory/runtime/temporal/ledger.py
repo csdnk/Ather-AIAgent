@@ -1,6 +1,7 @@
 """Atomic admission, execution fences and completion evidence; no scheduler."""
 
 from functools import partial
+from collections.abc import Callable
 from typing import Any
 
 from aether_agent_memory.runtime.contracts.client_admission import ClientOperationTargets
@@ -30,6 +31,9 @@ class ExecutionLedger:
         self.tasks, self.config = tasks, config
         self.clients = ClientAdmissions(ClientRuns(tasks.uow, tasks.identity))
         self.periodic_operators: tuple[str, ...] = ()
+        self.backend_admission: (
+            Callable[[MetadataTransaction, TaskRecord], WorkflowInput | None] | None
+        ) = None
         tasks.on_terminal = partial(project_terminal, tasks)
 
     def admit(
@@ -64,6 +68,10 @@ class ExecutionLedger:
             return job
         if task.state in TERMINAL:
             tx.abort(ErrorCode.CONTRACT_VIOLATION, "historical terminal work needs no new workflow")
+        if self.backend_admission is not None:
+            routed = self.backend_admission(tx, task)
+            if routed is not None:
+                return routed
         job = WorkflowInput(
             job_id=task.task_id,
             kind=task.kind,
@@ -176,6 +184,13 @@ class ExecutionLedger:
         return fenced
 
     def guard(self, tx: MetadataTransaction, job_id: str, execution: ExecutionRef) -> TaskRecord:
+        bound = tx.read("temporal_bindings", job_id)
+        if bound and bound.get("backend") == "celery":
+            owner = tx.read("celery_jobs", job_id)
+            if not owner or owner.get("lease_until", "") <= self.tasks.clock():
+                tx.abort(ErrorCode.VERSION_CONFLICT, "Celery execution lease expired")
+            if owner.get("execution") != execution.model_dump(mode="json"):
+                tx.abort(ErrorCode.VERSION_CONFLICT, "Celery execution superseded")
         _, current = self.tasks.load(tx, job_id)
         return self.tasks.guard(tx, current.model_copy(update={"execution": execution}))[1]
 

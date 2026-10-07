@@ -50,6 +50,7 @@ _PROJECTED_NAMESPACES = frozenset(
         "p3_rf_deliveries",
         "p3_rf_temporal_start_intents",
         "p3_rf_temporal_control_intents",
+        "p3_rf_celery_dispatch_intents",
     }
 )
 
@@ -107,6 +108,8 @@ class _PostgresRecordTransaction:
                     document = Jsonb(
                         {"record": {"state": state}}
                         if namespace == "p3_rf_tasks"
+                        else {"state": state, "due_at": data["due_at"]}
+                        if namespace == "p3_rf_celery_dispatch_intents"
                         else {"state": state}
                     )
             except (ValueError, TypeError, AttributeError):
@@ -166,6 +169,11 @@ class PostgresCapabilityStore:
                     "CREATE INDEX IF NOT EXISTS p3_pending_temporal_intents ON capability_records "
                     "(namespace,(document ->> 'state'),key) WHERE namespace IN "
                     "('p3_rf_temporal_start_intents','p3_rf_temporal_control_intents')"
+                )
+                raw.connection.execute(
+                    "CREATE INDEX IF NOT EXISTS p3_due_celery_intents ON capability_records "
+                    "((document->>'due_at'),key) WHERE namespace='p3_rf_celery_dispatch_intents' "
+                    "AND document->>'state'='pending'"
                 )
         except BaseException as exc:
             self._connection.close()
@@ -275,6 +283,17 @@ class PostgresTransaction(StorageTransaction):
             "SELECT key,value FROM capability_records WHERE namespace=%s AND tenant=%s "
             "AND key>%s ORDER BY key LIMIT %s",
             ("p3_rf_" + table, "system", cursor, limit),
+        )
+
+    def celery_due_rows(self, now: str, *, limit: int = 100) -> list[tuple[str, Any]]:
+        if not 1 <= limit <= 1000:
+            raise ValueError("invalid batch limit")
+        return self._query(
+            "SELECT key,value FROM capability_records "
+            "WHERE namespace='p3_rf_celery_dispatch_intents' "
+            "AND document->>'state'='pending' AND document->>'due_at'<=%s "
+            "ORDER BY document->>'due_at',key LIMIT %s",
+            (now, limit),
         )
 
     def pending_intent_rows(self, kind: str, *, limit: int = 100) -> list[tuple[str, Any]]:

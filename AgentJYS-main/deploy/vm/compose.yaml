@@ -50,15 +50,64 @@ services:
     ports: ["127.0.0.1:8080:8080"]
     mem_limit: 8g
     cpus: 2.5
-    depends_on:
-      p3-temporal:
-        condition: service_healthy
     healthcheck:
       test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/p3/readyz', timeout=4)"]
       start_period: 180s
       interval: 15s
       timeout: 5s
       retries: 8
+
+  p3-celery-broker:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: [redis-server, /etc/redis/redis.conf]
+    volumes:
+      - ${AETHER_DEPLOYMENT_DIR}/celery/redis.conf:/etc/redis/redis.conf:ro
+      - celery-broker-data:/data
+    # Private broker only. redis.conf must enable authentication, appendonly yes,
+    # appendfsync everysec, maxmemory-policy noeviction; never use the cache Redis.
+    mem_limit: 512m
+    cpus: 0.5
+
+  p3-celery-worker:
+    image: ${AETHER_P3_IMAGE:?Use the reviewed P3 image}
+    user: "1000:1000"
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 120s
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    command: [python, -m, aether_agent_memory, celery-worker, --config, /deployment/service.yaml, --concurrency, "2"]
+    env_file: ["${AETHER_DEPLOYMENT_DIR}/p3/runtime.env"]
+    environment:
+      HF_HUB_OFFLINE: "1"
+      TIKTOKEN_CACHE_DIR: /models/tiktoken
+      TOKENIZERS_PARALLELISM: "false"
+      OMP_NUM_THREADS: "2"
+    volumes:
+      - ${AETHER_DEPLOYMENT_DIR}/p3:/deployment:ro
+      - ${AETHER_MODELS_DIR}:/models:ro
+      - /srv/aether/celery-runtime:/runtime
+    tmpfs: ["/tmp:uid=1000,gid=1000,mode=1770"]
+    mem_limit: 8g
+    cpus: 2.5
+
+  p3-celery-beat:
+    image: ${AETHER_P3_IMAGE:?Use the reviewed P3 image}
+    user: "1000:1000"
+    init: true
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    command: [python, -m, aether_agent_memory, celery-beat, --config, /deployment/service.yaml]
+    env_file: ["${AETHER_DEPLOYMENT_DIR}/p3/runtime.env"]
+    volumes:
+      - ${AETHER_DEPLOYMENT_DIR}/p3:/deployment:ro
+    tmpfs: ["/tmp:uid=1000,gid=1000,mode=1770"]
+    mem_limit: 256m
+    cpus: 0.5
 
   gateway:
     image: ${AETHER_CADDY_IMAGE:?Use the image reference from images.tsv}
@@ -77,5 +126,6 @@ services:
         condition: service_healthy
 
 volumes:
+  celery-broker-data:
   caddy-data:
   caddy-config:

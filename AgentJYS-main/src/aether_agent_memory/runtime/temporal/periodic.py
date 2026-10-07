@@ -43,6 +43,7 @@ class PeriodicActivities:
         self.routes: dict[str, tuple[Commit, Prepare | None]] = {}
         self.pages: dict[str, Page] = {}
         self.max_batch_seconds = 10.0
+        self.transport = "temporal"
 
     def register(
         self,
@@ -163,7 +164,7 @@ class PeriodicActivities:
         def begin(state: PeriodicState) -> tuple[PeriodicState, int | None]:
             nonlocal route_names
             with uow.transaction() as tx:
-                prior = tx.read("temporal_ticks", tick_key)
+                prior = tx.read(f"{self.transport}_ticks", tick_key)
                 if prior:
                     # Complete a pre-upgrade tick using its recorded route order. The
                     # retained operate_views route is a no-op; operate_due starts next tick.
@@ -182,8 +183,8 @@ class PeriodicActivities:
                     state = state.model_copy(update={"cursor": prior["cursor"]})
                     if state.cursor is None:
                         return state, None
-                epoch = (tx.read("temporal_periodic_epoch", state.deployment_id) or 0) + 1
-                tx.write("temporal_periodic_epoch", state.deployment_id, epoch)
+                epoch = (tx.read(f"{self.transport}_periodic_epoch", state.deployment_id) or 0) + 1
+                tx.write(f"{self.transport}_periodic_epoch", state.deployment_id, epoch)
             return state, epoch
 
         state, epoch = await asyncio.to_thread(begin, state)
@@ -192,10 +193,14 @@ class PeriodicActivities:
         route_index, cursor = json.loads(state.cursor) if state.cursor else (0, "")
 
         def save(tx: MetadataTransaction, next_cursor: str | None) -> None:
-            if tx.read("temporal_periodic_epoch", state.deployment_id) != epoch:
+            if self.transport == "celery":
+                control = tx.read("celery_periodic_control", state.deployment_id) or {}
+                if not control.get("enabled", True):
+                    tx.abort(ErrorCode.EXECUTION_INTERRUPTED, "Remember periodic scan paused")
+            if tx.read(f"{self.transport}_periodic_epoch", state.deployment_id) != epoch:
                 tx.abort(ErrorCode.VERSION_CONFLICT, "periodic batch superseded")
             tx.write(
-                "temporal_ticks",
+                f"{self.transport}_ticks",
                 tick_key,
                 {
                     "cursor": next_cursor,
@@ -236,7 +241,13 @@ class PeriodicActivities:
                         with uow.transaction() as tx:
                             save(tx, next_cursor)
                             # Cursor and local facts share a transaction; exceptions roll both back.
-                            if tx.read(table, key) is not None:
+                            marker = tx.read("meta", "execution_backend") or {}
+                            transferred = (
+                                self.transport == "temporal"
+                                and marker.get("remember") == "celery"
+                                and table.startswith("remember_")
+                            )
+                            if not transferred and tx.read(table, key) is not None:
                                 commit(tx, key, state.last_tick, prepared)
 
                     await asyncio.to_thread(commit_item, next_cursor, table, key, commit, prepared)

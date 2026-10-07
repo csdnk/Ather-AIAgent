@@ -1,0 +1,102 @@
+# Use the same reviewed P3 image/config/secrets/models as p3.yaml. The p3-runtime
+# Secret must supply P3_CELERY_BROKER_URL for a dedicated persistent Redis broker.
+# Broker TLS/auth/persistence/noeviction are deployment prerequisites.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: p3-celery-worker
+  namespace: aether-p3-development
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: p3-celery-worker}
+  template:
+    metadata:
+      labels: {app: p3-celery-worker}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 120
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: worker
+          image: REPLACE_WITH_REVIEWED_ACR_IMAGE_DIGEST
+          command: [python, -m, aether_agent_memory, celery-worker, --config, /deployment/service.yaml, --concurrency, "2"]
+          envFrom:
+            - secretRef: {name: p3-runtime}
+          env:
+            - {name: HF_HUB_OFFLINE, value: "1"}
+            - {name: TIKTOKEN_CACHE_DIR, value: /models/tiktoken}
+            - {name: TOKENIZERS_PARALLELISM, value: "false"}
+            - {name: OMP_NUM_THREADS, value: "2"}
+          resources:
+            requests: {cpu: "1", memory: 2Gi}
+            limits: {cpu: "3", memory: 8Gi}
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: configuration, mountPath: /deployment, readOnly: true}
+            - {name: certificates, mountPath: /certificates, readOnly: true}
+            - {name: models, mountPath: /models, readOnly: true}
+            - {name: runtime, mountPath: /runtime}
+            - {name: temporary, mountPath: /tmp}
+      volumes:
+        - name: configuration
+          configMap: {name: p3-configuration}
+        - name: certificates
+          configMap: {name: p3-public-certificates}
+        - name: models
+          persistentVolumeClaim: {claimName: p3-models}
+        - name: runtime
+          emptyDir: {}
+        - name: temporary
+          emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: p3-celery-beat
+  namespace: aether-p3-development
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: p3-celery-beat}
+  template:
+    metadata:
+      labels: {app: p3-celery-beat}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: beat
+          image: REPLACE_WITH_REVIEWED_ACR_IMAGE_DIGEST
+          command: [python, -m, aether_agent_memory, celery-beat, --config, /deployment/service.yaml]
+          envFrom:
+            - secretRef: {name: p3-runtime}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: configuration, mountPath: /deployment, readOnly: true}
+            - {name: temporary, mountPath: /tmp}
+      volumes:
+        - name: configuration
+          configMap: {name: p3-configuration}
+        - name: temporary
+          emptyDir: {}

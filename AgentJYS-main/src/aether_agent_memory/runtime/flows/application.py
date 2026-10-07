@@ -22,9 +22,9 @@ from aether_agent_memory.remember.basic.compression import ModelCompression
 from aether_agent_memory.remember.basic.official_langmem import OfficialLangMemConsolidation
 from aether_agent_memory.remember.documents import Documents
 from aether_agent_memory.remember.local import create_runtime
+from aether_agent_memory.runtime.celery.service import ExecutionService
 from aether_agent_memory.runtime.contracts.models import TrustedContext
 from aether_agent_memory.runtime.temporal.locking import DirectoryLock
-from aether_agent_memory.runtime.temporal.service import TemporalService
 
 from .config import IdentityConfiguration, ServiceConfiguration
 from .health import storage_probe
@@ -35,7 +35,11 @@ from .observability import configure_tracing
 
 
 class Service:
-    def __init__(self, config: ServiceConfiguration, **providers: Any) -> None:
+    execution_service = ExecutionService
+
+    def __init__(
+        self, config: ServiceConfiguration, *, worker_role: bool = False, **providers: Any
+    ) -> None:
         if config.storage_mode == "production_p2":
             raise ValueError(
                 "production P2 transaction and cache adapters are not yet available; "
@@ -43,6 +47,7 @@ class Service:
             )
         self._close_task: asyncio.Task[None] | None = None
         self.directory_lock = DirectoryLock()
+        self.worker_role = worker_role
         try:
             self.initialize(config, **providers)
         except BaseException:
@@ -84,7 +89,8 @@ class Service:
             assert config.azure_storage is not None
             config.azure_storage.require_credentials()
             config.azure_storage.postgres.resolve_dsn()
-        self.directory_lock.acquire(config.data_dir)
+        if not self.worker_role:
+            self.directory_lock.acquire(config.data_dir)
         if config.storage_mode == "azure":
             from aether_agent_memory.runtime.storage.azure import StorageProviders
 
@@ -204,9 +210,11 @@ class Service:
         from aether_agent_memory.operate.basic.maintenance import CacheMaintenance
 
         self.cache_maintenance = CacheMaintenance(self.runtime)
-        self.execution = TemporalService(
+        self.execution = self.execution_service(
             self.runtime, config, self.reload_identity, self.cache_maintenance
         )
+        if self.worker_role and hasattr(self.execution, "worker_role"):
+            self.execution.worker_role = True
         self.supervisor = self.execution
         self.install_probes()
 

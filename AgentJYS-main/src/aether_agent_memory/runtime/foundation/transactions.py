@@ -69,6 +69,18 @@ class StorageTransaction:
             raise ValueError("invalid page limit")
         return sorted((k, v) for k, v in self.rows(table) if k > cursor)[:limit]
 
+    def celery_due_rows(self, now: str, *, limit: int = 100) -> list[tuple[str, Any]]:
+        if not 1 <= limit <= 1000:
+            raise ValueError("invalid batch limit")
+        return sorted(
+            (
+                (key, row)
+                for key, row in self.rows("celery_dispatch_intents")
+                if row["state"] == "pending" and row["due_at"] <= now
+            ),
+            key=lambda item: (item[1]["due_at"], item[0]),
+        )[:limit]
+
     def pending_intent_rows(self, kind: str, *, limit: int = 100) -> list[tuple[str, Any]]:
         self.check()
         if kind not in {"start", "control"} or not 1 <= limit <= 1000:

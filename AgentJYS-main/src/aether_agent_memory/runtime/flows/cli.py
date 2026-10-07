@@ -44,6 +44,16 @@ def main() -> int:
         "check-config", help="validate deployment configuration without starting services"
     )
     check.add_argument("--config", type=Path, required=True)
+    migration = commands.add_parser(
+        "migrate-execution", help="audit pinned bindings; optionally apply hybrid marker"
+    )
+    migration.add_argument("--config", type=Path, required=True)
+    migration.add_argument("--apply", action="store_true")
+    worker = commands.add_parser("celery-worker", help="run the separate Linux Remember worker")
+    worker.add_argument("--config", type=Path, required=True)
+    worker.add_argument("--concurrency", type=int, default=2)
+    beat = commands.add_parser("celery-beat", help="run one Remember periodic wakeup owner")
+    beat.add_argument("--config", type=Path, required=True)
     args = parser.parse_args()
     if args.command == "init":
         path = initialize(args.directory, template=args.template)
@@ -52,6 +62,31 @@ def main() -> int:
         )
         return 0
     config = ServiceConfiguration.load(args.config)
+    if args.command == "migrate-execution":
+        from aether_agent_memory.runtime.celery.migration import inspect_bindings
+        from aether_agent_memory.runtime.foundation.postgres import PostgresUnitOfWork
+
+        if config.azure_storage is None:
+            parser.error("migration requires the configured PostgreSQL storage")
+        uow = PostgresUnitOfWork(
+            config.azure_storage.postgres.resolve_dsn(), config.data_dir / "migration"
+        )
+        try:
+            print(json.dumps(inspect_bindings(uow, config, apply=args.apply)))
+        finally:
+            uow.close()
+        return 0
+    if args.command in {"celery-worker", "celery-beat"}:
+        os.environ["AETHER_SERVICE_CONFIG"] = str(args.config.resolve())
+        from aether_agent_memory.runtime.celery.app import app
+
+        if args.command == "celery-worker":
+            app.worker_main(
+                ["worker", "--pool=prefork", f"--concurrency={args.concurrency}", "--loglevel=INFO"]
+            )
+        else:
+            app.start(["beat", "--schedule=/tmp/p3-celerybeat", "--loglevel=INFO"])
+        return 0
     if args.command == "check-config":
         from .config import IdentityConfiguration
 

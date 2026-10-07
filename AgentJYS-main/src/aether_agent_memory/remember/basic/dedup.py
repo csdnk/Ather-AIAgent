@@ -31,5 +31,6 @@ def source_signature(request: RememberRequest, text: str) -> str:
     return fingerprint(
         [sha256(text.encode("utf-8")).hexdigest(), request.trigger, request.importance_category]
         + ([request.task_context] if request.task_context else [])
+        + ([request.memory_mode.value] if request.memory_mode != "automatic" else [])
         + ([request.content.model_dump(mode="json")] if request.content.kind == "document" else [])
     )
