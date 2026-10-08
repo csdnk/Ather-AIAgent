@@ -2,19 +2,23 @@
 
 import json
 from collections.abc import Callable
-from typing import Annotated, Literal
+from datetime import datetime
+from typing import Annotated, Any, Literal, cast, overload
 
-from fastapi import HTTPException, Path, Query, Request
+from fastapi import FastAPI, HTTPException, Path, Query, Request, Response
 from pydantic import AwareDatetime, BeforeValidator
+from starlette.middleware.base import RequestResponseEndpoint
 
+from aether_platform.directory import Actor, Directory
 from aether_platform.operations.models import now
 from aether_platform.operations.presentation import attach_names
 from aether_platform.p3 import P3Client, P3Error, identifier
 
 ObjectId = Annotated[str, Path(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9_-]+$")]
+Identity = Callable[[Request], tuple[Actor, str]]
 
 
-def iso_timestamp(value):
+def iso_timestamp(value: object) -> str:
     if not isinstance(value, str) or "T" not in value:
         raise ValueError("ISO8601 timestamp with timezone required")
     return value
@@ -23,7 +27,7 @@ def iso_timestamp(value):
 IsoTimestamp = Annotated[AwareDatetime, BeforeValidator(iso_timestamp)]
 
 
-def envelope(items, total=None, **extra):
+def envelope(items: list[dict[str, Any]], total: int | None = None, **extra: Any) -> dict[str, Any]:
     return {
         "items": items,
         **({"total": total} if total is not None else {}),
@@ -34,14 +38,22 @@ def envelope(items, total=None, **extra):
 
 
 class Console:
-    def __init__(self, config, directory):
+    def __init__(self, config: dict[str, Any], directory: Directory) -> None:
         self.config, self.directory = config, directory
 
     @staticmethod
-    def scope(actor):
+    def scope(actor: Actor) -> tuple[bool, str | None]:
         return actor.role == "platform_admin", actor.tenant_id
 
-    def audit(self, actor, resource, target_id, user_id, tenant_id, status):
+    def audit(
+        self,
+        actor: Actor,
+        resource: str,
+        target_id: str | None,
+        user_id: str | None,
+        tenant_id: str | None,
+        status: str,
+    ) -> None:
         # Fixed-purpose metadata only: never save request headers, bodies or provider errors.
         with self.directory.connection() as conn:
             conn.execute(
@@ -51,7 +63,7 @@ class Console:
                 (actor.id, tenant_id, user_id, resource, target_id, "operations_diagnosis", status),
             )
 
-    def target(self, actor, user_id):
+    def target(self, actor: Actor, user_id: str) -> dict[str, Any]:
         with self.directory.connection() as conn:
             row = conn.execute(
                 "SELECT id,tenant_id FROM users WHERE id=%s AND tenant_id IS NOT NULL "
@@ -62,7 +74,34 @@ class Console:
             raise HTTPException(404, "用户不存在或不在授权范围")
         return row
 
-    def content(self, actor, resource, target_id, user_id, operation: Callable):
+    @overload
+    def content(
+        self,
+        actor: Actor,
+        resource: str,
+        target_id: str | None,
+        user_id: str,
+        operation: Callable[[dict[str, Any]], dict[str, Any]],
+    ) -> dict[str, Any]: ...
+
+    @overload
+    def content(
+        self,
+        actor: Actor,
+        resource: str,
+        target_id: str | None,
+        user_id: None,
+        operation: Callable[[None], dict[str, Any]],
+    ) -> dict[str, Any]: ...
+
+    def content(
+        self,
+        actor: Actor,
+        resource: str,
+        target_id: str | None,
+        user_id: str | None,
+        operation: Callable[[Any], dict[str, Any]],
+    ) -> dict[str, Any]:
         status, tenant_id = "unavailable", actor.tenant_id
         try:
             permissions = getattr(actor, "permissions", ())
@@ -91,7 +130,7 @@ class Console:
             self.audit(actor, resource, target_id, user_id, tenant_id, status)
 
     @staticmethod
-    def upstream_error(error):
+    def upstream_error(error: P3Error) -> HTTPException:
         codes = {
             "FORBIDDEN": 403,
             "HTTP_403": 403,
@@ -127,7 +166,9 @@ class Console:
             },
         )
 
-    def users(self, actor, q, tenant_id, limit, offset):
+    def users(
+        self, actor: Actor, q: str, tenant_id: str | None, limit: int, offset: int
+    ) -> dict[str, Any]:
         if tenant_id and actor.role != "platform_admin" and tenant_id != actor.tenant_id:
             raise HTTPException(403, "企业不在授权范围")
         query = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
@@ -140,7 +181,9 @@ class Console:
         )
         args = (*self.scope(actor), tenant_id, tenant_id, query, query, query)
         with self.directory.connection() as conn:
-            total = conn.execute("SELECT count(*) AS n " + where, args).fetchone()["n"]
+            total = cast(
+                dict[str, Any], conn.execute("SELECT count(*) AS n " + where, args).fetchone()
+            )["n"]
             items = conn.execute(
                 "SELECT u.id,u.username,u.display_name,u.tenant_id,t.name AS tenant_name,"
                 "u.enabled,u.role " + where + " ORDER BY u.username,u.id LIMIT %s OFFSET %s",
@@ -157,7 +200,16 @@ class Console:
             tenant_choices_truncated=len(tenants) > 1000,
         )
 
-    def conversations(self, target, limit, offset, *, status=None, from_time=None, to_time=None):
+    def conversations(
+        self,
+        target: dict[str, Any],
+        limit: int,
+        offset: int,
+        *,
+        status: str | None = None,
+        from_time: datetime | None = None,
+        to_time: datetime | None = None,
+    ) -> dict[str, Any]:
         if from_time and to_time and from_time > to_time:
             raise HTTPException(422, "开始时间不能晚于结束时间")
         where = "FROM conversations c WHERE c.user_id=%s AND c.tenant_id=%s AND NOT c.archived "
@@ -176,10 +228,10 @@ class Console:
             where += "AND c.updated_at<=%s "
             args.append(to_time)
         with self.directory.connection() as conn:
-            total = conn.execute(
-                "SELECT count(*) AS n " + where,
-                args,
-            ).fetchone()["n"]
+            total = cast(
+                dict[str, Any],
+                conn.execute("SELECT count(*) AS n " + where, args).fetchone(),
+            )["n"]
             rows = conn.execute(
                 "SELECT c.id,c.title,c.created_at,c.updated_at,"
                 "(SELECT count(*) FROM chat_turns t WHERE t.conversation_id=c.id) AS turn_count,"
@@ -191,7 +243,9 @@ class Console:
             ).fetchall()
         return envelope(rows, total)
 
-    def conversation(self, target, conversation_id, limit, offset):
+    def conversation(
+        self, target: dict[str, Any], conversation_id: str, limit: int, offset: int
+    ) -> dict[str, Any]:
         with self.directory.connection() as conn:
             conversation = conn.execute(
                 "SELECT id,title,user_id,tenant_id,created_at,updated_at FROM conversations "
@@ -200,10 +254,13 @@ class Console:
             ).fetchone()
             if not conversation:
                 raise HTTPException(404, "会话不存在或不在授权范围")
-            total = conn.execute(
-                "SELECT count(*) AS n FROM chat_turns WHERE conversation_id=%s",
-                (conversation_id,),
-            ).fetchone()["n"]
+            total = cast(
+                dict[str, Any],
+                conn.execute(
+                    "SELECT count(*) AS n FROM chat_turns WHERE conversation_id=%s",
+                    (conversation_id,),
+                ).fetchone(),
+            )["n"]
             rows = conn.execute(
                 "SELECT id,substr(input,1,65536) AS input,substr(output,1,65536) AS output,"
                 "length(input)>65536 OR length(output)>65536 AS content_truncated,"
@@ -249,7 +306,9 @@ class Console:
             "status": "ok",
         }
 
-    def p3_read(self, actor, token, path, params=None):
+    def p3_read(
+        self, actor: Actor, token: str, path: str, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         settings = self.config.get("p3", {})
         if not settings.get("base_url"):
             raise P3Error("P3_NOT_CONFIGURED")
@@ -262,9 +321,17 @@ class Console:
             trusted_http_host=settings.get("internal_http_host")
             or settings.get("trusted_http_host"),
         ) as client:
-            return client.call("GET", path, params=params)
+            return cast(dict[str, Any], client.call("GET", path, params=params))
 
-    def business(self, actor, token, resource, target, object_id=None, **filters):
+    def business(
+        self,
+        actor: Actor,
+        token: str,
+        resource: str,
+        target: dict[str, Any],
+        object_id: str | None = None,
+        **filters: Any,
+    ) -> dict[str, Any]:
         path = "/p3/admin/" + resource + ("/" + identifier(object_id) if object_id else "")
         result = self.p3_read(
             actor,
@@ -280,17 +347,17 @@ class Console:
 
     def diagnostics(
         self,
-        actor,
-        token,
-        task_id=None,
+        actor: Actor,
+        token: str,
+        task_id: str | None = None,
         *,
-        limit=50,
-        cursor=None,
-        flow=None,
-        state=None,
-        kind=None,
-        status=None,
-    ):
+        limit: int = 50,
+        cursor: str | None = None,
+        flow: str | None = None,
+        state: str | None = None,
+        kind: str | None = None,
+        status: str | None = None,
+    ) -> dict[str, Any]:
         if actor.role != "platform_admin":
             raise HTTPException(403, "仅平台运维可访问")
         try:
@@ -330,7 +397,7 @@ class Console:
         except P3Error as error:
             raise self.upstream_error(error) from None
 
-    def business_observations(self, actor):
+    def business_observations(self, actor: Actor) -> dict[str, Any]:
         stale_after = max(
             60, int(self.config.get("operations", {}).get("sample_interval_seconds", 30)) * 3
         )
@@ -359,14 +426,17 @@ class Console:
             ),
         )
 
-    def history(self, actor, limit, offset):
+    def history(self, actor: Actor, limit: int, offset: int) -> dict[str, Any]:
         scope = self.scope(actor)
         with self.directory.connection() as conn:
             total = sum(
-                conn.execute(
-                    "SELECT count(*) AS n FROM " + table + " WHERE (%s OR tenant_id=%s)",
-                    scope,
-                ).fetchone()["n"]
+                cast(
+                    dict[str, Any],
+                    conn.execute(
+                        "SELECT count(*) AS n FROM " + table + " WHERE (%s OR tenant_id=%s)",
+                        scope,
+                    ).fetchone(),
+                )["n"]
                 for table in ("ops_commands", "ops_content_access")
             )
             rows = conn.execute(
@@ -388,32 +458,34 @@ class Console:
         return envelope(rows, total)
 
 
-def install_console(app, service, identity):
+def install_console(app: FastAPI, service: Console, identity: Identity) -> None:
     prefix = "/platform-ops/v1/console"
     user_query = Query(..., min_length=1, max_length=128, pattern=r"^[A-Za-z0-9_-]+$")
 
     @app.middleware("http")
-    async def prevent_content_cache(request: Request, call_next):
+    async def prevent_content_cache(
+        request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
         response = await call_next(request)
         if request.url.path.startswith("/platform-ops/v1/"):
             response.headers["Cache-Control"] = "no-store"
             response.headers["Pragma"] = "no-cache"
         return response
 
-    @app.get(prefix + "/users")
+    @app.get(prefix + "/users", response_model=None)
     def users(
         request: Request,
         q: str = Query("", max_length=120),
         tenant_id: str | None = Query(None, max_length=128),
         limit: int = Query(50, ge=1, le=100),
         offset: int = Query(0, ge=0, le=100000),
-    ):
+    ) -> dict[str, Any]:
         actor, _ = identity(request)
         return service.content(
             actor, "users", None, None, lambda _: service.users(actor, q, tenant_id, limit, offset)
         )
 
-    @app.get(prefix + "/conversations")
+    @app.get(prefix + "/conversations", response_model=None)
     def conversations(
         request: Request,
         user_id: str = user_query,
@@ -422,7 +494,7 @@ def install_console(app, service, identity):
         status: Literal["pending", "complete", "failed"] | None = None,
         from_time: Annotated[IsoTimestamp | None, Query(alias="from")] = None,
         to_time: Annotated[IsoTimestamp | None, Query(alias="to")] = None,
-    ):
+    ) -> dict[str, Any]:
         actor, _ = identity(request)
         return service.content(
             actor,
@@ -434,14 +506,14 @@ def install_console(app, service, identity):
             ),
         )
 
-    @app.get(prefix + "/conversations/{conversation_id}")
+    @app.get(prefix + "/conversations/{conversation_id}", response_model=None)
     def conversation(
         conversation_id: ObjectId,
         request: Request,
         user_id: str = user_query,
         limit: int = Query(50, ge=1, le=100),
         offset: int = Query(0, ge=0, le=100000),
-    ):
+    ) -> dict[str, Any]:
         actor, _ = identity(request)
         return service.content(
             actor,
@@ -451,7 +523,7 @@ def install_console(app, service, identity):
             lambda target: service.conversation(target, conversation_id, limit, offset),
         )
 
-    @app.get(prefix + "/memories")
+    @app.get(prefix + "/memories", response_model=None)
     def memories(
         request: Request,
         user_id: str = user_query,
@@ -461,7 +533,7 @@ def install_console(app, service, identity):
         status: Literal["active", "archived", "superseded", "expired", "deleted"] | None = None,
         include_summary: bool | None = None,
         collapse_duplicates: bool | None = None,
-    ):
+    ) -> dict[str, Any]:
         actor, token = identity(request)
         return service.content(
             actor,
@@ -482,8 +554,8 @@ def install_console(app, service, identity):
             ),
         )
 
-    @app.get(prefix + "/memories/{memory_id}")
-    def memory(memory_id: ObjectId, request: Request, user_id: str = user_query):
+    @app.get(prefix + "/memories/{memory_id}", response_model=None)
+    def memory(memory_id: ObjectId, request: Request, user_id: str = user_query) -> dict[str, Any]:
         actor, token = identity(request)
         return service.content(
             actor,
@@ -493,8 +565,8 @@ def install_console(app, service, identity):
             lambda target: service.business(actor, token, "memories", target, memory_id),
         )
 
-    @app.get(prefix + "/recalls/{recall_id}")
-    def recall(recall_id: ObjectId, request: Request, user_id: str = user_query):
+    @app.get(prefix + "/recalls/{recall_id}", response_model=None)
+    def recall(recall_id: ObjectId, request: Request, user_id: str = user_query) -> dict[str, Any]:
         actor, token = identity(request)
         return service.content(
             actor,
@@ -504,7 +576,7 @@ def install_console(app, service, identity):
             lambda target: service.business(actor, token, "recalls", target, recall_id),
         )
 
-    @app.get(prefix + "/diagnostics")
+    @app.get(prefix + "/diagnostics", response_model=None)
     def diagnostics(
         request: Request,
         limit: int = Query(50, ge=1, le=100),
@@ -516,7 +588,7 @@ def install_console(app, service, identity):
             "succeeded", "failed", "pending", "running", "unconfirmed", "simulated", "cancelled"
         ]
         | None = None,
-    ):
+    ) -> dict[str, Any]:
         actor, token = identity(request)
         return service.diagnostics(
             actor,
@@ -529,16 +601,16 @@ def install_console(app, service, identity):
             status=status,
         )
 
-    @app.get(prefix + "/tasks/{task_id}")
-    def task(task_id: ObjectId, request: Request):
+    @app.get(prefix + "/tasks/{task_id}", response_model=None)
+    def task(task_id: ObjectId, request: Request) -> dict[str, Any]:
         actor, token = identity(request)
         return service.diagnostics(actor, token, task_id)
 
-    @app.get(prefix + "/history")
+    @app.get(prefix + "/history", response_model=None)
     def history(
         request: Request,
         limit: int = Query(50, ge=1, le=100),
         offset: int = Query(0, ge=0, le=100000),
-    ):
+    ) -> dict[str, Any]:
         actor, _ = identity(request)
         return service.history(actor, limit, offset)

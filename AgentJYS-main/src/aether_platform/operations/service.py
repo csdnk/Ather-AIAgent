@@ -1,9 +1,11 @@
 """Operational queries never read conversation bodies or mutate P3 storage directly."""
 
-from typing import Any
+from collections.abc import Callable
+from typing import Any, cast
 
 from fastapi import HTTPException
 
+from aether_platform.directory import Actor, Directory
 from aether_platform.operations.models import Command, now, page, public_request
 from aether_platform.operations.store import OpsStore
 from aether_platform.p3 import P3Client, P3Error, identifier
@@ -15,10 +17,15 @@ RECORD_FIELDS = {
     "configuration": {"name", "value", "description"},
     "rules": {"metric", "threshold", "enabled", "description"},
 }
+CONTROL_STATUSES: dict[str | None, str] = {
+    "completed": "complete",
+    "failed": "failed",
+    "unknown": "unknown",
+}
 
 
 class Operations:
-    def __init__(self, config, directory):
+    def __init__(self, config: dict[str, Any], directory: Directory) -> None:
         self.config, self.directory = config, directory
         self.store = OpsStore(directory)
         self.store.migrate()
@@ -26,13 +33,22 @@ class Operations:
 
         self.collector = Collector(config, self.store)
 
-    def start(self):
+    def start(self) -> None:
         self.collector.start()
 
-    def stop(self):
+    def stop(self) -> None:
         self.collector.stop()
 
-    def p3_call(self, actor, token, method, path, *, body=None, params=None):
+    def p3_call(
+        self,
+        actor: Actor,
+        token: str | Callable[[], str],
+        method: str,
+        path: str,
+        *,
+        body: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         settings = self.config.get("p3", {})
         if not settings.get("base_url"):
             raise P3Error("P3_NOT_CONFIGURED")
@@ -45,16 +61,19 @@ class Operations:
             trusted_http_host=settings.get("internal_http_host")
             or settings.get("trusted_http_host"),
         ) as client:
-            return client.call(method, path, body=body, params=params)
+            return cast(dict[str, Any], client.call(method, path, body=body, params=params))
 
-    def requests(self, actor, limit, offset):
+    def requests(self, actor: Actor, limit: int, offset: int) -> dict[str, Any]:
         with self.directory.connection() as conn:
             scope = self.store.scope(actor)
-            total = conn.execute(
-                "SELECT count(*) AS n FROM chat_turns t JOIN conversations c ON "
-                "c.id=t.conversation_id WHERE (%s OR c.tenant_id=%s)",
-                scope,
-            ).fetchone()["n"]
+            total = cast(
+                dict[str, Any],
+                conn.execute(
+                    "SELECT count(*) AS n FROM chat_turns t JOIN conversations c ON "
+                    "c.id=t.conversation_id WHERE (%s OR c.tenant_id=%s)",
+                    scope,
+                ).fetchone(),
+            )["n"]
             rows = conn.execute(
                 "SELECT t.id,t.conversation_id,c.user_id,c.tenant_id,t.status,t.phase,t.created_at,"
                 "t.started_at,t.first_token_at,t.attempt,(t.error IS NOT NULL) AS error,"
@@ -70,7 +89,7 @@ class Operations:
             ).fetchall()
         return page([public_request(row) for row in rows], total)
 
-    def usage(self, actor):
+    def usage(self, actor: Actor) -> dict[str, Any]:
         with self.directory.connection() as conn:
             rows = conn.execute(
                 "SELECT c.tenant_id,count(*) AS requests,"
@@ -114,7 +133,16 @@ class Operations:
             "unmetered requests and P3 internal calls excluded",
         )
 
-    def read(self, actor, token, resource, limit=50, offset=0, *, cursor=None):
+    def read(
+        self,
+        actor: Actor,
+        token: str | Callable[[], str],
+        resource: str,
+        limit: int = 50,
+        offset: int = 0,
+        *,
+        cursor: str | None = None,
+    ) -> dict[str, Any]:
         from aether_platform.operations.presentation import attach_names
 
         result = self._read(actor, token, resource, limit, offset, cursor=cursor)
@@ -122,7 +150,16 @@ class Operations:
             return result  # Task metadata has no directory identities to resolve.
         return attach_names(result, resource, actor, self.directory)
 
-    def _read(self, actor, token, resource, limit=50, offset=0, *, cursor=None):
+    def _read(
+        self,
+        actor: Actor,
+        token: str | Callable[[], str],
+        resource: str,
+        limit: int = 50,
+        offset: int = 0,
+        *,
+        cursor: str | None = None,
+    ) -> dict[str, Any]:
         if resource == "requests":
             return self.requests(actor, limit, offset)
         if resource == "memories":
@@ -171,11 +208,14 @@ class Operations:
                     " d.id DESC LIMIT 100",
                     self.store.scope(actor),
                 ).fetchall()
-                latest = conn.execute(
-                    "SELECT max(observed_at) AS observed_at FROM ops_samples WHERE (%s OR "
-                    "tenant_id=%s)",
-                    self.store.scope(actor),
-                ).fetchone()["observed_at"]
+                latest = cast(
+                    dict[str, Any],
+                    conn.execute(
+                        "SELECT max(observed_at) AS observed_at FROM ops_samples WHERE (%s OR "
+                        "tenant_id=%s)",
+                        self.store.scope(actor),
+                    ).fetchone(),
+                )["observed_at"]
             return page(
                 self.store.alerts(actor),
                 deliveries=deliveries,
@@ -187,7 +227,7 @@ class Operations:
         if resource == "overview":
             from aether_platform.operations.performance import performance
 
-            result: dict[str, Any] = {
+            result = {
                 "observed_at": now(),
                 "usage": self.usage(actor),
                 "performance": performance(self.directory, actor),
@@ -239,7 +279,9 @@ class Operations:
                 return page([], status="unavailable", code=exc.code)
         raise HTTPException(404, "没有此资源")
 
-    def command_status(self, actor, token, command_id):
+    def command_status(
+        self, actor: Actor, token: str | Callable[[], str], command_id: str
+    ) -> dict[str, Any]:
         record = self.store.command_record(actor, command_id)
         if not record:
             raise HTTPException(404, "没有此操作")
@@ -295,9 +337,7 @@ class Operations:
                 observed = self.p3_call(
                     actor, token, "GET", "/p3/controls/" + identifier(command_id)
                 )
-                status = {"completed": "complete", "failed": "failed", "unknown": "unknown"}.get(
-                    observed.get("state"), "accepted"
-                )
+                status = CONTROL_STATUSES.get(observed.get("state"), "accepted")
                 result = {
                     k: v
                     for k, v in observed.items()
@@ -309,7 +349,9 @@ class Operations:
                     record = {**record, "lookup_status": "not_found"}
         return page([record], 1)
 
-    def resume_task_control(self, actor, token, command):
+    def resume_task_control(
+        self, actor: Actor, token: str | Callable[[], str], command: Command
+    ) -> dict[str, Any]:
         """Resume only an exact original control after an authoritative missing lookup."""
         from aether_platform.operations.task_cases import require
 
@@ -328,9 +370,7 @@ class Operations:
             )
             return self.store.finish(
                 command.command_id,
-                {"completed": "complete", "failed": "failed", "unknown": "unknown"}.get(
-                    observed.get("state"), "accepted"
-                ),
+                CONTROL_STATUSES.get(observed.get("state"), "accepted"),
                 {
                     k: v
                     for k, v in observed.items()
@@ -345,7 +385,7 @@ class Operations:
                 actor,
                 token,
                 "POST",
-                "/p3/tasks/" + identifier(command.target_id) + "/control",
+                "/p3/tasks/" + identifier(cast(str, command.target_id)) + "/control",
                 body={
                     "operation_id": command.command_id,
                     "action": command.action,
@@ -369,11 +409,16 @@ class Operations:
                 command.command_id, "unknown" if unknown else "failed", {"code": exc.code}
             )
 
-    def finish_backup(self, actor, record, result):
+    def finish_backup(
+        self, actor: Actor, record: dict[str, Any], result: dict[str, Any]
+    ) -> dict[str, Any]:
         with self.directory.connection() as conn:
-            locked = conn.execute(
-                "SELECT * FROM ops_commands WHERE id=%s FOR UPDATE", (record["id"],)
-            ).fetchone()
+            locked = cast(
+                dict[str, Any],
+                conn.execute(
+                    "SELECT * FROM ops_commands WHERE id=%s FOR UPDATE", (record["id"],)
+                ).fetchone(),
+            )
             if locked["status"] == "complete":
                 return locked
             self.store.save_record(
@@ -387,7 +432,7 @@ class Operations:
             return self.store.finish(record["id"], "complete", result, connection=conn)
 
     @staticmethod
-    def _validate(command):
+    def _validate(command: Command) -> None:
         if command.resource == "tasks" and command.action in {"cancel", "reconcile", "status"}:
             if not command.target_id:
                 raise ValueError("Task identifier required")
@@ -451,7 +496,7 @@ class Operations:
         else:
             raise ValueError("Unsupported operation")
 
-    def local_command(self, actor, command):
+    def local_command(self, actor: Actor, command: Command) -> dict[str, Any]:
         # Admission, side effect and completion commit together. A process exit cannot
         # leave a committed local change with an uncommitted command receipt.
         with self.directory.connection() as conn:
@@ -469,7 +514,7 @@ class Operations:
                 result = self.store.save_record(
                     actor,
                     command.resource,
-                    command.target_id,
+                    cast(str, command.target_id),
                     command.parameters,
                     command.expected_version,
                     connection=conn,
@@ -482,7 +527,7 @@ class Operations:
             elif command.resource == "incidents":
                 result = self.store.update_alert(
                     actor,
-                    command.target_id,
+                    cast(str, command.target_id),
                     command.action,
                     str(command.parameters.get("note", ""))[:1000],
                     silence_minutes=int(command.parameters.get("minutes", 30)),
@@ -491,7 +536,9 @@ class Operations:
                 result = {"id": result["id"], "state": result["state"]}
             return self.store.finish(command.command_id, "complete", result, connection=conn)
 
-    def command(self, actor, token, command: Command):
+    def command(
+        self, actor: Actor, token: str | Callable[[], str], command: Command
+    ) -> dict[str, Any]:
         if command.resource == "memories":
             from aether_platform.operations.memory_admin import MemoryAdmin
 
@@ -501,7 +548,7 @@ class Operations:
 
             return TaskCases(self).command(actor, token, command)
         admitted = False
-        recovery_evidence = {}
+        recovery_evidence: dict[str, Any] = {}
         try:
             self._validate(command)
             if (command.resource in RECORD_FIELDS and command.action == "save") or (
@@ -515,7 +562,10 @@ class Operations:
             if command.resource == "tasks":
                 if command.action == "status":
                     result = self.p3_call(
-                        actor, token, "GET", "/p3/controls/" + identifier(command.target_id)
+                        actor,
+                        token,
+                        "GET",
+                        "/p3/controls/" + identifier(cast(str, command.target_id)),
                     )
                     status = "complete"
                 else:
@@ -523,7 +573,7 @@ class Operations:
                         actor,
                         token,
                         "POST",
-                        "/p3/tasks/" + identifier(command.target_id) + "/control",
+                        "/p3/tasks/" + identifier(cast(str, command.target_id)) + "/control",
                         body={
                             "operation_id": command.command_id,
                             "action": command.action,
@@ -563,7 +613,7 @@ class Operations:
 
                 executor = BackupExecutor(self.config, self.directory)
                 result = executor.run(
-                    command.action, command.target_id, command_id=command.command_id
+                    command.action, cast(str, command.target_id), command_id=command.command_id
                 )
                 return self.finish_backup(actor, record, result)
             return self.store.finish(command.command_id, status, result)

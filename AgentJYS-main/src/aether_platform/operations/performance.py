@@ -1,11 +1,39 @@
 """Tenant-scoped dashboard aggregates; no conversation content or invented measurements."""
 
 from datetime import UTC, datetime, timedelta
+from typing import Any, NotRequired, TypedDict, cast
+
+from aether_platform.directory import Actor, Directory
 
 
-def performance(directory, actor):
+class Metrics(TypedDict):
+    requests: int
+    complete: int
+    failed: int
+    pending: int
+    saved: int
+    recall_latency_samples: int
+    recall_return_p95_ms: float | None
+    success_rate: NotRequired[float | None]
+    at: NotRequired[datetime | str | None]
+
+
+PerformanceWindow = TypedDict(
+    "PerformanceWindow",
+    {
+        "summary": Metrics,
+        "series": list[Metrics],
+        "from": str,
+        "to": str,
+        "bucket_seconds": int,
+    },
+)
+
+
+def performance(directory: Directory, actor: Actor) -> dict[str, Any]:
     observed = datetime.now(UTC)
-    result = {"observed_at": observed.isoformat(), "status": "ok", "windows": {}}
+    windows: dict[str, PerformanceWindow] = {}
+    result = {"observed_at": observed.isoformat(), "status": "ok", "windows": windows}
     query = """
         WITH scoped AS (
           SELECT date_bin(%s * interval '1 second',t.created_at,
@@ -30,7 +58,7 @@ def performance(directory, actor):
             rows = conn.execute(
                 query, (bucket, actor.role == "platform_admin", actor.tenant_id, start, observed)
             ).fetchall()
-            empty = dict(
+            empty: Metrics = dict(
                 requests=0,
                 complete=0,
                 failed=0,
@@ -39,17 +67,21 @@ def performance(directory, actor):
                 recall_latency_samples=0,
                 recall_return_p95_ms=None,
             )
-            summary = next((dict(r) for r in rows if r["at"] is None), dict(empty))
+            summary = next((cast(Metrics, dict(r)) for r in rows if r["at"] is None), empty.copy())
             terminal = summary["complete"] + summary["failed"]
             summary["success_rate"] = summary["complete"] / terminal * 100 if terminal else None
-            points = {int(r["at"].timestamp()): dict(r) for r in rows if r["at"] is not None}
-            series = []
+            points = {
+                int(r["at"].timestamp()): cast(Metrics, dict(r))
+                for r in rows
+                if r["at"] is not None
+            }
+            series: list[Metrics] = []
             tick = int(start.timestamp()) // bucket * bucket
             while tick < observed.timestamp():
-                point = points.get(tick, dict(empty))
+                point = points.get(tick, empty.copy())
                 series.append({**point, "at": datetime.fromtimestamp(tick, UTC).isoformat()})
                 tick += bucket
-            result["windows"][key] = {
+            windows[key] = {
                 "summary": summary,
                 "series": series,
                 "from": start.isoformat(),

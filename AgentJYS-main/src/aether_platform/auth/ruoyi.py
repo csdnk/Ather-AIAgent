@@ -30,7 +30,7 @@ class RuoyiActor(Actor):
 
 
 def validate_ruoyi_config(config: dict[str, Any]) -> dict[str, Any]:
-    values = config.get("ruoyi", config)
+    values: dict[str, Any] = config.get("ruoyi", config)
     url = urlsplit(values["base_url"])
     trusted = values.get("trusted_http_host")
     if (
@@ -111,9 +111,10 @@ class RuoyiIdentityVerifier:
             result = response.json()
             if not isinstance(result, dict) or result.get("code") != 0:
                 raise AccessDeniedError("Ruoyi identity rejected")
-            if not isinstance(result.get("data"), dict):
+            data = result.get("data")
+            if not isinstance(data, dict):
                 raise RuoyiUnavailableError("Ruoyi authority response invalid")
-            return result["data"]
+            return data
         except (httpx.HTTPError, ValueError) as error:
             if isinstance(error, AccessDeniedError):
                 raise

@@ -7,7 +7,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import yaml
 from fastapi import FastAPI
@@ -32,6 +32,9 @@ from .http import create_app
 from .jwt_auth import JWTAuthenticator
 from .keycloak_directory import KeycloakDirectory
 from .observability import configure_tracing
+
+if TYPE_CHECKING:
+    from .ruoyi_auth import RuoyiAuthenticator
 
 
 class Service:
@@ -191,7 +194,7 @@ class Service:
         self.keycloak_directory = KeycloakDirectory(self.runtime.foundation.identity)
         self.closers.append(self.keycloak_directory.close)
         self.jwt_auth = JWTAuthenticator()
-        self.ruoyi_auth = None
+        self.ruoyi_auth: RuoyiAuthenticator | None = None
         self.closers.append(self.jwt_auth.close)
         self.tracing_provider = configure_tracing(
             self.runtime.foundation.telemetry,

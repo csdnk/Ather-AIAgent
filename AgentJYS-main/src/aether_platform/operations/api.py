@@ -2,21 +2,28 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query, Request
 
-from aether_platform.directory import AccessDeniedError
+from aether_platform.auth.ruoyi import RuoyiIdentityVerifier
+from aether_platform.directory import AccessDeniedError, Actor, Directory
+from aether_platform.operations.console import Console, install_console
 from aether_platform.operations.models import Command, Resource
+from aether_platform.operations.service import Operations
 
 GLOBAL_RESOURCES = {"configuration", "backups", "resources", "tasks", "rules", "quotas"}
 
 
 def install_operations(
-    app: FastAPI, config: dict, directory: Any, verifier: Any, *, service=None, console=None
-):
+    app: FastAPI,
+    config: dict[str, Any],
+    directory: Directory,
+    verifier: RuoyiIdentityVerifier,
+    *,
+    service: Operations | None = None,
+    console: Console | None = None,
+) -> Operations:
     if service is None:
-        from aether_platform.operations.service import Operations
-
         service = Operations(config, directory)
 
-    def identity(request: Request, *, permission: str = "aether:ops:read"):
+    def identity(request: Request, *, permission: str = "aether:ops:read") -> tuple[Actor, str]:
         authorization = request.headers.get("authorization", "")
         if not authorization.startswith("Bearer ") or not authorization[7:]:
             raise HTTPException(401, "请登录管理后台")
@@ -36,14 +43,12 @@ def install_operations(
             raise HTTPException(403, "没有此操作的权限")
         return actor, token
 
-    from aether_platform.operations.console import Console, install_console
-
     install_console(app, console or Console(config, directory), identity)
     from aether_platform.operations.memory_admin import install_memory_admin
 
     install_memory_admin(app, service, identity)
 
-    @app.get("/platform-ops/v1/{resource}")
+    @app.get("/platform-ops/v1/{resource}", response_model=None)
     def read(
         resource: Resource,
         request: Request,
@@ -56,7 +61,7 @@ def install_operations(
         q: str | None = Query(None, max_length=64),
         task_id: str | None = Query(None, max_length=128, pattern=r"^[A-Za-z0-9_-]+$"),
         status: str | None = Query(None, max_length=64),
-    ):
+    ) -> dict[str, Any]:
         actor, token = identity(request)
         if resource == "support" and (q == "task_cases" or task_id):
             if actor.role != "platform_admin":
@@ -78,8 +83,8 @@ def install_operations(
             return service.read(actor, token, resource, limit, offset, cursor=cursor)
         return service.read(actor, token, resource, limit, offset)
 
-    @app.post("/platform-ops/v1/commands")
-    def command(request: Request, body: Command):
+    @app.post("/platform-ops/v1/commands", response_model=None)
+    def command(request: Request, body: Command) -> dict[str, Any]:
         actor, token = identity(request, permission=f"aether:{body.resource}:execute")
         if body.resource in GLOBAL_RESOURCES and actor.role != "platform_admin":
             raise HTTPException(403, "仅平台运维可操作")

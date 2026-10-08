@@ -3,14 +3,17 @@
 import logging
 from pathlib import Path
 from threading import Event, Thread
+from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
 
+from aether_platform.operations.store import OpsStore
+
 log = logging.getLogger(__name__)
 
 
-def validate_probe(url):
+def validate_probe(url: str) -> bool:
     parsed = urlsplit(url)
     return bool(
         parsed.hostname
@@ -26,27 +29,27 @@ def validate_probe(url):
     )
 
 
-def classify_probe(status):
+def classify_probe(status: int | None) -> int:
     return 0 if status is not None and 200 <= status < 300 else 1
 
 
 class Collector:
-    def __init__(self, config, store):
+    def __init__(self, config: dict[str, Any], store: OpsStore) -> None:
         self.settings, self.store = config.get("operations", {}), store
         self.stopping = Event()
-        self.thread = None
+        self.thread: Thread | None = None
 
-    def start(self):
+    def start(self) -> None:
         if self.thread is None:
             self.thread = Thread(target=self.loop, name="aether-ops-collector", daemon=True)
             self.thread.start()
 
-    def stop(self):
+    def stop(self) -> None:
         self.stopping.set()
         if self.thread:
             self.thread.join(timeout=25)
 
-    def loop(self):
+    def loop(self) -> None:
         while not self.stopping.is_set():
             try:
                 self.collect()
@@ -55,12 +58,12 @@ class Collector:
                 log.error("Operational collector failed; observations may be stale")
             self.stopping.wait(max(10, int(self.settings.get("sample_interval_seconds", 30))))
 
-    def collect(self):
+    def collect(self) -> None:
         with self.store.directory.connection() as conn:
             # One collector owns a sampling transaction even with multiple API replicas.
-            if not conn.execute("SELECT pg_try_advisory_xact_lock(195442026)").fetchone()[
-                "pg_try_advisory_xact_lock"
-            ]:
+            acquired = conn.execute("SELECT pg_try_advisory_xact_lock(195442026)").fetchone()
+            assert acquired is not None
+            if not acquired["pg_try_advisory_xact_lock"]:
                 return
             rows = conn.execute(
                 "SELECT c.tenant_id,count(*) FILTER(WHERE t.status='failed' AND "
@@ -114,7 +117,7 @@ class Collector:
             conn.execute("DELETE FROM ops_samples WHERE observed_at < now()-interval '30 days'")
         self.deliver()
 
-    def deliver(self):
+    def deliver(self) -> None:
         url = self.settings.get("notification_url")
         if not url:
             return
@@ -124,9 +127,9 @@ class Collector:
         if len(key) < 32:
             raise ValueError("Notification credential is not configured")
         with self.store.directory.connection() as conn:
-            if not conn.execute("SELECT pg_try_advisory_xact_lock(195442027)").fetchone()[
-                "pg_try_advisory_xact_lock"
-            ]:
+            acquired = conn.execute("SELECT pg_try_advisory_xact_lock(195442027)").fetchone()
+            assert acquired is not None
+            if not acquired["pg_try_advisory_xact_lock"]:
                 return
             alerts = conn.execute(
                 "SELECT a.* FROM ops_alerts a WHERE (silenced_until IS NULL OR "

@@ -35,7 +35,9 @@ def now() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def page(items: list, total: int | None = None, *, status="ok", **extra) -> dict:
+def page[T](
+    items: list[T], total: int | None = None, *, status: str = "ok", **extra: Any
+) -> dict[str, Any]:
     return {
         "items": items,
         "total": len(items) if total is None else total,
@@ -45,7 +47,7 @@ def page(items: list, total: int | None = None, *, status="ok", **extra) -> dict
     }
 
 
-def public_request(row: dict) -> dict:
+def public_request(row: dict[str, Any]) -> dict[str, Any]:
     """Explicit projection: never transport prompts, answers or arbitrary error text."""
     allowed = (
         "id",

@@ -48,22 +48,28 @@ def render(images: dict[str, str], namespace: str, replicas: int) -> dict:
             volumes.append({"name": "config", "secret": {"secretName": PREFIX + secret}})
             mounts.append({"name": "config", "mountPath": "/config", "readOnly": True})
         if pvc:
-            volumes.append({"name": "data", "persistentVolumeClaim": {"claimName": PREFIX + pvc[0]}})
+            volumes.append(
+                {"name": "data", "persistentVolumeClaim": {"claimName": PREFIX + pvc[0]}}
+            )
             mounts.append({"name": "data", "mountPath": pvc[1]})
         volumes.extend(extra_volumes or [])
         mounts.extend(extra_mounts or [])
-        probe = {"httpGet": {"path": health, "port": port}} if health else {"tcpSocket": {"port": port}}
+        probe = (
+            {"httpGet": {"path": health, "port": port}} if health else {"tcpSocket": {"port": port}}
+        )
         container = {
             "name": name, "image": image, "imagePullPolicy": "IfNotPresent",
             "ports": [{"containerPort": port}], "volumeMounts": mounts,
             "resources": {"requests": {"cpu": cpu, "memory": memory},
-                          "limits": {"cpu": "2", "memory": "3Gi" if name in {"p3", "backend"} else "1Gi"}},
+                          "limits": {
+                              "cpu": "2", "memory": "3Gi" if name in {"p3", "backend"} else "1Gi"}},
             "securityContext": {"allowPrivilegeEscalation": False,
                                 "capabilities": {"drop": ["ALL"]},
                                 "readOnlyRootFilesystem": True},
             "startupProbe": probe | {"periodSeconds": 5, "failureThreshold": 120},
             "readinessProbe": probe | {"periodSeconds": 10, "failureThreshold": 3},
-            "livenessProbe": {"tcpSocket": {"port": port}, "periodSeconds": 20, "failureThreshold": 6},
+            "livenessProbe": {
+                "tcpSocket": {"port": port}, "periodSeconds": 20, "failureThreshold": 6},
         }
         if command:
             container["command"] = command
@@ -95,13 +101,21 @@ def render(images: dict[str, str], namespace: str, replicas: int) -> dict:
                        ("platform-database", "10Gi"), ("p3-data", "10Gi"),
                        ("ops-backups", "10Gi")]:
         volume_claim(name, size)
-    deploy("mysql", images.get("mysql", "mysql@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b"), 3306, uid=999,
+    deploy("mysql", images.get(
+        "mysql", "mysql@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b"
+    ), 3306, uid=999,
            pvc=("mysql-data", "/var/lib/mysql"), env_from="mysql",
-           args=["--datadir=/var/lib/mysql/data", "--socket=/tmp/mysql.sock", "--pid-file=/tmp/mysql.pid"])
-    deploy("redis", images.get("redis", "redis@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499"), 6379, uid=999,
+           args=["--datadir=/var/lib/mysql/data", "--socket=/tmp/mysql.sock",
+                 "--pid-file=/tmp/mysql.pid"])
+    deploy("redis", images.get(
+        "redis", "redis@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499"
+    ), 6379, uid=999,
            secret="redis", pvc=("redis-data", "/data"), memory="128Mi",
            command=["redis-server", "/config/redis.conf"])
-    deploy("platform-db", images.get("postgres", "postgres@sha256:00bc86618629af00d2937fdc5a5d63db3ff8450acf52f0636ec813c7f4902929"), 5432, uid=999,
+    deploy("platform-db", images.get(
+        "postgres",
+        "postgres@sha256:00bc86618629af00d2937fdc5a5d63db3ff8450acf52f0636ec813c7f4902929"
+    ), 5432, uid=999,
            pvc=("platform-database", "/var/lib/postgresql/data"), env_from="platform-database",
            env=[{"name": "PGDATA", "value": "/var/lib/postgresql/data/pgdata"},
                 {"name": "PGHOST", "value": "/tmp"}],
@@ -123,13 +137,16 @@ def render(images: dict[str, str], namespace: str, replicas: int) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--images", type=Path, required=True, help="JSON component -> immutable image ref")
-    parser.add_argument("--output", type=Path, required=True, help="External process workspace output")
+    parser.add_argument(
+        "--images", type=Path, required=True, help="JSON component -> immutable image ref")
+    parser.add_argument(
+        "--output", type=Path, required=True, help="External process workspace output")
     parser.add_argument("--namespace", default="aether-p3-demo")
     parser.add_argument("--replicas", type=int, choices=[0, 1], default=0)
     args = parser.parse_args()
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    result = render(json.loads(args.images.read_text(encoding="utf-8-sig")), args.namespace, args.replicas)
+    result = render(
+        json.loads(args.images.read_text(encoding="utf-8-sig")), args.namespace, args.replicas)
     args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(f"Rendered {len(result['items'])} candidate resources with replicas={args.replicas}.")
 

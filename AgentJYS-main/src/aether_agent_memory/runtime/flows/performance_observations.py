@@ -112,7 +112,9 @@ def _phase_breakdown(phases: tuple[str, ...]) -> dict[str, Any]:
     }
 
 
-def _collect_phases(row: dict[str, Any], breakdown: dict[str, Any], values: dict) -> None:
+def _collect_phases(
+    row: dict[str, Any], breakdown: dict[str, Any], values: dict[str, list[float]]
+) -> None:
     observed = False
     for item in breakdown["items"]:
         phase = item["phase"]
@@ -127,7 +129,7 @@ def _collect_phases(row: dict[str, Any], breakdown: dict[str, Any], values: dict
     breakdown["timed_samples" if observed else "missing_samples"] += 1
 
 
-def _finish_phases(breakdown: dict[str, Any], values: dict) -> None:
+def _finish_phases(breakdown: dict[str, Any], values: dict[str, list[float]]) -> None:
     for item in breakdown["items"]:
         durations = sorted(values.get(item["phase"], []))
         if durations:
