@@ -100,7 +100,22 @@ PYTHONPATH=src:tests python -B -m pytest tests/unit/test_cache_locations.py test
 
 首轮隔离 AKS 测试收集 76 项，执行 **69 passed / 3 failed / 0 skipped**，达到三次失败后停止，另 4 项未执行；被测源码摘要未变，测试 Pod 和专用 PostgreSQL/Milvus 数据库均确认删除。组包 24 项、Operate 地址发布 30 项、首次缓存 12 项均通过。传输和元数据使用真实 Azure 服务，但部分测试的 Ceph 或模型依赖有明确替身，不能笼统称为全链路真实模型验收。
 
-三个失败均在 `test_remember_observation_batches.py` 的旧预压缩要求：长文本应先等待压缩，以及两种超过 8000 字节文本应登记 source_reference。当前 Remember 已取消新请求预压缩并保存完整正文；与基线对照，相关 `prepare_save/persist_save/commit_save` 和这两个测试函数没有因本次改动变化。本 PR 保留失败用例及证据，不修改 Remember 保存策略来迎合旧断言；完整套件尚不能宣称全绿。后续缓存回源、撤权及版本竞争的定点复验以对应 PR 执行记录为准，不能把首轮未执行项计为通过。
+三个失败均在 `test_remember_observation_batches.py` 的旧预压缩要求：长文本应先等待压缩，以及两种超过 8000 字节文本应登记 source_reference。当前 Remember 已取消新请求预压缩并保存完整正文；与基线对照，相关 `prepare_save/persist_save/commit_save` 和这两个测试函数没有因本次改动变化。本 PR 保留失败用例及证据，不修改 Remember 保存策略来迎合旧断言；完整套件尚不能宣称全绿。这里的基线比对是源码语法树比对，不是完整基线在云端的对照运行。
+
+### 2026-10-08 最终代码云端定点复验
+
+生产代码提交 `380383abdf7b11d09cbddab8feaf4e2b04305a24` 在隔离 AKS 中执行 71 项：**70 passed / 1 failed / 0 skipped**，被测 635 个 Python 文件的 SHA-256 与上传时本地源码一致。组包 24 项、Operate 地址发布 30 项、首次缓存 12 项，以及回源无修复、读取期间撤权、短观察记录和重复保存 4 项均通过。
+
+唯一失败为 `test_late_cache_completion_cannot_mark_new_content_version_cached` 的旧测试钩子：它在缓存准入中调用完整 `correct_async`，后者再次进入同一准入钩子，造成重复更正的 `IDEMPOTENCY_CONFLICT`。测试调整为沿真实 `prepare_correction → bodies.persist → correct` 阶段执行，停在“新版正文已提交、新版缓存尚未准入”的并发窗口，再让旧版缓存返回；版本、空缓存地址和标记断言全部保留，不修改生产保存或更正逻辑。新版正常首次准入仍由 `test_remember_initial_cache.py` 覆盖。
+
+修正后该用例在同一生产代码上独立云端复验：**1 passed / 0 failed / 0 skipped**，源码校验通过。准确结论是“70 项通过，另 1 项修正测试时序后单独复验通过”，不是单次完整重跑 71/71；上述三个旧预压缩断言仍未解决，也未删除或跳过。
+
+| 证据编号 | 测试范围与结果 | 清理及边界 |
+|---|---|---|
+| AKS-1466486503 | 最终生产代码定点 71 项，70 通过 / 1 失败 | JUnit 与 execution 记录已核对；专用 PostgreSQL/Milvus 数据库及 Pod 确认不存在 |
+| AKS-1466996577 | 修正并发测试钩子后单项复验，1 通过 | JUnit 零失败/零跳过；源码未变；专用数据库及 Pod 确认不存在 |
+
+原始 JUnit、源码清单与执行记录在项目外过程目录归档，可按证据编号追溯。测试使用实际 Azure 后端和独立数据；部分模型、故障和网络路径由测试替身控制，不能据此宣称生产部署、完整真实模型链路或高并发长稳验收通过。PR 与 GitHub 自动检查见 [PR #27](https://github.com/csdnk/Ather-AIAgent/pull/27)，自动检查需以对应最新提交为准。
 
 GitHub 的 `azure-tests` Environment 当前未配置，不能把本机调度 AKS 的结果当作 Azure Actions 的通过状态。手动测试复用仓库 `run_aks_tests.py` 的源码打包、证据判定和 UID 清理，以及 `aks_test_entrypoint.py`；凭据留在 AKS，未修改在线 Deployment。
 

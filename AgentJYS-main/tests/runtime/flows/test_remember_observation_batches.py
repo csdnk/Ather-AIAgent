@@ -166,16 +166,22 @@ def test_late_cache_completion_cannot_mark_new_content_version_cached(app):
     async def replace_during_admit(scope, text):
         nonlocal corrected
         result = await original(scope, text)
-        corrected = await app.remember.correct_async(
-            context(app, operation="cache-race-correction"),
-            receipt.memories[0].memory_id,
-            CorrectionRequest(
-                expected_version=1,
-                content="新内容",
-                source=source("race-correction"),
-                reason="explicit correction",
-            ),
+        correction_ctx = context(app, operation="cache-race-correction")
+        correction = CorrectionRequest(
+            expected_version=1,
+            content="新内容",
+            source=source("race-correction"),
+            reason="explicit correction",
         )
+        # Commit v2 while the old admission is still awaiting its receipt. Pause
+        # before v2's own admission so this hook cannot recursively correct again.
+        # CorrectionStages uses the same prepare / persist / correct boundary;
+        # v2's initial cache admission is covered by test_remember_initial_cache.
+        prepared_correction = app.remember.prepare_correction(
+            correction_ctx, receipt.memories[0].memory_id, correction
+        )
+        await app.remember.bodies.persist(correction_ctx, scope, prepared_correction["text"])
+        corrected = app.remember.correct(correction_ctx, receipt.memories[0].memory_id, correction)
         return result
 
     app.remember.bodies.admit = replace_during_admit
