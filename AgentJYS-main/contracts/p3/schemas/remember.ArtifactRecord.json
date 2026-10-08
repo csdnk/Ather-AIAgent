@@ -171,7 +171,9 @@
       "enum": [
         "pending",
         "passed",
-        "failed"
+        "failed",
+        "sampled_passed",
+        "not_sampled"
       ],
       "title": "Quality",
       "type": "string"

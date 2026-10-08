@@ -54,13 +54,6 @@ class StageContext:
         _, current = self.ledger.tasks.load(tx, self.task.task_id)
         if current.execution != self.execution:
             tx.abort(ErrorCode.VERSION_CONFLICT, "business write belongs to an old delivery")
-        bound = tx.read("temporal_bindings", current.task_id)
-        if bound and bound.get("backend") == "celery":
-            owner = tx.read("celery_jobs", current.task_id)
-            if not owner or owner.get("lease_until", "") <= self.ledger.tasks.clock():
-                tx.abort(ErrorCode.VERSION_CONFLICT, "Celery lease expired before commit")
-            if owner.get("execution") != self.execution.model_dump(mode="json"):
-                tx.abort(ErrorCode.VERSION_CONFLICT, "Celery owner changed before commit")
         self.ledger.tasks.identity.revalidate(tx, self.context)
         if fingerprint(tx.get(current.input_ref)) != current.input_hash:
             tx.abort(ErrorCode.VERSION_CONFLICT, "business input changed")
@@ -178,12 +171,7 @@ class Activities:
             execution_class = row["class"]
         return task, deadline, execution_class
 
-    def begin_step(
-        self,
-        step: StepRequest,
-        deadline: str,
-        execution: ExecutionRef | None = None,
-    ) -> StageContext | StepResult:
+    def begin_step(self, step: StepRequest, deadline: str) -> StageContext | StepResult:
         stage = self.registry.get(step.job.kind, step.stage)
         with self.tasks.uow.transaction() as tx:
             row, task = self.tasks.load(tx, step.job.job_id)
@@ -211,17 +199,19 @@ class Activities:
                 )
             deadline = min(deadline, later(self.tasks.clock(), stage.policy.timeout_seconds))
             tx.write("tasks", task.task_id, {**row, "execution_deadline": deadline})
-            if execution is None:
-                info = activity.info()
-                execution = ExecutionRef(
+            info = activity.info()
+            execution = self.ledger.begin(
+                tx,
+                step,
+                ExecutionRef(
                     namespace=info.workflow_namespace,
                     workflow_id=info.workflow_id,
                     run_id=info.workflow_run_id,
                     activity_id=info.activity_id,
                     delivery_attempt=info.attempt,
                     epoch=0,
-                )
-            execution = self.ledger.begin(tx, step, execution)
+                ),
+            )
             row, task = self.tasks.load(tx, task.task_id)
             attempt = task.attempt
             if step.mode == "execute":
@@ -349,54 +339,49 @@ class Activities:
 
     def record(self, step: StepRequest, context: StageContext, result: StepResult) -> StepResult:
         with self.tasks.uow.transaction() as tx:
-            return self.record_in(tx, step, context, result)
-
-    def record_in(
-        self, tx: MetadataTransaction, step: StepRequest, context: StageContext, result: StepResult
-    ) -> StepResult:
-        row, current = self.tasks.load(tx, context.task.task_id)
-        if current.execution != context.execution:
-            tx.abort(ErrorCode.VERSION_CONFLICT, "late stage result")
-        if current.state == TaskState.SUCCEEDED:
-            self.authorized_context(tx, current, context.context.deadline_at)
-            return self.terminal_result(current)
-        context.guard(tx)
-        if result.outcome == "done":
-            if result.next_stage is not None:
-                self.registry.get(step.job.kind, result.next_stage)
-            self.ledger.save_step(tx, step, context.execution, result)
-            if result.next_stage is None:
-                assert result.result_ref is not None
-                self.ledger.complete(tx, current.task_id, context.execution, result.result_ref)
+            row, current = self.tasks.load(tx, context.task.task_id)
+            if current.execution != context.execution:
+                tx.abort(ErrorCode.VERSION_CONFLICT, "late stage result")
+            if current.state == TaskState.SUCCEEDED:
+                self.authorized_context(tx, current, context.context.deadline_at)
+                return self.terminal_result(current)
+            context.guard(tx)
+            if result.outcome == "done":
+                if result.next_stage is not None:
+                    self.registry.get(step.job.kind, result.next_stage)
+                self.ledger.save_step(tx, step, context.execution, result)
+                if result.next_stage is None:
+                    assert result.result_ref is not None
+                    self.ledger.complete(tx, current.task_id, context.execution, result.result_ref)
+                else:
+                    self.tasks.change(tx, row, current, effect_status=result.effect_status)
             else:
-                self.tasks.change(tx, row, current, effect_status=result.effect_status)
-        else:
-            state = {
-                "query": TaskState.RECOVERY_WAIT,
-                "retry": TaskState.RETRY_WAIT,
-                "obsolete": TaskState.CANCELLED,
-                "failed": TaskState.FAILED,
-                "attention": TaskState.ATTENTION,
-            }[result.outcome]
-            original = row.get("original_operation_id")
-            if (
-                original
-                and result.original_operation_id
-                and original != result.original_operation_id
-            ):
-                tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "original operation changed")
-            self.tasks.change(
-                tx,
-                {
-                    **row,
-                    "original_operation_id": original or result.original_operation_id,
-                    "terminal_reason": result.reason_code,
-                },
-                current,
-                state=state,
-                effect_status=result.effect_status,
-            )
-        return result
+                state = {
+                    "query": TaskState.RECOVERY_WAIT,
+                    "retry": TaskState.RETRY_WAIT,
+                    "obsolete": TaskState.CANCELLED,
+                    "failed": TaskState.FAILED,
+                    "attention": TaskState.ATTENTION,
+                }[result.outcome]
+                original = row.get("original_operation_id")
+                if (
+                    original
+                    and result.original_operation_id
+                    and original != result.original_operation_id
+                ):
+                    tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "original operation changed")
+                self.tasks.change(
+                    tx,
+                    {
+                        **row,
+                        "original_operation_id": original or result.original_operation_id,
+                        "terminal_reason": result.reason_code,
+                    },
+                    current,
+                    state=state,
+                    effect_status=result.effect_status,
+                )
+            return result
 
     @staticmethod
     def terminal_result(task: TaskRecord) -> StepResult:

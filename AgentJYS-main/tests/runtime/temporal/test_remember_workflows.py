@@ -38,6 +38,12 @@ def test_all_remember_kinds_have_stage_routes(runtime, kind):
 
 
 async def job_for(runtime, kind):
+    if kind == "compress":
+        # These recovery cases count generation plus full quality verification.
+        # Probabilistic acceptance has separate deterministic rate-0/rate-1 tests.
+        runtime.remember.policy = runtime.remember.policy.model_copy(
+            update={"compression_quality_sample_rate": 1.0}
+        )
     ctx = runtime.foundation.identity.context("alice", timeout_seconds=60)
     receipt = await runtime.remember.save(
         ctx,

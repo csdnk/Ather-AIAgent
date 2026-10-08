@@ -225,28 +225,7 @@ def create_app(
     async def admission_gate(request: Request, call_next: Any) -> Any:
         if execution is not None and request.method in {"POST", "PUT", "PATCH", "DELETE"}:
             try:
-                path = request.url.path
-                local_reads = {
-                    "/p3/remember/sources/search",
-                    "/p3/remember/body",
-                    "/p3/remember/body/range",
-                    "/p3/sources/read-range",
-                }
-                controls = path == "/p3/recovery" or (
-                    path.startswith("/p3/tasks/") and path.endswith("/control")
-                )
-                # This endpoint dispatches both Remember and Recall; its authorized
-                # handler calls accept(kind), which checks the selected backend.
-                routed_admin = path == "/p3/admin/memory-commands"
-                if path not in local_reads and not controls and not routed_admin:
-                    if hasattr(execution, "celery"):
-                        execution.require_ready(
-                            "remember"
-                            if path.startswith(("/p3/remember", "/p3/sources/", "/p3/documents"))
-                            else "operate"
-                        )
-                    else:
-                        execution.require_ready()
+                execution.require_ready()
             except FoundationError as exc:
                 return await foundation_error(request, exc)
         return await call_next(request)
@@ -351,11 +330,7 @@ def create_app(
         with runtime.foundation.uow.transaction() as tx:
             return dict(execution.controls.periodic_snapshot(tx, ctx))
 
-    @app.post(
-        "/p3/periodic/control",
-        response_model=OperationRecord,
-        description="Control the Temporal periodic scheduler. Remember Celery scans use /p3/remember/periodic/control.",
-    )
+    @app.post("/p3/periodic/control", response_model=OperationRecord)
     async def periodic_control(
         request: ControlRequest, ctx: TrustedContext = trusted_dependency
     ) -> OperationRecord:
@@ -363,28 +338,6 @@ def create_app(
             result = execution.controls.periodic(tx, ctx, request)
         await execution.bridge.flush()
         return OperationRecord.model_validate(execution.controls.status(ctx, result.operation_id))
-
-    @app.get("/p3/remember/periodic/control")
-    def remember_periodic_status(ctx: TrustedContext = trusted_dependency) -> dict[str, Any]:
-        if not hasattr(execution.controls, "remember_periodic_snapshot"):
-            raise FoundationError(
-                ErrorCode.DEPENDENCY_UNAVAILABLE, "Remember Celery is not configured"
-            )
-        with runtime.foundation.uow.transaction() as tx:
-            return dict(execution.controls.remember_periodic_snapshot(tx, ctx))
-
-    @app.post("/p3/remember/periodic/control", response_model=OperationRecord)
-    def remember_periodic_control(
-        request: ControlRequest, ctx: TrustedContext = trusted_dependency
-    ) -> OperationRecord:
-        if not hasattr(execution.controls, "remember_periodic"):
-            raise FoundationError(
-                ErrorCode.DEPENDENCY_UNAVAILABLE, "Remember Celery is not configured"
-            )
-        with runtime.foundation.uow.transaction() as tx:
-            return OperationRecord.model_validate(
-                execution.controls.remember_periodic(tx, ctx, request)
-            )
 
     @app.get("/p3/incidents", response_model=tuple[IncidentRecord, ...])
     def incidents(ctx: TrustedContext = trusted_dependency) -> tuple[IncidentRecord, ...]:

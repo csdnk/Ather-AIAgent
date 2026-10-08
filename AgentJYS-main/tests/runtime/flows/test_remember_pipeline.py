@@ -220,7 +220,9 @@ def test_compression_ratio_and_independent_quality_gate(app, passed, ratio_ok, p
                 retained_fact_fraction=1 if passed else 0.5,
             )
 
-    app.remember.policy = app.remember.policy.model_copy(update={"compression_min_bytes": 10})
+    app.remember.policy = app.remember.policy.model_copy(
+        update={"compression_min_bytes": 10, "compression_quality_sample_rate": 1.0}
+    )
     app.remember.compressor, app.remember.quality = Compressor(), Quality()
     receipt = save(app, "fact " * 50)
     drain(app)

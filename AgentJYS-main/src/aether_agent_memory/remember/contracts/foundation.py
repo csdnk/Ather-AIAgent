@@ -62,7 +62,7 @@ class DerivedArtifact(ContractModel):
     task_id: Identifier
     strategy_version: Identifier
     location: ResourceLocation
-    quality: Literal["pending", "passed", "failed"]
+    quality: Literal["pending", "passed", "failed", "sampled_passed", "not_sampled"]
     created_at: Timestamp
 
     @model_validator(mode="after")

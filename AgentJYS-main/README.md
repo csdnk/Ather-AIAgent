@@ -177,13 +177,9 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8080/p3/recall -Headers $P3
 docker build -f Dockerfile.p3 -t aether-p3:azure-candidate .
 ```
 
-[compose.p3.yaml](compose.p3.yaml) 可用于配置好网络的本机联调，默认启动 API、独立 Celery Worker 和单例 Beat。先设置仓库外的 `AETHER_DEPLOYMENT_DIR`、`AETHER_RUNTIME_DIR`、`AETHER_MODELS_DIR`，分别挂载为 `/deployment`、`/runtime`、`/models`，配置使用对应的容器路径。另须设置受保护的 `P3_CELERY_BROKER_URL` 指向独立持久消息 broker；不能复用允许淘汰数据的缓存 Redis。Temporal endpoint 必须从容器实际可达以执行 Recall、Operate 和已有 Temporal 绑定；宿主 loopback 的开发 CLI 不会自动成为容器可访问的服务。可选 `p2` profile 仅保留 Rust P2 提供方的独立联调，不参与 Azure Service 装配。
+[compose.p3.yaml](compose.p3.yaml) 可用于配置好网络的本机联调。先设置仓库外的 `AETHER_DEPLOYMENT_DIR`、`AETHER_RUNTIME_DIR`、`AETHER_MODELS_DIR`，分别挂载为 `/deployment`、`/runtime`、`/models`，配置使用对应的容器路径。Temporal endpoint 必须从容器实际可达；宿主 loopback 的开发 CLI 不会自动成为容器可访问的服务。可选 `p2` profile 仅保留 Rust P2 提供方的独立联调，不参与 Azure Service 装配。
 
 [compose.production.yaml](compose.production.yaml) 使用指定摘要的 P3 镜像，强制 `--require-profile production`。设置 `AETHER_P3_IMAGE`、只读 `AETHER_DEPLOYMENT_DIR`、可写 `AETHER_RUNTIME_DIR` 和只读 `AETHER_MODELS_DIR`。容器配置使用 `host: 0.0.0.0`、`port: 8080`、`data_dir: /runtime`；模型权重位于 `/models`，模型缓存指向 `/runtime` 的可写目录。
-
-两份 Compose 均默认带 Remember 的 Worker/Beat，并要求 `P3_CELERY_BROKER_URL`。Worker 使用独立 named volume 保存 scratch，业务权威数据仍在配置的远程存储。若需要本机独立 broker，可将 [redis.conf.example](deploy/celery/redis.conf.example) 复制至受保护部署目录的 `celery/redis.conf`，替换独立密码后通过 `--profile local-broker` 启动；broker 不暴露宿主端口。URL 的主机名使用 `p3-celery-broker`，密码须正确进行 URL 编码；跨不可信网络应配置 TLS。生产亦可使用独立托管 broker，保留 AOF/持久化与 noeviction 配置。
-
-新 Remember 任务默认走 Celery；已有任务固定在原后端。升级前可用 `python -m aether_agent_memory migrate-execution --config /deployment/service.yaml` 审计绑定，确认后加 `--apply` 写入版本化路由标记。`/p3/periodic/control` 只控制 Temporal 周期调度；Remember 扫描使用 `/p3/remember/periodic/control`。禁止直接删除旧任务、绑定或 outbox 来绕过迁移检查。
 
 Compose 传递上述四后端与模型的默认密钥变量名；若配置使用其他名字，应同步修改环境注入。容器必须实际可达私网 PG/Redis/Milvus 及 Ceph HTTPS，并具备授权 namespace/数据库/bucket。模板、镜像构建和 Pod Ready 都不能单独证明已达到上线标准。
 

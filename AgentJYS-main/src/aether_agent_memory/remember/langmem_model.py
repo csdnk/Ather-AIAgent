@@ -19,6 +19,10 @@ from pydantic import BaseModel, ConfigDict, PrivateAttr
 from aether_agent_memory.runtime.flows.config import LanguageModel
 
 
+class LangMemOutputTruncatedError(ValueError):
+    """A bounded generation ended before all memory tool output was complete."""
+
+
 class _LimitedStream(httpx.AsyncByteStream):
     def __init__(self, stream: httpx.AsyncByteStream, limit: int) -> None:
         self.stream, self.limit = stream, limit
@@ -113,7 +117,10 @@ class LangMemChatModel(ChatOpenAI):
         if len(result.generations) != 1:
             raise ValueError("LangMem requires exactly one model choice")
         generation = result.generations[0]
-        if (generation.generation_info or {}).get("finish_reason") not in {
+        finish_reason = (generation.generation_info or {}).get("finish_reason")
+        if finish_reason in {"length", "max_tokens", "max_output_tokens", "max_completion_tokens"}:
+            raise LangMemOutputTruncatedError("model output exceeded the generation token limit")
+        if finish_reason not in {
             None,
             "stop",
             "tool_calls",

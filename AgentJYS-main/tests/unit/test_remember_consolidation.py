@@ -254,3 +254,159 @@ async def test_oversized_optional_context_is_omitted_as_a_complete_unit():
     )
     assert result["context_refs"] == ()
     assert app.extraction.consolidate.call_args.kwargs["context_items"] == ()
+
+
+def support_owner(rate, *, exact=False):
+    from aether_agent_memory.remember.basic.comparison import ComparisonDecision
+    from aether_agent_memory.remember.basic.official_langmem import ConsolidationProposal
+    from aether_agent_memory.remember.basic.pipeline import RememberPipeline
+    from aether_agent_memory.remember.contracts.models import CandidateFact, FactEvidence
+
+    app = owner()
+    app.policy = RememberPolicy(memory_support_sample_rate=rate)
+    app.support_verifier = SimpleNamespace(verify=AsyncMock(return_value=True))
+    app.validate_candidate = RememberPipeline.validate_candidate.__get__(app)
+    message = snapshot("new", "Alice said she uses Linux for work.")
+    candidate = CandidateFact(
+        text=message.content if exact else "Alice uses Linux for work.",
+        sources=message.sources,
+        evidence_status="supported",
+        evidence=(
+            FactEvidence(
+                source=message.sources[0],
+                start_char=0,
+                end_char=len(message.content),
+                quote=message.content,
+            ),
+        ),
+    )
+    app.extraction.consolidate.return_value = ConsolidationResult(
+        proposals=(
+            ConsolidationProposal(
+                candidate=candidate,
+                decision=ComparisonDecision(outcome="create", reason="new fact"),
+            ),
+        ),
+        model_id="model",
+        policy_version="p",
+    )
+    return app, message
+
+
+@pytest.mark.parametrize("rate", [0, 1])
+async def test_official_extra_support_review_is_disabled_even_for_old_rate_one(rate):
+    app, message = support_owner(rate)
+    task = SimpleNamespace(task_id="sample-task")
+    first = await prepare_consolidation(app, None, task, (message,))
+    second = await prepare_consolidation(app, None, task, (message,))
+    assert len(first["candidates"]) == 1
+    assert second["support_audit"] == first["support_audit"]
+    assert first["support_audit"][0]["status"] == "not_checked"
+    assert first["support_audit"][0]["supported"] is None
+    assert first["support_audit"][0]["reason"] == "additional_entailment_review_disabled"
+    app.support_verifier.verify.assert_not_awaited()
+    assert not any(table == "remember_quality_samples" for table, _ in app.uow.rows)
+
+
+async def test_disabling_review_does_not_relabel_historical_rejection():
+    app, message = support_owner(1)
+    task = SimpleNamespace(task_id="t")
+    await prepare_consolidation(app, None, task, (message,))
+    table, key = next((table, key) for table, key in app.uow.rows if table == "remember_official_support")
+    app.uow.write(table, key, {"supported": False})
+    result = await prepare_consolidation(app, None, task, (message,))
+    assert result["candidates"] == ()
+    assert result["support_audit"][0]["status"] == "rejected"
+    assert len(result["rejections"]) == 1
+    app.support_verifier.verify.assert_not_awaited()
+
+
+async def test_unavailable_extra_reviewer_does_not_block_consolidation():
+    app, message = support_owner(1)
+    app.support_verifier.verify.side_effect = AssertionError("removed extra review invoked")
+    task = SimpleNamespace(task_id="t")
+    result = await prepare_consolidation(app, None, task, (message,))
+    assert result["support_audit"][0]["supported"] is None
+    assert app.extraction.consolidate.await_count == 1
+    app.support_verifier.verify.assert_not_awaited()
+
+
+async def test_exact_source_quote_records_program_check_without_a_model_verdict():
+    app, message = support_owner(1, exact=True)
+    result = await prepare_consolidation(app, None, SimpleNamespace(task_id="t"), (message,))
+    app.support_verifier.verify.assert_not_awaited()
+    assert result["support_audit"][0]["status"] == "not_checked"
+    assert result["support_audit"][0]["source_check"] == "exact_quote"
+    assert result["support_audit"][0]["supported"] is None
+
+
+async def test_disabled_extra_review_still_requires_exact_original_evidence():
+    app, message = support_owner(0)
+    proposal = app.extraction.consolidate.return_value.proposals[0]
+    forged = proposal.candidate.evidence[0].model_copy(update={"quote": "x" * len(message.content)})
+    forged_proposal = proposal.model_copy(
+        update={"candidate": proposal.candidate.model_copy(update={"evidence": (forged,)})}
+    )
+    app.extraction.consolidate.return_value = app.extraction.consolidate.return_value.model_copy(
+        update={"proposals": (forged_proposal,)}
+    )
+    with pytest.raises(Exception, match="evidence slice mismatch"):
+        await prepare_consolidation(app, None, SimpleNamespace(task_id="t"), (message,))
+    app.support_verifier.verify.assert_not_awaited()
+
+
+async def test_unreviewed_extraction_view_is_used_without_full_original_model_input():
+    app = owner()
+    message = snapshot("new", "a" * 40000)
+    artifact(app, message, "Selected source sentence.")
+    app.uow.read("remember_artifacts", message.ref.memory_id)["declared_use"] = "extraction_view"
+    await prepare_consolidation(app, None, SimpleNamespace(task_id="t"), (message,))
+    assert app.extraction.consolidate.call_args.kwargs["representations"] == [
+        {"source_id": "src_new", "text": "Selected source sentence."}
+    ]
+
+
+@pytest.mark.parametrize("rate", [0, 1])
+async def test_legacy_extraction_also_disables_extra_support_review(rate):
+    from aether_agent_memory.remember.basic.pipeline import RememberPipeline
+
+    app, message = support_owner(rate)
+    candidate = app.extraction.consolidate.return_value.proposals[0].candidate
+    app.extraction.extract_batch = AsyncMock()
+    app.extract_inputs = AsyncMock(return_value=[candidate])
+    task = SimpleNamespace(task_id="legacy", kind="remember.extract")
+    first = await RememberPipeline.candidates(app, None, task, (message,))
+    second = await RememberPipeline.candidates(app, None, task, (message,))
+    assert first == second == (candidate,)
+    app.support_verifier.verify.assert_not_awaited()
+    app.extract_inputs.assert_awaited_once()
+    audit = app.uow.read("remember_candidates", "legacy")["support_audit"][0]
+    assert audit["status"] == "not_checked"
+    assert audit["supported"] is None
+
+
+@pytest.mark.parametrize(
+    "table,saved",
+    [
+        ("remember_official_support", {"supported": False}),
+        ("remember_support_verifications", {"status": "rejected"}),
+    ],
+)
+async def test_old_failed_support_verdict_is_not_bypassed_by_disabling_sampling(table, saved):
+    from aether_agent_memory.remember.basic.consolidation import candidate_support_audit
+
+    app, _ = support_owner(0)
+    candidate = app.extraction.consolidate.return_value.proposals[0].candidate
+    app.uow.write(table, "checkpoint", saved)
+    audit = await candidate_support_audit(
+        app,
+        None,
+        SimpleNamespace(task_id="t"),
+        candidate,
+        binding="binding",
+        table=table,
+        key="checkpoint",
+    )
+    assert audit["status"] == "rejected"
+    assert audit["supported"] is False
+    app.support_verifier.verify.assert_not_awaited()

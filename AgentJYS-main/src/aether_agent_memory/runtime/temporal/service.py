@@ -99,13 +99,9 @@ class TemporalService:
                 "task_queue_prefix": isolated.task_queue_prefix,
             }
             prior = tx.read("meta", "execution_backend")
-            compatible = (
-                prior and prior.get("backend") == "hybrid_v1" and prior.get("temporal") == marker
-            )
-            if prior is not None and prior != marker and not compatible:
+            if prior is not None and prior != marker:
                 raise ValueError("Temporal backend binding changed")
-            if not compatible:
-                tx.write("meta", "execution_backend", marker)
+            tx.write("meta", "execution_backend", marker)
         self.client: Client | None = None
         self.gateway: TemporalGateway | None = None
         self.bridge: IntentBridge | None = None

@@ -8,16 +8,11 @@ import yaml
 from aether_agent_memory.runtime.contracts.models import Permission
 from aether_agent_memory.runtime.flows.application import Service as RealService
 from aether_agent_memory.runtime.flows.config import IdentityConfiguration
-from aether_agent_memory.runtime.temporal.service import TemporalService
 from azure_test_runtime import owned, provider_options
 from controlled_embedding import ControlledEmbedding
 
 
 class Service(RealService):
-    # Legacy transport compatibility tests retain the historical Temporal host.
-    # Hybrid tests explicitly select RealService.execution_service and real workers.
-    execution_service = TemporalService
-
     def __init__(self, config, **providers):
         if config.storage_mode == "azure":
             super().__init__(config, **providers)

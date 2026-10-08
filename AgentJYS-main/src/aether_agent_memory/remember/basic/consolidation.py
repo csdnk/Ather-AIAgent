@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from aether_agent_memory.remember.basic.extraction import EvidenceValidationError
 from aether_agent_memory.remember.basic.official_langmem import (
     ConsolidationProposal,
     ConsolidationResult,
@@ -13,12 +12,67 @@ from aether_agent_memory.remember.basic.policy import chunks
 from aether_agent_memory.remember.contracts.models import (
     CandidateFact,
     MemoryKind,
-    MemoryRef,
     MemorySnapshot,
 )
-from aether_agent_memory.runtime.contracts.foundation import ResourceLocation
 from aether_agent_memory.runtime.contracts.models import ErrorCode
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
+
+
+async def candidate_support_audit(
+    owner: Any,
+    ctx: Any,
+    task: Any,
+    candidate: CandidateFact,
+    *,
+    binding: str,
+    table: str,
+    key: str,
+) -> dict[str, Any]:
+    """Record disabled extra review after the caller's source/evidence checks.
+
+    CandidateFact.evidence_status='supported' is the historical source-binding
+    contract, not an independent model verdict. Keep that verdict separate and
+    nullable so disabled review cannot inflate verified accuracy.
+    """
+    with owner.uow.transaction() as tx:
+        owner.tasks.guard(tx, task)
+        saved = tx.read(table, key)
+    if saved is not None:
+        # Older checkpoints did not record sampling, but did run the verifier.
+        status = saved.get("status") or (
+            "supported" if saved.get("supported") is True
+            else "rejected" if saved.get("supported") is False else "unknown"
+        )
+        legacy_verdict = True if status == "supported" else False if status == "rejected" else None
+        if status == "unknown":
+            raise FoundationError(
+                ErrorCode.RESULT_INVALIDATED, "historical support verdict is unknown"
+            )
+        return {
+            **saved,
+            "status": status,
+            "supported": saved.get("supported", legacy_verdict),
+            "candidate_hash": saved.get(
+                "candidate_hash", fingerprint(candidate.model_dump(mode="json"))
+            ),
+        }
+    audit: dict[str, Any] = {
+        "task_id": task.task_id,
+        "binding": binding,
+        "candidate_hash": fingerprint(candidate.model_dump(mode="json")),
+        "sources": [s.model_dump(mode="json") for s in candidate.sources],
+        "evidence": [e.model_dump(mode="json") for e in candidate.evidence],
+        "supported": None,
+        "status": "not_checked",
+        "reason": "additional_entailment_review_disabled",
+        "source_check": "exact_quote"
+        if any(candidate.text in entry.quote for entry in candidate.evidence)
+        else "validated_evidence",
+    }
+    with owner.uow.transaction() as tx:
+        owner.tasks.guard(tx, task)
+        tx.write(table, key, audit)
+    return audit
 
 
 async def prepare_consolidation(
@@ -27,14 +81,21 @@ async def prepare_consolidation(
     task: Any,
     items: tuple[MemorySnapshot, ...],
     *,
-    allow_representations: bool = True,
+    allow_representations: bool = False,
 ) -> dict[str, Any]:
     """Read a bounded current set before inference; retain its binding for CAS.
 
-    A whole message is the input unit. Search queries may be chunks, but they never
-    replace the complete new messages delivered to the manager. Context refs are
-    read-only and remain distinct from the batch's unprocessed refs.
+    A whole original message is the input unit. The legacy allow_representations
+    keyword is ignored: compressed artifacts never replace source content.
+    Search queries may be chunks, but they never replace the complete new
+    messages delivered to the manager. Previously processed messages are never
+    replayed as overlap context; related long-term
+    memories and their source evidence remain available for comparison.
     """
+    if getattr(owner.extraction, "supports_candidate_pipeline", False):
+        from .candidate_consolidation import prepare_candidate_consolidation
+
+        return await prepare_candidate_consolidation(owner, ctx, task, items)
     if not items:
         return {"proposals": (), "candidates": (), "validation_items": (), "existing": ()}
 
@@ -42,53 +103,8 @@ async def prepare_consolidation(
     with owner.uow.transaction() as tx:
         owner.tasks.guard(tx, task)
         sequence = tx.read("remember_space_seq", space_key) or 0
-        batch = tx.read("remember_batches", task.task_id) or {}
-    context_refs = tuple(MemoryRef.model_validate(r) for r in batch.get("context_refs", ()))
-    context: tuple[MemorySnapshot, ...] = ()
-    if context_refs:
-        loaded = await owner.load_async(ctx, context_refs)
-        if {i.ref for i in loaded.items} != set(context_refs):
-            raise FoundationError(ErrorCode.RESULT_INVALIDATED, "context version changed")
-        context = await owner.source_access.originals(ctx, loaded.items)
 
-    views: dict[str, str] = {}
-
-    async def resolve_views(originals: tuple[MemorySnapshot, ...]) -> None:
-        if not allow_representations:
-            return
-        for item in originals:
-            source = item.sources[0]
-            if source.source_id in views:
-                continue
-            with owner.uow.transaction() as tx:
-                ref = item.ref
-                source_row = tx.read("remember_sources", source.source_id)
-                working_id = (source_row or {}).get("working_id")
-                if working_id and working_id != ref.memory_id:
-                    working = owner.current(tx, working_id)
-                    # A corrected Working cannot lend its artifact to an older source.
-                    if source not in working.sources:
-                        continue
-                    ref = working.ref
-                artifact = tx.read("remember_artifacts", owner.refkey(ref))
-            if (
-                artifact
-                and artifact.get("memory") == ref.model_dump(mode="json")
-                and artifact.get("source_hash") == source.content_hash
-                and artifact.get("published") is True
-                and artifact.get("declared_use") == "supported_summary"
-            ):
-                text, _ = await owner.bodies.read(
-                    item.ref.scope, ResourceLocation.model_validate(artifact["location"])
-                )
-                if owner.tokenizer.count(text) <= owner.policy.comparison_context_tokens:
-                    views[source.source_id] = text
-
-    def model_view(item: MemorySnapshot) -> str:
-        return views.get(item.sources[0].source_id, item.content)
-
-    await resolve_views(items)
-    source_tokens = sum(owner.tokenizer.count(model_view(i)) for i in items)
+    source_tokens = sum(owner.tokenizer.count(i.content) for i in items)
     if source_tokens > owner.policy.comparison_context_tokens:
         raise FoundationError(
             ErrorCode.CONTRACT_VIOLATION,
@@ -100,7 +116,7 @@ async def prepare_consolidation(
         (item, piece)
         for item in items
         for _, _, piece in chunks(
-            model_view(item),
+            item.content,
             owner.tokenizer.count,
             owner.policy.projection_chunk_tokens,
         )
@@ -127,27 +143,14 @@ async def prepare_consolidation(
             "complete messages and existing memories exceed consolidation context budget",
         )
 
-    await resolve_views((*context, *old_evidence))
-    # Context and old originals are optional disambiguation. Keep complete units,
-    # prioritizing the nearest adjacent context; never truncate a source to fit.
-    selected_context = []
+    # Existing memories retain source evidence for comparison. Keep complete
+    # source units; never truncate an original to fit the remaining budget.
     admitted_ids = set(new_ids)
     omitted_sources = []
-    for item in reversed(context):
-        source_id = item.sources[0].source_id
-        cost = 0 if source_id in admitted_ids else owner.tokenizer.count(model_view(item))
-        if total_tokens + cost > owner.policy.comparison_context_tokens:
-            break
-        selected_context.append(item)
-        admitted_ids.add(source_id)
-        total_tokens += cost
-    context = tuple(reversed(selected_context))
-    kept_context_ids = {i.ref.memory_id for i in context}
-    context_refs = tuple(r for r in context_refs if r.memory_id in kept_context_ids)
     selected_evidence = []
     for item in old_evidence:
         source_id = item.sources[0].source_id
-        cost = 0 if source_id in admitted_ids else owner.tokenizer.count(model_view(item))
+        cost = 0 if source_id in admitted_ids else owner.tokenizer.count(item.content)
         if total_tokens + cost > owner.policy.comparison_context_tokens:
             omitted_sources.append(source_id)
             continue
@@ -156,12 +159,8 @@ async def prepare_consolidation(
         total_tokens += cost
     old_evidence = tuple(selected_evidence)
     originals = tuple(
-        {i.sources[0].source_id: i for i in (*items, *context, *old_evidence)}.values()
+        {i.sources[0].source_id: i for i in (*items, *old_evidence)}.values()
     )
-    representations = [
-        {"source_id": key, "text": text} for key, text in views.items() if key in admitted_ids
-    ]
-
     with owner.uow.transaction() as tx:
         owner.tasks.guard(tx, task)
         if (tx.read("remember_space_seq", space_key) or 0) != sequence:
@@ -169,39 +168,25 @@ async def prepare_consolidation(
         source_binding = owner.comparison_source_binding(tx, originals)
         binding = fingerprint(
             [
-                "official_consolidation_v1",
+                "official_consolidation_v3_originals_only",
                 task.task_id,
                 owner.checkpoint_binding(),
                 sequence,
                 source_binding,
                 [i.model_dump(mode="json") for i in originals],
                 [i.model_dump(mode="json") for i in existing],
-                representations,
             ]
         )
         saved = tx.read("remember_official_consolidation", binding)
     if saved is None:
-        try:
-            result = await owner.extraction.consolidate(
-                ctx,
-                items,
-                existing,
-                owner.policy.version,
-                representations=representations,
-                context_items=context,
-                existing_evidence=old_evidence,
-                on_model_call=lambda: owner.consume_call(task),
-            )
-        except EvidenceValidationError as exc:
-            if (
-                not representations
-                or exc.feedback["reason"] not in {"quote_not_in_source", "ambiguous_quote"}
-                or exc.feedback["source_id"] not in {r["source_id"] for r in representations}
-            ):
-                raise
-            # A faithful paraphrase can still lack a unique original quote.
-            # Retry once with whole originals, under the same explicit budget.
-            return await prepare_consolidation(owner, ctx, task, items, allow_representations=False)
+        result = await owner.extraction.consolidate(
+            ctx,
+            items,
+            existing,
+            owner.policy.version,
+            existing_evidence=old_evidence,
+            on_model_call=lambda: owner.consume_call(task),
+        )
         result = ConsolidationResult.model_validate(result)
         with owner.uow.transaction() as tx:
             owner.tasks.guard(tx, task)
@@ -214,33 +199,29 @@ async def prepare_consolidation(
 
     accepted: list[ConsolidationProposal] = []
     rejections: list[dict[str, str]] = []
+    support_audit: list[dict[str, Any]] = []
     for proposal in result.proposals:
         candidate = owner.validate_candidate(proposal.candidate, originals)
         if not new_ids.intersection(s.source_id for s in candidate.sources):
-            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "context-only consolidation output")
+            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "consolidation output has no new source")
         if getattr(task, "kind", None) == "remember.distill" and candidate.kind != "semantic":
             continue
-        quotes = "\n".join(e.quote for e in candidate.evidence)
-        if candidate.text not in quotes:
-            if owner.support_verifier is None:
-                raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "support verifier required")
-            verdict_key = fingerprint([binding, candidate.model_dump(mode="json")])
-            with owner.uow.transaction() as tx:
-                verdict = tx.read("remember_official_support", verdict_key)
-            if verdict is None:
-                owner.consume_call(task)
-                supported = await owner.support_verifier.verify(ctx, candidate, quotes)
-                if type(supported) is not bool:
-                    raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "invalid support verdict")
-                verdict = {"supported": supported}
-                with owner.uow.transaction() as tx:
-                    owner.tasks.guard(tx, task)
-                    tx.write("remember_official_support", verdict_key, verdict)
-            if not verdict["supported"]:
-                rejections.append(
-                    {"candidate_hash": verdict_key, "reason": "evidence_does_not_support_claim"}
-                )
-                continue
+        verdict_key = fingerprint([binding, candidate.model_dump(mode="json")])
+        verdict = await candidate_support_audit(
+            owner,
+            ctx,
+            task,
+            candidate,
+            binding=binding,
+            table="remember_official_support",
+            key=verdict_key,
+        )
+        support_audit.append(verdict)
+        if verdict["status"] == "rejected":
+            rejections.append(
+                {"candidate_hash": verdict_key, "reason": "evidence_does_not_support_claim"}
+            )
+            continue
         accepted.append(proposal.model_copy(update={"candidate": candidate}))
     if len(accepted) > owner.policy.max_candidates:
         raise FoundationError(
@@ -251,11 +232,14 @@ async def prepare_consolidation(
         "candidates": tuple(p.candidate for p in accepted),
         "validation_items": originals,
         "existing": existing,
-        "context_refs": context_refs,
+        # Retain the result shape for existing commit guards; old batch context
+        # refs are intentionally neither read nor supplied to the model.
+        "context_refs": (),
         "expected_space_seq": sequence,
         "source_binding": source_binding,
         "binding": binding,
         "rejections": rejections,
+        "support_audit": support_audit,
         "discovery": {
             "queries": len(queries),
             "complete_queries": True,

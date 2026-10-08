@@ -271,7 +271,7 @@ class ArtifactRecord(ContractModel):
     output_hash: Digest
     original_bytes: Positive
     stored_bytes: Positive
-    quality: Literal["pending", "passed", "failed"]
+    quality: Literal["pending", "passed", "failed", "sampled_passed", "not_sampled"]
     quality_policy: Identifier
     content_ref: NonEmpty
     content: NonEmpty

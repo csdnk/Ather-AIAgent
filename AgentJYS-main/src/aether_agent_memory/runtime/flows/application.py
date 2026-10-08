@@ -22,9 +22,9 @@ from aether_agent_memory.remember.basic.compression import ModelCompression
 from aether_agent_memory.remember.basic.official_langmem import OfficialLangMemConsolidation
 from aether_agent_memory.remember.documents import Documents
 from aether_agent_memory.remember.local import create_runtime
-from aether_agent_memory.runtime.celery.service import ExecutionService
 from aether_agent_memory.runtime.contracts.models import TrustedContext
 from aether_agent_memory.runtime.temporal.locking import DirectoryLock
+from aether_agent_memory.runtime.temporal.service import TemporalService
 
 from .config import IdentityConfiguration, ServiceConfiguration
 from .health import storage_probe
@@ -35,11 +35,7 @@ from .observability import configure_tracing
 
 
 class Service:
-    execution_service = ExecutionService
-
-    def __init__(
-        self, config: ServiceConfiguration, *, worker_role: bool = False, **providers: Any
-    ) -> None:
+    def __init__(self, config: ServiceConfiguration, **providers: Any) -> None:
         if config.storage_mode == "production_p2":
             raise ValueError(
                 "production P2 transaction and cache adapters are not yet available; "
@@ -47,7 +43,6 @@ class Service:
             )
         self._close_task: asyncio.Task[None] | None = None
         self.directory_lock = DirectoryLock()
-        self.worker_role = worker_role
         try:
             self.initialize(config, **providers)
         except BaseException:
@@ -89,8 +84,7 @@ class Service:
             assert config.azure_storage is not None
             config.azure_storage.require_credentials()
             config.azure_storage.postgres.resolve_dsn()
-        if not self.worker_role:
-            self.directory_lock.acquire(config.data_dir)
+        self.directory_lock.acquire(config.data_dir)
         if config.storage_mode == "azure":
             from aether_agent_memory.runtime.storage.azure import StorageProviders
 
@@ -117,7 +111,6 @@ class Service:
             providers.update(self.storage_providers.runtime_options())
         if config.language_model:
             from aether_agent_memory.remember.model_provider import (
-                CompressionVerifier,
                 ModelProvider,
                 SupportVerifier,
             )
@@ -138,7 +131,6 @@ class Service:
                 "equivalence_verifier": ModelEquivalenceVerifier(verifier),
                 "support_verifier": SupportVerifier(verifier),
                 "compressor": ModelCompression(model),
-                "compression_quality": CompressionVerifier(verifier),
             }
             providers = {**defaults, **providers}
         if config.p2_endpoint and "p2" not in providers:
@@ -210,11 +202,9 @@ class Service:
         from aether_agent_memory.operate.basic.maintenance import CacheMaintenance
 
         self.cache_maintenance = CacheMaintenance(self.runtime)
-        self.execution = self.execution_service(
+        self.execution = TemporalService(
             self.runtime, config, self.reload_identity, self.cache_maintenance
         )
-        if self.worker_role and hasattr(self.execution, "worker_role"):
-            self.execution.worker_role = True
         self.supervisor = self.execution
         self.install_probes()
 
@@ -267,10 +257,45 @@ class Service:
         self.runtime.foundation.monitoring.required += ("deployment_dependencies",)
 
     def check_postgres_execution_binding(self) -> None:
-        """Audit both pinned backends without changing the routing marker."""
-        from aether_agent_memory.runtime.celery.migration import inspect_bindings
+        """Apply the same pre-admission transport checks to migrated PG records."""
+        from aether_agent_memory.runtime.foundation.tasks import TERMINAL
+        from aether_agent_memory.runtime.temporal.config import deployment_configuration
 
-        inspect_bindings(self.runtime.foundation.uow, self.config)
+        config = self.config.temporal
+        expected = deployment_configuration(config)
+        with self.runtime.foundation.uow.transaction() as tx:
+            marker = tx.read("meta", "execution_backend")
+            if marker and marker != {
+                "backend": "temporal",
+                "deployment_id": config.deployment_id,
+                "namespace": config.namespace,
+                "task_queue_prefix": expected.task_queue_prefix,
+            }:
+                raise ValueError(
+                    "Temporal backend binding differs; use the original environment "
+                    "or a fresh development schema"
+                )
+            bindings = dict(tx.rows("temporal_bindings"))
+            for key, row in tx.rows("tasks"):
+                if row["record"]["state"] not in TERMINAL and key not in bindings:
+                    raise ValueError(
+                        "task is missing its Temporal binding; recover the original execution "
+                        "or use a fresh development schema"
+                    )
+            for key, row in tx.rows("deliveries"):
+                if (
+                    row["state"] not in {"acknowledged", "attention_required"}
+                    and key not in bindings
+                ):
+                    raise ValueError(
+                        "delivery is missing its Temporal binding; "
+                        "investigate the original execution"
+                    )
+            for key, row in tx.rows("recall_requests"):
+                if row["record"]["state"] in {"accepted", "running"} and key not in bindings:
+                    raise ValueError(
+                        "Recall is missing its Temporal binding; investigate the original request"
+                    )
 
     def reload_identity(self) -> None:
         from aether_agent_memory.runtime.foundation.common import fingerprint

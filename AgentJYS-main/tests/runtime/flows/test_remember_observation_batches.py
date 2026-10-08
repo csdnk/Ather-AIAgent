@@ -115,6 +115,9 @@ def test_compression_quality_failure_falls_back_and_does_not_wait_forever(app):
             )
 
     app.remember.quality = Reject()
+    app.remember.policy = app.remember.policy.model_copy(
+        update={"compression_quality_sample_rate": 1.0}
+    )
     receipt = observation(app, "完整原文。" * 600)
     drain(app)
     with app.foundation.uow.transaction() as tx:

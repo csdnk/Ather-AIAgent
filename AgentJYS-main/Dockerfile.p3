@@ -23,6 +23,5 @@ COPY engine/proto ./engine/proto
 RUN python scripts/generate_proto.py \
     && pip install --no-cache-dir --no-deps .
 RUN python -c "import importlib.metadata; assert importlib.metadata.version('temporalio') == '1.33.0'"
-RUN python -c "import importlib.metadata; assert importlib.metadata.version('celery') == '5.6.3'"
 EXPOSE 8080
 CMD ["python", "-m", "aether_agent_memory", "serve", "--config", "/deployment/service.yaml"]
