@@ -32,6 +32,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+remember-llmlingua = [
+  "llmlingua==0.2.2",
+  "torch>=2.6,<3",
+  "transformers>=4.45,<5",
+]
 remember-postgres = [
   "psycopg[binary]>=3.2,<4",
   "psycopg-pool>=3.2,<4",
@@ -155,6 +160,7 @@ module = [
   "jieba.*",
   "jsonpatch.*",
   "langmem.*",
+  "llmlingua.*",
   "milvus_lite.*",
   "onnxruntime.*",
   "openvino.*",

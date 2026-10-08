@@ -1,6 +1,7 @@
 """Versioned Remember policy. Capacity limits are not storage-provider maxima."""
 
 from collections.abc import Callable
+from typing import Literal
 
 from pydantic import Field
 
@@ -8,8 +9,12 @@ from aether_agent_memory.runtime.contracts.models import ContractModel, Identifi
 
 
 class RememberPolicy(ContractModel):
-    # v12 retains repeated evidence spans and bounds decision input and output.
-    version: Identifier = "remember_v12"
+    # v13 adds per-long-Working LLMLingua views; original source remains authority.
+    version: Identifier = "remember_v13"
+    long_memory_route: Literal["llmlingua", "direct"] = "llmlingua"
+    llmlingua_keep_rate: float = Field(default=0.8, gt=0, le=1, allow_inf_nan=False)
+    llmlingua_model: str = "microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank"
+    llmlingua_model_revision: str = "5f0c82792b7ea14c6484e015b6a072009496b7f2"
     working_summary_min_bytes: int = Field(default=65536, ge=1)
     working_summary_max_chars: int = Field(default=2048, ge=256, le=16384)
     summary_part_chars: int = Field(default=256, ge=32, le=2048)
@@ -18,8 +23,7 @@ class RememberPolicy(ContractModel):
     source_page_chars: int = Field(default=4096, ge=256, le=65536)
     source_read_max_chars: int = Field(default=65536, ge=256, le=262144)
     max_input_bytes: int = Field(default=64 * 1024 * 1024, ge=1)
-    # Retained for historical prepared-save/task payloads. New admission uses
-    # consolidation_bytes below; this field does not start a compression stage.
+    # Per-original threshold for the lightweight route, not the sum of a batch.
     compression_min_bytes: int = Field(default=8000, ge=1)
     # Historical task/config field only. New admission never schedules a
     # precompression task, even when an older configuration sets this to True.

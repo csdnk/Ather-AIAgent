@@ -144,6 +144,9 @@ def checkpoint_provider_identity(provider: Any, seen: frozenset[int] = frozenset
     if callable(declared):
         return {"provider": kind, "identity": declared()}
     identity: dict[str, Any] = {"provider": kind}
+    public_model_identity = getattr(provider, "model_identity", None)
+    if isinstance(public_model_identity, dict):
+        identity["model_identity"] = public_model_identity
     for name in ("model_id", "prompt_version"):
         value = getattr(provider, name, None)
         if isinstance(value, str):
@@ -186,9 +189,11 @@ class RememberPipeline(Revalidation):
         documents: Any = None,
         support_verifier: Any = None,
         summarizer: SummaryPort | None = None,
+        llmlingua_preprocessor: Any = None,
         **kwargs: Any,
     ) -> None:
         self.bodies, self.tokenizer = bodies, tokenizer
+        self.llmlingua_preprocessor = llmlingua_preprocessor
         self.policy = policy or RememberPolicy()
         self.max_input_bytes = self.policy.max_input_bytes
         self.processing_seconds = self.policy.processing_seconds
@@ -1314,6 +1319,7 @@ class RememberPipeline(Revalidation):
                     for r in rows
                 ],
                 "artifact": tx.read("remember_artifacts", self.refkey(item.ref)),
+                "compressed_artifacts": self.precompression_artifact_status(tx, ctx, item),
                 "working_summary": summary,
                 "working_representation": tx.read("remember_working_representations", memory_id),
                 "cache_admission": tx.read("remember_cache_admission", memory_id),
@@ -1322,6 +1328,13 @@ class RememberPipeline(Revalidation):
                 "physical_erasure": False,
                 "source_retention": "retained",
             }
+
+    def precompression_artifact_status(
+        self, tx: MetadataTransaction, ctx: TrustedContext, item: MemorySnapshot
+    ) -> list[dict[str, Any]]:
+        from .candidate_consolidation import precompression_artifact_status
+
+        return precompression_artifact_status(self, tx, ctx, item)
 
     def periodic(self) -> int:
         count = self.retention.periodic() if hasattr(self, "retention") else 0
@@ -1935,7 +1948,7 @@ class RememberPipeline(Revalidation):
     def checkpoint_binding(self, kind: str | None = None) -> str:
         kind = kind or _task_kind.get()
         processing = (
-            ("extraction",)
+            ("extraction", "llmlingua_preprocessor")
             if getattr(self.extraction, "supports_candidate_pipeline", False)
             else ("extraction", "comparison", "equivalence_verifier")
         )
@@ -2507,7 +2520,8 @@ class RememberPipeline(Revalidation):
     ) -> list[CandidateFact]:
         """Legacy batch adapter: original input only, with source-relative offsets.
 
-        The old allow_artifacts argument is ignored; it cannot restore precompression.
+        The old allow_artifacts argument is ignored. LLMLingua input views are
+        selected by the current long-memory route, not by this legacy flag.
         Official LangMem uses prepare_consolidation and complete messages instead.
         """
         units: list[tuple[MemorySnapshot, int, int]] = []

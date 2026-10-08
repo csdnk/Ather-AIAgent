@@ -13,7 +13,7 @@ from collections.abc import Callable
 from typing import Any, Literal, cast
 
 from langchain_core.callbacks import BaseCallbackHandler
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from aether_agent_memory.remember.basic.comparison import ComparisonDecision
 from aether_agent_memory.remember.basic.extraction import (
@@ -22,6 +22,7 @@ from aether_agent_memory.remember.basic.extraction import (
     evidence_spans,
     model_text,
 )
+from aether_agent_memory.remember.basic.llmlingua import CompressionView
 from aether_agent_memory.remember.contracts.models import (
     CandidateFact,
     FactEvidence,
@@ -83,6 +84,11 @@ class CandidateMemory(BaseModel):
     event_key: Identifier | None = None
     fact_key: Identifier | None = None
     importance_category: Literal["event", "fact", "decision", "explicit_constraint"] = "event"
+
+    @field_validator("importance_category", mode="before")
+    @classmethod
+    def normalize_constraint_category(cls, value: Any) -> Any:
+        return "explicit_constraint" if value == "constraint" else value
 
 
 class ConsolidatedMemory(CandidateMemory):
@@ -382,6 +388,11 @@ Do not add source content merely to meet a compression target. Concision removes
 redundant wording, never a durable fact or its qualifications. event_key/fact_key
 are optional ASCII retrieval hints, not proof of identity. These outputs have no
 database identity or persistence authority; Remember assigns stable candidate IDs.
+importance_category is event, fact, decision or explicit_constraint.
+Some ranges have representation=llmlingua: they are token-deleted source views,
+not additional messages. Quote exactly from the supplied text; NEVER calculate
+offsets for these views. P3 maps those quotes back to covering original excerpts.
+Deletion can remove a qualifier: do not infer a missing subject or condition.
 """
 
 
@@ -625,15 +636,25 @@ class OfficialLangMemConsolidation:
         new_items: tuple[MemorySnapshot, ...],
         *,
         source_ranges: dict[str, tuple[int, int]] | None = None,
+        source_views: dict[str, CompressionView] | None = None,
     ) -> dict[str, Any]:
         """JSON-serializable manager input, shared by budgeting and invocation."""
         sources = cls._original_sources(new_items)
         ranges = cls._validated_ranges(sources, source_ranges)
+        views = source_views or {}
+        for key, view in views.items():
+            if key not in ranges:
+                raise ValueError("compressed view outside supplied original ranges")
+            start, end = ranges[key]
+            view.validate_source(sources[key][1][start:end])
         body = {
             "sources": [
                 {
                     "source_id": key,
-                    "text": model_text(sources[key][1][start:end]),
+                    "text": model_text(
+                        views[key].text if key in views else sources[key][1][start:end]
+                    ),
+                    "representation": "llmlingua" if key in views else "original",
                     "start_char": start,
                     "end_char": end,
                     "source_chars": len(sources[key][1]),
@@ -708,6 +729,7 @@ class OfficialLangMemConsolidation:
         *,
         source_ranges: dict[str, tuple[int, int]] | None = None,
         known_evidence: tuple[FactEvidence, ...] | None = None,
+        source_views: dict[str, CompressionView] | None = None,
     ) -> CandidateFact:
         if not fact.text.strip() or not fact.evidence:
             raise ValueError("memory candidate requires nonempty original evidence")
@@ -751,7 +773,13 @@ class OfficialLangMemConsolidation:
                     source_ranges[entry.source_id] if source_ranges is not None else (0, len(text))
                 )
                 try:
-                    spans = evidence_spans(text[begin:finish], entry.quote)
+                    view = (source_views or {}).get(entry.source_id)
+                    if view is not None and entry.start_char is not None:
+                        raise ValueError("compressed evidence must omit numeric offsets")
+                    spans = (
+                        view.evidence(text[begin:finish], entry.quote)
+                        if view is not None else evidence_spans(text[begin:finish], entry.quote)
+                    )
                 except ValueError as exc:
                     raise EvidenceValidationError(
                         "quote_not_in_source", entry.source_id, entry.quote, fact.text
@@ -826,6 +854,7 @@ class OfficialLangMemConsolidation:
         on_model_call: Callable[[], None] | None = None,
         *,
         source_ranges: dict[str, tuple[int, int]] | None = None,
+        source_views: dict[str, CompressionView] | None = None,
     ) -> CandidateExtractionResult:
         if not new_items:
             return CandidateExtractionResult(
@@ -835,7 +864,7 @@ class OfficialLangMemConsolidation:
         ranges = self._validated_ranges(sources, source_ranges)
         output = await self._invoke_candidate_manager(
             self.extraction_manager,
-            self.extraction_payload(new_items, source_ranges=ranges),
+            self.extraction_payload(new_items, source_ranges=ranges, source_views=source_views),
             {},
             on_model_call,
             extraction=True,
@@ -850,7 +879,9 @@ class OfficialLangMemConsolidation:
             fact = CandidateMemory.model_validate(
                 content.model_dump() if isinstance(content, BaseModel) else content
             )
-            candidate = self._candidate_from_fact(fact, sources, source_ranges=ranges)
+            candidate = self._candidate_from_fact(
+                fact, sources, source_ranges=ranges, source_views=source_views
+            )
             candidate_id = fingerprint([candidate.model_dump(mode="json")])
             # Exact duplicate tool outputs share the same task-local candidate.
             candidates[candidate_id] = ExtractedCandidate(

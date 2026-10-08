@@ -12,6 +12,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
+from aether_agent_memory.remember.basic.llmlingua import (
+    CompressionView,
+    LLMLinguaPreprocessor,
+    should_precompress,
+)
 from aether_agent_memory.remember.basic.official_langmem import (
     CandidateCapacityError,
     CandidateExtractionResult,
@@ -19,7 +24,8 @@ from aether_agent_memory.remember.basic.official_langmem import (
     ExtractedCandidate,
 )
 from aether_agent_memory.remember.basic.policy import chunks
-from aether_agent_memory.remember.contracts.models import MemorySnapshot
+from aether_agent_memory.remember.contracts.foundation import DerivedArtifact
+from aether_agent_memory.remember.contracts.models import MemoryKind, MemorySnapshot
 from aether_agent_memory.remember.langmem_model import LangMemOutputTruncatedError
 from aether_agent_memory.runtime.contracts.models import ErrorCode
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
@@ -41,11 +47,146 @@ class _ExtractionPart:
     ranges: dict[str, tuple[int, int]]
     depth: int = 0
 
-    def payload(self, owner: Any) -> dict[str, Any]:
+    def payload(
+        self, owner: Any, views: dict[str, CompressionView] | None = None
+    ) -> dict[str, Any]:
+        kwargs: dict[str, Any] = {"source_ranges": self.ranges}
+        if views:
+            kwargs["source_views"] = views
         return cast(
             dict[str, Any],
-            owner.extraction.extraction_payload(self.items, source_ranges=self.ranges),
+            owner.extraction.extraction_payload(self.items, **kwargs),
         )
+
+
+async def _precompressed_views(
+    owner: Any, part: _ExtractionPart, guard: Callable[[Any], None], *, ctx: Any, task: Any
+) -> dict[str, CompressionView]:
+    """Persist CPU inference separately from LangMem calls, per original part."""
+    views: dict[str, CompressionView] = {}
+    for item in part.items:
+        # A batch threshold must never turn many ordinary short Working messages
+        # into a single long input eligible for token deletion.
+        if item.kind != MemoryKind.WORKING or not should_precompress(owner.policy, item.content):
+            continue
+        processor = getattr(owner, "llmlingua_preprocessor", None)
+        if processor is None:
+            processors = getattr(owner, "_llmlingua_processors", {})
+            key = fingerprint(
+                [
+                    owner.policy.llmlingua_model,
+                    owner.policy.llmlingua_model_revision,
+                    owner.policy.llmlingua_keep_rate,
+                ]
+            )
+            processor = processors.setdefault(key, LLMLinguaPreprocessor(owner.policy))
+            processors[key] = processor
+            owner._llmlingua_processors = processors
+        for source in item.sources:
+            start, end = part.ranges[source.source_id]
+            binding = fingerprint(
+                [
+                    "remember_precompression_v1",
+                    item.ref.model_dump(mode="json"),
+                    source.model_dump(mode="json"),
+                    item.content_hash,
+                    start,
+                    end,
+                    owner.policy.model_dump(mode="json"),
+                    processor.model_identity,
+                ]
+            )
+            with owner.uow.transaction() as tx:
+                guard(tx)
+                saved = tx.read("remember_precompression_views", binding)
+            if saved is None:
+                view = await processor.acompress(item.content[start:end])
+                view.validate_source(item.content[start:end])
+            else:
+                view = CompressionView.model_validate(saved)
+                view.validate_source(item.content[start:end])
+            # Use the existing durable body store for the real compressed text.
+            # Reuse also checks object bytes; a checkpoint cannot mask a missing
+            # artifact body. The authority Working body/projection is untouched.
+            location = await owner.bodies.persist(ctx, item.ref.scope, view.text)
+            artifact = DerivedArtifact(
+                artifact_id=binding,
+                scope=item.ref.scope,
+                source=source,
+                kind="compressed",
+                task_id=task.task_id,
+                strategy_version="llmlingua2_original_mapping_v1",
+                location=location.model_copy(update={"kind": "artifact"}),
+                quality="not_sampled",
+                created_at=owner.identity.clock(),
+            )
+            record = {
+                "artifact": artifact.model_dump(mode="json"),
+                "memory": item.ref.model_dump(mode="json"),
+                "start_char": start,
+                "end_char": end,
+                "source_hash": item.content_hash,
+                "consumer": "langmem_candidate_extraction",
+                "quality_review_enabled": False,
+                "original_bytes": view.original_bytes,
+                "stored_bytes": view.retained_bytes,
+                "intermediate_retention": view.retained_bytes / view.original_bytes,
+                "counts_toward_final_compression_factor": False,
+                "model_identity": processor.model_identity,
+                "mapping_checkpoint": binding,
+            }
+            with owner.uow.transaction() as tx:
+                guard(tx)
+                tx.write("remember_precompression_views", binding, view.model_dump(mode="json"))
+                prior = tx.read("remember_precompression_artifacts", binding)
+                tx.write("remember_precompression_artifacts", binding, prior or record)
+                memory_key = owner.refkey(item.ref)
+                artifact_ids = tx.read("remember_precompression_manifest", memory_key) or []
+                if binding not in artifact_ids:
+                    tx.write(
+                        "remember_precompression_manifest", memory_key, [*artifact_ids, binding]
+                    )
+                memory_ids = (
+                    tx.read("remember_precompression_memory_manifest", item.ref.memory_id) or []
+                )
+                if binding not in memory_ids:
+                    tx.write(
+                        "remember_precompression_memory_manifest",
+                        item.ref.memory_id,
+                        [*memory_ids, binding],
+                    )
+            views[source.source_id] = view
+    return views
+
+
+def precompression_artifact_status(
+    owner: Any, tx: Any, ctx: Any, item: MemorySnapshot
+) -> list[dict[str, Any]]:
+    """Derive eligibility from current authority, including historical versions.
+
+    Retained source-derived objects are not erased on source correction/revocation.
+    Their usability is computed under the same guard as extraction, so an old
+    artifact cannot remain advertised as current after its source is withdrawn.
+    """
+    ids = tx.read("remember_precompression_memory_manifest", item.ref.memory_id) or []
+    decision = owner.final_guard(tx, ctx, (item.ref,), "recall").items[0]
+    result = []
+    sources = [source.model_dump(mode="json") for source in item.sources]
+    for artifact_id in ids:
+        row = tx.read("remember_precompression_artifacts", artifact_id)
+        if row is None:
+            continue
+        reason = (
+            "memory_version_changed"
+            if row["memory"] != item.ref.model_dump(mode="json")
+            else "source_changed"
+            if row["source_hash"] != item.content_hash or row["artifact"]["source"] not in sources
+            else "source_or_memory_ineligible"
+            if decision.decision != "allowed"
+            else None
+        )
+        result.append({**row, "eligible": reason is None, "ineligible_reason": reason})
+    return result
 
 
 def _boundary(text: str, start: int, limit: int) -> int:
@@ -331,9 +472,15 @@ async def prepare_candidate_consolidation(
             saved = tx.read("remember_candidate_extractions", binding)
             split = tx.read("remember_candidate_extraction_splits", binding)
         split_reason = (split or {}).get("reason")
+        views = (
+            await _precompressed_views(owner, part, guard_sources, ctx=ctx, task=task)
+            if split_reason is None and saved is None
+            else {}
+        )
         if (
             split_reason is None
-            and _cost(owner, "extraction", part.payload(owner))
+            and saved is None
+            and _cost(owner, "extraction", part.payload(owner, views))
             > owner.policy.comparison_context_tokens
         ):
             split_reason = "input_budget"
@@ -341,12 +488,16 @@ async def prepare_candidate_consolidation(
         if split_reason is None:
             try:
                 if saved is None:
+                    extraction_kwargs: dict[str, Any] = {}
+                    if views:
+                        extraction_kwargs["source_views"] = views
                     raw_result = await owner.extraction.extract_candidates(
                         ctx,
                         batch,
                         owner.policy.version,
                         source_ranges=part.ranges,
                         on_model_call=consume_extraction_call,
+                        **extraction_kwargs,
                     )
                     result = CandidateExtractionResult.model_validate(raw_result)
                 else:

@@ -39,6 +39,11 @@ class BodyAuthority:
         self.guarded = []
         self.deleted = set()
         self.pending_count = self.failed_count = 0
+        with app.foundation.uow.transaction() as tx:
+            memory_sources = {
+                row["hit"]["memory"]["memory_id"]: row["hit"]["memory_source"]
+                for _, row in tx.rows("generation_vectors")
+            }
         for manifest, guard in proofs.values():
             key = guard["memory"]["memory_id"]
             content = "完整正文 " + key + " 保留结尾与全部事实。"
@@ -46,9 +51,19 @@ class BodyAuthority:
             manifest["body_hash"] = digest
             manifest["vector_location"]["content_hash"] = digest
             guard["body_hash"] = digest
+            # A changed fixture body needs matching chunk proofs, just like a
+            # real publication; copied contract-example hashes prove other text.
+            count = len(manifest["chunks"])
+            for chunk in manifest["chunks"]:
+                index = chunk["chunk_index"]
+                start, end = len(content) * index // count, len(content) * (index + 1) // count
+                chunk.update(
+                    start_char=start, end_char=end, input_hash=text_hash(content[start:end])
+                )
             snapshot = example("remember.MemorySnapshot")
             snapshot.update(
                 ref=guard["memory"],
+                kind="working" if memory_sources[key] == "working" else "semantic",
                 content=content,
                 content_hash=digest,
                 object_revision=guard["object_revision"],
@@ -61,7 +76,11 @@ class BodyAuthority:
             self.bodies[key] = FullBodyReadResult.model_validate(body)
         with app.foundation.uow.transaction() as tx:
             for key, row in tx.rows("generation_vectors"):
-                row["hit"]["body_hash"] = proofs[key][0]["body_hash"]
+                manifest = proofs[key][0]
+                row["hit"]["body_hash"] = manifest["body_hash"]
+                row["hit"]["input_hash"] = manifest["chunks"][row["hit"]["chunk_index"]][
+                    "input_hash"
+                ]
                 tx.write("generation_vectors", key, row)
 
     def load(self, ctx, refs):
