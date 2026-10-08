@@ -65,6 +65,44 @@ def test_memory_events_keep_observations_but_only_admit_necessary_cleanup(
         assert calls[0]["cleanup"] and calls[0]["permanent"]
 
 
+def test_heat_cleanup_removes_only_target_and_releases_buffer_pressure(tmp_path):
+    from aether_agent_memory.operate.standalone.policy import Settings
+    from aether_agent_memory.remember.contracts.models import MemoryRef
+    from aether_agent_memory.runtime.foundation.common import fingerprint
+
+    identity, _, _ = operator(tmp_path)
+    service = object.__new__(ContinuousOperate)
+    service.settings = Settings(high_watermark=2, low_watermark=1)
+    memory = MemoryRef.model_validate(action()["intent"]["decision"]["memory"])
+    other = memory.model_copy(update={"memory_id": "other-memory"})
+    key, other_key = service.key(memory), service.key(other)
+    scope_key = fingerprint(memory.scope.model_dump(mode="json"))
+    with identity.uow.transaction() as tx:
+        service.write_heat(tx, key, memory, {"version": 1})
+        service.write_heat(tx, other_key, other, {"version": 1})
+        tx.write("operate_views", key, {"retained": True})
+        assert tx.read("operate_buffer_pressure", scope_key) is not None
+
+        service.drop_heat(tx, key)
+        service.drop_heat(tx, key)
+
+        assert tx.read("operate_heat", key) is None
+        assert tx.read("operate_buffer_members", key) is None
+        assert tx.read("operate_buffer_index", scope_key + ":" + key) is None
+        assert tx.read("operate_heat", other_key) == {"version": 1}
+        assert tx.read("operate_buffer_members", other_key) == {"scope_key": scope_key}
+        assert tx.read("operate_buffer_index", scope_key + ":" + other_key) == {
+            "memory_key": other_key
+        }
+        assert tx.read("operate_views", key) == {"retained": True}
+        assert tx.read("operate_buffer_scopes", scope_key) == {
+            "count": 1,
+            "latched": False,
+            "episode": 1,
+        }
+        assert tx.read("operate_buffer_pressure", scope_key) is None
+
+
 def test_hot_cache_declares_that_it_cannot_move_between_tiers():
     assert getattr(RedisExecutor, "supported_moves", None) == ()
 
