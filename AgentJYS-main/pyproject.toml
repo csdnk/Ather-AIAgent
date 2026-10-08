@@ -36,7 +36,9 @@ dependencies = [
 remember-llmlingua = [
   "llmlingua==0.2.2",
   "torch>=2.6,<3",
-  "transformers>=4.45,<5",
+  # Preserve the tokenizer version bound to the deployed ONNX vector space.
+  "transformers==5.19.0",
+  "tokenizers==0.23.2",
 ]
 remember-postgres = [
   "psycopg[binary]>=3.2,<4",
