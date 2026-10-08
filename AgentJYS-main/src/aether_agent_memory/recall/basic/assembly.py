@@ -557,6 +557,8 @@ class ContextAssembly:
             fragment = (
                 f"[{len(selected) + 1}] " + "\n".join(b.content or "" for b in unit.bodies) + "\n"
             )
+            if unit.conflict is not None:
+                fragment += unit.conflict.explanation + "\n"
             if (
                 len(selected) >= self.base.settings.max_items
                 or self.base.tokenizer.count(rendered + fragment) > request.token_budget
