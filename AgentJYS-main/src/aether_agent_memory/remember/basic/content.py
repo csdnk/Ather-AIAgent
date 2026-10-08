@@ -16,7 +16,7 @@ from aether_agent_memory.runtime.contracts.models import (
 )
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
 from aether_agent_memory.runtime.foundation.requests import text_hash
-from aether_agent_memory.runtime.storage.cache import BodyCache
+from aether_agent_memory.runtime.storage.cache import BodyCache, CacheLocationReader
 
 from .policy import RememberPolicy
 
@@ -29,8 +29,12 @@ class Bodies:
         *,
         p2: Any = None,
         cache: BodyCache | None = None,
+        cache_reader: CacheLocationReader | None = None,
     ) -> None:
         self.root, self.policy, self.p2, self.cache = root, policy, p2, cache
+        self.cache_reader = cache_reader or (
+            cache if isinstance(cache, CacheLocationReader) else None
+        )
         binding = getattr(p2, "binding", None)
         self.object_binding = binding() if callable(binding) else None
         self.provider_id = (

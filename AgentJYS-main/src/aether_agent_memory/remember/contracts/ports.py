@@ -112,6 +112,17 @@ class MemoryFoundationPort(Protocol):
     ) -> ReferenceHandoffReceipt: ...
 
 
+class RecallBodyReadPort(MemoryFoundationPort, Protocol):
+    async def load_recall_batch(
+        self,
+        ctx: TrustedContext,
+        refs: tuple[MemoryRef, ...],
+    ) -> MemoryReadBatch:
+        # Generation Recall snapshots consume each MemoryRecord's cache/body
+        # addresses with current authorization; ordinary reads never admit cache.
+        ...
+
+
 class RememberPort(Protocol):
     async def save(self, ctx: TrustedContext, request: RememberRequest) -> RememberReceipt: ...
     def get(self, ctx: TrustedContext, memory_id: str) -> MemorySnapshot: ...

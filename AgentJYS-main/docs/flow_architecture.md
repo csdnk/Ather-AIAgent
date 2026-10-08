@@ -134,9 +134,35 @@ Remember 拥有正文、来源、生命周期和候选资格；Recall 消费这�
 
 地址生成不执行 Redis I/O，也不证明副本存在。Remember 仍在准入、权限、当前版本、正文哈希和登记状态核验后发布；Operate 仍在实际读取证据、回执、版本和权限核验后同步。TTL、容量限制、降温后不能被旧写入恢复等保护不变。不支持地址描述的缓存返回空地址，不伪造 Redis 定位信息。
 
-本次统一新写入/后续同步的格式，不批量改写历史 `cache_location`，也未修改 Recall 的读取路径。Recall 若后续按地址读取，应按 `redis_hash_v1` 解码，并处理历史地址和副本过期/缺失回源；仅地址统一并不意味着它已经完成适配。
+地址统一只改变新写入/后续同步的格式，不批量改写历史 `cache_location`。后续的 Recall 地址读取适配见下节；未知历史格式按无效缓存地址安全回源，不由读取方迁移。
 
-### 本次验证范围
+### Recall 先热地址、再权威地址（2026-10-08）
+
+Recall 候选加载、冲突成员补读都调用 `RecallBodyReadPort.load_recall_batch`；最终正文读取仍使用 `load_bodies`。Remember 的 `BodyReads` 统一完成读取前授权和记录校验、按地址获取正文、读取后当前权限与版本复核。该路径不再使用可能提前读取 Ceph 的同步 `load`/`hydrate_missing`，也不依赖进程内 `Bodies.verified`。
+
+```mermaid
+flowchart TD
+    A[Recall 候选和冲突补读] --> B[Remember 公共正文读取]
+    B --> C[核验用户权限及当前记忆记录]
+    C --> D{有有效 cache_location?}
+    D -->|有| E[公共 Redis 读取器：地址、TTL、哈希校验]
+    D -->|无| F[按 body_location 读 Ceph 权威正文]
+    E -->|缺失、过期、损坏或超时| F
+    E -->|命中| G[复核当前权限、版本、来源及关系]
+    F --> G
+    G --> H[返回正文和真实读取地址]
+    H --> I[Recall 组包及原有成功访问事件]
+```
+
+`cache_location` 为空时不查 Redis，即使其他记忆有相同正文哈希也不借用其缓存登记。地址非空时，`RedisCache.read_location` 校验实例、namespace、完整作用域、generation/hash 和规范 JSON，再复用既有 `_READ` Lua 处理逻辑 TTL、UTF-8 和哈希。缓存异常允许回源；权限失败及主记录损坏不能当作缓存未命中。仅可选缓存字段损坏不妨碍严格验证后的权威正文读取。
+
+Azure 同时注入独立 `cache_reader` 与原 `body_cache`；`TieredBodyCache` 保留在显式保存/维护路径。普通读取不准入、不续期、不回填、不更新或清空 `cache_location`。Redis 自动清除已过期字段仍可发生，不等于业务升温。热层成功返回实际 Redis 地址，冷层成功返回 `body_location`，两层都失败不会伪装成成功空正文。
+
+读取等待受请求期限限制；热层等待最多使用当时剩余时间的一半，并受现有 Redis socket 超时约束，为回源保留时间。这是本项目的回源预算策略，不是 Redis 官方规定。取消异步等待不能中止已运行的阻塞线程，生产还依靠已有连接数和连接/socket 超时限制。
+
+`recall.access` 的成功读取语义、事件标识及去重保持原样；Operate 的升降温和地址维护代码不因本次改动而重写。来源原文接口 `SourceAccess.read` 属于另一条读取路径，网页之后获取来源原文仍可能访问 Ceph。完整接口、影响与复验见[Recall 冷热地址读取契约](p3/development/17_Recall冷热地址读取契约.md)。
+
+### Operate 调度改动的验证范围
 
 回归入口是 `tests/runtime/flows/test_operate_triggers.py` 与 `tests/runtime/flows/test_two_tier_operate.py`，配合原有缓存执行器与调度监测测试；前端说明由 `ruoyi/frontend/tests/placement.test.mjs` 等测试覆盖。测试使用独立 PostgreSQL 数据库、临时 TLS Redis，Ceph 故障由明确的测试替身提供，不接触业务数据。覆盖冷热闭环、权限隔离、原文不可读保护、丢失回执恢复、容量不足、重复访问统计与通知合并、普通读取不擅自升温，以及历史温层兼容。
 

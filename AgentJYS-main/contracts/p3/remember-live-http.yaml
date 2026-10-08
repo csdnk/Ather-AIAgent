@@ -13,10 +13,18 @@ body_range:
   method: POST
   path: /p3/remember/body/range
   request_schema: schemas/remember.MemoryRef.json
+  semantics:
+    - Read through the shared Remember body boundary before selecting the requested range
+    - Try the registered and validated cache_location first; null means no Redis lookup
+    - Fall back to body_location when the cache is unusable; revalidate authorization and exact body binding
+    - Ordinary reads do not admit, refill, renew, or update cache placement
 source_range:
   method: POST
   path: /p3/sources/read-range
   request_schema: schemas/remember.SourceRef.json
+  semantics:
+    - Read the exact saved source through SourceAccess, independently of memory-body cache placement
+    - A memory-body cache hit does not imply that source expansion makes no authority-storage request
 range_semantics:
   - start is inclusive and end is exclusive, measured in Unicode characters
   - Authorize and verify the exact source or memory version before returning content

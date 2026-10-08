@@ -121,6 +121,7 @@ class StorageProviders:
             "telemetry": self.telemetry,
             "p2": self.objects,
             "body_cache": self.cache,
+            "cache_reader": self.cache,
             "vectors_factory": self.vectors_factory,
             "cache_factory": self.cache_factory,
         }

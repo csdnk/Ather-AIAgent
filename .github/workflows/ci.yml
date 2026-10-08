@@ -27,6 +27,18 @@ jobs:
         run: python -m mypy src
       - name: Check generated contracts
         run: python scripts/p3/generate_schemas.py --check
+      - name: Recall address-first regression (isolated storage transports)
+        env:
+          PYTHONPATH: tests
+        run: >-
+          python -B -m pytest
+          tests/unit/test_cache_locations.py
+          tests/unit/test_cache_address_reads.py
+          tests/unit/test_body_address_reads.py
+          tests/unit/test_recall_address_assembly.py
+          tests/unit/test_body_read_consumers.py
+          --confcutdir=tests/unit -q -p no:cacheprovider
+          --basetemp "${{ runner.temp }}/recall-address-tests"
       - name: Platform tests (external integrations explicitly opt in)
         run: python -B -m pytest tests/platform -q -p no:cacheprovider --basetemp "${{ runner.temp }}/platform-tests"
       - name: Build Python package

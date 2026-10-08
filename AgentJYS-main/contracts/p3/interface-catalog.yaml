@@ -673,7 +673,7 @@ interfaces:
   - B
   signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, refs: tuple[aether_agent_memory.remember.contracts.models.MemoryRef,
     ...]) -> tuple[aether_agent_memory.remember.contracts.foundation.FullBodyReadResult, ...]'
-  rules: 由可信上下文授权；逐项返回正文结果且校验精确版本与指纹。发布/交接在调用者事务中重验当前版本、旧地址、修订号和Provider证据后CAS；失败不得清理旧副本。
+  rules: 由可信上下文授权；逐项按精确版本与正文绑定读取。合法cache_location先读热副本，地址为空不查Redis，缓存不可用按body_location回源；读前读后复核当前授权、状态、来源和关系；成功返回实际path/location。普通读取不准入、续期、填缓存或改地址；依赖失败不得冒充正常空结果。
   examples:
   - positive-remember.FullBodyReadResult
   - positive-remember.ProjectionManifest
@@ -709,6 +709,19 @@ interfaces:
   - positive-remember.FullBodyReadResult
   - positive-remember.ProjectionManifest
   - positive-remember.ReferenceHandoffReceipt
+  evidence_level: contract_only
+  implemented: false
+- id: remember.RecallBodyReadPort.load_recall_batch
+  provider: B
+  consumers:
+  - A
+  signature: '(self, ctx: aether_agent_memory.runtime.contracts.models.TrustedContext, refs: tuple[aether_agent_memory.remember.contracts.models.MemoryRef,
+    ...]) -> aether_agent_memory.remember.contracts.models.MemoryReadBatch'
+  rules: 拒绝重复引用；按每条MemoryRecord的缓存地址和正文地址读取，返回精确版本的正文快照、资格结论与冲突关系；读取前后复核授权、期限和元数据；普通读取不准入缓存或修改地址，不能回退到旧同步加载与预热路径。
+  examples:
+  - positive-runtime.TrustedContext
+  - positive-remember.MemoryRef
+  - positive-remember.MemoryReadBatch
   evidence_level: contract_only
   implemented: false
 - id: recall.MemoryCandidatePort.search

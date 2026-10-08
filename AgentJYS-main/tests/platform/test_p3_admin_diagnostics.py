@@ -434,14 +434,14 @@ async def test_role_revoked_while_body_io_in_flight_is_rechecked(tmp_path):
     identity, ctx, state = operator(tmp_path)
     host = runtime(identity, tmp_path)
     seed(host)
-    original = host.remember.bodies.read
+    original = host.remember.bodies.read_authority
 
     async def read(*args, **kwargs):
         value = await original(*args, **kwargs)
         state["role_codes"] = []
         return value
 
-    host.remember.bodies.read = read
+    host.remember.bodies.read_authority = read
     with pytest.raises(FoundationError) as error:
         await AdminDiagnostics(host, None).memory(ctx, "m1", "old-tenant", "old-user")
     assert error.value.code == "FORBIDDEN"

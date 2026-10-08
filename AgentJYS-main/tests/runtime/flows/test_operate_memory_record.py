@@ -1,4 +1,4 @@
-"""Operate publication: real PG/Redis, stub Ceph; Recall remains unchanged."""
+"""Operate publication: real PG/Redis with a stub Ceph authority."""
 
 import asyncio
 import json
@@ -44,7 +44,7 @@ def publication(execution, tmp_path):
         },
         get_object_sync=lambda key: objects.get(key),
     )
-    bodies = Bodies(tmp_path / "bodies", RememberPolicy(), p2=ceph)
+    bodies = Bodies(tmp_path / "bodies", RememberPolicy(), p2=ceph, cache_reader=cache)
     location = bodies.location(item.ref.scope, item.content)
     # Use a real location-based record, not the legacy inline test DTO.
     item = item.model_copy(update={"projection_state": "pending"})

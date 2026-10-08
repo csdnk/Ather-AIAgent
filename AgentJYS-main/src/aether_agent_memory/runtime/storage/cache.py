@@ -15,6 +15,20 @@ class BodyCache(Protocol):
 
 
 @runtime_checkable
+class CacheLocationReader(Protocol):
+    """Read a registered address using trusted scope and authority bindings.
+
+    A miss returns None. Invalid addresses, corruption and dependency failures
+    remain errors for the caller's authority fallback policy. Reads never admit
+    a new copy or publish an address.
+    """
+
+    async def read_location(
+        self, scope: Scope, location: ResourceLocation, authority: ResourceLocation
+    ) -> str | None: ...
+
+
+@runtime_checkable
 class CacheLocationProvider(Protocol):
     """Optional address capability; describing a location never admits a copy.
 

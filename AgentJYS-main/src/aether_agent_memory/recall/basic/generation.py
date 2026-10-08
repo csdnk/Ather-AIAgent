@@ -14,7 +14,7 @@ from aether_agent_memory.recall.contracts.ports import MemoryCandidatePort
 from aether_agent_memory.remember.contracts.foundation import ContextGuardRequest
 from aether_agent_memory.remember.contracts.ports import (
     MemoryContextGuardPort,
-    MemoryFoundationPort,
+    RecallBodyReadPort,
 )
 from aether_agent_memory.runtime.contracts.models import ErrorCode, TrustedContext
 from aether_agent_memory.runtime.foundation.common import FoundationError
@@ -35,7 +35,7 @@ class GenerationRecall(Recall):
         self,
         base: Recall,
         candidates: MemoryCandidatePort,
-        bodies: MemoryFoundationPort,
+        bodies: RecallBodyReadPort,
         guards: MemoryContextGuardPort,
     ) -> None:
         # Reuse the already registered RF event producer and request lifecycle.

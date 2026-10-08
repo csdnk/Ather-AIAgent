@@ -23,9 +23,9 @@ from aether_agent_memory.remember.contracts.models import ExtractionRequest, Sou
 from aether_agent_memory.remember.contracts.ports import (
     ExtractionPort,
     MemoryContextGuardPort,
-    MemoryFoundationPort,
     MemoryQualificationPort,
     MemoryReadPort,
+    RecallBodyReadPort,
 )
 from aether_agent_memory.runtime.contracts.models import TaskRecord, TrustedContext
 from aether_agent_memory.runtime.foundation.common import fingerprint, now
@@ -323,7 +323,7 @@ class ThreeFlows:
         *,
         memories: MemoryReadPort,
         qualification: MemoryQualificationPort,
-        bodies: MemoryFoundationPort,
+        bodies: RecallBodyReadPort,
         guards: MemoryContextGuardPort,
         space: EmbeddingSpace,
         search: GenerationSearchPort | None = None,
@@ -343,7 +343,7 @@ class ThreeFlows:
         required = (
             (memories, ("load", "working", "final_guard", "projection_readiness")),
             (qualification, ("qualify",)),
-            (bodies, ("load_bodies",)),
+            (bodies, ("load_bodies", "load_recall_batch")),
             (guards, ("relations", "revalidate_context")),
         )
         if any(
