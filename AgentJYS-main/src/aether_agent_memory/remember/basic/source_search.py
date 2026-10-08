@@ -70,8 +70,8 @@ def rank_sources(
         (i for i, words in enumerate(corpus) if query_set.intersection(words)),
         key=lambda i: (-float(scores[i]), i),
     )
-    passages = []
-    admitted = set()
+    passages: list[SourcePassage] = []
+    admitted: set[int] = set()
     chars = 0
 
     def admit(i: int, seed: bool) -> bool:

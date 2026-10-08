@@ -40,8 +40,11 @@ async def candidate_support_audit(
     if saved is not None:
         # Older checkpoints did not record sampling, but did run the verifier.
         status = saved.get("status") or (
-            "supported" if saved.get("supported") is True
-            else "rejected" if saved.get("supported") is False else "unknown"
+            "supported"
+            if saved.get("supported") is True
+            else "rejected"
+            if saved.get("supported") is False
+            else "unknown"
         )
         legacy_verdict = True if status == "supported" else False if status == "rejected" else None
         if status == "unknown":
@@ -158,9 +161,7 @@ async def prepare_consolidation(
         admitted_ids.add(source_id)
         total_tokens += cost
     old_evidence = tuple(selected_evidence)
-    originals = tuple(
-        {i.sources[0].source_id: i for i in (*items, *old_evidence)}.values()
-    )
+    originals = tuple({i.sources[0].source_id: i for i in (*items, *old_evidence)}.values())
     with owner.uow.transaction() as tx:
         owner.tasks.guard(tx, task)
         if (tx.read("remember_space_seq", space_key) or 0) != sequence:
@@ -203,7 +204,9 @@ async def prepare_consolidation(
     for proposal in result.proposals:
         candidate = owner.validate_candidate(proposal.candidate, originals)
         if not new_ids.intersection(s.source_id for s in candidate.sources):
-            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "consolidation output has no new source")
+            raise FoundationError(
+                ErrorCode.CONTRACT_VIOLATION, "consolidation output has no new source"
+            )
         if getattr(task, "kind", None) == "remember.distill" and candidate.kind != "semantic":
             continue
         verdict_key = fingerprint([binding, candidate.model_dump(mode="json")])

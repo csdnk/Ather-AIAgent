@@ -22,7 +22,10 @@ def _result(row: dict[str, Any]) -> dict[str, Any]:
         evidence = QualityEvidence.model_validate(quality)
         status = "passed" if quality_passed(evidence) else "failed"
     else:
-        status = "unknown" if row["review_state"] in {"started", "unknown", "completed"} else "not_checked"
+        status = (
+            "unknown" if row["review_state"] in {"started", "unknown", "completed"}
+            else "not_checked"
+        )
     reserved_attempts = row.get(
         "review_attempts", int(row["review_state"] in {"started", "completed", "unknown"})
     )
@@ -92,7 +95,10 @@ def reserve_legacy_reviews(owner: Any, task: Any, part_keys: list[str]) -> None:
                 consumed_key = key
                 break
             for attempt in range(3):
-                legacy = tx.read("remember_compression_attempts", fingerprint([key, "quality_repair_v1", attempt]))
+                legacy = tx.read(
+                    "remember_compression_attempts",
+                    fingerprint([key, "quality_repair_v1", attempt]),
+                )
                 if legacy and "output" in legacy:
                     consumed_key = key
                     break

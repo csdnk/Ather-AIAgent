@@ -312,7 +312,9 @@ async def test_disabling_review_does_not_relabel_historical_rejection():
     app, message = support_owner(1)
     task = SimpleNamespace(task_id="t")
     await prepare_consolidation(app, None, task, (message,))
-    table, key = next((table, key) for table, key in app.uow.rows if table == "remember_official_support")
+    table, key = next(
+        (table, key) for table, key in app.uow.rows if table == "remember_official_support"
+    )
     app.uow.write(table, key, {"supported": False})
     result = await prepare_consolidation(app, None, task, (message,))
     assert result["candidates"] == ()

@@ -815,13 +815,15 @@ class RememberPipeline(Revalidation):
                 if current != ref.model_dump(mode="json"):
                     return
                 raw = tx.get(ref)
-                if raw is None or raw.get("body_location", {}).get("content_hash") != text_hash(
-                    working_text
-                ):
+                if raw is None:
                     return
                 record = MemoryRecord.model_validate(raw)
+                if record.body_location.content_hash != text_hash(working_text):
+                    return
                 cache_location = None
                 provider = self.bodies.cache
+                cache_keys = getattr(provider, "keys", None)
+                cache_namespace = getattr(provider, "namespace", None)
                 current_allowed = (
                     self.final_guard(tx, ctx, (memory,), "recall").items[0].decision == "allowed"
                 )
@@ -831,15 +833,16 @@ class RememberPipeline(Revalidation):
                     cache == "cached"
                     and current_allowed
                     and record.status == MemoryStatus.ACTIVE
-                    and hasattr(provider, "keys")
+                    and callable(cache_keys)
+                    and isinstance(cache_namespace, str)
                 ):
-                    bucket, field, _ = provider.keys(scope, record.body_location.content_hash)
+                    bucket, field, _ = cache_keys(scope, record.body_location.content_hash)
                     cache_location = record.body_location.model_copy(
                         update={
                             "kind": "cache",
                             "provider_id": "redis",
-                            "provider_instance_id": provider.namespace,
-                            "namespace": provider.namespace,
+                            "provider_instance_id": cache_namespace,
+                            "namespace": cache_namespace,
                             "object_key": bucket + "/" + field,
                         }
                     )
@@ -1452,7 +1455,7 @@ class RememberPipeline(Revalidation):
         """Fail closed around current-version processing, including legacy tasks."""
         ref = memory.model_dump(mode="json")
         pending = tx.read("remember_pending", memory.memory_id)
-        owned = set()
+        owned: set[str] = set()
         if pending and pending["ref"] == ref:
             owned.update(
                 pending[field]
@@ -2066,7 +2069,9 @@ class RememberPipeline(Revalidation):
                     and not r["quality"].get("critical_unknowns")
                     for r in checked
                 )
-                and all(r.get("quality_status") in {"not_sampled", "not_checked"} for r in unchecked)
+                and all(
+                    r.get("quality_status") in {"not_sampled", "not_checked"} for r in unchecked
+                )
             )
             if not quality_ok:
                 quality_status = "failed"
@@ -3207,7 +3212,10 @@ class RememberPipeline(Revalidation):
             "candidate_support_audit": support_audit,
             "candidate_support_counts": {
                 status: sum(row["status"] == status for row in support_audit)
-                for status in ("supported", "rejected", "not_sampled", "not_checked", "source_bound_exact", "unknown")
+                for status in (
+                    "supported", "rejected", "not_sampled", "not_checked",
+                    "source_bound_exact", "unknown",
+                )
             },
             "proposals": [
                 [
@@ -3364,7 +3372,8 @@ class RememberPipeline(Revalidation):
                         # substring gate or an extra semantic reviewer.
                         if changed_content or latest.ref != target.ref:
                             raise FoundationError(
-                                ErrorCode.RESULT_INVALIDATED, "two-stage target changed within commit"
+                                ErrorCode.RESULT_INVALIDATED,
+                                "two-stage target changed within commit",
                             )
                         if decision.outcome in {"amend", "correct"}:
                             self.identity.authorize(

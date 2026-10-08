@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from langchain_core.callbacks import BaseCallbackHandler
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -61,9 +61,7 @@ class ConsolidationEvidence(BatchEvidence):
 class CandidateCapacityError(ValueError):
     """Extraction must be rescheduled with smaller original ranges, not truncated."""
 
-    def __init__(
-        self, count: int, limit: int = 256, *, reason: str = "candidate_capacity"
-    ) -> None:
+    def __init__(self, count: int, limit: int = 256, *, reason: str = "candidate_capacity") -> None:
         self.count, self.limit = count, limit
         self.reason = reason
         super().__init__(
@@ -90,7 +88,9 @@ class CandidateMemory(BaseModel):
 class ConsolidatedMemory(CandidateMemory):
     """Propose a full result body and account for the submitted candidates."""
 
-    relationship: Literal["create", "no_change", "equivalent", "amend", "correct", "conflict"] = "create"
+    relationship: Literal["create", "no_change", "equivalent", "amend", "correct", "conflict"] = (
+        "create"
+    )
     # Defaults keep historical one-stage documents readable. The candidate
     # pipeline requires explicit IDs and a nonempty reason for every decision.
     candidate_ids: tuple[str, ...] = Field(default=(), max_length=256)
@@ -185,11 +185,13 @@ class _ToolProposalGuard(BaseCallbackHandler):
         for generations in response.generations:
             for generation in generations:
                 message = generation.message
-                metadata.extend([
-                    getattr(generation, "generation_info", None),
-                    getattr(message, "response_metadata", None),
-                    getattr(message, "additional_kwargs", None),
-                ])
+                metadata.extend(
+                    [
+                        getattr(generation, "generation_info", None),
+                        getattr(message, "response_metadata", None),
+                        getattr(message, "additional_kwargs", None),
+                    ]
+                )
                 partial_count += len(getattr(message, "tool_calls", ()))
                 content = getattr(message, "content", None)
                 if isinstance(content, list):
@@ -276,7 +278,9 @@ class _ToolProposalGuard(BaseCallbackHandler):
         for key in ("finish_reason", "stop_reason"):
             value = metadata.get(key)
             if isinstance(value, str) and value.lower() in {
-                "content_filter", "safety", "prohibited_content"
+                "content_filter",
+                "safety",
+                "prohibited_content",
             }:
                 return True
         details = metadata.get("incomplete_details")
@@ -542,7 +546,7 @@ class OfficialLangMemConsolidation:
         model = getattr(self.manager, "model", None)
         if model is None or not hasattr(model, "health"):
             return {"state": "unavailable", "reason": "tool_readiness_probe_not_configured"}
-        return await model.health()
+        return cast(dict[str, object], await model.health())
 
     @staticmethod
     def input_instructions(stage: Literal["extraction", "decision"]) -> str:
@@ -710,8 +714,7 @@ class OfficialLangMemConsolidation:
                     and model_text(item.quote) == model_text(entry.quote)
                     and (
                         entry.start_char is None
-                        or (entry.start_char, entry.end_char)
-                        == (item.start_char, item.end_char)
+                        or (entry.start_char, entry.end_char) == (item.start_char, item.end_char)
                     )
                 }
                 if len(matches) != 1:
@@ -731,9 +734,7 @@ class OfficialLangMemConsolidation:
                         "source_not_in_supplied_ranges", entry.source_id, entry.quote, fact.text
                     )
                 begin, finish = (
-                    source_ranges[entry.source_id]
-                    if source_ranges is not None
-                    else (0, len(text))
+                    source_ranges[entry.source_id] if source_ranges is not None else (0, len(text))
                 )
                 try:
                     relative_start, relative_end, quote = unique_evidence_span(
@@ -750,7 +751,8 @@ class OfficialLangMemConsolidation:
                     ) from exc
                 start, end = begin + relative_start, begin + relative_end
                 if entry.start_char is not None and (entry.start_char, entry.end_char) != (
-                    start, end
+                    start,
+                    end,
                 ):
                     raise ValueError("candidate evidence offsets do not match the original span")
             evidence[(entry.source_id, start, end)] = FactEvidence(
@@ -871,20 +873,21 @@ class OfficialLangMemConsolidation:
             item = ExtractedCandidate.model_validate(value.model_dump(mode="json"))
             if item.candidate_id in submitted:
                 raise ValueError("duplicate submitted candidate ID")
-            fact = item.candidate
-            if item.candidate_id != fingerprint([fact.model_dump(mode="json")]):
+            extracted_fact = item.candidate
+            if item.candidate_id != fingerprint([extracted_fact.model_dump(mode="json")]):
                 raise ValueError("candidate ID does not match its extraction content")
-            if fact.evidence_status != "supported" or not fact.evidence:
+            if extracted_fact.evidence_status != "supported" or not extracted_fact.evidence:
                 raise ValueError("decision input requires evidenced extracted candidates")
-            if {s.source_id: s for s in fact.sources} != {
-                e.source.source_id: e.source for e in fact.evidence
+            if {s.source_id: s for s in extracted_fact.sources} != {
+                e.source.source_id: e.source for e in extracted_fact.evidence
             }:
                 raise ValueError("candidate sources and evidence disagree")
-            for evidence in fact.evidence:
+            for evidence in extracted_fact.evidence:
                 source, text = sources.get(evidence.source.source_id, (None, ""))
-                if source != evidence.source or text[
-                    evidence.start_char : evidence.end_char
-                ] != evidence.quote:
+                if (
+                    source != evidence.source
+                    or text[evidence.start_char : evidence.end_char] != evidence.quote
+                ):
                     raise ValueError("candidate evidence does not match authorized originals")
             submitted[item.candidate_id] = item
         old, prepared = self._existing_documents(existing)
@@ -1085,9 +1088,10 @@ class OfficialLangMemConsolidation:
         proposals: list[ConsolidationProposal] = []
         seen: set[str] = set()
         for row in output:
-            key, content = getattr(row, "id", None), getattr(row, "content", None)
-            if not isinstance(key, str) or not key or key in seen:
+            row_key, content = getattr(row, "id", None), getattr(row, "content", None)
+            if not isinstance(row_key, str) or not row_key or row_key in seen:
                 raise ValueError("missing or duplicate official LangMem output ID")
+            key = row_key
             seen.add(key)
             # Validate even Pydantic instances again: model_copy can bypass validation.
             fact = ConsolidatedMemory.model_validate(

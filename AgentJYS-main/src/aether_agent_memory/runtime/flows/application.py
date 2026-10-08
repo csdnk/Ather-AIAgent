@@ -247,7 +247,7 @@ class Service:
         if self.config.language_model:
 
             async def model(ctx: TrustedContext) -> dict[str, object]:
-                return await remember.extraction.health()
+                return cast(dict[str, object], await remember.extraction.health())
 
             health.register("extraction", model, replace=True)
             required.append("extraction")

@@ -49,7 +49,10 @@ def prepare_two_stage_commit(
     ):
         raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "ineligible consolidation target")
 
-    proposals, groups, covered, targets = [], [], set(), set()
+    proposals: list[list[Any]] = []
+    groups: list[list[str]] = []
+    covered: set[str] = set()
+    targets: set[str] = set()
     for proposal in formation["proposals"]:
         candidate = owner.validate_candidate(proposal.candidate, originals)
         decision = proposal.decision

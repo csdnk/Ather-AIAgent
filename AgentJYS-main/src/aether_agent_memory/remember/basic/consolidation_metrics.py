@@ -34,7 +34,7 @@ def compression_metrics(
             )
     # The caller resolves current final bodies after all batch mutations. Keep
     # this deduplication as an additional guard against repeated output refs.
-    memories = {
+    memories: dict[str, dict[str, Any]] = {
         item.ref.model_dump_json(): {
             "memory": item.ref.model_dump(mode="json"),
             "bytes": len(item.content.encode("utf-8")),
@@ -49,7 +49,9 @@ def compression_metrics(
         return {
             "original_bytes": original_bytes,
             "long_term_bytes": result_bytes,
-            "output_over_input": result_bytes / original_bytes if complete and original_bytes else None,
+            "output_over_input": result_bytes / original_bytes
+            if complete and original_bytes
+            else None,
             "compression_factor": factor,
             "target_factor": target_factor,
             "target_met": factor >= target_factor if factor is not None else None,
@@ -67,39 +69,49 @@ def compression_metrics(
 
     # Use associations produced by THIS commit. A reused memory may also cite
     # unrelated historical sources; those must not attribute new output to them.
-    associations = output_sources if output_sources is not None else {
-        result.ref.memory_id: {
-            (source.source_id, source.source_version, source.content_hash)
-            for source in result.sources
+    associations = (
+        output_sources
+        if output_sources is not None
+        else {
+            result.ref.memory_id: {
+                (source.source_id, source.source_version, source.content_hash)
+                for source in result.sources
+            }
+            for result in results
         }
-        for result in results
-    }
+    )
     working_inputs: dict[str, dict[str, Any]] = {}
     for item in originals:
         if item.kind != MemoryKind.WORKING:
             continue
         input_keys = {(s.source_id, s.source_version, s.content_hash) for s in item.sources}
-        working = working_inputs.setdefault(item.ref.model_dump_json(), {
-            "ref": item.ref,
-            "source_keys": set(),
-        })
+        working = working_inputs.setdefault(
+            item.ref.model_dump_json(),
+            {
+                "ref": item.ref,
+                "source_keys": set(),
+            },
+        )
         working["source_keys"].update(input_keys)
     per_working = []
     for working in working_inputs.values():
         input_keys = working["source_keys"]
         related_outputs = [
-            row for row in memories.values()
+            row
+            for row in memories.values()
             if input_keys.intersection(associations.get(row["memory"]["memory_id"], set()))
         ]
         original_bytes = sum(sources[key]["bytes"] for key in input_keys)
-        per_working.append({
-            "working_memory": working["ref"].model_dump(mode="json"),
-            "scope": "whole_working_memory",
-            "all_parts_complete": complete,
-            "is_long_input": original_bytes >= long_input_bytes,
-            "sources": [sources[key]["source"] for key in sorted(input_keys)],
-            **measure(original_bytes, related_outputs),
-        })
+        per_working.append(
+            {
+                "working_memory": working["ref"].model_dump(mode="json"),
+                "scope": "whole_working_memory",
+                "all_parts_complete": complete,
+                "is_long_input": original_bytes >= long_input_bytes,
+                "sources": [sources[key]["source"] for key in sorted(input_keys)],
+                **measure(original_bytes, related_outputs),
+            }
+        )
     return {
         "policy": "original_to_long_term_utf8_v2_whole_working",
         "scope": "consolidation_batch",

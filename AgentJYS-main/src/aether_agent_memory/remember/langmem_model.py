@@ -11,7 +11,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 from langchain_core.callbacks import AsyncCallbackManagerForLLMRun
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatResult
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, ConfigDict, PrivateAttr
@@ -46,6 +46,8 @@ class _LimitedTransport(httpx.AsyncBaseTransport):
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         response = await self.transport.handle_async_request(request)
+        if not isinstance(response.stream, httpx.AsyncByteStream):
+            raise TypeError("async model transport returned a synchronous stream")
         response.stream = _LimitedStream(response.stream, self.limit)
         return response
 
@@ -178,7 +180,9 @@ class LangMemChatModel(ChatOpenAI):
                 [("user", "Deployment diagnostic: call LangMemToolReadiness with ready=true.")],
                 max_tokens=self._deployment.health_max_output_tokens,
             )
-            calls = getattr(reply, "tool_calls", ())
+            if not isinstance(reply, AIMessage):
+                raise ValueError("tool_message_required")
+            calls = reply.tool_calls
             if len(calls) != 1 or calls[0]["name"] != "LangMemToolReadiness":
                 raise ValueError("tool_call_required")
             LangMemToolReadiness.model_validate(calls[0]["args"])

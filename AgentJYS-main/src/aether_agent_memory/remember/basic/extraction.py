@@ -97,7 +97,7 @@ class LangMemExtraction:
 
     @classmethod
     def from_model(cls, model: Any, model_id: str) -> LangMemExtraction:
-        from langmem import create_memory_manager  # type: ignore[import-not-found]
+        from langmem import create_memory_manager
 
         manager = create_memory_manager(
             model,

@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from aether_agent_memory.remember.basic.official_langmem import (
-    CandidateExtractionResult,
     CandidateCapacityError,
+    CandidateExtractionResult,
     ConsolidationResult,
     ExtractedCandidate,
 )
@@ -26,11 +27,11 @@ from aether_agent_memory.runtime.foundation.common import FoundationError, finge
 def _cost(owner: Any, stage: str, payload: dict[str, Any]) -> int:
     # Measure serialized IDs/evidence as well as text. Leave headroom for the
     # official manager/tool wrappers; this is not a provider context guarantee.
-    return (
+    return cast(int, (
         owner.tokenizer.count(json.dumps(payload, ensure_ascii=False, default=str))
         + owner.tokenizer.count(owner.extraction.input_instructions(stage))
         + owner.policy.consolidation_context_reserve_tokens
-    )
+    ))
 
 
 @dataclass(frozen=True)
@@ -40,7 +41,10 @@ class _ExtractionPart:
     depth: int = 0
 
     def payload(self, owner: Any) -> dict[str, Any]:
-        return owner.extraction.extraction_payload(self.items, source_ranges=self.ranges)
+        return cast(
+            dict[str, Any],
+            owner.extraction.extraction_payload(self.items, source_ranges=self.ranges),
+        )
 
 
 def _boundary(text: str, start: int, limit: int) -> int:
@@ -51,7 +55,8 @@ def _boundary(text: str, start: int, limit: int) -> int:
     if paragraphs:
         return start + paragraphs[-1]
     endings = [
-        m.end() for m in re.finditer(r"[。！？!?][”’\"']?\s*|(?<=[.!?])\s+|\r?\n", window)
+        m.end()
+        for m in re.finditer(r"[。！？!?][”’\"']?\s*|(?<=[.!?])\s+|\r?\n", window)
         if m.end() >= floor
     ]
     return start + endings[-1] if endings else limit
@@ -88,7 +93,8 @@ def _extraction_batches(owner: Any, items: tuple[MemorySnapshot, ...]) -> list[_
             if current and (
                 tokens + cost > owner.policy.extraction_chunk_tokens
                 or set(ranges).intersection(part_ranges)
-                or _cost(owner, "extraction", proposed.payload(owner)) > owner.policy.comparison_context_tokens
+                or _cost(owner, "extraction", proposed.payload(owner))
+                > owner.policy.comparison_context_tokens
             ):
                 batches.append(_ExtractionPart(current, ranges))
                 current, ranges, tokens = (), {}, 0
@@ -106,19 +112,27 @@ def _split_part(owner: Any, part: _ExtractionPart) -> tuple[_ExtractionPart, _Ex
     if len(part.items) > 1:
         middle = len(part.items) // 2
         groups = (part.items[:middle], part.items[middle:])
-        return tuple(
-            _ExtractionPart(group, {s.source_id: part.ranges[s.source_id] for i in group for s in i.sources}, part.depth + 1)
+        children = tuple(
+            _ExtractionPart(
+                group,
+                {s.source_id: part.ranges[s.source_id] for i in group for s in i.sources},
+                part.depth + 1,
+            )
             for group in groups
         )
+        return children[0], children[1]
     item = part.items[0]
     start, end = part.ranges[item.sources[0].source_id]
     if end - start < 2:
-        raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "minimal source part still exceeds extraction capacity")
+        raise FoundationError(
+            ErrorCode.CONTRACT_VIOLATION, "minimal source part still exceeds extraction capacity"
+        )
     middle = _boundary(item.content, start, start + (end - start) // 2)
-    return tuple(
+    children = tuple(
         _ExtractionPart(part.items, {s.source_id: bounds for s in item.sources}, part.depth + 1)
         for bounds in ((start, middle), (middle, end))
     )
+    return children[0], children[1]
 
 
 def _components(
@@ -172,7 +186,8 @@ def _decision_batches(
         if len(component) > 256 or cost(component) > owner.policy.comparison_context_tokens:
             raise FoundationError(
                 ErrorCode.CONTRACT_VIOLATION,
-                "connected candidate/old-memory group exceeds decision budget; no candidates were consumed",
+                "connected candidate/old-memory group exceeds decision budget; "
+                "no candidates were consumed",
             )
         if current and (
             len(current) + len(component) > 256
@@ -190,7 +205,9 @@ async def prepare_candidate_consolidation(
     owner: Any, ctx: Any, task: Any, items: tuple[MemorySnapshot, ...]
 ) -> dict[str, Any]:
     if not items:
-        raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "consolidation task has no Working input")
+        raise FoundationError(
+            ErrorCode.CONTRACT_VIOLATION, "consolidation task has no Working input"
+        )
     if any(i.ref.scope != items[0].ref.scope for i in items):
         raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "mixed consolidation scopes")
     processing_binding = owner.checkpoint_binding()
@@ -204,12 +221,16 @@ async def prepare_candidate_consolidation(
             owner.checkpoint_binding() != processing_binding
             or owner.comparison_source_binding(tx, items) != source_binding
         ):
-            raise FoundationError(ErrorCode.RESULT_INVALIDATED, "candidate sources or policy changed")
+            raise FoundationError(
+                ErrorCode.RESULT_INVALIDATED, "candidate sources or policy changed"
+            )
         if any(
             entry.decision != "allowed"
             for entry in owner.final_guard(tx, ctx, tuple(i.ref for i in items), "recall").items
         ):
-            raise FoundationError(ErrorCode.RESULT_INVALIDATED, "Working sources are no longer eligible")
+            raise FoundationError(
+                ErrorCode.RESULT_INVALIDATED, "Working sources are no longer eligible"
+            )
 
     def consume_extraction_call() -> None:
         with owner.uow.transaction() as tx:
@@ -224,25 +245,39 @@ async def prepare_candidate_consolidation(
     while pending_parts:
         part = pending_parts.pop()
         batch = part.items
-        binding = fingerprint([
-            "official_candidate_extraction_v1", task.task_id, task.kind,
-            processing_binding, source_binding, part.ranges, part.depth,
-            [[i.ref.model_dump(mode="json"), i.content_hash] for i in batch],
-        ])
+        binding = fingerprint(
+            [
+                "official_candidate_extraction_v1",
+                task.task_id,
+                task.kind,
+                processing_binding,
+                source_binding,
+                part.ranges,
+                part.depth,
+                [[i.ref.model_dump(mode="json"), i.content_hash] for i in batch],
+            ]
+        )
         extraction_bindings.append(binding)
         with owner.uow.transaction() as tx:
             guard_sources(tx)
             saved = tx.read("remember_candidate_extractions", binding)
             split = tx.read("remember_candidate_extraction_splits", binding)
         split_reason = (split or {}).get("reason")
-        if split_reason is None and _cost(owner, "extraction", part.payload(owner)) > owner.policy.comparison_context_tokens:
+        if (
+            split_reason is None
+            and _cost(owner, "extraction", part.payload(owner))
+            > owner.policy.comparison_context_tokens
+        ):
             split_reason = "input_budget"
         result = None
         if split_reason is None:
             try:
                 if saved is None:
                     raw_result = await owner.extraction.extract_candidates(
-                        ctx, batch, owner.policy.version, source_ranges=part.ranges,
+                        ctx,
+                        batch,
+                        owner.policy.version,
+                        source_ranges=part.ranges,
                         on_model_call=consume_extraction_call,
                     )
                     result = CandidateExtractionResult.model_validate(raw_result)
@@ -276,7 +311,9 @@ async def prepare_candidate_consolidation(
                 or evidence.end_char > part.ranges[evidence.source.source_id][1]
                 for evidence in candidate.evidence
             ):
-                raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "candidate evidence escaped its extraction part")
+                raise FoundationError(
+                    ErrorCode.CONTRACT_VIOLATION, "candidate evidence escaped its extraction part"
+                )
             validated.append(entry.model_copy(update={"candidate": candidate}))
         result = result.model_copy(update={"candidates": tuple(validated)})
         with owner.uow.transaction() as tx:
@@ -306,15 +343,23 @@ async def prepare_candidate_consolidation(
     def guard_inventory(tx: Any) -> None:
         guard_sources(tx)
         if (tx.read("remember_long_term_seq", space_key) or 0) != sequence:
-            raise FoundationError(ErrorCode.RESULT_INVALIDATED, "inventory changed during candidate comparison")
+            raise FoundationError(
+                ErrorCode.RESULT_INVALIDATED, "inventory changed during candidate comparison"
+            )
 
     existing: dict[str, MemorySnapshot] = {}
     related_ids: dict[str, tuple[str, ...]] = {}
     for entry in candidates:
-        binding = fingerprint([
-            "official_candidate_discovery_v1", task.task_id, processing_binding,
-            source_binding, sequence, entry.model_dump(mode="json"),
-        ])
+        binding = fingerprint(
+            [
+                "official_candidate_discovery_v1",
+                task.task_id,
+                processing_binding,
+                source_binding,
+                sequence,
+                entry.model_dump(mode="json"),
+            ]
+        )
         with owner.uow.transaction() as tx:
             guard_inventory(tx)
             saved = tx.read("remember_candidate_discovery", binding)
@@ -322,10 +367,16 @@ async def prepare_candidate_consolidation(
             with owner.uow.transaction() as tx:
                 guard_inventory(tx)
                 saved_items = tuple(MemorySnapshot.model_validate(raw) for raw in saved["existing"])
-                stale = any(
-                    entry.decision != "allowed"
-                    for entry in owner.final_guard(tx, ctx, tuple(i.ref for i in saved_items), "recall").items
-                ) if saved_items else False
+                stale = (
+                    any(
+                        entry.decision != "allowed"
+                        for entry in owner.final_guard(
+                            tx, ctx, tuple(i.ref for i in saved_items), "recall"
+                        ).items
+                    )
+                    if saved_items
+                    else False
+                )
                 if not stale:
                     for old in saved_items:
                         try:
@@ -347,85 +398,126 @@ async def prepare_candidate_consolidation(
         ids = []
         for old in old_items:
             if old.ref.scope != items[0].ref.scope:
-                raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "candidate retrieval scope mismatch")
-            previous = existing.get(old.ref.memory_id)
-            if previous is not None and previous != old:
-                raise FoundationError(ErrorCode.RESULT_INVALIDATED, "candidate retrieval observed different versions")
+                raise FoundationError(
+                    ErrorCode.CONTRACT_VIOLATION, "candidate retrieval scope mismatch"
+                )
+            prior_memory = existing.get(old.ref.memory_id)
+            if prior_memory is not None and prior_memory != old:
+                raise FoundationError(
+                    ErrorCode.RESULT_INVALIDATED, "candidate retrieval observed different versions"
+                )
             existing[old.ref.memory_id] = old
             ids.append(old.ref.memory_id)
         related_ids[entry.candidate_id] = tuple(dict.fromkeys(ids))
         with owner.uow.transaction() as tx:
             guard_inventory(tx)
             if saved is None:
-                tx.write("remember_candidate_discovery", binding, {
-                    "candidate_id": entry.candidate_id,
-                    "existing": [i.model_dump(mode="json") for i in old_items],
-                })
+                tx.write(
+                    "remember_candidate_discovery",
+                    binding,
+                    {
+                        "candidate_id": entry.candidate_id,
+                        "existing": [i.model_dump(mode="json") for i in old_items],
+                    },
+                )
 
     decision_batches = _decision_batches(owner, candidates, related_ids, existing)
     proposals = []
     decision_bindings = []
-    for index, batch in enumerate(decision_batches):
-        old, mapping = _decision_inputs(batch, related_ids, existing)
+    for index, decision_batch in enumerate(decision_batches):
+        comparison_items, mapping = _decision_inputs(decision_batch, related_ids, existing)
 
-        def guard_decision(tx: Any) -> None:
+        def guard_decision(
+            tx: Any, targets: tuple[MemorySnapshot, ...] = comparison_items
+        ) -> None:
             guard_inventory(tx)
-            if old and any(
+            if targets and any(
                 entry.decision != "allowed"
-                for entry in owner.final_guard(tx, ctx, tuple(i.ref for i in old), "recall").items
+                for entry in owner.final_guard(
+                    tx, ctx, tuple(i.ref for i in targets), "recall"
+                ).items
             ):
-                raise FoundationError(ErrorCode.RESULT_INVALIDATED, "comparison targets no longer eligible")
-            for item in old:
+                raise FoundationError(
+                    ErrorCode.RESULT_INVALIDATED, "comparison targets no longer eligible"
+                )
+            for item in targets:
                 current = owner.current(tx, item.ref.memory_id)
                 if current.ref != item.ref or current.object_revision != item.object_revision:
                     raise FoundationError(ErrorCode.RESULT_INVALIDATED, "comparison target changed")
 
-        def consume_decision_call() -> None:
+        def consume_decision_call(guard: Callable[[Any], None] = guard_decision) -> None:
             with owner.uow.transaction() as tx:
-                guard_decision(tx)
+                guard(tx)
             owner.consume_call(task)
 
-        binding = fingerprint([
-            "official_candidate_decisions_v1", task.task_id, processing_binding,
-            source_binding, sequence, index, mapping,
-            [c.model_dump(mode="json") for c in batch],
-            [i.model_dump(mode="json") for i in old],
-        ])
+        binding = fingerprint(
+            [
+                "official_candidate_decisions_v1",
+                task.task_id,
+                processing_binding,
+                source_binding,
+                sequence,
+                index,
+                mapping,
+                [c.model_dump(mode="json") for c in decision_batch],
+                [i.model_dump(mode="json") for i in comparison_items],
+            ]
+        )
         decision_bindings.append(binding)
         with owner.uow.transaction() as tx:
             guard_decision(tx)
             saved = tx.read("remember_candidate_decisions", binding)
         if saved is None:
             raw_result = await owner.extraction.decide_candidates(
-                ctx, batch, old, owner.policy.version,
-                related_ids=mapping, originals=items,
+                ctx,
+                decision_batch,
+                comparison_items,
+                owner.policy.version,
+                related_ids=mapping,
+                originals=items,
                 on_model_call=consume_decision_call,
             )
-            result = ConsolidationResult.model_validate(raw_result)
+            decision_result = ConsolidationResult.model_validate(raw_result)
         else:
-            result = ConsolidationResult.model_validate(saved)
-        if result.policy_version != owner.policy.version:
+            decision_result = ConsolidationResult.model_validate(saved)
+        if decision_result.policy_version != owner.policy.version:
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "decision policy mismatch")
         covered: list[str] = []
-        for proposal in result.proposals:
+        for proposal in decision_result.proposals:
             candidate = owner.validate_candidate(proposal.candidate, items)
-            if not proposal.candidate_ids or any(key not in mapping for key in proposal.candidate_ids):
-                raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "decision has unknown candidate IDs")
+            if not proposal.candidate_ids or any(
+                key not in mapping for key in proposal.candidate_ids
+            ):
+                raise FoundationError(
+                    ErrorCode.CONTRACT_VIOLATION, "decision has unknown candidate IDs"
+                )
             target_id = proposal.decision.target_id
-            if target_id is not None and any(target_id not in mapping[key] for key in proposal.candidate_ids):
-                raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "decision target was not related to its candidates")
+            if target_id is not None and any(
+                target_id not in mapping[key] for key in proposal.candidate_ids
+            ):
+                raise FoundationError(
+                    ErrorCode.CONTRACT_VIOLATION,
+                    "decision target was not related to its candidates",
+                )
             covered.extend(proposal.candidate_ids)
             proposals.append(proposal.model_copy(update={"candidate": candidate}))
-        if len(covered) != len(batch) or set(covered) != set(mapping):
-            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "decision omitted or repeated candidates")
+        if len(covered) != len(decision_batch) or set(covered) != set(mapping):
+            raise FoundationError(
+                ErrorCode.CONTRACT_VIOLATION, "decision omitted or repeated candidates"
+            )
         with owner.uow.transaction() as tx:
             guard_decision(tx)
             if saved is None:
-                tx.write("remember_candidate_decisions", binding, result.model_dump(mode="json"))
+                tx.write(
+                    "remember_candidate_decisions", binding,
+                    decision_result.model_dump(mode="json"),
+                )
 
     target_ids = [p.decision.target_id for p in proposals if p.decision.target_id is not None]
     if len(set(target_ids)) != len(target_ids):
-        raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "multiple decisions target the same current memory")
+        raise FoundationError(
+            ErrorCode.CONTRACT_VIOLATION, "multiple decisions target the same current memory"
+        )
     with owner.uow.transaction() as tx:
         guard_inventory(tx)
     return {

@@ -12,7 +12,10 @@ from unittest.mock import AsyncMock
 import pytest
 
 from aether_agent_memory.remember.basic.compression import CompressionOutput, QualityEvidence
-from aether_agent_memory.remember.basic.compression_attempts import compress_part, reserve_legacy_reviews
+from aether_agent_memory.remember.basic.compression_attempts import (
+    compress_part,
+    reserve_legacy_reviews,
+)
 from aether_agent_memory.remember.basic.policy import RememberPolicy
 from aether_agent_memory.runtime.foundation.common import fingerprint
 
@@ -45,7 +48,9 @@ def owner():
         # Historical rate=1 must not restore the removed model stage.
         policy=RememberPolicy(compression_quality_sample_rate=1, memory_support_sample_rate=1),
         consume_call=lambda task: None,
-        quality=SimpleNamespace(verify=AsyncMock(side_effect=AssertionError("extra review called"))),
+        quality=SimpleNamespace(
+            verify=AsyncMock(side_effect=AssertionError("extra review called"))
+        ),
     )
 
 
@@ -75,20 +80,37 @@ def test_compression_and_replay_never_review_repair_or_draw_samples():
     assert first["review_reason"] == "additional_quality_review_disabled"
     assert first["attempts"] == 0 and first["review_enabled"] is False
     subject.quality.verify.assert_not_awaited()
-    assert not any(table in {"remember_quality_samples", "remember_compression_review_plans"}
-                   for table, _ in subject.uow.rows)
+    assert not any(
+        table in {"remember_quality_samples", "remember_compression_review_plans"}
+        for table, _ in subject.uow.rows
+    )
 
 
-@pytest.mark.parametrize("state,status", [
-    ("not_started", "not_checked"), ("not_selected", "not_checked"),
-    ("started", "unknown"), ("unknown", "unknown"),
-])
+@pytest.mark.parametrize(
+    "state,status",
+    [
+        ("not_started", "not_checked"),
+        ("not_selected", "not_checked"),
+        ("started", "unknown"),
+        ("unknown", "unknown"),
+    ],
+)
 def test_saved_output_preserves_unknown_without_reissuing_review(state, status):
     subject, task = owner(), SimpleNamespace(task_id="task-1")
-    subject.uow.write("remember_compression_once", fingerprint([
-        task.task_id, "part", "compression_review_once_v1",
-    ]), {"output": {"text": "fact", "strategy": "old"}, "review_state": state})
-    subject.compressor = SimpleNamespace(compress=AsyncMock(side_effect=AssertionError("regenerated")))
+    subject.uow.write(
+        "remember_compression_once",
+        fingerprint(
+            [
+                task.task_id,
+                "part",
+                "compression_review_once_v1",
+            ]
+        ),
+        {"output": {"text": "fact", "strategy": "old"}, "review_state": state},
+    )
+    subject.compressor = SimpleNamespace(
+        compress=AsyncMock(side_effect=AssertionError("regenerated"))
+    )
     result = asyncio.run(compress_part(subject, None, task, "original", "part"))
     assert result["quality_status"] == status and result["quality"] is None
     subject.quality.verify.assert_not_awaited()
@@ -101,15 +123,27 @@ def test_legacy_verdict_is_preserved_without_model_calls(saved_verdict):
     row = {"attempt": 2, "output": {"text": "fact", "strategy": "old"}}
     if saved_verdict is not None:
         row["quality"] = QualityEvidence(
-            passed=saved_verdict, policy="old", reason="historical verdict",
+            passed=saved_verdict,
+            policy="old",
+            reason="historical verdict",
             retained_fact_fraction=1 if saved_verdict else 0,
         ).model_dump(mode="json")
-    subject.uow.write("remember_compression_attempts", fingerprint([
-        "part", "quality_repair_v1", 1,
-    ]), row)
+    subject.uow.write(
+        "remember_compression_attempts",
+        fingerprint(
+            [
+                "part",
+                "quality_repair_v1",
+                1,
+            ]
+        ),
+        row,
+    )
     subject.compressor = SimpleNamespace()
     result = asyncio.run(compress_part(subject, None, task, "original", "part"))
-    assert result["quality_status"] == ("unknown" if saved_verdict is None else "passed" if saved_verdict else "failed")
+    assert result["quality_status"] == (
+        "unknown" if saved_verdict is None else "passed" if saved_verdict else "failed"
+    )
     assert result["attempts"] == 2
     subject.quality.verify.assert_not_awaited()
 
@@ -118,7 +152,10 @@ def test_unknown_old_binding_remains_blocked():
     subject, task = owner(), SimpleNamespace(task_id="task-1")
     subject.uow.write("remember_task_binding", task.task_id, "historical-binding")
     reserve_legacy_reviews(subject, task, ["new-part-key"])
-    assert subject.uow.read("remember_compression_review_slots", task.task_id)["review_state"] == "unknown"
+    assert (
+        subject.uow.read("remember_compression_review_slots", task.task_id)["review_state"]
+        == "unknown"
+    )
 
 
 @pytest.mark.parametrize("historical", [None, "unknown", "failed", "passed"])
@@ -129,9 +166,13 @@ def test_pipeline_publishes_unreviewed_views_without_promoting_old_failures(hist
     subject.policy = subject.policy.model_copy(update={"extraction_chunk_tokens": 16})
     subject.tasks.progress = SimpleNamespace(part=lambda *args, **kwargs: None)
     subject.tokenizer = SimpleNamespace(count=len)
-    subject.bodies = SimpleNamespace(location=lambda *args: SimpleNamespace(
-        model_copy=lambda **kwargs: SimpleNamespace(model_dump=lambda **kwargs: {"kind": "artifact"})
-    ))
+    subject.bodies = SimpleNamespace(
+        location=lambda *args: SimpleNamespace(
+            model_copy=lambda **kwargs: SimpleNamespace(
+                model_dump=lambda **kwargs: {"kind": "artifact"}
+            )
+        )
+    )
     generated = []
 
     class Compressor:
@@ -141,34 +182,72 @@ def test_pipeline_publishes_unreviewed_views_without_promoting_old_failures(hist
 
     subject.compressor = Compressor()
     if historical == "unknown":
-        subject.uow.write("remember_compression_review_slots", task.task_id, {
-            "part_key": "old-part", "review_state": "unknown",
-        })
+        subject.uow.write(
+            "remember_compression_review_slots",
+            task.task_id,
+            {
+                "part_key": "old-part",
+                "review_state": "unknown",
+            },
+        )
     source = "A" * 16 + "B" * 16 + "C" * 16
     if historical in {"failed", "passed"}:
         from aether_agent_memory.runtime.foundation.requests import text_hash
 
-        key = fingerprint([task.task_id, subject.checkpoint_binding(), "source-hash",
-                           0, text_hash("A" * 16), "quality_repair_v1"])
+        key = fingerprint(
+            [
+                task.task_id,
+                subject.checkpoint_binding(),
+                "source-hash",
+                0,
+                text_hash("A" * 16),
+                "quality_repair_v1",
+            ]
+        )
         quality = QualityEvidence(
-            passed=historical == "passed", policy="old", reason="old result",
+            passed=historical == "passed",
+            policy="old",
+            reason="old result",
             retained_fact_fraction=1 if historical == "passed" else 0,
         ).model_dump(mode="json")
-        subject.uow.write("remember_compression_parts", key, {
-            "text": "A" * 16, "strategy": "old", "quality": quality,
-            "quality_status": historical, "start_char": 0, "end_char": 16, "attempts": 1,
-        })
-    item = SimpleNamespace(content=source, content_hash="source-hash", ref=SimpleNamespace(scope="scope"))
+        subject.uow.write(
+            "remember_compression_parts",
+            key,
+            {
+                "text": "A" * 16,
+                "strategy": "old",
+                "quality": quality,
+                "quality_status": historical,
+                "start_char": 0,
+                "end_char": 16,
+                "attempts": 1,
+            },
+        )
+    item = SimpleNamespace(
+        content=source, content_hash="source-hash", ref=SimpleNamespace(scope="scope")
+    )
     first = asyncio.run(RememberPipeline.generate_compression(subject, None, task, item))
     replay = asyncio.run(RememberPipeline.generate_compression(subject, None, task, item))
     result = first["result"]
     assert first == replay
     assert result["published"] is (historical in {None, "passed"})
-    assert result["quality"] == ("not_sampled" if historical is None else "sampled_passed" if historical == "passed" else "failed")
+    assert result["quality"] == (
+        "not_sampled"
+        if historical is None
+        else "sampled_passed"
+        if historical == "passed"
+        else "failed"
+    )
     assert result["quality_review_enabled"] is False
     assert result["quality_review_reason"] == "additional_quality_review_disabled"
     assert result["declared_use"] == "extraction_view"
-    assert generated == (["B" * 16, "C" * 16] if historical in {"failed", "passed"} else ["A" * 16, "B" * 16, "C" * 16])
+    assert generated == (
+        ["B" * 16, "C" * 16]
+        if historical in {"failed", "passed"}
+        else ["A" * 16, "B" * 16, "C" * 16]
+    )
     subject.quality.verify.assert_not_awaited()
-    assert not any(table in {"remember_quality_samples", "remember_compression_review_plans"}
-                   for table, _ in subject.uow.rows)
+    assert not any(
+        table in {"remember_quality_samples", "remember_compression_review_plans"}
+        for table, _ in subject.uow.rows
+    )
