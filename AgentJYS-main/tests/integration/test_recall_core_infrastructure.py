@@ -28,6 +28,19 @@ pytestmark = pytest.mark.integration
 
 
 # ============================================================================
+# Constants
+# ============================================================================
+
+# Timeout values for various operations
+DEFAULT_OPERATION_TIMEOUT = 90  # seconds to wait for operation completion
+MEMORY_READY_TIMEOUT = 120  # seconds to wait for memories to reach Ready state
+POLL_INTERVAL = 0.05  # seconds between polling checks
+
+# Token estimation: mixed Chinese/English content averages ~1.5 characters per token
+TOKEN_CHARS_RATIO = 1.5
+
+
+# ============================================================================
 # Test Fixtures and Helpers
 # ============================================================================
 
@@ -48,7 +61,7 @@ def headers(operation: str | None = None, user: str = "alice") -> dict[str, str]
     return value
 
 
-def eventually(check: callable, timeout: float = 90) -> Any:
+def eventually(check: callable, timeout: float = DEFAULT_OPERATION_TIMEOUT) -> Any:
     """Poll a check function until it returns a truthy value or times out.
 
     Args:
@@ -66,7 +79,7 @@ def eventually(check: callable, timeout: float = 90) -> Any:
         value = check()
         if value:
             return value
-        time.sleep(0.05)
+        time.sleep(POLL_INTERVAL)
     raise AssertionError(f"Condition not met within {timeout}s timeout")
 
 
@@ -74,7 +87,7 @@ def poll_operation_until_complete(
     client: TestClient,
     job_id: str,
     user: str = "alice",
-    timeout: float = 90
+    timeout: float = DEFAULT_OPERATION_TIMEOUT
 ) -> dict[str, Any]:
     """Poll an operation until it reaches a terminal state.
 
@@ -127,12 +140,23 @@ class TestEvidence:
         })
 
     def record_response(self, status: int, body: Any, headers: dict):
-        """Record an API response."""
+        """Record an API response and extract trace information."""
         self.responses.append({
             "status": status,
             "body": body,
             "location": headers.get("Location"),
         })
+        # Extract trace_id from response headers or body
+        if "x-trace-id" in headers:
+            self.trace_ids.append(headers["x-trace-id"])
+        elif isinstance(body, dict):
+            # Check for trace_id in response body
+            if "trace_id" in body:
+                self.trace_ids.append(body["trace_id"])
+            # Check nested structures like operation responses
+            if "trace_context" in body and isinstance(body["trace_context"], dict):
+                if "trace_id" in body["trace_context"]:
+                    self.trace_ids.append(body["trace_context"]["trace_id"])
 
     def record_operation(self, operation_id: str, job_id: str, state: str):
         """Record an operation's state."""
@@ -233,6 +257,34 @@ class WorkingMemoryFixture:
     }
 
 
+def _create_and_record_memory(
+    client: TestClient,
+    evidence: TestEvidence,
+    fixture: dict[str, Any],
+    operation_id: str,
+    description: str,
+    user: str = "alice"
+) -> None:
+    """Helper to create a memory and record evidence.
+
+    Args:
+        client: FastAPI test client
+        evidence: Evidence collector
+        fixture: Memory fixture data
+        operation_id: Operation ID for idempotency
+        description: Description for error messages
+        user: User for authentication
+    """
+    evidence.record_request("POST", "/p3/remember", fixture, headers(user=user))
+    response = client.post(
+        "/p3/remember",
+        json=fixture,
+        headers=headers(operation=operation_id, user=user)
+    )
+    evidence.record_response(response.status_code, response.json(), response.headers)
+    assert response.status_code == 200, f"Failed to create {description}: {response.text}"
+
+
 def prepare_working_memory(
     client: TestClient,
     evidence: TestEvidence,
@@ -256,25 +308,15 @@ def prepare_working_memory(
     # Wait for service readiness
     eventually(lambda: client.get("/p3/readyz").status_code == 200)
 
-    # Create coffee preference memory
-    evidence.record_request("POST", "/p3/remember", WorkingMemoryFixture.COFFEE_PREFERENCE, headers(user=user))
-    response = client.post(
-        "/p3/remember",
-        json=WorkingMemoryFixture.COFFEE_PREFERENCE,
-        headers=headers(operation="prepare-coffee", user=user)
+    # Create coffee and tea preference memories using helper
+    _create_and_record_memory(
+        client, evidence, WorkingMemoryFixture.COFFEE_PREFERENCE,
+        "prepare-coffee", "coffee memory", user
     )
-    evidence.record_response(response.status_code, response.json(), response.headers)
-    assert response.status_code == 200, f"Failed to create coffee memory: {response.text}"
-
-    # Create tea preference memory
-    evidence.record_request("POST", "/p3/remember", WorkingMemoryFixture.TEA_PREFERENCE, headers(user=user))
-    response = client.post(
-        "/p3/remember",
-        json=WorkingMemoryFixture.TEA_PREFERENCE,
-        headers=headers(operation="prepare-tea", user=user)
+    _create_and_record_memory(
+        client, evidence, WorkingMemoryFixture.TEA_PREFERENCE,
+        "prepare-tea", "tea memory", user
     )
-    evidence.record_response(response.status_code, response.json(), response.headers)
-    assert response.status_code == 200, f"Failed to create tea memory: {response.text}"
 
     # Wait for memories to reach Ready state in long-term storage
     def check_ready_memories():
@@ -291,13 +333,82 @@ def prepare_working_memory(
             return ready_memories
         return None
 
-    ready_memories = eventually(check_ready_memories, timeout=120)
+    ready_memories = eventually(check_ready_memories, timeout=MEMORY_READY_TIMEOUT)
 
     # Extract memory IDs
     memory_ids = [m["ref"]["memory_id"] for m in ready_memories[:2]]
     assert len(memory_ids) == 2, f"Expected 2 ready memories, got {len(memory_ids)}"
 
     return memory_ids[0], memory_ids[1]
+
+
+def _submit_and_await_recall(
+    client: TestClient,
+    evidence: TestEvidence,
+    recall_request: RecallRequest,
+    operation_id: str,
+    user: str = "alice"
+) -> dict[str, Any]:
+    """Submit a recall request and wait for completion.
+
+    Args:
+        client: FastAPI test client
+        evidence: Evidence collector
+        recall_request: Recall request to submit
+        operation_id: Operation ID for idempotency
+        user: User for authentication
+
+    Returns:
+        The recall result as a dictionary
+    """
+    # Submit recall request
+    evidence.record_request(
+        "POST",
+        "/p3/recall",
+        recall_request.model_dump(),
+        headers(operation=operation_id, user=user)
+    )
+
+    response = client.post(
+        "/p3/recall",
+        json=recall_request.model_dump(),
+        headers=headers(operation=operation_id, user=user)
+    )
+
+    evidence.record_response(response.status_code, response.json(), response.headers)
+
+    assert response.status_code in {200, 202}, (
+        f"Recall request should be accepted. Got {response.status_code}: {response.text}"
+    )
+
+    # Handle both synchronous (200) and asynchronous (202) responses
+    if response.status_code == 200:
+        # Synchronous execution - result returned immediately
+        return response.json()
+    else:
+        # Asynchronous execution - need to poll
+        location = response.headers.get("Location")
+        assert location, "Async response must include Location header"
+
+        # Extract job_id from Location header
+        job_id = location.split("/")[-1]
+        evidence.record_operation(operation_id, job_id, "accepted")
+
+        # Poll operation status until completion
+        operation = poll_operation_until_complete(client, job_id, user=user, timeout=MEMORY_READY_TIMEOUT)
+        evidence.record_operation(operation_id, job_id, operation["state"])
+
+        # Retrieve result
+        result_response = client.get(
+            f"/p3/operations/{job_id}/result",
+            headers=headers(user=user)
+        )
+        assert result_response.status_code == 200, (
+            f"Failed to retrieve result: {result_response.text}"
+        )
+        result = result_response.json()
+        evidence.record_response(result_response.status_code, result, result_response.headers)
+        return result
 
 
 # ============================================================================
@@ -334,7 +445,7 @@ def test_rc_api_01_happy_path_recall_with_working_memory(test_configuration):
         print(f"  ✓ Coffee memory ready: {coffee_id}")
         print(f"  ✓ Tea memory ready: {tea_id}")
 
-        # Step 2: Submit Recall request with authentication
+        # Step 2-5: Submit recall request and retrieve result
         print("\n[RC-API-01] Step 2: Submitting recall request...")
         recall_request = RecallRequest(
             query="咖啡",  # Query for coffee-related memories
@@ -343,64 +454,11 @@ def test_rc_api_01_happy_path_recall_with_working_memory(test_configuration):
             token_budget=1000,
         )
 
-        operation_id = "rc-api-01-recall"
-        evidence.record_request(
-            "POST",
-            "/p3/recall",
-            recall_request.model_dump(),
-            headers(operation=operation_id, user="alice")
-        )
-
-        response = client.post(
-            "/p3/recall",
-            json=recall_request.model_dump(),
-            headers=headers(operation=operation_id, user="alice")
-        )
-
-        evidence.record_response(response.status_code, response.json(), response.headers)
-
-        # Step 3: Verify request acceptance
-        print(f"  Response status: {response.status_code}")
-        assert response.status_code in {200, 202}, (
-            f"Recall request should be accepted. Got {response.status_code}: {response.text}"
-        )
-
-        # Handle both synchronous (200) and asynchronous (202) responses
-        if response.status_code == 200:
-            # Synchronous execution - result returned immediately
-            result = response.json()
-            job_id = result.get("recall_id", "sync-execution")
-            print(f"  ✓ Recall completed synchronously")
-        else:
-            # Asynchronous execution - need to poll
-            location = response.headers.get("Location")
-            assert location, "Async response must include Location header"
-
-            # Extract job_id from Location header (e.g., "/p3/operations/{job_id}")
-            job_id = location.split("/")[-1]
-            print(f"  ✓ Recall accepted, job_id: {job_id}")
-            evidence.record_operation(operation_id, job_id, "accepted")
-
-            # Step 4: Poll operation status until completion
-            print("\n[RC-API-01] Step 3: Polling operation status...")
-            operation = poll_operation_until_complete(client, job_id, user="alice", timeout=120)
-            print(f"  ✓ Operation completed: {operation['state']}")
-            evidence.record_operation(operation_id, job_id, operation["state"])
-
-            # Step 5: Retrieve result
-            print("\n[RC-API-01] Step 4: Retrieving result...")
-            result_response = client.get(
-                f"/p3/operations/{job_id}/result",
-                headers=headers(user="alice")
-            )
-            assert result_response.status_code == 200, (
-                f"Failed to retrieve result: {result_response.text}"
-            )
-            result = result_response.json()
-            evidence.record_response(result_response.status_code, result, result_response.headers)
+        result = _submit_and_await_recall(client, evidence, recall_request, "rc-api-01-recall", user="alice")
+        print(f"  ✓ Recall completed successfully")
 
         # Step 6: Verify result content
-        print("\n[RC-API-01] Step 5: Verifying result content...")
+        print("\n[RC-API-01] Step 3: Verifying result content...")
         assert "recall_id" in result, "Result must include recall_id"
         assert "rendered_context" in result, "Result must include rendered_context"
         assert "items" in result, "Result must include items list"
@@ -416,11 +474,10 @@ def test_rc_api_01_happy_path_recall_with_working_memory(test_configuration):
         print(f"  ✓ Items returned: {len(result['items'])}")
 
         # Step 7: Verify token budget compliance
-        print("\n[RC-API-01] Step 6: Verifying token budget...")
-        # The rendered_context should respect the token_budget parameter
-        # Rough estimate: 1 token ≈ 4 characters for English, ~1.5 for Chinese
+        print("\n[RC-API-01] Step 4: Verifying token budget...")
+        # Token estimation: mixed Chinese/English content averages ~1.5 characters per token
         context_length = len(rendered_context)
-        estimated_tokens = context_length / 2  # Conservative estimate for mixed content
+        estimated_tokens = context_length / TOKEN_CHARS_RATIO
 
         assert estimated_tokens <= recall_request.token_budget * 1.2, (
             f"Context exceeds token budget. Estimated {estimated_tokens} tokens, "
@@ -429,7 +486,7 @@ def test_rc_api_01_happy_path_recall_with_working_memory(test_configuration):
         print(f"  ✓ Token budget respected (estimated {int(estimated_tokens)} tokens)")
 
         # Step 8: Verify evidence collection
-        print("\n[RC-API-01] Step 7: Verifying evidence collection...")
+        print("\n[RC-API-01] Step 5: Verifying evidence collection...")
         evidence_summary = evidence.summary()
 
         assert evidence_summary["total_requests"] >= 3, (
@@ -449,6 +506,7 @@ def test_rc_api_01_happy_path_recall_with_working_memory(test_configuration):
         print(f"    - Requests: {evidence_summary['total_requests']}")
         print(f"    - Responses: {evidence_summary['total_responses']}")
         print(f"    - Operation IDs: {evidence_summary['operation_ids']}")
+        print(f"    - Trace IDs: {evidence_summary['trace_ids']}")
         print(f"    - Execution stages: {len(evidence_summary['execution_stages'])}")
 
         print("\n[RC-API-01] ✅ All acceptance criteria passed!")
