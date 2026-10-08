@@ -1,32 +1,23 @@
-version: remember-http-20261007
-status: implemented_routes_validation_deferred
+version: remember-http-20261008
 base_path: /p3
 authentication: Bearer credential verified by server
-source_search:
-  method: POST
-  path: /p3/remember/sources/search
-  request_schema: schemas/remember.SourceSearchRequest.json
-  response_schema: schemas/remember.SourceSearchResult.json
-  request_example: positive-remember.SourceSearchRequest
-  response_example: positive-remember.SourceSearchResult
-  authorization: Explicit sources checked before reading and again before return
-  semantics:
-    - Read-only operation; does not require background queue readiness
-    - Search real source text, not the Working reference descriptor
-    - Defaults to 6 passages and 6000 Unicode characters
-    - Hard limits are 8 source references, 12 passages and 20000 characters
-    - No lexical matches return an empty passages array
-    - Returned ranges use start-inclusive, end-exclusive character offsets
 remember_save:
   method: POST
   path: /p3/remember
   request_schema: schemas/remember.RememberRequest.json
-  memory_mode:
-    default: automatic
-    allowed: [automatic, reference_only]
-    automatic: Save Working and schedule eligible consolidation
-    reference_only: Save source and Working without automatic compression or extraction
-  compatibility: Existing callers that omit memory_mode retain automatic processing
-notes:
-  - http-api.yaml remains a historical design mapping; this file describes implemented source-search additions
-  - Schema generation does not establish authorization or prove runtime correctness
+  semantics:
+    - Save complete original Working; source and body references retain exact versions and hashes
+    - Publish original chunk vectors independently of long-term consolidation
+    - Consolidate pending Working through the existing Outbox and Temporal workflow
+body_range:
+  method: POST
+  path: /p3/remember/body/range
+  request_schema: schemas/remember.MemoryRef.json
+source_range:
+  method: POST
+  path: /p3/sources/read-range
+  request_schema: schemas/remember.SourceRef.json
+range_semantics:
+  - start is inclusive and end is exclusive, measured in Unicode characters
+  - Authorize and verify the exact source or memory version before returning content
+  - Return content, start_char, end_char, total_chars, and range_hash

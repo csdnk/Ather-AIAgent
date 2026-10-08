@@ -8,8 +8,8 @@ from aether_agent_memory.runtime.contracts.models import ContractModel, Identifi
 
 
 class RememberPolicy(ContractModel):
-    # v11 extracts from originals, retrieves by candidate, then decides actions.
-    version: Identifier = "remember_v11"
+    # v12 retains repeated evidence spans and bounds decision input and output.
+    version: Identifier = "remember_v12"
     working_summary_min_bytes: int = Field(default=65536, ge=1)
     working_summary_max_chars: int = Field(default=2048, ge=256, le=16384)
     summary_part_chars: int = Field(default=256, ge=32, le=2048)

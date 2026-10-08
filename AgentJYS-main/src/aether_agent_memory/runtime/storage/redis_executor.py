@@ -117,7 +117,9 @@ class RedisExecutor:
         memory: MemorySnapshot,
         ctx: TrustedContext | None,
         repair_id: str | None,
-    ) -> tuple[TrustedContext, int]:
+        *,
+        initial: bool = False,
+    ) -> tuple[TrustedContext, int | None]:
         if text_hash(memory.content) != memory.content_hash:
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "cache input hash differs")
         key = self.key(memory.ref)
@@ -129,6 +131,18 @@ class RedisExecutor:
             previous = tx.read(self.table("fences"), key)
             if previous and previous["hash"] != memory.content_hash:
                 tx.abort(ErrorCode.IDEMPOTENCY_CONFLICT, "cache version bytes changed")
+            if initial:
+                admission = tx.read(self.table("initial_admissions"), key)
+                # A completed first write is not a heat-policy decision. A save
+                # replay must not revive a replica subsequently cooled/expired.
+                # An unfinished write can retry only while its fence still owns
+                # placement; another executor action permanently supersedes it.
+                if previous and (
+                    admission is None
+                    or admission["state"] == "completed"
+                    or admission["fence"] != previous["fence"]
+                ):
+                    return trusted, None
             if repair_id:
                 if tx.read(self.table("copies"), key) is None:
                     tx.abort(ErrorCode.MEMORY_GONE, "repair target was removed")
@@ -148,6 +162,10 @@ class RedisExecutor:
                     "fence": fence,
                 },
             )
+            if initial:
+                tx.write(
+                    self.table("initial_admissions"), key, {"state": "pending", "fence": fence}
+                )
         return trusted, fence
 
     def _materialize(
@@ -155,8 +173,12 @@ class RedisExecutor:
         memory: MemorySnapshot,
         ctx: TrustedContext | None,
         repair_id: str | None = None,
-    ) -> None:
-        trusted, fence = self._reserve(memory, ctx, repair_id)
+        *,
+        initial: bool = False,
+    ) -> bool:
+        trusted, fence = self._reserve(memory, ctx, repair_id, initial=initial)
+        if fence is None:
+            return self.inspect(memory.ref, memory.content_hash)
         try:
             admitted = self.cache.put_sync(memory.ref.scope, memory.content)
             if not admitted:
@@ -195,11 +217,22 @@ class RedisExecutor:
                 )
                 epoch = tx.read(self.table("settings"), "epoch") or 0
                 tx.write(self.table("settings"), "epoch", epoch + 1)
+                if initial:
+                    tx.write(
+                        self.table("initial_admissions"),
+                        self.key(memory.ref),
+                        {"state": "completed", "fence": fence},
+                    )
         except FoundationError:
             # Evicting a shared digest is safe: another memory can read its authority.
             # It cannot publish this rejected memory or lose the only durable body.
             self.cache.delete_sync(memory.ref.scope, memory.content_hash)
             raise
+        return True
+
+    def admit_initial(self, memory: MemorySnapshot, ctx: TrustedContext) -> bool:
+        """Register Remember's first verified write without reversing later cooling."""
+        return self._materialize(memory, ctx, initial=True)
 
     def ensure(self, memory: MemorySnapshot, ctx: TrustedContext | None = None) -> None:
         self._materialize(memory, ctx)
@@ -270,8 +303,8 @@ class RedisExecutor:
 
     def inspect(self, memory: MemoryRef, digest: str) -> bool:
         with self.uow.transaction() as tx:
-            row = tx.read(self.table("copies"), self.key(memory))
-        if not row or row["hash"] != digest:
+            registered = self.registration_current(tx, memory, digest)
+        if not registered:
             return False
         try:
             return self.cache.get_sync(memory.scope, digest) is not None
@@ -279,6 +312,11 @@ class RedisExecutor:
             if exc.code == ErrorCode.CONTRACT_VIOLATION:
                 return False
             raise
+
+    def registration_current(self, tx: MetadataTransaction, memory: MemoryRef, digest: str) -> bool:
+        """Check placement in the caller's publication transaction, without I/O."""
+        row = tx.read(self.table("copies"), self.key(memory))
+        return bool(row and row["hash"] == digest)
 
     def cleanup_complete(self, memory: MemoryRef, *, permanent: bool) -> bool:
         with self.uow.transaction() as tx:

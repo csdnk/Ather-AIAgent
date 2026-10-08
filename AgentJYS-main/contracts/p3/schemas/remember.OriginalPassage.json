@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "A verified vector chunk of the original, with Unicode character offsets.",
+  "properties": {
+    "body_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Body Hash",
+      "type": "string"
+    },
+    "chunk_index": {
+      "minimum": 0,
+      "title": "Chunk Index",
+      "type": "integer"
+    },
+    "content": {
+      "minLength": 1,
+      "title": "Content",
+      "type": "string"
+    },
+    "end_char": {
+      "minimum": 1,
+      "title": "End Char",
+      "type": "integer"
+    },
+    "range_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Range Hash",
+      "type": "string"
+    },
+    "start_char": {
+      "minimum": 0,
+      "title": "Start Char",
+      "type": "integer"
+    },
+    "total_chars": {
+      "minimum": 1,
+      "title": "Total Chars",
+      "type": "integer"
+    },
+    "vector_id": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Vector Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "chunk_index",
+    "vector_id",
+    "start_char",
+    "end_char",
+    "total_chars",
+    "body_hash",
+    "range_hash",
+    "content"
+  ],
+  "title": "OriginalPassage",
+  "type": "object",
+  "x-contract-model": "remember.OriginalPassage"
+}

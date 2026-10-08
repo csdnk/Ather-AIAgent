@@ -15,6 +15,7 @@ from aether_agent_memory.remember.contracts.foundation import (
 from aether_agent_memory.remember.contracts.foundation import (
     FullBodyReadResult,
     GuardStamp,
+    OriginalPassage,
     ProjectionManifest,
 )
 from aether_agent_memory.remember.contracts.models import ConflictGroup, MemoryRef
@@ -260,6 +261,7 @@ class ContextPackUnit(ContractModel):
     primary_memories: tuple[MemoryRef, ...]
     conflict: ConflictGroup | None = None
     rank: Positive
+    passages: tuple[OriginalPassage, ...] = ()
 
     @model_validator(mode="after")
     def complete_group(self) -> Self:
@@ -280,6 +282,21 @@ class ContextPackUnit(ContractModel):
                 raise ValueError("mandatory conflict group must be complete")
         elif len(self.bodies) != 1:
             raise ValueError("a non-conflict pack unit contains one whole memory")
+        if self.passages:
+            if self.conflict is not None or len(self.bodies) != 1:
+                raise ValueError("original passages require one non-conflict memory")
+            body = self.bodies[0]
+            if len({p.chunk_index for p in self.passages}) != len(self.passages):
+                raise ValueError("duplicate original passage")
+            if any(
+                body.guard is None
+                or p.body_hash != body.guard.body_hash
+                or body.content is None
+                or p.total_chars != len(body.content)
+                or body.content[p.start_char : p.end_char] != p.content
+                for p in self.passages
+            ):
+                raise ValueError("passages must match the verified original body")
         return self
 
 
@@ -306,7 +323,12 @@ class ContextAssemblyPlan(ContractModel):
             raise ValueError("pack group cannot be duplicated or both admitted and skipped")
         refs = [b.memory for u in self.units for b in u.bodies]
         if any(
-            b.content is None or b.content not in self.rendered_context
+            b.content is None
+            or (
+                any(p.content not in self.rendered_context for p in u.passages)
+                if u.passages
+                else b.content not in self.rendered_context
+            )
             for u in self.units
             for b in u.bodies
         ):

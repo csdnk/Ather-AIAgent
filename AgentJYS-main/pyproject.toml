@@ -29,7 +29,6 @@ dependencies = [
   "temporalio==1.33.0",
   "langmem==0.0.30",
   "langchain-openai==0.3.35",
-  "rank-bm25==0.2.2",
 ]
 
 [project.optional-dependencies]
@@ -161,7 +160,6 @@ module = [
   "openvino.*",
   "optimum.*",
   "pymilvus.*",
-  "rank_bm25.*",
   "redis.*",
   "textual.*",
   "torch.*",

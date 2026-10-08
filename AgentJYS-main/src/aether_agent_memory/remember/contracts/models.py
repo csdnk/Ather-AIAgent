@@ -87,43 +87,6 @@ class SourceRef(ContractModel):
     locator: NonEmpty
 
 
-class SourceSearchRequest(ContractModel):
-    sources: tuple[SourceRef, ...] = Field(min_length=1, max_length=8)
-    query: str = Field(min_length=1, max_length=512)
-    max_passages: int = Field(default=6, ge=1, le=12)
-    max_chars: int = Field(default=6000, ge=1, le=20000)
-    neighbor_chunks: int = Field(default=0, ge=0, le=1)
-
-    @model_validator(mode="after")
-    def usable_query(self) -> Self:
-        if not self.query.strip():
-            raise ValueError("query must contain text")
-        if len({s.model_dump_json() for s in self.sources}) != len(self.sources):
-            raise ValueError("sources must be distinct")
-        return self
-
-
-class SourcePassage(ContractModel):
-    source: SourceRef
-    content: NonEmpty
-    start_char: Count
-    end_char: Positive
-    range_hash: Digest
-    score: float = Field(ge=0, allow_inf_nan=False)
-    seed: bool
-
-
-class SourceSearchResult(ContractModel):
-    representation: Literal["source_passages"] = "source_passages"
-    passages: tuple[SourcePassage, ...]
-    algorithm: Literal["jieba_bm25plus_v1"] = "jieba_bm25plus_v1"
-
-
-class MemoryMode(StrEnum):
-    AUTOMATIC = "automatic"
-    REFERENCE_ONLY = "reference_only"
-
-
 class SourceInput(ContractModel):
     kind: Literal["conversation", "tool_result", "task_state", "text", "document"]
     external_id: Identifier
@@ -174,7 +137,6 @@ class RememberRequest(ContractModel):
     selection: ScopeSelector
     content: TextInput | DocumentInput = Field(discriminator="kind")
     trigger: Literal["remember", "observe", "task_complete", "review"] = "observe"
-    memory_mode: MemoryMode = MemoryMode.AUTOMATIC
     task_context: str = Field(default="", max_length=4096)
     importance_category: Literal[
         "observation", "event", "fact", "decision", "explicit_constraint"

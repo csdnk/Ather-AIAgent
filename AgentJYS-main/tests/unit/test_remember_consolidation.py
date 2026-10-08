@@ -3,11 +3,11 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-from test_official_langmem import snapshot
 
 from aether_agent_memory.remember.basic.consolidation import prepare_consolidation
 from aether_agent_memory.remember.basic.official_langmem import ConsolidationResult
 from aether_agent_memory.remember.basic.policy import RememberPolicy
+from unit.test_official_langmem import snapshot
 
 
 class Store:
@@ -129,24 +129,27 @@ def artifact(app, message, text):
     app.bodies = SimpleNamespace(read=AsyncMock(return_value=(text, None)))
 
 
-async def test_invalid_compressed_quote_retries_once_with_complete_original():
+async def test_legacy_artifact_cannot_trigger_a_second_call_after_invalid_original_quote():
     from aether_agent_memory.remember.basic.extraction import EvidenceValidationError
 
     app = owner()
     message = snapshot("new", "Alice said her preferred operating system is Linux.")
     artifact(app, message, "Alice prefers Linux.")
-    success = app.extraction.consolidate.return_value
-    app.extraction.consolidate.side_effect = [
-        EvidenceValidationError("quote_not_in_source", "src_new", "Alice prefers Linux.", "fact"),
-        success,
-    ]
-    await prepare_consolidation(app, None, SimpleNamespace(task_id="t"), (message,))
-    assert app.extraction.consolidate.await_count == 2
-    assert app.extraction.consolidate.call_args.kwargs["representations"] == []
+    app.extraction.consolidate.side_effect = EvidenceValidationError(
+        "quote_not_in_source", "src_new", "Alice prefers Linux.", "fact"
+    )
+    with pytest.raises(EvidenceValidationError, match="quote_not_in_source"):
+        await prepare_consolidation(
+            app, None, SimpleNamespace(task_id="t"), (message,), allow_representations=True
+        )
+    assert app.extraction.consolidate.await_count == 1
+    assert "representations" not in app.extraction.consolidate.call_args.kwargs
     assert app.extraction.consolidate.call_args.args[1] == (message,)
+    app.bodies.read.assert_not_awaited()
+    assert not any(table == "remember_official_consolidation" for table, _ in app.uow.rows)
 
 
-async def test_original_fallback_obeys_budget_without_second_model_call():
+async def test_legacy_artifact_cannot_bypass_original_input_budget():
     from aether_agent_memory.remember.basic.extraction import EvidenceValidationError
 
     app = owner()
@@ -157,10 +160,11 @@ async def test_original_fallback_obeys_budget_without_second_model_call():
     )
     with pytest.raises(Exception, match="complete.*budget"):
         await prepare_consolidation(app, None, SimpleNamespace(task_id="t"), (message,))
-    assert app.extraction.consolidate.await_count == 1
+    app.extraction.consolidate.assert_not_awaited()
+    app.bodies.read.assert_not_awaited()
 
 
-async def test_large_processed_overlap_uses_qualified_representation():
+async def test_processed_overlap_and_its_artifact_are_never_loaded_as_new_material():
     app = owner()
     large = snapshot("large", "x" * 40000)
     artifact(app, large, "Complete compressed context.")
@@ -170,17 +174,20 @@ async def test_large_processed_overlap_uses_qualified_representation():
     result = await prepare_consolidation(
         app, None, SimpleNamespace(task_id="t"), (snapshot("new", "Hi"),)
     )
-    assert result["context_refs"] == (large.ref,)
-    assert app.extraction.consolidate.call_args.kwargs["representations"] == [
-        {"source_id": "src_large", "text": "Complete compressed context."}
-    ]
+    assert result["context_refs"] == ()
+    assert [item.ref.memory_id for item in result["validation_items"]] == ["new"]
+    assert "representations" not in app.extraction.consolidate.call_args.kwargs
+    app.load_async.assert_not_awaited()
+    app.source_access.originals.assert_not_awaited()
+    app.bodies.read.assert_not_awaited()
 
 
-async def test_large_old_evidence_resolves_original_working_artifact():
+@pytest.mark.parametrize("length", [400, 40000])
+async def test_old_evidence_uses_complete_original_when_it_fits_and_never_legacy_artifact(length):
     from aether_agent_memory.remember.contracts.models import MemoryKind
 
     app = owner()
-    large = snapshot("large", "x" * 40000)
+    large = snapshot("large", "x" * length)
     old = snapshot("old", "A durable fact.", MemoryKind.SEMANTIC).model_copy(
         update={"sources": large.sources}
     )
@@ -194,9 +201,14 @@ async def test_large_old_evidence_resolves_original_working_artifact():
         app, None, SimpleNamespace(task_id="t"), (snapshot("new", "Hi"),)
     )
     assert result["existing"] == (old,)
-    assert app.extraction.consolidate.call_args.kwargs["representations"] == [
-        {"source_id": "src_large", "text": "Old authorized evidence."}
-    ]
+    assert "representations" not in app.extraction.consolidate.call_args.kwargs
+    assert app.extraction.consolidate.call_args.kwargs["existing_evidence"] == (
+        (evidence,) if length == 400 else ()
+    )
+    assert result["discovery"]["omitted_evidence_sources"] == (
+        [] if length == 400 else ["src_large"]
+    )
+    app.bodies.read.assert_not_awaited()
 
 
 async def test_oversized_optional_old_evidence_does_not_block_small_new_message():
@@ -215,7 +227,7 @@ async def test_oversized_optional_old_evidence_does_not_block_small_new_message(
     assert result["discovery"]["omitted_evidence_sources"] == ["src_original"]
 
 
-async def test_invalid_original_quote_does_not_loop_after_fallback():
+async def test_invalid_original_quote_does_not_loop_or_publish_a_success_checkpoint():
     from aether_agent_memory.remember.basic.extraction import EvidenceValidationError
 
     app = owner()
@@ -226,7 +238,8 @@ async def test_invalid_original_quote_does_not_loop_after_fallback():
     )
     with pytest.raises(EvidenceValidationError):
         await prepare_consolidation(app, None, SimpleNamespace(task_id="t"), (message,))
-    assert app.extraction.consolidate.await_count == 2
+    assert app.extraction.consolidate.await_count == 1
+    assert not any(table == "remember_official_consolidation" for table, _ in app.uow.rows)
 
 
 async def test_unknown_source_is_rejected_without_compression_fallback():
@@ -243,9 +256,10 @@ async def test_unknown_source_is_rejected_without_compression_fallback():
     assert app.extraction.consolidate.await_count == 1
 
 
-async def test_oversized_optional_context_is_omitted_as_a_complete_unit():
+@pytest.mark.parametrize("length", [20, 40000])
+async def test_processed_context_is_ignored_regardless_of_available_budget(length):
     app = owner()
-    large = snapshot("large", "x" * 40000)
+    large = snapshot("large", "x" * length)
     app.uow.write("remember_batches", "t", {"context_refs": [large.ref.model_dump(mode="json")]})
     app.load_async = AsyncMock(return_value=SimpleNamespace(items=(large,)))
     app.source_access = SimpleNamespace(originals=AsyncMock(return_value=(large,)))
@@ -253,7 +267,9 @@ async def test_oversized_optional_context_is_omitted_as_a_complete_unit():
         app, None, SimpleNamespace(task_id="t"), (snapshot("new", "Hi"),)
     )
     assert result["context_refs"] == ()
-    assert app.extraction.consolidate.call_args.kwargs["context_items"] == ()
+    assert "context_items" not in app.extraction.consolidate.call_args.kwargs
+    app.load_async.assert_not_awaited()
+    app.source_access.originals.assert_not_awaited()
 
 
 def support_owner(rate, *, exact=False):
@@ -357,15 +373,15 @@ async def test_disabled_extra_review_still_requires_exact_original_evidence():
     app.support_verifier.verify.assert_not_awaited()
 
 
-async def test_unreviewed_extraction_view_is_used_without_full_original_model_input():
+async def test_unreviewed_extraction_view_does_not_replace_original_model_input():
     app = owner()
-    message = snapshot("new", "a" * 40000)
+    message = snapshot("new", "An original source statement. " * 100)
     artifact(app, message, "Selected source sentence.")
     app.uow.read("remember_artifacts", message.ref.memory_id)["declared_use"] = "extraction_view"
     await prepare_consolidation(app, None, SimpleNamespace(task_id="t"), (message,))
-    assert app.extraction.consolidate.call_args.kwargs["representations"] == [
-        {"source_id": "src_new", "text": "Selected source sentence."}
-    ]
+    assert "representations" not in app.extraction.consolidate.call_args.kwargs
+    assert app.extraction.consolidate.call_args.args[1] == (message,)
+    app.bodies.read.assert_not_awaited()
 
 
 @pytest.mark.parametrize("rate", [0, 1])

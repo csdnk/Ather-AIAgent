@@ -317,6 +317,10 @@ class CorrectionStages(SaveStages):
         )
 
     async def admit_cache(self, step: StepRequest) -> StepResult:
+        from aether_agent_memory.remember.contracts.models import RememberReceipt
+
+        receipt = RememberReceipt.model_validate(await asyncio.to_thread(self.load, "receipt"))
+        await self.remember.admit_correction_cache(StageContext.current().context, receipt)
         return StepResult(
             outcome="done",
             result_ref=self.ref("receipt"),

@@ -19,8 +19,8 @@ from aether_agent_memory.remember.basic.comparison import ComparisonDecision
 from aether_agent_memory.remember.basic.extraction import (
     BatchEvidence,
     EvidenceValidationError,
+    evidence_spans,
     model_text,
-    unique_evidence_span,
 )
 from aether_agent_memory.remember.contracts.models import (
     CandidateFact,
@@ -202,7 +202,7 @@ class _ToolProposalGuard(BaseCallbackHandler):
         if any(self._length_limited(value) for value in metadata):
             if self.schema is CandidateMemory:
                 raise CandidateCapacityError(partial_count, reason="output_truncated")
-            raise ValueError("official LangMem decision output was truncated")
+            raise LangMemOutputTruncatedError("official LangMem decision output was truncated")
         if refused or any(self._provider_refused(value) for value in metadata):
             raise ValueError("official LangMem provider refused the memory operation")
 
@@ -336,9 +336,10 @@ Do not update truth merely because a message is newer. Never delete any memory.
 Insert a new document only for a distinct supported fact/event; relationship=create.
 Unchanged existing documents need not be returned. Every insert or changed document
 must cite at least one source marked new. Do not replay neighboring processed
-working messages as new material. Exact evidence quotes must occur uniquely in
-supplied originals. Widen an
-ambiguous quote with original context. Never invent, paraphrase or stitch quotes.
+working messages as new material. Cite exact evidence quotes from supplied
+originals, including enough subject, event and condition context to support the
+claim. Repeated exact quotes are valid; their positions are bound by P3. Never
+invent, paraphrase or stitch quotes.
 Old memories are comparison material, not source originals. Cite old evidence only
 when its original is explicitly supplied as authorized evidence. event_key/fact_key
 are optional ASCII identifiers; do not invent confident identity when uncertain.
@@ -365,9 +366,11 @@ Extract durable content across the supplied material, not merely content relevan
 to a current question. Return no tool calls if no durable claim is supported.
 
 Each candidate needs one or more exact evidence quotes and source_id values from
-the supplied ranges. Quotes must occur uniquely WITHIN their supplied range;
-widen ambiguous quotes using the supplied surrounding original text. Never
-paraphrase, invent or stitch a quote. Offsets are optional here; if supplied, they
+the supplied ranges. Include enough subject, attribution, event and condition
+context to support the claim; a common isolated word is not sufficient evidence.
+Repeated exact quotes are valid: P3 binds all occurrences within the supplied
+range, without requiring unique wording. Never paraphrase, invent or stitch a
+quote. Prefer omitting offsets rather than calculating them; if supplied, they
 must be absolute original Unicode character offsets, not offsets into a fragment.
 Extract only claims supported by the supplied material. Do not invent missing
 cross-boundary subjects, time, conditions or corrections; retain uncertainty when
@@ -436,9 +439,11 @@ If several incompatible NEW assertions relate to one old ID, group them into one
 conflict body preserving each assertion and its attribution; do not choose truth.
 
 Each decision needs a nonempty reason and evidence from EACH covered candidate.
-Copy the exact source_id, quote, start_char and end_char supplied in those
-candidates. These offsets refer to the complete original, not a processing
-fragment, and disambiguate repeated text elsewhere in the original. Use no new
+Copy the exact source_id and quote supplied in those candidates. Repeated quotes
+are shown once with a spans list of their already verified original positions.
+Do not echo the spans field: omit start_char/end_char to cite all those positions,
+or copy one supplied pair to select that occurrence. Never calculate offsets.
+These positions refer to the complete original, not a processing fragment. Use no new
 quotes, stitching, paraphrasing or comparison-only evidence. Input excerpts were
 validated against stored originals; full originals are not resent in this stage.
 Keep the candidate memory kind. Reuse/amend/correct require the same target kind;
@@ -663,15 +668,7 @@ class OfficialLangMemConsolidation:
                     "event_key": item.candidate.event_key,
                     "fact_key": item.candidate.fact_key,
                     "importance_category": item.candidate.importance_category,
-                    "evidence": [
-                        {
-                            "source_id": entry.source.source_id,
-                            "quote": model_text(entry.quote),
-                            "start_char": entry.start_char,
-                            "end_char": entry.end_char,
-                        }
-                        for entry in item.candidate.evidence
-                    ],
+                    "evidence": cls._evidence_payload(item.candidate.evidence),
                 }
                 for item in candidates
             ],
@@ -686,6 +683,23 @@ class OfficialLangMemConsolidation:
             ],
             "max_steps": 1,
         }
+
+    @staticmethod
+    def _evidence_payload(evidence: tuple[FactEvidence, ...]) -> list[dict[str, Any]]:
+        """Show identical quotes once without discarding any authorized position."""
+        grouped: dict[tuple[str, str], dict[tuple[int, int], FactEvidence]] = {}
+        for entry in evidence:
+            key = (entry.source.source_id, model_text(entry.quote))
+            grouped.setdefault(key, {})[(entry.start_char, entry.end_char)] = entry
+        result = []
+        for (source_id, quote), matches in grouped.items():
+            positions = [{"start_char": start, "end_char": end} for start, end in sorted(matches)]
+            result.append(
+                {"source_id": source_id, "quote": quote, **positions[0]}
+                if len(positions) == 1
+                else {"source_id": source_id, "quote": quote, "spans": positions}
+            )
+        return result
 
     @staticmethod
     def _candidate_from_fact(
@@ -717,17 +731,17 @@ class OfficialLangMemConsolidation:
                         or (entry.start_char, entry.end_char) == (item.start_char, item.end_char)
                     )
                 }
-                if len(matches) != 1:
+                if not matches:
                     raise EvidenceValidationError(
-                        "ambiguous_quote" if matches else "quote_not_in_candidate",
+                        "quote_not_in_candidate",
                         entry.source_id,
                         entry.quote,
                         fact.text,
                     )
-                match = next(iter(matches.values()))
-                start, end, quote = match.start_char, match.end_char, match.quote
-                if text[start:end] != quote:
-                    raise ValueError("candidate evidence does not match authorized originals")
+                for match in matches.values():
+                    if text[match.start_char : match.end_char] != match.quote:
+                        raise ValueError("candidate evidence does not match authorized originals")
+                    evidence[(entry.source_id, match.start_char, match.end_char)] = match
             else:
                 if source_ranges is not None and entry.source_id not in source_ranges:
                     raise EvidenceValidationError(
@@ -737,27 +751,23 @@ class OfficialLangMemConsolidation:
                     source_ranges[entry.source_id] if source_ranges is not None else (0, len(text))
                 )
                 try:
-                    relative_start, relative_end, quote = unique_evidence_span(
-                        text[begin:finish], entry.quote
-                    )
+                    spans = evidence_spans(text[begin:finish], entry.quote)
                 except ValueError as exc:
-                    reason = (
-                        "ambiguous_quote"
-                        if str(exc).startswith("ambiguous")
-                        else "quote_not_in_source"
-                    )
                     raise EvidenceValidationError(
-                        reason, entry.source_id, entry.quote, fact.text
+                        "quote_not_in_source", entry.source_id, entry.quote, fact.text
                     ) from exc
-                start, end = begin + relative_start, begin + relative_end
-                if entry.start_char is not None and (entry.start_char, entry.end_char) != (
-                    start,
-                    end,
-                ):
+                selected = [
+                    (begin + start, begin + end, quote)
+                    for start, end, quote in spans
+                    if entry.start_char is None
+                    or (entry.start_char, entry.end_char) == (begin + start, begin + end)
+                ]
+                if not selected:
                     raise ValueError("candidate evidence offsets do not match the original span")
-            evidence[(entry.source_id, start, end)] = FactEvidence(
-                source=source, start_char=start, end_char=end, quote=quote
-            )
+                for start, end, quote in selected:
+                    evidence[(entry.source_id, start, end)] = FactEvidence(
+                        source=source, start_char=start, end_char=end, quote=quote
+                    )
         ordered = tuple(evidence[key] for key in sorted(evidence))
         return CandidateFact(
             text=fact.text,
@@ -982,7 +992,7 @@ class OfficialLangMemConsolidation:
                             == (entry.start_char, entry.end_char)
                         )
                     ]
-                    if len(matches) != 1:
+                    if not matches:
                         raise ValueError("correction excerpt must match covered candidate evidence")
                     evidence_quote = matches[0].quote
                 elif fact.correction_evidence is not None:
@@ -1101,39 +1111,10 @@ class OfficialLangMemConsolidation:
                 continue
             if not fact.text.strip() or not fact.evidence:
                 raise ValueError("new or changed memory requires nonempty original evidence")
-            evidence = []
-            for entry in fact.evidence:
-                source, text = sources.get(entry.source_id, (None, ""))
-                if source is None:
-                    raise EvidenceValidationError(
-                        "unknown_source_id", entry.source_id, entry.quote, fact.text
-                    )
-                try:
-                    start, end, quote = unique_evidence_span(text, entry.quote)
-                except ValueError as exc:
-                    reason = (
-                        "ambiguous_quote"
-                        if str(exc).startswith("ambiguous")
-                        else "quote_not_in_source"
-                    )
-                    raise EvidenceValidationError(
-                        reason, entry.source_id, entry.quote, fact.text
-                    ) from exc
-                evidence.append(
-                    FactEvidence(source=source, start_char=start, end_char=end, quote=quote)
-                )
+            candidate = self._candidate_from_fact(fact, sources)
+            evidence = candidate.evidence
             if not any(entry.source.source_id in new_ids for entry in evidence):
                 raise ValueError("context-only output cannot create or update a memory")
-            candidate = CandidateFact(
-                text=fact.text,
-                kind=fact.kind,
-                sources=tuple({e.source.source_id: e.source for e in evidence}.values()),
-                evidence_status="supported",
-                evidence=tuple(evidence),
-                event_key=fact.event_key,
-                fact_key=fact.fact_key,
-                importance_category=fact.importance_category,
-            )
             target = old.get(key)
             if target is None:
                 if fact.relationship != "create":

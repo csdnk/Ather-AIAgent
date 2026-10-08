@@ -184,6 +184,62 @@ def test_whole_body_plan_persists_exact_generation_and_budget(app):
         assert len(events) == 2 and all(r["event"]["payload"]["stage"] == "read" for _, r in events)
 
 
+def test_long_working_delivers_verified_hit_ranges_within_budget(app):
+    ctx, assembly, authority, request = assembly_setup(app, sources=("working",), token_budget=160)
+    target = "负责人是林澈。"
+    text = "无关背景。" * 2000 + target + "无关尾文。" * 2000
+    begin, end = text.index(target), text.index(target) + len(target)
+    digest = text_hash(text)
+    body = authority.bodies["m1"]
+    body = body.model_copy(
+        update={
+            "content": text,
+            "guard": body.guard.model_copy(update={"body_hash": digest}),
+            "location": body.location.model_copy(update={"content_hash": digest}),
+        }
+    )
+    authority.bodies["m1"] = body
+    authority.snapshots["m1"] = authority.snapshots["m1"].model_copy(
+        update={
+            "kind": "working",
+            "content": text,
+            "content_hash": digest,
+        }
+    )
+    for manifest, guard in authority.proofs.values():
+        if guard["memory"]["memory_id"] != "m1":
+            continue
+        guard["body_hash"] = digest
+        manifest["body_hash"] = manifest["vector_location"]["content_hash"] = digest
+        for descriptor in manifest["chunks"]:
+            # Highest scoring chunk holds the fact; the other is too large for
+            # this deliberately small budget. Both remain truthful source spans.
+            start, finish = (begin, end) if descriptor["chunk_index"] == 0 else (0, begin)
+            descriptor.update(
+                start_char=start, end_char=finish, input_hash=text_hash(text[start:finish])
+            )
+    with app.foundation.uow.transaction() as tx:
+        for key, row in tx.rows("generation_vectors"):
+            hit = row["hit"]
+            if hit["memory"]["memory_id"] == "m1":
+                manifest = authority.proofs[key][0]
+                hit.update(
+                    body_hash=digest,
+                    input_hash=manifest["chunks"][hit["chunk_index"]]["input_hash"],
+                )
+                tx.write("generation_vectors", key, row)
+    plan = asyncio.run(assembly.plan(ctx, request))
+    assert len(plan.units) == 1
+    assert target in plan.rendered_context and text not in plan.rendered_context
+    assert plan.tokens_used <= 160
+    assert len(plan.units[0].passages) == 1
+    passage = plan.units[0].passages[0]
+    assert (passage.start_char, passage.end_char) == (begin, end)
+    assert passage.content == text[begin:end]
+    assert passage.body_hash == digest
+    assert passage.range_hash == text_hash(target)
+
+
 def test_working_only_uses_vector_candidates_and_published_manifest_without_rrf(app):
     ctx, assembly, body, request = assembly_setup(app, sources=("working",))
     body.working_ids = ["m1"]

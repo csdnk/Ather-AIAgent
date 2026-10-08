@@ -29,7 +29,6 @@ from aether_agent_memory.remember.contracts.models import (
     ExtractionResult,
     FactEvidence,
     MemoryKind,
-    MemoryMode,
     MemoryReadBatch,
     MemoryRef,
     MemorySnapshot,
@@ -41,8 +40,6 @@ from aether_agent_memory.remember.contracts.models import (
     RememberRequest,
     SourceInput,
     SourceRef,
-    SourceSearchRequest,
-    SourceSearchResult,
 )
 from aether_agent_memory.runtime.contracts.foundation import ResourceLocation
 from aether_agent_memory.runtime.contracts.http_evidence import HttpRequestEvidence
@@ -99,7 +96,6 @@ from .reflection import Reflection
 from .retention import Retention
 from .revalidation import Revalidation
 from .service import memory_ref
-from .source_search import SourceSearch
 from .sources import PreparedDocument, SourceAccess
 from .summaries import SummaryPort, WorkingSummaries
 
@@ -204,7 +200,6 @@ class RememberPipeline(Revalidation):
         self.documents = documents or {}
         self.support_verifier = support_verifier
         self.source_access = SourceAccess(self)
-        self.source_search = SourceSearch(self)
         self.summaries = WorkingSummaries(self, summarizer)
         super().__init__(*args, **kwargs)
         self.tasks.register("remember.compress", "remember", self, permission=Permission.READ)
@@ -661,7 +656,6 @@ class RememberPipeline(Revalidation):
                     "trigger": request.trigger,
                     "principal_id": ctx.principal.principal_id,
                     "task_context": request.task_context,
-                    "memory_mode": request.memory_mode.value,
                 },
             )
             if document is not None:
@@ -684,21 +678,14 @@ class RememberPipeline(Revalidation):
                     "tokens": self.tokenizer.count(text),
                     "bytes": len(text.encode("utf-8")),
                     "created_at": item.created_at,
-                    "state": (
-                        "reference_only"
-                        if request.memory_mode == MemoryMode.REFERENCE_ONLY
-                        else "pending"
-                    ),
+                    "state": "pending",
                     "context": ctx.model_dump(mode="json"),
                 },
             )
             if working_text != text:
                 # Preserve historical prepared saves without indexing descriptors.
                 self.register_source_reference(tx, item, len(text.encode("utf-8")))
-            if request.memory_mode == MemoryMode.REFERENCE_ONLY:
-                task_ids = []
-            else:
-                task_ids = list(self.schedule(tx, ctx, scope, force=request.trigger != "observe"))
+            task_ids = list(self.schedule(tx, ctx, scope, force=request.trigger != "observe"))
             # Original-body indexing is independent of consolidation.
             # Recall can consume its normal Working projection as soon as ready.
             if self.projection_buildable(tx, item):
@@ -759,24 +746,39 @@ class RememberPipeline(Revalidation):
         else:
             working_text = prepared["working_text"]
 
-        await self.admit_verified_cache(ctx, memory, working_text)
+        await self.admit_verified_cache(ctx, memory, working_text, initial=True)
         return result
 
     async def admit_verified_cache(
-        self, ctx: TrustedContext, memory: MemoryRef, working_text: str
+        self,
+        ctx: TrustedContext,
+        memory: MemoryRef,
+        working_text: str,
+        *,
+        initial: bool = False,
     ) -> None:
         """Admit a confirmed body, fencing both physical I/O and metadata updates."""
         scope, key = memory.scope, memory.memory_id
 
-        def allowed_before_cache() -> bool:
+        def allowed_before_cache() -> MemorySnapshot | None:
             with self.uow.transaction() as tx:
                 allowed = (
                     self.final_guard(tx, ctx, (memory,), "recall").items[0].decision == "allowed"
                 )
-            return allowed
+                if not allowed:
+                    return None
+                item = self.current(tx, key)
+                if item.ref != memory or item.content_hash != text_hash(working_text):
+                    return None
+                return item
 
-        allowed = await asyncio.to_thread(allowed_before_cache)
-        cache = await self.bodies.admit(scope, working_text) if allowed else "ineligible"
+        snapshot = await asyncio.to_thread(allowed_before_cache)
+        if snapshot is None:
+            cache = "ineligible"
+        elif initial:
+            cache = await self.bodies.admit_initial(snapshot, ctx)
+        else:
+            cache = await self.bodies.admit(scope, working_text)
 
         def allowed_after_cache() -> bool:
             with self.uow.transaction() as tx:
@@ -829,8 +831,15 @@ class RememberPipeline(Revalidation):
                 )
                 if not current_allowed:
                     state["state"] = "ineligible"
+                registered = getattr(provider, "registration_current", None)
+                current_placement = not callable(registered) or registered(
+                    tx, memory, record.body_location.content_hash
+                )
+                if cache == "cached" and not current_placement:
+                    state["state"] = "not_admitted"
                 if (
                     cache == "cached"
+                    and current_placement
                     and current_allowed
                     and record.status == MemoryStatus.ACTIVE
                     and callable(cache_keys)
@@ -851,6 +860,9 @@ class RememberPipeline(Revalidation):
                     )
                 changed = record.model_copy(update={"cache_location": cache_location})
                 tx.put_if_revision(ref, changed.model_dump(mode="json"), tx.revision(ref))
+                # Publication may have been superseded by cooling since Redis I/O.
+                # Keep the versioned audit in agreement with the final cache marker.
+                tx.write("remember_cache_admission_history", self.refkey(memory), state)
                 tx.write(
                     "remember_cache_admission",
                     key,
@@ -992,14 +1004,6 @@ class RememberPipeline(Revalidation):
         with self.uow.transaction() as tx:
             item = self.current(tx, memory_id)
             self.identity.authorize(tx, ctx, Permission.WRITE, memory_ref(item.ref))
-            if (
-                item.kind == MemoryKind.WORKING
-                and self.memory_mode(tx, item) == MemoryMode.REFERENCE_ONLY
-            ):
-                raise FoundationError(
-                    ErrorCode.INVALID_ARGUMENT,
-                    "reference-only sources are excluded from automatic reprocessing",
-                )
             mutation = self.mutations.begin(
                 tx,
                 ctx,
@@ -1273,7 +1277,6 @@ class RememberPipeline(Revalidation):
                     r["state"] in {"failed", "attention_required"} for r in rows
                 ),
                 "memory_status": item.status.value,
-                "memory_mode": self.memory_mode(tx, item).value,
                 "projection_state": item.projection_state.value,
                 "derived_memory_ids": sorted(memory_ids - {memory_id}),
                 "rejected_candidate_count": len(rejections),
@@ -1372,7 +1375,27 @@ class RememberPipeline(Revalidation):
         scope = Scope.model_validate(prepared["scope"])
         for body in dict.fromkeys((prepared["text"], prepared["working_text"])):
             await self.bodies.persist(ctx, scope, body)
-        return self.correct(ctx, memory_id, request)
+        result = self.correct(ctx, memory_id, request)
+        return await self.admit_correction_cache(ctx, result)
+
+    async def admit_correction_cache(
+        self, ctx: TrustedContext, result: RememberReceipt
+    ) -> RememberReceipt:
+        """A corrected Working is a new body/version eligible for first admission."""
+        memory = result.memories[0]
+
+        def is_current_working() -> bool:
+            with self.uow.transaction() as tx:
+                if self.final_guard(tx, ctx, (memory,), "recall").items[0].decision != "allowed":
+                    return False
+                raw = tx.get(memory_ref(memory, versioned=True))
+                return bool(raw and raw["kind"] == MemoryKind.WORKING)
+
+        if await asyncio.to_thread(is_current_working):
+            # Reuse saved-receipt hydration and exact-version fences. In particular,
+            # command replay must never readmit the older body or undo later cooling.
+            await self.admit_save_cache(ctx, {"previous": True}, result)
+        return result
 
     def prepare_correction(
         self, ctx: TrustedContext, memory_id: str, request: CorrectionRequest
@@ -1401,11 +1424,8 @@ class RememberPipeline(Revalidation):
         request: CorrectionRequest,
     ) -> str:
         prior = tx.read("remember_working_summaries", item.ref.memory_id)
-        mode = self.memory_mode(tx, item)
         source_policy = tx.read("remember_source_policy", item.sources[0].source_id) or {}
-        tx.write(
-            "remember_source_policy", source.source_id, {**source_policy, "memory_mode": mode.value}
-        )
+        tx.write("remember_source_policy", source.source_id, source_policy)
         new_ref = item.ref.model_copy(update={"version": item.ref.version + 1})
         body = request.content
         if prior:
@@ -1423,27 +1443,12 @@ class RememberPipeline(Revalidation):
                 "bytes": len(request.content.encode("utf-8")),
                 "created_at": self.identity.clock(),
                 "context": ctx.model_dump(mode="json"),
-                "state": (
-                    "reference_only"
-                    if mode == MemoryMode.REFERENCE_ONLY
-                    else "pending"
-                ),
+                "state": "pending",
             },
         )
         return body
 
-    def memory_mode(self, tx: MetadataTransaction, item: MemorySnapshot) -> MemoryMode:
-        modes = [
-            (tx.read("remember_source_policy", source.source_id) or {}).get(
-                "memory_mode", "automatic"
-            )
-            for source in item.sources
-        ]
-        return MemoryMode.REFERENCE_ONLY if "reference_only" in modes else MemoryMode.AUTOMATIC
-
     def working_task_kind(self, tx: MetadataTransaction, item: MemorySnapshot) -> str | None:
-        if self.memory_mode(tx, item) == MemoryMode.REFERENCE_ONLY:
-            return None
         if self.working_processing_busy(tx, item.ref):
             raise FoundationError(
                 ErrorCode.REQUEST_IN_PROGRESS,
@@ -1458,9 +1463,7 @@ class RememberPipeline(Revalidation):
         owned: set[str] = set()
         if pending and pending["ref"] == ref:
             owned.update(
-                pending[field]
-                for field in ("task_id", "compression_task_id")
-                if pending.get(field)
+                pending[field] for field in ("task_id", "compression_task_id") if pending.get(field)
             )
         candidates = set(owned)
         for kind in ("remember.extract", "remember.compress", "remember.summarize"):
@@ -1489,8 +1492,6 @@ class RememberPipeline(Revalidation):
     def projection_buildable(self, tx: MetadataTransaction, item: MemorySnapshot) -> bool:
         if item.kind != MemoryKind.WORKING:
             return True
-        if self.memory_mode(tx, item) == MemoryMode.REFERENCE_ONLY:
-            return False
         representation = tx.read("remember_working_representations", item.ref.memory_id)
         if representation and representation["memory"] == item.ref.model_dump(mode="json"):
             return False
@@ -1746,12 +1747,6 @@ class RememberPipeline(Revalidation):
         """Agent/file-tool entry point. Source reads do not count as packed memory use."""
         return await self.source_access.read(ctx, source, start, end)
 
-    async def search_sources(
-        self, ctx: TrustedContext, request: SourceSearchRequest
-    ) -> SourceSearchResult:
-        """Source-scoped file retrieval, independent of compression and Recall."""
-        return await self.source_search.search(ctx, request)
-
     async def run(self, ctx: TrustedContext, task: TaskRecord) -> RunResult:
         with self.uow.transaction() as tx:
             saved_policy = tx.read("remember_task_policy", task.task_id)
@@ -1999,10 +1994,16 @@ class RememberPipeline(Revalidation):
         if self.compressor is not None:
             parts = chunks(item.content, self.tokenizer.count, self.policy.extraction_chunk_tokens)
             part_keys = [
-                fingerprint([
-                    task.task_id, self.checkpoint_binding(), item.content_hash,
-                    index, text_hash(text), "quality_repair_v1",
-                ])
+                fingerprint(
+                    [
+                        task.task_id,
+                        self.checkpoint_binding(),
+                        item.content_hash,
+                        index,
+                        text_hash(text),
+                        "quality_repair_v1",
+                    ]
+                )
                 for index, (_, _, text) in enumerate(parts)
             ]
             reserve_legacy_reviews(self, task, part_keys)
@@ -2105,10 +2106,14 @@ class RememberPipeline(Revalidation):
                 strategy="chunked_no_extra_review_v5",
                 reason="quality_review_unknown"
                 if task_review_unknown or any(r.get("quality_status") == "unknown" for r in reports)
-                else "quality_rejected" if not quality_ok else "ratio_unmet",
+                else "quality_rejected"
+                if not quality_ok
+                else "ratio_unmet",
                 declared_use="locator_only"
                 if any(r["quality"].get("declared_use") == "locator_only" for r in checked)
-                else "extraction_view" if unchecked else "supported_summary",
+                else "extraction_view"
+                if unchecked
+                else "supported_summary",
             )
             if quality_ok and (ratio_met or not self.policy.compression_require_ratio):
                 location = self.bodies.location(item.ref.scope, output_text)
@@ -2584,9 +2589,7 @@ class RememberPipeline(Revalidation):
                         )
             else:
                 output = ExtractionResult.model_validate(checkpoint)
-            offsets = {
-                s.source_id: offset for item, offset, _ in group for s in item.sources
-            }
+            offsets = {s.source_id: offset for item, offset, _ in group for s in item.sources}
             for candidate in output.candidates:
                 evidence = tuple(
                     e.model_copy(
@@ -3213,8 +3216,12 @@ class RememberPipeline(Revalidation):
             "candidate_support_counts": {
                 status: sum(row["status"] == status for row in support_audit)
                 for status in (
-                    "supported", "rejected", "not_sampled", "not_checked",
-                    "source_bound_exact", "unknown",
+                    "supported",
+                    "rejected",
+                    "not_sampled",
+                    "not_checked",
+                    "source_bound_exact",
+                    "unknown",
                 )
             },
             "proposals": [
@@ -3429,7 +3436,8 @@ class RememberPipeline(Revalidation):
                         else None,
                         **(
                             {"candidate_ids": prepared["candidate_groups"][index]}
-                            if two_stage else {}
+                            if two_stage
+                            else {}
                         ),
                     }
                 )
@@ -3488,7 +3496,9 @@ class RememberPipeline(Revalidation):
                                     source.model_dump_json(): source
                                     for source in (*old.sources, *candidate.sources)
                                 }.values()
-                            ) if two_stage else candidate.sources,
+                            )
+                            if two_stage
+                            else candidate.sources,
                             "status": MemoryStatus.ACTIVE,
                             "projection_state": ProjectionState.PENDING,
                             "model_space": None,
@@ -3508,9 +3518,12 @@ class RememberPipeline(Revalidation):
                             ctx,
                             Permission.WRITE,
                             memory_ref(
-                                items[0].ref.model_copy(update={
-                                    "memory_id": fingerprint([task.task_id, index]), "version": 1
-                                })
+                                items[0].ref.model_copy(
+                                    update={
+                                        "memory_id": fingerprint([task.task_id, index]),
+                                        "version": 1,
+                                    }
+                                )
                             ),
                         )
                     fact = self.new_memory(
@@ -3636,8 +3649,7 @@ class RememberPipeline(Revalidation):
             # A complete candidate-first result consumes the entire new input
             # batch; old literal-adapter deferrals cannot survive this boundary.
             deferred = (
-                [] if two_stage
-                else (tx.read("remember_deferred_extraction", task.task_id) or [])
+                [] if two_stage else (tx.read("remember_deferred_extraction", task.task_id) or [])
             )
             from .consolidation_metrics import compression_metrics
 

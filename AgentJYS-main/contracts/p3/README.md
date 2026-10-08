@@ -1,6 +1,6 @@
 # P3 可校验契约
 
-2026-10-07 Remember：请求新增可选 memory_mode（automatic／reference_only），新增 SourceSearchRequest／SourcePassage／SourceSearchResult。对应 Schema 和正反样例已更新；实际来源搜索路由见 [Remember HTTP 增量](remember-live-http.yaml)。本次先完成代码，最终契约及运行验证按交付安排延期。
+2026-10-08 Remember：长短内容统一保存原文 Working，达到阈值后异步整理；来源片段读取使用既有范围接口，见 [Remember HTTP 接口](remember-live-http.yaml)。
 
 2026-09-22：五个投影模型的规范名称迁至 remember；ProjectionPort/GenerationProjectionPort 与 VectorSearchPort/GenerationSearchPort 分离。旧Python导入保留别名，Schema规范文件名使用新所有者。对象仍118个、方法仍68个，正式接口组24组。
 

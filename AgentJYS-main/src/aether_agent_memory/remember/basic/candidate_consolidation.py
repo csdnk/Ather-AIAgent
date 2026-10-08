@@ -20,6 +20,7 @@ from aether_agent_memory.remember.basic.official_langmem import (
 )
 from aether_agent_memory.remember.basic.policy import chunks
 from aether_agent_memory.remember.contracts.models import MemorySnapshot
+from aether_agent_memory.remember.langmem_model import LangMemOutputTruncatedError
 from aether_agent_memory.runtime.contracts.models import ErrorCode
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
 
@@ -170,6 +171,68 @@ def _decision_inputs(
     return tuple(existing[key] for key in ids), mapping
 
 
+def _decision_output_limit(owner: Any) -> int:
+    identity = getattr(owner.extraction, "model_identity", {})
+    limit = identity.get("max_output_tokens") if isinstance(identity, dict) else None
+    # The deployment adapter publishes its actual generation limit. Custom
+    # providers without that identity use the same conservative default.
+    return limit if type(limit) is int and limit > 0 else 4096
+
+
+def _decision_output_cost(
+    owner: Any,
+    candidates: tuple[ExtractedCandidate, ...],
+    existing: tuple[MemorySnapshot, ...],
+) -> int:
+    """Estimate full tool bodies, evidence and IDs, not just input context.
+
+    This is a packing estimate, not a completeness guarantee: the model may
+    merge facts or write a longer explanation. Truncation still causes a split.
+    Repeated source occurrences need not repeat the same quote in model output.
+    """
+    tokens = 256  # Tool-call envelopes and finishing headroom.
+    for entry in candidates:
+        candidate = entry.candidate
+        quotes = dict.fromkeys((e.source.source_id, e.quote) for e in candidate.evidence)
+        body = {
+            "text": candidate.text,
+            "kind": candidate.kind,
+            "candidate_ids": [entry.candidate_id],
+            "evidence": [{"source_id": source, "quote": quote} for source, quote in quotes],
+            "event_key": candidate.event_key,
+            "fact_key": candidate.fact_key,
+            "importance_category": candidate.importance_category,
+            "relationship": "amend",
+        }
+        # Reserve explanation/patch overhead per potential decision. Retained
+        # old details can appear in amended/no-change bodies as well.
+        tokens += owner.tokenizer.count(json.dumps(body, ensure_ascii=False)) + 128
+    tokens += sum(owner.tokenizer.count(item.content) for item in existing)
+    return int(tokens)
+
+
+def _split_decision_batch(
+    batch: tuple[ExtractedCandidate, ...], related_ids: dict[str, tuple[str, ...]]
+) -> tuple[tuple[ExtractedCandidate, ...], tuple[ExtractedCandidate, ...]]:
+    components = _components(batch, related_ids)
+    if len(components) < 2:
+        raise FoundationError(
+            ErrorCode.CONTRACT_VIOLATION,
+            "indivisible candidate/current-memory group exceeds decision output capacity; "
+            "Working sources remain unprocessed and no decisions were committed",
+        )
+    # Components, rather than arbitrary candidates, are the indivisible unit.
+    # A target must never be compared independently by two result-producing calls.
+    middle = min(
+        range(1, len(components)),
+        key=lambda i: abs(2 * sum(map(len, components[:i])) - len(batch)),
+    )
+    return (
+        tuple(c for group in components[:middle] for c in group),
+        tuple(c for group in components[middle:] for c in group),
+    )
+
+
 def _decision_batches(
     owner: Any,
     candidates: tuple[ExtractedCandidate, ...],
@@ -179,6 +242,10 @@ def _decision_batches(
     def cost(group: tuple[ExtractedCandidate, ...]) -> int:
         old, mapping = _decision_inputs(group, related_ids, existing)
         return _cost(owner, "decision", owner.extraction.decision_payload(group, old, mapping))
+
+    def output_cost(group: tuple[ExtractedCandidate, ...]) -> int:
+        old, _ = _decision_inputs(group, related_ids, existing)
+        return _decision_output_cost(owner, group, old)
 
     batches: list[tuple[ExtractedCandidate, ...]] = []
     current: tuple[ExtractedCandidate, ...] = ()
@@ -192,6 +259,7 @@ def _decision_batches(
         if current and (
             len(current) + len(component) > 256
             or cost((*current, *component)) > owner.policy.comparison_context_tokens
+            or output_cost((*current, *component)) > _decision_output_limit(owner)
         ):
             batches.append(current)
             current = ()
@@ -422,9 +490,13 @@ async def prepare_candidate_consolidation(
                 )
 
     decision_batches = _decision_batches(owner, candidates, related_ids, existing)
+    pending_decisions = list(reversed(decision_batches))
+    completed_decisions = 0
+    decision_subdivisions = 0
     proposals = []
     decision_bindings = []
-    for index, decision_batch in enumerate(decision_batches):
+    while pending_decisions:
+        decision_batch = pending_decisions.pop()
         comparison_items, mapping = _decision_inputs(decision_batch, related_ids, existing)
 
         def guard_decision(
@@ -452,12 +524,12 @@ async def prepare_candidate_consolidation(
 
         binding = fingerprint(
             [
-                "official_candidate_decisions_v1",
+                "official_candidate_decisions_v2_output_batches",
                 task.task_id,
                 processing_binding,
                 source_binding,
                 sequence,
-                index,
+                _decision_output_limit(owner),
                 mapping,
                 [c.model_dump(mode="json") for c in decision_batch],
                 [i.model_dump(mode="json") for i in comparison_items],
@@ -467,19 +539,38 @@ async def prepare_candidate_consolidation(
         with owner.uow.transaction() as tx:
             guard_decision(tx)
             saved = tx.read("remember_candidate_decisions", binding)
-        if saved is None:
-            raw_result = await owner.extraction.decide_candidates(
-                ctx,
-                decision_batch,
-                comparison_items,
-                owner.policy.version,
-                related_ids=mapping,
-                originals=items,
-                on_model_call=consume_decision_call,
-            )
-            decision_result = ConsolidationResult.model_validate(raw_result)
-        else:
-            decision_result = ConsolidationResult.model_validate(saved)
+            split = tx.read("remember_candidate_decision_splits", binding)
+        split_reason = (split or {}).get("reason")
+        decision_result = None
+        if split_reason is None:
+            try:
+                if saved is None:
+                    raw_result = await owner.extraction.decide_candidates(
+                        ctx,
+                        decision_batch,
+                        comparison_items,
+                        owner.policy.version,
+                        related_ids=mapping,
+                        originals=items,
+                        on_model_call=consume_decision_call,
+                    )
+                    decision_result = ConsolidationResult.model_validate(raw_result)
+                else:
+                    decision_result = ConsolidationResult.model_validate(saved)
+            except LangMemOutputTruncatedError:
+                split_reason = "output_capacity"
+        if split_reason is not None:
+            with owner.uow.transaction() as tx:
+                guard_decision(tx)
+                tx.write("remember_candidate_decision_splits", binding, {"reason": split_reason})
+            # Persist before subdivision, including an indivisible terminal
+            # failure. A retry never invokes the known oversized parent again;
+            # successful children retain their own independent checkpoints.
+            decision_children = _split_decision_batch(decision_batch, related_ids)
+            pending_decisions.extend(reversed(decision_children))
+            decision_subdivisions += 1
+            continue
+        assert decision_result is not None
         if decision_result.policy_version != owner.policy.version:
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "decision policy mismatch")
         covered: list[str] = []
@@ -512,6 +603,7 @@ async def prepare_candidate_consolidation(
                     "remember_candidate_decisions", binding,
                     decision_result.model_dump(mode="json"),
                 )
+        completed_decisions += 1
 
     target_ids = [p.decision.target_id for p in proposals if p.decision.target_id is not None]
     if len(set(target_ids)) != len(target_ids):
@@ -541,7 +633,9 @@ async def prepare_candidate_consolidation(
             "existing_memory_count": len(existing),
             "extraction_batches": extraction_parts,
             "extraction_subdivisions": subdivision_count,
-            "decision_batches": len(decision_batches),
+            "decision_batches": completed_decisions,
+            "decision_subdivisions": decision_subdivisions,
+            "output_budget_tokens": _decision_output_limit(owner),
             "complete_candidates": True,
             "input_budget_tokens": owner.policy.comparison_context_tokens,
         },

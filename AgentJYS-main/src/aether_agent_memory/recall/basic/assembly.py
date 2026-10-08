@@ -25,11 +25,13 @@ from aether_agent_memory.recall.contracts.models import (
     RecallRequest,
 )
 from aether_agent_memory.recall.contracts.ports import MemoryCandidatePort
+from aether_agent_memory.remember.basic.passages import original_passages, render_passages
 from aether_agent_memory.remember.contracts.foundation import (
     ContextGuardRequest,
     FullBodyReadResult,
     GuardStamp,
     MemoryRelationSnapshot,
+    OriginalPassage,
     ProjectionManifest,
     ProjectionReadiness,
 )
@@ -198,6 +200,8 @@ class ContextAssembly:
         candidate_guards: dict[str, GuardStamp] = {}
         relation_guards: dict[str, GuardStamp] = {}
         source_ranks: dict[str, dict[str, int]] = {}
+        # Retain qualified chunk identities across Temporal discover/assemble stages.
+        matched_chunks: dict[str, list[int]] = {}
 
         def visible(ref: MemoryRef) -> bool:
             with self.uow.transaction() as tx:
@@ -300,6 +304,7 @@ class ContextAssembly:
                     relation_guards.copy(),
                     manifests.copy(),
                     candidate_guards.copy(),
+                    matched_chunks.copy(),
                 )
                 source_ranks[source] = {}
                 try:
@@ -333,6 +338,10 @@ class ContextAssembly:
                     for candidate in found.candidates:
                         key = candidate.memory.model_dump_json()
                         manifests[key], candidate_guards[key] = candidate.manifest, candidate.guard
+                        matched_chunks[key] = [
+                            h.chunk_index
+                            for h in sorted(candidate.hits, key=lambda h: (-h.score, h.chunk_index))
+                        ]
                     if found.candidates:
                         refs = tuple(c.memory for c in found.candidates)
                         batch = await asyncio.to_thread(self.base.memories.load, ctx, refs)
@@ -345,7 +354,14 @@ class ContextAssembly:
                     coverage[source] = "unavailable"
                     reasons.add(source + "_dependency")
                     source_ranks[source] = {}
-                    snapshots, conflicts, relation_guards, manifests, candidate_guards = saved
+                    (
+                        snapshots,
+                        conflicts,
+                        relation_guards,
+                        manifests,
+                        candidate_guards,
+                        matched_chunks,
+                    ) = saved
 
             return {
                 "snapshots": {k: v.model_dump(mode="json") for k, v in snapshots.items()},
@@ -361,6 +377,7 @@ class ContextAssembly:
                     k: v.model_dump(mode="json") for k, v in relation_guards.items()
                 },
                 "source_ranks": source_ranks,
+                "matched_chunks": matched_chunks,
             }
         snapshots = {
             k: MemorySnapshot.model_validate(v) for k, v in discovered["snapshots"].items()
@@ -368,6 +385,7 @@ class ContextAssembly:
         conflicts = {k: ConflictGroup.model_validate(v) for k, v in discovered["conflicts"].items()}
         reasons, excluded = set(discovered["reasons"]), set(discovered["excluded"])
         coverage, source_ranks = discovered["coverage"], discovered["source_ranks"]
+        matched_chunks = discovered.get("matched_chunks", {})
         manifests = {
             k: ProjectionManifest.model_validate(v) for k, v in discovered["manifests"].items()
         }
@@ -503,6 +521,21 @@ class ContextAssembly:
             ]
             if len(set(unit_keys)) != len(unit_keys) or logical.intersection(unit_keys):
                 raise FoundationError(ErrorCode.RESULT_INVALIDATED, "multiple memory versions")
+            passages: tuple[OriginalPassage, ...] = ()
+            manifest = manifests.get(key)
+            if (
+                group is None
+                and snapshots[key].kind == "working"
+                and manifest is not None
+                and manifest.expected_chunk_count > 1
+                and key in matched_chunks
+            ):
+                descriptors = {c.chunk_index: c for c in manifest.chunks}
+                passages = original_passages(
+                    bodies[key].content or "",
+                    manifest.body_hash,
+                    tuple(descriptors[i] for i in matched_chunks[key]),
+                )
             units.append(
                 ContextPackUnit(
                     group_id=group_id,
@@ -510,6 +543,7 @@ class ContextAssembly:
                     primary_memories=tuple(bodies[m].memory for m in members if m in manifests),
                     conflict=group,
                     rank=len(units) + 1,
+                    passages=passages,
                 )
             )
 
@@ -529,7 +563,7 @@ class ContextAssembly:
                     ranked = await self.base.reranker.rerank(
                         ctx,
                         request.query,
-                        tuple("\n".join(b.content or "" for b in u.bodies) for u in units),
+                        tuple(self.unit_content(u) for u in units),
                     )
                 await asyncio.to_thread(self.check, ctx, request)
                 if len(ranked) != len(units) or not all(math.isfinite(s) for s in ranked):
@@ -554,9 +588,20 @@ class ContextAssembly:
         selected: list[ContextPackUnit] = []
         rendered = ""
         for unit in units:
-            fragment = (
-                f"[{len(selected) + 1}] " + "\n".join(b.content or "" for b in unit.bodies) + "\n"
-            )
+            if unit.passages:
+                # Budget remains A-owned. Select whole matching chunks in vector-score
+                # order; never truncate a chunk or send an entire long file by accident.
+                admitted: list[OriginalPassage] = []
+                for passage in unit.passages:
+                    selected_passages = tuple([*admitted, passage])
+                    fragment = f"[{len(selected) + 1}] " + render_passages(selected_passages) + "\n"
+                    if self.base.tokenizer.count(rendered + fragment) <= request.token_budget:
+                        admitted.append(passage)
+                if not admitted:
+                    skipped.add(unit.group_id)
+                    continue
+                unit = unit.model_copy(update={"passages": tuple(admitted)})
+            fragment = f"[{len(selected) + 1}] " + self.unit_content(unit) + "\n"
             if (
                 len(selected) >= self.base.settings.max_items
                 or self.base.tokenizer.count(rendered + fragment) > request.token_budget
@@ -627,6 +672,12 @@ class ContextAssembly:
 
         await asyncio.to_thread(persist_plan)
         return plan
+
+    @staticmethod
+    def unit_content(unit: ContextPackUnit) -> str:
+        if unit.passages:
+            return render_passages(unit.passages)
+        return "\n".join(b.content or "" for b in unit.bodies)
 
     @staticmethod
     def expectations(
@@ -716,9 +767,10 @@ class ContextAssembly:
                     items=tuple(
                         ContextItem(
                             memory=b.memory,
-                            content=b.content or "",
+                            content=self.unit_content(u) if u.passages else b.content or "",
                             sources=b.sources,
-                            representation="original",
+                            representation="original_passages" if u.passages else "original",
+                            passages=u.passages,
                         )
                         for b in u.bodies
                     ),

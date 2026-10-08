@@ -6,6 +6,7 @@ from typing import Annotated, Literal, Self
 
 from pydantic import Field, model_validator
 
+from aether_agent_memory.remember.contracts.foundation import OriginalPassage
 from aether_agent_memory.remember.contracts.models import ConflictGroup, MemoryRef, SourceRef
 from aether_agent_memory.remember.contracts.models import (
     ProjectionRequest as ProjectionRequest,
@@ -45,13 +46,18 @@ class ContextItem(ContractModel):
     memory: MemoryRef
     content: NonEmpty
     sources: tuple[SourceRef, ...] = Field(min_length=1)
-    representation: Literal["original", "compressed"]
+    representation: Literal["original", "compressed", "original_passages"]
     artifact_id: Identifier | None = None
+    passages: tuple[OriginalPassage, ...] = ()
 
     @model_validator(mode="after")
     def compressed_provenance(self) -> Self:
         if self.representation == "compressed" and self.artifact_id is None:
             raise ValueError("compressed content requires artifact provenance")
+        if (self.representation == "original_passages") != bool(self.passages):
+            raise ValueError("original passages require source range metadata")
+        if any(p.content not in self.content for p in self.passages):
+            raise ValueError("context must preserve its original passages")
         return self
 
 
