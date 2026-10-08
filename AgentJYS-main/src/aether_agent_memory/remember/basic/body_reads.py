@@ -285,12 +285,13 @@ class BodyReads:
                         )
                         decisions.append(eligible)
                     else:
+                        # Current eligibility allows this memory, but we could not
+                        # retain a verified body. A concurrent change is not a
+                        # legitimate exclusion and must not become normal empty.
                         decisions.append(
                             EligibilityResult(
                                 ref=eligible.ref,
-                                decision="unverifiable"
-                                if result.outcome == "unavailable"
-                                else "excluded",
+                                decision="unverifiable",
                                 reason=result.reason_code
                                 if selected is None
                                 else "changed_during_read",

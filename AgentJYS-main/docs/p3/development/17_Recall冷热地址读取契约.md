@@ -57,6 +57,8 @@ Azure 从同一个已配置的 `RedisCache` 注入 `cache_reader`。它不读取
 
 缓存不可用允许回源，权威正文失败则保留错误语义：直接本地正文读取缺文件仍为 `DEPENDENCY_UNAVAILABLE`，远端权威正文不存在仍为 `NOT_FOUND`；批量入口将此类依赖失败记为逐项不可验证，不能伪装正常空结果。授权失败、主记录非法和总期限耗尽不能作为普通缓存未命中继续放行。
 
+批量最终复核明确区分两种情况：当前资格不允许（如已删除）仍为 `excluded`；当前资格允许、但读取期间关系或正文事实变化导致快照无法核验，必须为 `unverifiable`。后一种不能被误当作“没有相关记忆”：唯一候选失效时返回不可用；有其他有效候选时保留它们并附 `qualification_unverifiable` 降级说明，失效项不记录成功 read。
+
 ## 其他模块应了解的影响
 
 | 模块 | 具体影响 |
@@ -80,7 +82,7 @@ PYTHONPATH=src:tests python -B -m pytest tests/unit/test_cache_locations.py test
 
 真实服务回归仍需独立测试环境：`tests/runtime/flows/test_generation_assembly.py`、`test_remember_observation_batches.py`、`test_remember_initial_cache.py`、`test_operate_memory_record.py`，并完成真实 Recall/Temporal 联调。本次旧的“读取时修复缓存”测试改为“回源不修复 + 读取中撤权拦截”；Operate publication 测试夹具仅增加独立 reader 注入。云端故障注入应只针对测试请求/数据，不能关闭共享服务。
 
-### 2026-10-08 实现阶段验证记录
+### 2026-10-08 首次实现阶段验证记录
 
 | 检查 | 当次结果 | 证明范围 |
 |---|---|---|
@@ -91,6 +93,16 @@ PYTHONPATH=src:tests python -B -m pytest tests/unit/test_cache_locations.py test
 | Azure 真实冷热链路 | 未运行 | 需另行真实服务联调、故障及并发取证 |
 
 这些结果来自实现完成时的本地验证，测试范围可能交叉，不能直接相加当作独立业务场景数。文档同步不会把旧结果更新成新测试结果；远端 CI、PR 合并和云端发布也各有独立状态。
+
+### 2026-10-08 提交前复验补充
+
+独立评审发现并修复了“读取中关系变化被当作正常排除”的边界缺陷。新增四个组包实例覆盖唯一候选失效、首条读后失配、批次最终失配及真正删除的正常排除；修复前为 3 failed / 1 passed，修复后五文件专项为 **122 passed**。平台仍为 **296 passed / 107 skipped**；契约 **384 passed**、全源码 Mypy/Ruff 和 wheel 构建再次通过。
+
+首轮隔离 AKS 测试收集 76 项，执行 **69 passed / 3 failed / 0 skipped**，达到三次失败后停止，另 4 项未执行；被测源码摘要未变，测试 Pod 和专用 PostgreSQL/Milvus 数据库均确认删除。组包 24 项、Operate 地址发布 30 项、首次缓存 12 项均通过。传输和元数据使用真实 Azure 服务，但部分测试的 Ceph 或模型依赖有明确替身，不能笼统称为全链路真实模型验收。
+
+三个失败均在 `test_remember_observation_batches.py` 的旧预压缩要求：长文本应先等待压缩，以及两种超过 8000 字节文本应登记 source_reference。当前 Remember 已取消新请求预压缩并保存完整正文；与基线对照，相关 `prepare_save/persist_save/commit_save` 和这两个测试函数没有因本次改动变化。本 PR 保留失败用例及证据，不修改 Remember 保存策略来迎合旧断言；完整套件尚不能宣称全绿。后续缓存回源、撤权及版本竞争的定点复验以对应 PR 执行记录为准，不能把首轮未执行项计为通过。
+
+GitHub 的 `azure-tests` Environment 当前未配置，不能把本机调度 AKS 的结果当作 Azure Actions 的通过状态。手动测试复用仓库 `run_aks_tests.py` 的源码打包、证据判定和 UID 清理，以及 `aks_test_entrypoint.py`；凭据留在 AKS，未修改在线 Deployment。
 
 ## 相关文档
 

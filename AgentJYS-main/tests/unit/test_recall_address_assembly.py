@@ -266,6 +266,49 @@ async def test_failed_address_reads_cannot_become_empty_success(assembly_case):
         assert tx.rows("outbox") == []
 
 
+async def test_only_candidate_changed_during_read_is_not_normal_empty(assembly_case):
+    p = assembly_case
+    p.search.selected = p.candidates[:1]
+    p.state.hot_hook = lambda: p.change(relations_revision=2)
+    with pytest.raises(FoundationError) as failure:
+        await p.assembly.plan(p.ctx, p.request)
+    assert failure.value.code == ErrorCode.DEPENDENCY_UNAVAILABLE
+    with p.transaction() as tx:
+        assert tx.read("recall_assembly", p.request.recall_id) is None
+        assert tx.rows("outbox") == []
+
+
+@pytest.mark.parametrize("change_on_read", [1, 2])
+async def test_changed_candidate_preserves_degradation_for_valid_remainder(
+    assembly_case, change_on_read
+):
+    p = assembly_case
+
+    def change_first_candidate():
+        # The second read changes an already-verified first body, exercising
+        # the final batch check as well as the immediate post-I/O check.
+        if p.state.redis_calls == change_on_read:
+            p.change(relations_revision=2)
+
+    p.state.hot_hook = change_first_candidate
+    plan = await p.assembly.plan(p.ctx, p.request)
+    assert [b.memory.memory_id for u in plan.units for b in u.bodies] == ["independent"]
+    assert "qualification_unverifiable" in plan.degradation_reasons
+    with p.transaction() as tx:
+        payloads = [row["event"]["payload"] for _, row in tx.rows("outbox")]
+        assert [event["memory"]["memory_id"] for event in payloads] == ["independent"]
+
+
+async def test_deleted_candidate_remains_a_legitimate_empty_result(assembly_case):
+    p = assembly_case
+    p.search.selected = p.candidates[:1]
+    p.state.hot_hook = lambda: p.change(status="deleted", projection_state="stale", projection=None)
+    plan = await p.assembly.plan(p.ctx, p.request)
+    assert plan.units == () and plan.degradation_reasons == ()
+    with p.transaction() as tx:
+        assert tx.rows("outbox") == []
+
+
 async def test_boundary_rejects_duplicate_refs_before_read(assembly_case):
     p = assembly_case
     with pytest.raises(FoundationError) as failure:
