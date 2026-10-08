@@ -81,6 +81,7 @@ class CandidateMemory(BaseModel):
     # An unchanged existing snapshot may have no loaded original evidence. Any
     # returned new/changed proposal is required to cite verified originals below.
     evidence: list[ConsolidationEvidence] = Field(default_factory=list, max_length=128)
+    evidence_ids: tuple[str, ...] = Field(default=(), max_length=32768)
     event_key: Identifier | None = None
     fact_key: Identifier | None = None
     importance_category: Literal["event", "fact", "decision", "explicit_constraint"] = "event"
@@ -100,7 +101,6 @@ class ConsolidatedMemory(CandidateMemory):
     # Defaults keep historical one-stage documents readable. The candidate
     # pipeline requires explicit IDs and a nonempty reason for every decision.
     candidate_ids: tuple[str, ...] = Field(default=(), max_length=256)
-    evidence_ids: tuple[str, ...] = Field(default=(), max_length=32768)
     reason: str = ""
     correction_evidence: ConsolidationEvidence | None = None
     correction_evidence_id: str | None = None
@@ -373,13 +373,14 @@ describes its uploader: preserve the actual subject and source attribution.
 Extract durable content across the supplied material, not merely content relevant
 to a current question. Return no tool calls if no durable claim is supported.
 
-Each candidate needs one or more exact evidence quotes and source_id values from
-the supplied ranges. Include enough subject, attribution, event and condition
-context to support the claim; a common isolated word is not sufficient evidence.
-Repeated exact quotes are valid: P3 binds all occurrences within the supplied
-range, without requiring unique wording. Never paraphrase, invent or stitch a
-quote. Prefer omitting offsets rather than calculating them; if supplied, they
-must be absolute original Unicode character offsets, not offsets into a fragment.
+Each source contains numbered fragments from natural lines in the supplied range.
+Each candidate needs evidence_ids selected from those fragments in THIS batch.
+Select enough fragments to include subject, attribution, event and condition
+context supporting the claim. Return the provided IDs, not copied quotes,
+source_id values or calculated offsets; leave evidence empty. Do not invent IDs
+or repeat an ID within one candidate. Different candidates may use the same
+fragment when it supports distinct claims. Repeated wording in separate fragments
+is valid. P3 binds selected IDs to exact original positions; do not stitch quotes.
 Extract only claims supported by the supplied material. Do not invent missing
 cross-boundary subjects, time, conditions or corrections; retain uncertainty when
 a fragment lacks context. Never treat a fragment boundary as an event boundary.
@@ -392,8 +393,9 @@ are optional ASCII retrieval hints, not proof of identity. These outputs have no
 database identity or persistence authority; Remember assigns stable candidate IDs.
 importance_category is event, fact, decision or explicit_constraint.
 Some ranges have representation=llmlingua: they are token-deleted source views,
-not additional messages. Quote exactly from the supplied text; NEVER calculate
-offsets for these views. P3 maps those quotes back to covering original excerpts.
+not additional messages. Select their provided fragment IDs in the same way.
+P3 maps those fragments back to covering original excerpts, including source text
+between retained characters. No quote reconstruction or offset calculation is needed.
 Deletion can remove a qualifier: do not infer a missing subject or condition.
 """
 
@@ -542,7 +544,7 @@ class OfficialLangMemConsolidation:
             "provider": "official_langmem",
             "langmem_version": "0.0.30",
             "model": self.model_id,
-            "prompt_version": "p3_consolidation_identity_v8_batch_evidence_references",
+            "prompt_version": "p3_consolidation_identity_v9_extraction_fragment_references",
             "prompt_hash": text_hash(_INSTRUCTIONS),
             "candidate_pipeline": self.supports_candidate_pipeline,
             "extraction_prompt_hash": text_hash(_EXTRACTION_INSTRUCTIONS),
@@ -635,6 +637,66 @@ class OfficialLangMemConsolidation:
             )
         return old, prepared
 
+    @staticmethod
+    def _extraction_references(
+        sources: dict[str, tuple[Any, str]],
+        ranges: dict[str, tuple[int, int]],
+        views: dict[str, CompressionView],
+    ) -> tuple[list[dict[str, Any]], dict[str, FactEvidence]]:
+        """Bind batch-local natural-line IDs to supplied original positions."""
+        for key, supplied_view in views.items():
+            if key not in ranges:
+                raise ValueError("compressed view outside supplied original ranges")
+            start, end = ranges[key]
+            supplied_view.validate_source(sources[key][1][start:end])
+        rows: list[dict[str, Any]] = []
+        references: dict[str, FactEvidence] = {}
+        for key, (start, end) in ranges.items():
+            source, original = sources[key]
+            view = views.get(key)
+            supplied = view.text if view is not None else original[start:end]
+            fragments = []
+            cursor = 0
+            for line in supplied.splitlines(keepends=True):
+                begin, finish = cursor, cursor + len(line)
+                cursor = finish
+                if not line.strip():
+                    continue
+                if view is not None:
+                    # Inserted separators point to the next retained character;
+                    # they must not expand the original span at either edge.
+                    positions = [
+                        view.offsets[index]
+                        for index in range(begin, finish)
+                        if supplied[index] == original[start + view.offsets[index]]
+                    ]
+                    if not positions:
+                        raise ValueError("compressed fragment has no original evidence")
+                    begin, finish = positions[0], positions[-1] + 1
+                begin, finish = start + begin, start + finish
+                reference = f"e{len(references) + 1}"
+                references[reference] = FactEvidence(
+                    source=source,
+                    start_char=begin,
+                    end_char=finish,
+                    quote=original[begin:finish],
+                )
+                fragments.append({"evidence_id": reference, "text": model_text(line)})
+            rows.append(
+                {
+                    "source_id": key,
+                    "fragments": fragments,
+                    "representation": "llmlingua" if view is not None else "original",
+                    "start_char": start,
+                    "end_char": end,
+                    "source_chars": len(original),
+                    "is_fragment": start != 0 or end != len(original),
+                    "has_prior_content": start > 0,
+                    "has_following_content": end < len(original),
+                }
+            )
+        return rows, references
+
     @classmethod
     def extraction_payload(
         cls,
@@ -646,30 +708,8 @@ class OfficialLangMemConsolidation:
         """JSON-serializable manager input, shared by budgeting and invocation."""
         sources = cls._original_sources(new_items)
         ranges = cls._validated_ranges(sources, source_ranges)
-        views = source_views or {}
-        for key, view in views.items():
-            if key not in ranges:
-                raise ValueError("compressed view outside supplied original ranges")
-            start, end = ranges[key]
-            view.validate_source(sources[key][1][start:end])
-        body = {
-            "sources": [
-                {
-                    "source_id": key,
-                    "text": model_text(
-                        views[key].text if key in views else sources[key][1][start:end]
-                    ),
-                    "representation": "llmlingua" if key in views else "original",
-                    "start_char": start,
-                    "end_char": end,
-                    "source_chars": len(sources[key][1]),
-                    "is_fragment": start != 0 or end != len(sources[key][1]),
-                    "has_prior_content": start > 0,
-                    "has_following_content": end < len(sources[key][1]),
-                }
-                for key, (start, end) in ranges.items()
-            ]
-        }
+        rows, _ = cls._extraction_references(sources, ranges, source_views or {})
+        body = {"sources": rows}
         return {
             "messages": [{"role": "user", "content": json.dumps(body, ensure_ascii=False)}],
             "existing": [],
@@ -752,6 +792,40 @@ class OfficialLangMemConsolidation:
                 )
             rows[item.candidate_id] = values
         return aliases, references, rows
+
+    @staticmethod
+    def _resolve_extraction_references(
+        fact: CandidateMemory,
+        references: dict[str, FactEvidence],
+    ) -> tuple[CandidateMemory, tuple[FactEvidence, ...] | None]:
+        if not fact.evidence_ids:
+            return fact, None  # Preserve exact-quote validation for legacy callers.
+        if fact.evidence:
+            raise ValueError("cannot mix evidence references and legacy evidence")
+        if len(set(fact.evidence_ids)) != len(fact.evidence_ids):
+            raise ValueError("evidence references must be distinct")
+        selected = []
+        for reference in fact.evidence_ids:
+            if reference not in references:
+                raise ValueError("unknown extraction evidence reference")
+            selected.append(references[reference])
+        # These positions come from this invocation's validated input, not from
+        # the model. Keep compressed-view evidence on the original-span path.
+        resolved = fact.model_copy(
+            update={
+                "evidence_ids": (),
+                "evidence": [
+                    ConsolidationEvidence(
+                        source_id=entry.source.source_id,
+                        quote=entry.quote,
+                        start_char=entry.start_char,
+                        end_char=entry.end_char,
+                    )
+                    for entry in selected
+                ],
+            }
+        )
+        return resolved, tuple(selected)
 
     @staticmethod
     def _resolve_evidence_references(
@@ -957,6 +1031,7 @@ class OfficialLangMemConsolidation:
             )
         sources = self._original_sources(new_items)
         ranges = self._validated_ranges(sources, source_ranges)
+        _, references = self._extraction_references(sources, ranges, source_views or {})
         output = await self._invoke_candidate_manager(
             self.extraction_manager,
             self.extraction_payload(new_items, source_ranges=ranges, source_views=source_views),
@@ -974,8 +1049,13 @@ class OfficialLangMemConsolidation:
             fact = CandidateMemory.model_validate(
                 content.model_dump() if isinstance(content, BaseModel) else content
             )
+            fact, known_evidence = self._resolve_extraction_references(fact, references)
             candidate = self._candidate_from_fact(
-                fact, sources, source_ranges=ranges, source_views=source_views
+                fact,
+                sources,
+                source_ranges=ranges,
+                source_views=source_views,
+                known_evidence=known_evidence,
             )
             candidate_id = fingerprint([candidate.model_dump(mode="json")])
             # Exact duplicate tool outputs share the same task-local candidate.

@@ -13,6 +13,7 @@ from typing import Any, cast
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+from aether_agent_memory.remember.basic.extraction import EvidenceValidationError
 from aether_agent_memory.remember.basic.llmlingua import (
     CompressionView,
     LLMLinguaPreprocessor,
@@ -30,6 +31,50 @@ from aether_agent_memory.remember.contracts.models import MemoryKind, MemorySnap
 from aether_agent_memory.remember.langmem_model import LangMemOutputTruncatedError
 from aether_agent_memory.runtime.contracts.models import ErrorCode
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
+
+
+def _record_stage_failure(
+    owner: Any, task: Any, stage: str, binding: str, error: Exception
+) -> None:
+    """Best-effort bounded technical diagnostics, never exception messages/data.
+
+    This is independent of task retry/commit semantics. A stale task or failed
+    diagnostic write must never hide the original provider/validation exception.
+    """
+    try:
+        record = {
+            "task_id": task.task_id,
+            "stage": stage,
+            "binding": binding,
+            "exception_type": type(error).__name__,
+        }
+        if isinstance(error, EvidenceValidationError):
+            reason = error.feedback.get("reason")
+            # The feedback also contains source IDs, quotes and candidate text.
+            # Even reason is allowed only when it is a known application code.
+            if reason in {
+                "unknown_source_id",
+                "quote_not_in_source",
+                "quote_not_in_candidate",
+                "source_not_in_supplied_ranges",
+            }:
+                record["reason"] = reason
+        elif isinstance(error, FoundationError) and isinstance(error.code, ErrorCode):
+            record["code"] = error.code.value
+        key = fingerprint([task.task_id, stage, binding])
+        with owner.uow.transaction() as tx:
+            owner.tasks.guard(tx, task)
+            previous = tx.read("remember_stage_failures", key) or {}
+            attempts = previous.get("attempts", 0)
+            tx.write(
+                "remember_stage_failures",
+                key,
+                {**record, "attempts": (attempts if type(attempts) is int else 0) + 1},
+            )
+    except Exception:
+        # There is deliberately no fallback logger: formatting the original
+        # exception can expose provider credentials or model/source contents.
+        return
 
 
 def _cost(owner: Any, stage: str, payload: dict[str, Any]) -> int:
@@ -590,11 +635,15 @@ async def prepare_candidate_consolidation(
                 split_reason = None
             if capacity_failures >= 2:
                 raise _short_capacity_error()
-        views = (
-            await _precompressed_views(owner, part, guard_sources, ctx=ctx, task=task)
-            if split_reason is None and saved is None
-            else {}
-        )
+        try:
+            views = (
+                await _precompressed_views(owner, part, guard_sources, ctx=ctx, task=task)
+                if split_reason is None and saved is None
+                else {}
+            )
+        except Exception as exc:
+            _record_stage_failure(owner, task, "precompression", binding, exc)
+            raise
         if (
             split_reason is None
             and saved is None
@@ -622,6 +671,9 @@ async def prepare_candidate_consolidation(
                     result = CandidateExtractionResult.model_validate(saved)
             except CandidateCapacityError:
                 split_reason = "output_capacity"
+            except Exception as exc:
+                _record_stage_failure(owner, task, "extraction", binding, exc)
+                raise
             if result is not None and len(result.candidates) > owner.policy.max_candidates:
                 split_reason = "candidate_capacity"
         if split_reason is not None:
@@ -839,6 +891,9 @@ async def prepare_candidate_consolidation(
                     decision_result = ConsolidationResult.model_validate(saved)
             except LangMemOutputTruncatedError:
                 split_reason = "output_capacity"
+            except Exception as exc:
+                _record_stage_failure(owner, task, "decision", binding, exc)
+                raise
         if split_reason is not None:
             with owner.uow.transaction() as tx:
                 guard_decision(tx)
