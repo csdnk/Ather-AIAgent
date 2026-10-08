@@ -9,8 +9,8 @@ from aether_agent_memory.runtime.contracts.models import ContractModel, Identifi
 
 
 class RememberPolicy(ContractModel):
-    # v13 adds per-long-Working LLMLingua views; original source remains authority.
-    version: Identifier = "remember_v13"
+    # v14 uses LangChain recursive source chunks and bounded candidate batches.
+    version: Identifier = "remember_v14"
     long_memory_route: Literal["llmlingua", "direct"] = "llmlingua"
     llmlingua_keep_rate: float = Field(default=0.8, gt=0, le=1, allow_inf_nan=False)
     llmlingua_model: str = "microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank"
@@ -47,7 +47,13 @@ class RememberPolicy(ContractModel):
     # Historical configuration/task field only; processing ignores it even when
     # an old snapshot requests overlap. Existing memory comparison is unchanged.
     consolidation_overlap_messages: int = Field(default=0, ge=0, le=2)
+    # Character/batch defaults follow Hindsight retain/consolidation defaults;
+    # 4096 is this project's configurable tokenizer ceiling, not an industry default.
+    # https://github.com/vectorize-io/hindsight/blob/fb11ddfeac4d5fe9e9ffd96ce144a5284ad7f5a5/hindsight-api-slim/hindsight_api/config.py#L1643
+    extraction_chunk_chars: int = Field(default=3000, ge=1)
     extraction_chunk_tokens: int = Field(default=4096, ge=16)
+    # Target size only: a connected old-target group remains indivisible.
+    decision_batch_candidates: int = Field(default=8, ge=1, le=256)
     extraction_split_depth: int = Field(default=8, ge=1, le=16)
     projection_chunk_tokens: int = Field(default=256, ge=8)
     # Bound retries per original-body chunk, not the number of chunks in a file.

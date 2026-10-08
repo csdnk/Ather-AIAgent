@@ -100,8 +100,10 @@ class ConsolidatedMemory(CandidateMemory):
     # Defaults keep historical one-stage documents readable. The candidate
     # pipeline requires explicit IDs and a nonempty reason for every decision.
     candidate_ids: tuple[str, ...] = Field(default=(), max_length=256)
+    evidence_ids: tuple[str, ...] = Field(default=(), max_length=32768)
     reason: str = ""
     correction_evidence: ConsolidationEvidence | None = None
+    correction_evidence_id: str | None = None
 
 
 class ExtractedCandidate(ContractModel):
@@ -410,7 +412,7 @@ candidate_ids when several candidates describe the same result. Every input
 candidate_id must appear exactly once across your returned documents, including
 when the result is unchanged. Never silently omit an unchanged candidate. Do not
 invent candidate IDs or existing IDs. Use a PatchDoc for a targeted relationship;
-patch the supplied existing ID's fields, candidate_ids, evidence and reason. These
+patch the supplied existing ID's fields, candidate_ids, evidence_ids and reason. These
 patches are proposals only: P3 applies the action later. Existing documents not
 associated with any candidate must remain untouched. For a distinct new memory,
 insert ConsolidatedMemory with relationship=create and the covered candidate_ids.
@@ -428,8 +430,8 @@ Choose one of these actions:
 - correct: an explicitly supported correction or effective-time update to the
   SAME fact or occurrence. Return the complete updated body, change only the
   superseded assertion, and retain all still-valid details and qualifications.
-  Supply correction_evidence as an exact cited candidate evidence quote containing
-  the explicit correction, supersession or effective-time change. Explain that
+  Supply correction_evidence_id from your selected evidence_ids, identifying the
+  explicit correction, supersession or effective-time change. Explain that
   basis in reason. Mere recency, similarity or model preference is insufficient.
   P3 creates a new version of that ID; the historical version remains retained.
 - conflict: same identity, incompatible assertions, and no explicit supported
@@ -449,13 +451,16 @@ accounting for every grouped candidate. Never merge multiple old IDs into one.
 If several incompatible NEW assertions relate to one old ID, group them into one
 conflict body preserving each assertion and its attribution; do not choose truth.
 
-Each decision needs a nonempty reason and evidence from EACH covered candidate.
-Copy the exact source_id and quote supplied in those candidates. Repeated quotes
-are shown once with a spans list of their already verified original positions.
-Do not echo the spans field: omit start_char/end_char to cite all those positions,
-or copy one supplied pair to select that occurrence. Never calculate offsets.
-These positions refer to the complete original, not a processing fragment. Use no new
-quotes, stitching, paraphrasing or comparison-only evidence. Input excerpts were
+Each decision needs a nonempty reason and evidence_ids from EACH covered candidate.
+Use the short candidate IDs (c1, c2, ...) and evidence IDs (e1, e2, ...) supplied
+in THIS batch. They are references, not IDs to invent or derive. Return evidence_ids,
+leave the legacy evidence list empty, and omit legacy correction_evidence.
+Do not copy source IDs, quote strings or numeric offsets into output evidence.
+P3 resolves evidence IDs to the exact original source and every verified position.
+Repeated quotes are shown once with all their spans for interpretation; one
+evidence ID preserves all those positions. A correction_evidence_id must be one
+of your selected evidence_ids. Use no new quotes, stitching, paraphrasing or
+comparison-only evidence. Input excerpts were
 validated against stored originals; full originals are not resent in this stage.
 Keep the candidate memory kind. Reuse/amend/correct require the same target kind;
 a conflict creates a separate memory and may refer to a different target kind.
@@ -537,7 +542,7 @@ class OfficialLangMemConsolidation:
             "provider": "official_langmem",
             "langmem_version": "0.0.30",
             "model": self.model_id,
-            "prompt_version": "p3_consolidation_identity_v7_complete_candidate_ranges",
+            "prompt_version": "p3_consolidation_identity_v8_batch_evidence_references",
             "prompt_hash": text_hash(_INSTRUCTIONS),
             "candidate_pipeline": self.supports_candidate_pipeline,
             "extraction_prompt_hash": text_hash(_EXTRACTION_INSTRUCTIONS),
@@ -680,20 +685,22 @@ class OfficialLangMemConsolidation:
     ) -> dict[str, Any]:
         """Send candidates and evidence excerpts, never the complete originals."""
         _, prepared = cls._existing_documents(existing)
+        aliases, _, evidence_rows = cls._decision_references(candidates)
+        short_ids = {original: alias for alias, original in aliases.items()}
         body = {
             "candidates": [
                 {
-                    "candidate_id": item.candidate_id,
+                    "candidate_id": short_ids[item.candidate_id],
                     "text": item.candidate.text,
                     "kind": item.candidate.kind,
                     "event_key": item.candidate.event_key,
                     "fact_key": item.candidate.fact_key,
                     "importance_category": item.candidate.importance_category,
-                    "evidence": cls._evidence_payload(item.candidate.evidence),
+                    "evidence": evidence_rows[item.candidate_id],
                 }
                 for item in candidates
             ],
-            "related_ids": related_ids,
+            "related_ids": {short_ids[key]: values for key, values in related_ids.items()},
         }
         return {
             "messages": [{"role": "user", "content": json.dumps(body, ensure_ascii=False)}],
@@ -704,6 +711,93 @@ class OfficialLangMemConsolidation:
             ],
             "max_steps": 1,
         }
+
+    @classmethod
+    def _decision_references(
+        cls, candidates: tuple[ExtractedCandidate, ...]
+    ) -> tuple[
+        dict[str, str],
+        dict[str, tuple[str, tuple[FactEvidence, ...]]],
+        dict[str, list[dict[str, Any]]],
+    ]:
+        """Batch-local references never replace persisted candidate/source IDs."""
+        aliases = {}
+        references: dict[str, tuple[str, tuple[FactEvidence, ...]]] = {}
+        rows = {}
+        source_aliases: dict[str, str] = {}
+        for index, item in enumerate(candidates, 1):
+            aliases[f"c{index}"] = item.candidate_id
+            values = []
+            for grouped in cls._evidence_payload(item.candidate.evidence):
+                reference = f"e{len(references) + 1}"
+                matches = tuple(
+                    entry
+                    for entry in item.candidate.evidence
+                    if entry.source.source_id == grouped["source_id"]
+                    and model_text(entry.quote) == grouped["quote"]
+                )
+                references[reference] = (item.candidate_id, matches)
+                source_id = grouped["source_id"]
+                source_aliases.setdefault(source_id, f"s{len(source_aliases) + 1}")
+                values.append(
+                    {
+                        "evidence_id": reference,
+                        "source_ref": source_aliases[source_id],
+                        "quote": grouped["quote"],
+                        "spans": [
+                            {"start_char": entry.start_char, "end_char": entry.end_char}
+                            for entry in matches
+                        ],
+                    }
+                )
+            rows[item.candidate_id] = values
+        return aliases, references, rows
+
+    @staticmethod
+    def _resolve_evidence_references(
+        fact: ConsolidatedMemory,
+        ids: tuple[str, ...],
+        references: dict[str, tuple[str, tuple[FactEvidence, ...]]],
+    ) -> ConsolidatedMemory:
+        if not fact.evidence_ids and fact.correction_evidence_id is None:
+            return fact  # Historical callers still use fully specified evidence.
+        if fact.evidence or fact.correction_evidence is not None:
+            raise ValueError("cannot mix evidence references and legacy evidence")
+        if not fact.evidence_ids or len(set(fact.evidence_ids)) != len(fact.evidence_ids):
+            raise ValueError("evidence references must be nonempty and distinct")
+        evidence = {}
+        for reference in fact.evidence_ids:
+            value = references.get(reference)
+            if value is None or value[0] not in ids:
+                raise ValueError(
+                    "evidence reference is unknown or belongs to an uncovered candidate"
+                )
+            for entry in value[1]:
+                evidence[fingerprint(entry.model_dump(mode="json"))] = ConsolidationEvidence(
+                    source_id=entry.source.source_id,
+                    quote=entry.quote,
+                    start_char=entry.start_char,
+                    end_char=entry.end_char,
+                )
+        correction = None
+        if fact.correction_evidence_id is not None:
+            if fact.correction_evidence_id not in fact.evidence_ids:
+                raise ValueError("correction evidence reference must be selected decision evidence")
+            entry = references[fact.correction_evidence_id][1][0]
+            correction = ConsolidationEvidence(
+                source_id=entry.source.source_id,
+                quote=entry.quote,
+                start_char=entry.start_char,
+                end_char=entry.end_char,
+            )
+        # Expanded positions are already validated input, not model-supplied
+        # copies. A single reference may restore more than 128 repeated spans.
+        return fact.model_copy(
+            update={
+                "evidence": list(evidence.values()),
+                "correction_evidence": correction,
+            }
+        )
 
     @staticmethod
     def _evidence_payload(evidence: tuple[FactEvidence, ...]) -> list[dict[str, Any]]:
@@ -778,7 +872,8 @@ class OfficialLangMemConsolidation:
                         raise ValueError("compressed evidence must omit numeric offsets")
                     spans = (
                         view.evidence(text[begin:finish], entry.quote)
-                        if view is not None else evidence_spans(text[begin:finish], entry.quote)
+                        if view is not None
+                        else evidence_spans(text[begin:finish], entry.quote)
                     )
                 except ValueError as exc:
                     raise EvidenceValidationError(
@@ -937,6 +1032,9 @@ class OfficialLangMemConsolidation:
         for target_ids in related_ids.values():
             if len(set(target_ids)) != len(target_ids) or not set(target_ids).issubset(old):
                 raise ValueError("invalid retrieved target mapping")
+        candidate_aliases, evidence_references, _ = self._decision_references(
+            tuple(submitted.values())
+        )
         output = await self._invoke_candidate_manager(
             self.decision_manager,
             self.decision_payload(tuple(submitted.values()), existing, related_ids),
@@ -959,7 +1057,7 @@ class OfficialLangMemConsolidation:
                 # The manager appends untouched current memories. They are not
                 # decisions and cannot silently account for a new candidate.
                 continue
-            ids = fact.candidate_ids
+            ids = tuple(candidate_aliases.get(cid, cid) for cid in fact.candidate_ids)
             if (
                 not ids
                 or len(set(ids)) != len(ids)
@@ -975,6 +1073,7 @@ class OfficialLangMemConsolidation:
                 for cid in ids
                 for e in submitted[cid].candidate.evidence
             }
+            fact = self._resolve_evidence_references(fact, ids, evidence_references)
             proposal = self._candidate_from_fact(
                 fact, sources, known_evidence=tuple(allowed.values())
             )

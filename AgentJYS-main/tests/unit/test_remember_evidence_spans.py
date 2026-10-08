@@ -170,3 +170,204 @@ async def test_repeated_evidence_does_not_bypass_source_hash_verification():
     )
     with pytest.raises(ValueError, match="source original bytes"):
         await extractor(value).extract_candidates(None, (tampered,), "p1")
+
+
+async def short_reference_inputs():
+    originals = (
+        snapshot("one", "Correction: Alice now uses Linux.\n" * 3),
+        snapshot("two", "Alice uses Linux only for work."),
+    )
+    adapter = extractor(None)
+    candidates = []
+    for original in originals:
+        adapter.extraction_manager = Manager(
+            lambda _, original=original: [
+                row(
+                    "generated",
+                    CandidateMemory(
+                        text=original.content.splitlines()[0],
+                        kind="semantic",
+                        evidence=[
+                            {
+                                "source_id": original.sources[0].source_id,
+                                "quote": original.content.splitlines()[0],
+                            }
+                        ],
+                    ),
+                )
+            ]
+        )
+        candidates.extend((await adapter.extract_candidates(None, (original,), "p1")).candidates)
+    return adapter, originals, tuple(candidates)
+
+
+async def test_short_decision_ids_restore_all_grouped_evidence_and_duplicate_positions():
+    adapter, originals, candidates = await short_reference_inputs()
+    payload = adapter.decision_payload(candidates, (), {c.candidate_id: () for c in candidates})
+    sent = json.loads(payload["messages"][0]["content"])
+    assert [c["candidate_id"] for c in sent["candidates"]] == ["c1", "c2"]
+    assert set(sent["related_ids"]) == {"c1", "c2"}
+    assert [c["evidence"][0]["evidence_id"] for c in sent["candidates"]] == ["e1", "e2"]
+    assert "source_id" not in sent["candidates"][0]["evidence"][0]
+    decision = ConsolidatedMemory(
+        text="Alice now uses Linux only for work.",
+        kind="semantic",
+        candidate_ids=("c1", "c2"),
+        evidence_ids=("e1", "e2"),
+        reason="Compatible details.",
+    )
+    adapter.decision_manager = Manager(lambda _: [row("new", decision)])
+    result = await adapter.decide_candidates(
+        None,
+        candidates,
+        (),
+        "p1",
+        originals=originals,
+        related_ids={c.candidate_id: () for c in candidates},
+    )
+    proposal = result.proposals[0]
+    assert proposal.candidate_ids == tuple(c.candidate_id for c in candidates)
+    assert proposal.candidate.evidence == tuple(e for c in candidates for e in c.candidate.evidence)
+
+
+@pytest.mark.parametrize("references", [("e999",), ("e2",)])
+async def test_short_evidence_reference_rejects_unknown_or_uncovered_candidate(references):
+    adapter, originals, candidates = await short_reference_inputs()
+    decision = ConsolidatedMemory(
+        text=candidates[0].candidate.text,
+        kind="semantic",
+        candidate_ids=("c1",),
+        evidence_ids=references,
+        reason="New fact.",
+    )
+    adapter.decision_manager = Manager(lambda _: [row("new", decision)])
+    with pytest.raises(ValueError, match="evidence reference"):
+        await adapter.decide_candidates(
+            None,
+            candidates,
+            (),
+            "p1",
+            originals=originals,
+            related_ids={c.candidate_id: () for c in candidates},
+        )
+
+
+async def test_correction_short_evidence_id_resolves_to_original_quote():
+    adapter, originals, candidates = await short_reference_inputs()
+    candidates = candidates[:1]
+    old = snapshot("old", "Alice uses Windows.", MemoryKind.SEMANTIC)
+    decision = ConsolidatedMemory(
+        text="Alice now uses Linux.",
+        kind="semantic",
+        relationship="correct",
+        candidate_ids=("c1",),
+        evidence_ids=("e1",),
+        correction_evidence_id="e1",
+        reason="An explicit correction of the earlier preference.",
+    )
+    adapter.decision_manager = Manager(lambda _: [row("old", decision)])
+    result = await adapter.decide_candidates(
+        None,
+        candidates,
+        (old,),
+        "p1",
+        originals=originals,
+        related_ids={candidates[0].candidate_id: ("old",)},
+    )
+    assert result.proposals[0].decision.evidence_quote == "Correction: Alice now uses Linux."
+    assert result.proposals[0].candidate.evidence == candidates[0].candidate.evidence
+
+
+@pytest.mark.parametrize("invalid", ["missing_group_evidence", "mixed_legacy", "bad_correction"])
+async def test_short_references_do_not_weaken_coverage_or_correction_checks(invalid):
+    adapter, originals, candidates = await short_reference_inputs()
+    decision = ConsolidatedMemory(
+        text="Alice now uses Linux only for work.",
+        kind="semantic",
+        candidate_ids=("c1", "c2") if invalid == "missing_group_evidence" else ("c1",),
+        evidence_ids=("e1",),
+        reason="Candidate-supported fact.",
+        evidence=[{"source_id": "src_one", "quote": originals[0].content.splitlines()[0]}]
+        if invalid == "mixed_legacy"
+        else [],
+        correction_evidence_id="e2" if invalid == "bad_correction" else None,
+    )
+    adapter.decision_manager = Manager(lambda _: [row("new", decision)])
+    with pytest.raises(ValueError, match="every covered|cannot mix|correction evidence reference"):
+        await adapter.decide_candidates(
+            None,
+            candidates,
+            (),
+            "p1",
+            originals=originals,
+            related_ids={c.candidate_id: () for c in candidates},
+        )
+
+
+@pytest.mark.parametrize("correct", [False, True])
+async def test_official_manager_supports_short_evidence_tools_and_patches(correct):
+    from langchain_core.language_models import BaseChatModel
+    from langchain_core.messages import AIMessage
+    from langchain_core.outputs import ChatGeneration, ChatResult
+
+    _, originals, candidates = await short_reference_inputs()
+    candidates = candidates[:1]
+    old = snapshot("old", "Alice uses Windows.", MemoryKind.SEMANTIC)
+    decision = ConsolidatedMemory(
+        text="Alice now uses Linux.",
+        kind="semantic",
+        candidate_ids=("c1",),
+        evidence_ids=("e1",),
+        relationship="correct" if correct else "create",
+        correction_evidence_id="e1" if correct else None,
+        reason="Explicit new preference.",
+    )
+
+    class ScriptedModel(BaseChatModel):
+        @property
+        def _llm_type(self):
+            return "evidence-reference-tool-test"
+
+        def bind_tools(self, tools, **kwargs):
+            return self.bind(tools=tools, **kwargs)
+
+        def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+            args = decision.model_dump(mode="json")
+            if correct:
+                args = {
+                    "json_doc_id": "old",
+                    "planned_edits": "Apply explicit correction.",
+                    "patches": [
+                        {"op": "replace", "path": "/" + key, "value": value}
+                        for key, value in args.items()
+                    ],
+                }
+            return ChatResult(
+                generations=[
+                    ChatGeneration(
+                        message=AIMessage(
+                            content="",
+                            tool_calls=[
+                                {
+                                    "id": "call-reference",
+                                    "name": "PatchDoc" if correct else "ConsolidatedMemory",
+                                    "args": args,
+                                }
+                            ],
+                        )
+                    )
+                ]
+            )
+
+    adapter = OfficialLangMemConsolidation.from_model(ScriptedModel(), "reference-test")
+    result = await adapter.decide_candidates(
+        None,
+        candidates,
+        (old,) if correct else (),
+        "p1",
+        originals=originals,
+        related_ids={candidates[0].candidate_id: ("old",) if correct else ()},
+    )
+    assert result.proposals[0].candidate_ids == (candidates[0].candidate_id,)
+    assert result.proposals[0].candidate.evidence == candidates[0].candidate.evidence
+    assert result.proposals[0].decision.outcome == ("correct" if correct else "create")

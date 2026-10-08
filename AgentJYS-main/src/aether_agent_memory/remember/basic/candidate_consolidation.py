@@ -7,10 +7,11 @@ candidates are evidence-bound task data, never persisted long-term memories.
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, cast
+
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from aether_agent_memory.remember.basic.llmlingua import (
     CompressionView,
@@ -22,8 +23,8 @@ from aether_agent_memory.remember.basic.official_langmem import (
     CandidateExtractionResult,
     ConsolidationResult,
     ExtractedCandidate,
+    OfficialLangMemConsolidation,
 )
-from aether_agent_memory.remember.basic.policy import chunks
 from aether_agent_memory.remember.contracts.foundation import DerivedArtifact
 from aether_agent_memory.remember.contracts.models import MemoryKind, MemorySnapshot
 from aether_agent_memory.remember.langmem_model import LangMemOutputTruncatedError
@@ -34,11 +35,14 @@ from aether_agent_memory.runtime.foundation.common import FoundationError, finge
 def _cost(owner: Any, stage: str, payload: dict[str, Any]) -> int:
     # Measure serialized IDs/evidence as well as text. Leave headroom for the
     # official manager/tool wrappers; this is not a provider context guarantee.
-    return cast(int, (
-        owner.tokenizer.count(json.dumps(payload, ensure_ascii=False, default=str))
-        + owner.tokenizer.count(owner.extraction.input_instructions(stage))
-        + owner.policy.consolidation_context_reserve_tokens
-    ))
+    return cast(
+        int,
+        (
+            owner.tokenizer.count(json.dumps(payload, ensure_ascii=False, default=str))
+            + owner.tokenizer.count(owner.extraction.input_instructions(stage))
+            + owner.policy.consolidation_context_reserve_tokens
+        ),
+    )
 
 
 @dataclass(frozen=True)
@@ -115,7 +119,7 @@ async def _precompressed_views(
                 source=source,
                 kind="compressed",
                 task_id=task.task_id,
-                strategy_version="llmlingua2_original_mapping_v1",
+                strategy_version=processor.model_identity["adapter"],
                 location=location.model_copy(update={"kind": "artifact"}),
                 quality="not_sampled",
                 created_at=owner.identity.clock(),
@@ -189,35 +193,79 @@ def precompression_artifact_status(
     return result
 
 
-def _boundary(text: str, start: int, limit: int) -> int:
-    """Prefer a paragraph/sentence end, while making progress for an oversized line."""
-    window = text[start:limit]
-    floor = max(1, len(window) // 2)
-    paragraphs = [m.end() for m in re.finditer(r"(?:\r?\n){2,}", window) if m.end() >= floor]
-    if paragraphs:
-        return start + paragraphs[-1]
-    endings = [
-        m.end()
-        for m in re.finditer(r"[。！？!?][”’\"']?\s*|(?<=[.!?])\s+|\r?\n", window)
-        if m.end() >= floor
-    ]
-    return start + endings[-1] if endings else limit
+# Hindsight's paragraph/sentence/word hierarchy, extended with the separators
+# recommended by LangChain for text without word boundaries (including Chinese).
+# https://github.com/vectorize-io/hindsight/blob/fb11ddfeac4d5fe9e9ffd96ce144a5284ad7f5a5/hindsight-api-slim/hindsight_api/engine/retain/fact_extraction.py
+# https://github.com/langchain-ai/langchain/blob/6b5fdfb8049addd7d8eef98e835a3204a26f553c/libs/text-splitters/langchain_text_splitters/character.py
+_SOURCE_SEPARATORS = [
+    "\r\n\r\n",
+    "\n\n",
+    "\r\n",
+    "\n",
+    ". ",
+    "! ",
+    "? ",
+    "。",
+    "！",
+    "？",
+    "．",
+    "; ",
+    "；",
+    ", ",
+    "，",
+    "、",
+    "：",
+    " ",
+    "\t",
+    "\u200b",
+    "",
+]
 
 
-def _ranges(owner: Any, text: str) -> list[tuple[int, int]]:
+def _recursive_pieces(text: str, budget: int, count: Callable[[str], int]) -> list[str]:
+    pieces = RecursiveCharacterTextSplitter(
+        separators=_SOURCE_SEPARATORS,
+        chunk_size=budget,
+        chunk_overlap=0,
+        length_function=count,
+        keep_separator="end",
+        strip_whitespace=False,
+        is_separator_regex=False,
+    ).split_text(text)
+    if "".join(pieces) != text or any(not piece for piece in pieces):
+        raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "source splitter changed original text")
+    return pieces
+
+
+def _ranges(owner: Any, text: str, *, char_budget: int | None = None) -> list[tuple[int, int]]:
+    """Use official recursive splitting; derive offsets only by exact concatenation."""
+    character_limit = char_budget or owner.policy.extraction_chunk_chars
+    token_limit = owner.policy.extraction_chunk_tokens
+    pending = list(reversed(_recursive_pieces(text, character_limit, len)))
+    pieces = []
+    while pending:
+        piece = pending.pop()
+        if owner.tokenizer.count(piece) <= token_limit:
+            pieces.append(piece)
+            continue
+        if len(piece) == 1:
+            raise FoundationError(
+                ErrorCode.CONTRACT_VIOLATION, "single character exceeds model token capacity"
+            )
+        smaller = _recursive_pieces(piece, token_limit, owner.tokenizer.count)
+        # Token counts are not necessarily additive across joined substrings.
+        # Recount the actual model input, reducing character targets through the
+        # same component if its token-based merge cannot make bounded progress.
+        if len(smaller) == 1 or any(
+            owner.tokenizer.count(value) > token_limit for value in smaller
+        ):
+            smaller = _recursive_pieces(piece, max(1, len(piece) // 2), len)
+        pending.extend(reversed(smaller))
     result = []
-    start = 0
-    budget = owner.policy.extraction_chunk_tokens
-    while start < len(text):
-        # At most budget*8 characters are examined at once; source offsets are
-        # never changed by normalization or by an earlier extraction result.
-        limit = min(len(text), start + budget * 8)
-        piece = chunks(text[start:limit], owner.tokenizer.count, budget)[0]
-        end = start + piece[1]
-        if end < len(text):
-            end = _boundary(text, start, end)
-        result.append((start, end))
-        start = end
+    offset = 0
+    for piece in pieces:
+        result.append((offset, offset + len(piece)))
+        offset += len(piece)
     return result
 
 
@@ -226,29 +274,65 @@ def _extraction_batches(owner: Any, items: tuple[MemorySnapshot, ...]) -> list[_
     batches: list[_ExtractionPart] = []
     current: tuple[MemorySnapshot, ...] = ()
     ranges: dict[str, tuple[int, int]] = {}
-    tokens = 0
+    tokens, characters = 0, 0
     for item in items:
-        for start, end in _ranges(owner, item.content):
+        item_ranges = (
+            [(0, len(item.content))]
+            if len(item.content.encode("utf-8")) < owner.policy.compression_min_bytes
+            else _ranges(owner, item.content)
+        )
+        for start, end in item_ranges:
             part_ranges = {s.source_id: (start, end) for s in item.sources}
             cost = owner.tokenizer.count(item.content[start:end])
             proposed = _ExtractionPart((*current, item), {**ranges, **part_ranges})
             if current and (
                 tokens + cost > owner.policy.extraction_chunk_tokens
+                or characters + end - start > owner.policy.extraction_chunk_chars
                 or set(ranges).intersection(part_ranges)
                 or _cost(owner, "extraction", proposed.payload(owner))
                 > owner.policy.comparison_context_tokens
             ):
                 batches.append(_ExtractionPart(current, ranges))
-                current, ranges, tokens = (), {}, 0
+                current, ranges, tokens, characters = (), {}, 0, 0
             current = (*current, item)
             ranges = {**ranges, **part_ranges}
             tokens += cost
+            characters += end - start
     if current:
         batches.append(_ExtractionPart(current, ranges))
     return batches
 
 
-def _split_part(owner: Any, part: _ExtractionPart) -> tuple[_ExtractionPart, _ExtractionPart]:
+def _complete_short_part(owner: Any, part: _ExtractionPart) -> bool:
+    short_items = [
+        item
+        for item in part.items
+        if len(item.content.encode("utf-8")) < owner.policy.compression_min_bytes
+    ]
+    for item in short_items:
+        if not item.sources or any(
+            part.ranges.get(source.source_id) != (0, len(item.content)) for source in item.sources
+        ):
+            raise FoundationError(
+                ErrorCode.CONTRACT_VIOLATION,
+                "incomplete short message source range cannot be extracted or subdivided",
+            )
+    return len(part.items) == 1 and len(short_items) == 1
+
+
+def _short_capacity_error() -> FoundationError:
+    return FoundationError(
+        ErrorCode.CONTRACT_VIOLATION,
+        "complete short message exceeds extraction capacity; "
+        "source remains unprocessed and was not split within the message",
+    )
+
+
+def _split_part(owner: Any, part: _ExtractionPart) -> tuple[_ExtractionPart, ...]:
+    # A short statement's subject and predicate are one semantic unit. An output
+    # limit is not evidence that its input can safely be divided by character.
+    if _complete_short_part(owner, part):
+        raise _short_capacity_error()
     if part.depth >= owner.policy.extraction_split_depth:
         raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "extraction subdivision limit exceeded")
     if len(part.items) > 1:
@@ -269,12 +353,19 @@ def _split_part(owner: Any, part: _ExtractionPart) -> tuple[_ExtractionPart, _Ex
         raise FoundationError(
             ErrorCode.CONTRACT_VIOLATION, "minimal source part still exceeds extraction capacity"
         )
-    middle = _boundary(item.content, start, start + (end - start) // 2)
-    children = tuple(
-        _ExtractionPart(part.items, {s.source_id: bounds for s in item.sources}, part.depth + 1)
-        for bounds in ((start, middle), (middle, end))
+    ranges = _ranges(
+        owner,
+        item.content[start:end],
+        char_budget=min(owner.policy.extraction_chunk_chars, max(1, (end - start) // 2)),
     )
-    return children[0], children[1]
+    return tuple(
+        _ExtractionPart(
+            part.items,
+            {s.source_id: (start + begin, start + finish) for s in item.sources},
+            part.depth + 1,
+        )
+        for begin, finish in ranges
+    )
 
 
 def _components(
@@ -329,17 +420,23 @@ def _decision_output_cost(
 
     This is a packing estimate, not a completeness guarantee: the model may
     merge facts or write a longer explanation. Truncation still causes a split.
-    Repeated source occurrences need not repeat the same quote in model output.
+    The decision model emits batch-local c/e references, not copied source quotes.
     """
     tokens = 256  # Tool-call envelopes and finishing headroom.
+    aliases, references, _ = OfficialLangMemConsolidation._decision_references(candidates)
+    short_ids = {original: alias for alias, original in aliases.items()}
     for entry in candidates:
         candidate = entry.candidate
-        quotes = dict.fromkeys((e.source.source_id, e.quote) for e in candidate.evidence)
+        evidence_ids = [
+            key for key, (owner_id, _) in references.items() if owner_id == entry.candidate_id
+        ]
         body = {
             "text": candidate.text,
             "kind": candidate.kind,
-            "candidate_ids": [entry.candidate_id],
-            "evidence": [{"source_id": source, "quote": quote} for source, quote in quotes],
+            "candidate_ids": [short_ids[entry.candidate_id]],
+            "evidence_ids": evidence_ids,
+            "evidence": [],
+            "correction_evidence_id": evidence_ids[0] if evidence_ids else None,
             "event_key": candidate.event_key,
             "fact_key": candidate.fact_key,
             "importance_category": candidate.importance_category,
@@ -348,7 +445,14 @@ def _decision_output_cost(
         # Reserve explanation/patch overhead per potential decision. Retained
         # old details can appear in amended/no-change bodies as well.
         tokens += owner.tokenizer.count(json.dumps(body, ensure_ascii=False)) + 128
-    tokens += sum(owner.tokenizer.count(item.content) for item in existing)
+    tokens += sum(
+        owner.tokenizer.count(
+            json.dumps(
+                {"json_doc_id": item.ref.memory_id, "text": item.content}, ensure_ascii=False
+            )
+        )
+        for item in existing
+    )
     return int(tokens)
 
 
@@ -399,6 +503,7 @@ def _decision_batches(
             )
         if current and (
             len(current) + len(component) > 256
+            or len(current) + len(component) > owner.policy.decision_batch_candidates
             or cost((*current, *component)) > owner.policy.comparison_context_tokens
             or output_cost((*current, *component)) > _decision_output_limit(owner)
         ):
@@ -466,12 +571,25 @@ async def prepare_candidate_consolidation(
                 [[i.ref.model_dump(mode="json"), i.content_hash] for i in batch],
             ]
         )
-        extraction_bindings.append(binding)
+        if binding not in extraction_bindings:
+            extraction_bindings.append(binding)
         with owner.uow.transaction() as tx:
             guard_sources(tx)
             saved = tx.read("remember_candidate_extractions", binding)
             split = tx.read("remember_candidate_extraction_splits", binding)
+            capacity_failures = tx.read("remember_short_extraction_failures", binding) or 0
         split_reason = (split or {}).get("reason")
+        whole_short = _complete_short_part(owner, part)
+        if whole_short and saved is not None:
+            split_reason = None
+        if whole_short and saved is None:
+            # Older workers persisted an unsafe split after their first failure.
+            # Resume at the complete parent, never replay its partial children.
+            if split_reason in {"output_capacity", "candidate_capacity"}:
+                capacity_failures = max(1, capacity_failures)
+                split_reason = None
+            if capacity_failures >= 2:
+                raise _short_capacity_error()
         views = (
             await _precompressed_views(owner, part, guard_sources, ctx=ctx, task=task)
             if split_reason is None and saved is None
@@ -507,6 +625,19 @@ async def prepare_candidate_consolidation(
             if result is not None and len(result.candidates) > owner.policy.max_candidates:
                 split_reason = "candidate_capacity"
         if split_reason is not None:
+            if whole_short:
+                if split_reason in {"output_capacity", "candidate_capacity"}:
+                    # One retry of the complete input. Persist exhaustion so a
+                    # worker restart cannot repeatedly spend model calls or
+                    # turn failure into a partial successful memory.
+                    capacity_failures += 1
+                    with owner.uow.transaction() as tx:
+                        guard_sources(tx)
+                        tx.write("remember_short_extraction_failures", binding, capacity_failures)
+                    if capacity_failures < 2:
+                        pending_parts.append(part)
+                        continue
+                raise _short_capacity_error()
             children = _split_part(owner, part)
             with owner.uow.transaction() as tx:
                 guard_sources(tx)
@@ -650,9 +781,7 @@ async def prepare_candidate_consolidation(
         decision_batch = pending_decisions.pop()
         comparison_items, mapping = _decision_inputs(decision_batch, related_ids, existing)
 
-        def guard_decision(
-            tx: Any, targets: tuple[MemorySnapshot, ...] = comparison_items
-        ) -> None:
+        def guard_decision(tx: Any, targets: tuple[MemorySnapshot, ...] = comparison_items) -> None:
             guard_inventory(tx)
             if targets and any(
                 entry.decision != "allowed"
@@ -751,7 +880,8 @@ async def prepare_candidate_consolidation(
             guard_decision(tx)
             if saved is None:
                 tx.write(
-                    "remember_candidate_decisions", binding,
+                    "remember_candidate_decisions",
+                    binding,
                     decision_result.model_dump(mode="json"),
                 )
         completed_decisions += 1

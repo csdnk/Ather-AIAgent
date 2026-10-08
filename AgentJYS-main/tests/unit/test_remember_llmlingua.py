@@ -47,6 +47,60 @@ def test_normalized_or_unknown_token_alignment_fails_closed():
         labeled_view("Alice uses Vim", [("[UNK]", 1)])
 
 
+def test_official_unknown_token_offsets_preserve_rare_chinese_source_characters():
+    original = "按预测阈值进入队列。"
+    words = [
+        ("按", 0),
+        ("预", 1),
+        ("测", 1),
+        ("值", 1),
+        ("进", 0),
+        ("入", 0),
+        ("队", 1),
+        ("列", 1),
+        ("。", 1),
+    ]
+    view = labeled_view(original, words, preserved_ranges=((3, 4),))
+    assert "预测阈值" in view.text
+    assert view.preserved_unknown_ranges == ((3, 4),)
+    assert view.evidence(original, "预测阈值") == ((1, 5, "预测阈值"),)
+    with pytest.raises(ValueError, match="align"):
+        labeled_view(original, words, preserved_ranges=((2, 3),))
+
+
+def test_unknown_word_span_cannot_steal_a_later_repeated_label():
+    original = "rareAlice Alice uses Vim"
+    view = labeled_view(
+        original, [("Alice", 0), ("uses", 1), ("Vim", 1)], preserved_ranges=((0, 9),)
+    )
+    assert view.text == "rareAlice uses Vim"
+    assert view.evidence(original, "rareAlice") == ((0, 9, "rareAlice"),)
+
+
+def test_adapter_uses_exact_offsets_from_its_own_tokenizer_for_missing_labels():
+    class Tokenizer:
+        unk_token_id = 100
+
+        def __call__(self, text, **kwargs):
+            assert text == "预测阈值"
+            assert kwargs == {"add_special_tokens": False, "return_offsets_mapping": True}
+            return {"input_ids": [1, 2, 100, 3], "offset_mapping": [(0, 1), (1, 2), (2, 3), (3, 4)]}
+
+    class Compressor:
+        tokenizer = Tokenizer()
+
+        def compress_prompt(self, text, **kwargs):
+            return {
+                "fn_labeled_original_prompt": kwargs["word_sep"].join(
+                    word + kwargs["label_sep"] + "1" for word in ("预", "测", "值")
+                )
+            }
+
+    view = LLMLinguaPreprocessor(RememberPolicy(), compressor=Compressor()).compress("预测阈值")
+    assert view.text == "预测阈值"
+    assert view.preserved_unknown_ranges == ((2, 3),)
+
+
 def test_unlabeled_punctuation_and_source_hash_are_preserved():
     original = "姓名：林澈\r\n预算18万元，不得超出。"
     view = labeled_view(
@@ -99,7 +153,7 @@ async def test_mixed_sources_preprocess_only_long_source_and_reuse_range_checkpo
     short = snapshot("short", "Bob uses Emacs.")
     text = "Alice really uses Vim. "
     processor = SimpleNamespace(
-        model_identity={"test": "pinned-model"},
+        model_identity={"adapter": "test_pinned_model_v2"},
         acompress=AsyncMock(
             return_value=labeled_view(
                 text,
@@ -171,6 +225,7 @@ async def test_mixed_sources_preprocess_only_long_source_and_reuse_range_checkpo
     assert len(ids) == 3
     record = owner.uow.read("remember_precompression_artifacts", ids[0])
     assert record["artifact"]["location"]["kind"] == "artifact"
+    assert record["artifact"]["strategy_version"] == processor.model_identity["adapter"]
     assert record["consumer"] == "langmem_candidate_extraction"
     assert record["counts_toward_final_compression_factor"] is False
     from aether_agent_memory.remember.basic.candidate_consolidation import (

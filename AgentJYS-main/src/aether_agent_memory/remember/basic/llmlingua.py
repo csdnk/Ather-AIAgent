@@ -29,6 +29,7 @@ class CompressionView(ContractModel):
     source_chars: int
     original_bytes: int
     retained_bytes: int
+    preserved_unknown_ranges: tuple[tuple[int, int], ...] = ()
     version: int = Field(default=1, ge=1, le=1)
 
     def validate_source(self, original: str) -> None:
@@ -44,8 +45,19 @@ class CompressionView(ContractModel):
             )
             or self.original_bytes != len(original.encode("utf-8"))
             or self.retained_bytes != len(self.text.encode("utf-8"))
+            or any(
+                not 0 <= start < end <= len(original)
+                for start, end in self.preserved_unknown_ranges
+            )
         ):
             raise ValueError("LLMLingua view does not match its original source")
+        retained_offsets = set(self.offsets)
+        if any(
+            index not in retained_offsets
+            for start, end in self.preserved_unknown_ranges
+            for index in range(start, end)
+        ):
+            raise ValueError("LLMLingua view lost an unknown-token source span")
 
     def evidence(self, original: str, quote: str) -> tuple[tuple[int, int, str], ...]:
         self.validate_source(original)
@@ -56,23 +68,39 @@ class CompressionView(ContractModel):
         return tuple(sorted(result))
 
 
-def labeled_view(original: str, words: list[tuple[str, int]]) -> CompressionView:
+def labeled_view(
+    original: str,
+    words: list[tuple[str, int]],
+    *,
+    preserved_ranges: tuple[tuple[int, int], ...] = (),
+) -> CompressionView:
     keep = [True] * len(original)
+    protected = [False] * len(original)
+    for start, end in preserved_ranges:
+        if not 0 <= start < end <= len(original):
+            raise ValueError("invalid tokenizer original offset range")
+        protected[start:end] = [True] * (end - start)
     cursor = 0
     for word, label in words:
         if not word or word == "[UNK]" or label not in {0, 1}:
             raise ValueError("cannot align LLMLingua word labels to original")
         start = original.find(word, cursor)
+        while start >= 0 and any(protected[start : start + len(word)]):
+            start = original.find(word, start + 1)
         if start < 0:
             raise ValueError("cannot align LLMLingua word labels to original")
         # Skipped punctuation/whitespace is normal tokenizer behavior, but an
         # unaccounted lexical word could shift a repeated token to the wrong copy.
-        if any(char.isalnum() for char in original[cursor:start]):
+        if any(
+            original[index].isalnum() and not protected[index] for index in range(cursor, start)
+        ):
             raise ValueError("cannot align LLMLingua labels across unaccounted source words")
         if not label:
             keep[start : start + len(word)] = [False] * len(word)
         cursor = start + len(word)
-    if not words or any(char.isalnum() for char in original[cursor:]):
+    if (not words and not preserved_ranges) or any(
+        original[index].isalnum() and not protected[index] for index in range(cursor, len(original))
+    ):
         raise ValueError("cannot align incomplete LLMLingua labels to original")
     # Remove spaces adjacent to removed words, then add one boundary separator.
     # Newlines are not removed: source paragraph and sentence structure matters.
@@ -109,6 +137,7 @@ def labeled_view(original: str, words: list[tuple[str, int]]) -> CompressionView
         source_chars=len(original),
         original_bytes=len(original.encode("utf-8")),
         retained_bytes=len(text.encode("utf-8")),
+        preserved_unknown_ranges=preserved_ranges,
     )
 
 
@@ -128,7 +157,7 @@ class LLMLinguaPreprocessor:
     @property
     def model_identity(self) -> dict[str, Any]:
         return {
-            "adapter": "llmlingua2_original_mapping_v1",
+            "adapter": "llmlingua2_original_mapping_v2_unknown_offsets",
             "package": "llmlingua==0.2.2",
             "model": self.policy.llmlingua_model,
             "device": "cpu",
@@ -208,7 +237,21 @@ class LLMLinguaPreprocessor:
                 if not separator or label not in {"0", "1"}:
                     raise ValueError("invalid LLMLingua word label output")
                 words.append((word, int(label)))
-            return labeled_view(original, words)
+            # Official LLMLingua-2 skips special tokens, including [UNK], from
+            # its labeled words. Preserve only exact unknown-token ranges from
+            # the SAME fast tokenizer; never search/fuzzily invent missing text.
+            tokenizer = getattr(self.compressor, "tokenizer", None)
+            unknown_ranges: tuple[tuple[int, int], ...] = ()
+            if tokenizer is not None:
+                tokens = tokenizer(original, add_special_tokens=False, return_offsets_mapping=True)
+                unknown_ranges = tuple(
+                    (start, end)
+                    for token, (start, end) in zip(
+                        tokens["input_ids"], tokens["offset_mapping"], strict=True
+                    )
+                    if token == tokenizer.unk_token_id and end > start
+                )
+            return labeled_view(original, words, preserved_ranges=unknown_ranges)
 
     async def acompress(self, original: str) -> CompressionView:
         return await asyncio.to_thread(self.compress, original)
