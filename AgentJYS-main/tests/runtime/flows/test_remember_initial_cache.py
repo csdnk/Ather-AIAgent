@@ -35,8 +35,12 @@ async def test_initial_working_cache_registers_replica_and_memory_location(publi
     assert p.executor.inspect(p.item.ref, p.item.content_hash)
     assert p.executor.observe_sync(p.ctx, p.item.ref, "original").tier == Tier.HOT
     location = read_record(p)["cache_location"]
-    bucket, field, _ = p.cache.keys(p.item.ref.scope, p.item.content_hash)
-    assert location["object_key"] == bucket + "/" + field
+    assert location == p.cache.describe_location(
+        p.item.ref.scope,
+        p.item.content_hash,
+        generation=read_record(p)["body_location"]["generation"],
+    ).model_dump(mode="json")
+    assert location["provider_instance_id"] == p.cache.resource_id
     assert location["content_hash"] == p.item.content_hash
     assert location["namespace"] == p.cache.namespace
 
@@ -208,3 +212,18 @@ async def test_working_correction_admits_exact_new_version_and_replay_cannot_reh
     assert p.cache.get_sync(new_ref.scope, updated.content_hash) is None
     with p.host.uow.transaction() as tx:
         assert tx.get(memory_ref(new_ref, versioned=True))["cache_location"] is None
+
+
+async def test_remember_and_operate_publish_identical_cache_locations(publication):
+    p = publication
+    await save_cache(p)
+    remembered = read_record(p)
+    evidence = p.service.capture_evidence(p.item.ref)
+    observed = await p.executor.observe(p.ctx, p.item.ref, "original")
+    assert p.service.sync_observation(p.ctx, observed, evidence) == "synced"
+    assert read_record(p) == remembered
+    # Cold -> hot publication also uses exactly the same public address contract.
+    await p.service.execute(p.ctx, intent(p.executor, p.ctx, p.item, Tier.COLD, "unify-cold"))
+    assert read_record(p)["cache_location"] is None
+    await p.service.execute(p.ctx, intent(p.executor, p.ctx, p.item, Tier.HOT, "unify-hot"))
+    assert read_record(p) == remembered

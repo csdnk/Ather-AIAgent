@@ -8,6 +8,7 @@ owns action receipts and Ceph owns original bytes.
 """
 
 import asyncio
+import json
 import re
 from collections.abc import Callable
 from typing import Any
@@ -16,6 +17,7 @@ from redis.exceptions import ResponseError
 
 from aether_agent_memory.remember.basic.policy import RememberPolicy
 from aether_agent_memory.remember.contracts.models import MemoryRef
+from aether_agent_memory.runtime.contracts.foundation import ResourceLocation
 from aether_agent_memory.runtime.contracts.models import ErrorCode, Scope
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
 from aether_agent_memory.runtime.foundation.requests import text_hash
@@ -113,6 +115,28 @@ return total
             raise FoundationError(ErrorCode.INVALID_ARGUMENT, "invalid cached content hash")
         tag = self.namespace + ":" + fingerprint(scope.model_dump(mode="json"))
         return f"aether:{self.namespace}:body:{{{tag}}}", "b:" + digest, "e:" + digest
+
+    def describe_location(self, scope: Scope, digest: str, *, generation: str) -> ResourceLocation:
+        """Canonical Redis address shared by Remember and Operate; no Redis I/O."""
+        key, field, expiry = self.keys(scope, digest)
+        return ResourceLocation(
+            kind="cache",
+            provider_id=self.provider_id,
+            provider_instance_id=self.resource_id,
+            namespace=self.namespace,
+            object_key=json.dumps(
+                {
+                    "encoding": "redis_hash_v1",
+                    "key": key,
+                    "field": field,
+                    "expiry_field": expiry,
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+            generation=generation,
+            content_hash=digest,
+        )
 
     @staticmethod
     def _call[T](operation: Callable[[], T]) -> T:

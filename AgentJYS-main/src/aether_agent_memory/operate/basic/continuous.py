@@ -31,10 +31,11 @@ from aether_agent_memory.runtime.foundation.common import fingerprint, later
 from aether_agent_memory.runtime.foundation.transactions import native
 from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
-from .triggers import ACTIVE, TriggerSchedule, seconds
+from .buffer import BufferSchedule
+from .triggers import ACTIVE, seconds
 
 
-class ContinuousOperate(TriggerSchedule):
+class ContinuousOperate(BufferSchedule):
     def __init__(self, *args: Any, settings: Settings | None = None, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.settings = settings or Settings()
@@ -82,7 +83,9 @@ class ContinuousOperate(TriggerSchedule):
                 stats, seconds(event.occurred_at), seconds(self.identity.clock()), self.settings
             )
             stats.cold_since = None
-            sql.write("operate_heat", key, {**asdict(stats), "version": memory.version})
+            self.write_heat(sql, key, memory, {**asdict(stats), "version": memory.version})
+        if sql.read("operate_heat", key) is None:
+            self.drop_heat(sql, key)
         sql.write("operate_views", key, view)
 
     def stats(
@@ -137,7 +140,9 @@ class ContinuousOperate(TriggerSchedule):
                 outcome, target, reason = "defer", inputs.current_tier, "copy capacity unavailable"
             elif inputs.current_tier != target:
                 outcome = "promote" if target == Tier.HOT else "demote"
-            tx.write("operate_heat", key, {**asdict(stats), "version": inputs.memory.version})
+            self.write_heat(
+                tx, key, inputs.memory, {**asdict(stats), "version": inputs.memory.version}
+            )
             view = tx.read("operate_views", key)
             if view:
                 view["last_evaluated_at"] = self.identity.clock()
@@ -176,7 +181,7 @@ class ContinuousOperate(TriggerSchedule):
                 ):
                     view["cleanup_completed"] = True
                     self.schedule_at(tx, key, view, None, "cleanup_completed")
-                    tx.raw.delete("p3_rf_operate_heat", "system", key)
+                    self.drop_heat(tx, key)
                 return
             if view.get("cleanup") or self.pending(tx, memory, task.task_id):
                 return
@@ -232,7 +237,7 @@ class ContinuousOperate(TriggerSchedule):
                 view["dormant"] = True
                 # One metadata-only expiry, not another heat calculation or P2 read.
                 heat["cold_since"] = seconds(self.identity.clock())
-                tx.write("operate_heat", key, heat)
+                self.write_heat(tx, key, memory, heat)
                 self.schedule_at(
                     tx,
                     key,

@@ -71,3 +71,24 @@ def test_serve_accepts_matching_or_unrestricted_profile(tmp_path, monkeypatch, r
          {"factory": True, "host": "127.0.0.1", "port": 8080, "workers": 1})
     ]
     assert os.environ["AETHER_SERVICE_CONFIG"] == str(path.resolve())
+
+
+def test_operate_watermarks_have_defaults_and_accept_explicit_thresholds(tmp_path):
+    value = settings(tmp_path)
+    config = ServiceConfiguration.model_validate(value)
+    assert (
+        config.operate_buffer_limit,
+        config.operate_high_watermark,
+        config.operate_low_watermark,
+    ) == (1000, 800, 600)
+    value.update(operate_buffer_limit=100, operate_high_watermark=80, operate_low_watermark=60)
+    config = ServiceConfiguration.model_validate(value)
+    assert config.operate_high_watermark == 80
+
+
+@pytest.mark.parametrize("high,low,limit", [(800, 800, 1000), (1000, 600, 1000), (3, 4, 10)])
+def test_operate_watermarks_reject_invalid_order(tmp_path, high, low, limit):
+    value = settings(tmp_path)
+    value.update(operate_buffer_limit=limit, operate_high_watermark=high, operate_low_watermark=low)
+    with pytest.raises(ValidationError, match="operate low < high < buffer limit"):
+        ServiceConfiguration.model_validate(value)
