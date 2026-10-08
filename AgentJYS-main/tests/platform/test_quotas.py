@@ -1,6 +1,6 @@
 import pytest
 
-from aether_platform.operations.quotas import check_limits, QuotaExceededError
+from aether_platform.operations.quotas import QuotaExceededError, check_limits
 
 
 def test_concurrency_and_daily_request_limits_are_enforced():

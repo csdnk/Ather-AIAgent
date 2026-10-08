@@ -6,7 +6,6 @@ import pytest
 from remember_helpers import app as app
 from remember_helpers import context, drain, facts, recall, save
 from test_remember_lcm_complete import advance, enroll
-from test_working_summaries import configure, save_long
 
 from aether_agent_memory.remember.basic.boundary import RememberBoundary
 from aether_agent_memory.remember.basic.service import memory_ref
@@ -161,17 +160,16 @@ def test_generation_projection_verification_and_cleanup_cover_both_local_indexes
     assert rows == []
 
 
-def test_summary_cache_fill_racing_deletion_does_not_leave_a_readable_replica(app):
-    configure(app)
-
+def test_working_cache_fill_racing_deletion_does_not_leave_a_readable_replica(app):
     cache = app.remember.bodies.cache
-    receipt, _, _ = save_long(app)
     put = cache.put
     touched = []
 
     async def concurrent_delete(scope, text):
         result = await put(scope, text)
-        item = app.remember.get(context(app), receipt.memories[0].memory_id)
+        with app.foundation.uow.transaction() as tx:
+            key = next(key for key, _ in tx.rows("remember_current"))
+        item = app.remember.get(context(app), key)
         touched.append(item.content_hash)
         app.remember.delete(
             context(app),
@@ -181,5 +179,6 @@ def test_summary_cache_fill_racing_deletion_does_not_leave_a_readable_replica(ap
         return result
 
     cache.put = concurrent_delete
+    receipt = save(app, "Cache admission may race a deletion.")
     drain(app)
     assert touched and asyncio.run(cache.get(receipt.memories[0].scope, touched[0])) is None

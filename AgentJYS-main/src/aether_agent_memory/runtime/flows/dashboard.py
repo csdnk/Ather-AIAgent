@@ -1,9 +1,16 @@
 """Safe aggregate views of compression receipts and deployment-bound placement actions."""
 
 import math
+from collections.abc import Collection
+from typing import Any, Protocol, TypeGuard
 
 
-def positive(value):
+class ObservationReader(Protocol):
+    def rows(self, table: str) -> list[tuple[str, Any]]: ...
+    def read(self, table: str, key: str) -> Any: ...
+
+
+def positive(value: object) -> TypeGuard[int | float]:
     return (
         isinstance(value, (int, float))
         and not isinstance(value, bool)
@@ -11,7 +18,9 @@ def positive(value):
     )
 
 
-def placement_item(task_id, row, trigger):
+def placement_item(
+    task_id: str, row: dict[str, Any], trigger: dict[str, Any] | None
+) -> dict[str, Any]:
     """Expose bounded evidence, never arbitrary provider messages or memory content."""
     import re
     from contextlib import suppress
@@ -27,13 +36,14 @@ def placement_item(task_id, row, trigger):
     memory = decision.get("memory", {})
     scope = memory.get("scope", {})
     state = row.get("state")
-    result = {
+    outcomes: dict[str | None, str] = {
         "generated": "pending",
         "submitted": "running",
         "unknown": "unconfirmed",
         "failed": "failed",
         "cancelled": "cancelled",
-    }.get(state, "unconfirmed")
+    }
+    result = outcomes.get(state, "unconfirmed")
     if state == "succeeded":
         try:
             ActionRecord.model_validate(row)
@@ -108,9 +118,13 @@ def placement_item(task_id, row, trigger):
     }
 
 
-def memory_observations(tx, task_ids, observed_at):
-    original, stored, samples = 0, 0, 0
-    compression_states = {}
+def memory_observations(
+    tx: ObservationReader, task_ids: Collection[str], observed_at: str
+) -> dict[str, Any]:
+    original: int | float = 0
+    stored: int | float = 0
+    samples = 0
+    compression_states: dict[str, int] = {}
     for task_id, envelope in tx.rows("tasks"):
         if task_id not in task_ids:
             continue
@@ -154,7 +168,7 @@ def memory_observations(tx, task_ids, observed_at):
             compression_reason = "not_triggered"
         else:
             compression_reason = "no_published_artifacts"
-    actions = {}
+    actions: dict[str, dict[str, Any]] = {}
     for task_id, intent in tx.rows("operate_task_actions"):
         if task_id not in task_ids or intent.get("action_id") in actions:
             continue
@@ -174,7 +188,7 @@ def memory_observations(tx, task_ids, observed_at):
             "provider_mode": detail.get("provider_mode"),
             "feedback_state": (row.get("feedback") or {}).get("state"),
         }
-    states = {}
+    states: dict[str, int] = {}
     for row in actions.values():
         state = row["state"] or "unknown"
         states[state] = states.get(state, 0) + 1

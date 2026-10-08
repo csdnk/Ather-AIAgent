@@ -241,7 +241,11 @@ def provider_options(path, policy=None):
         "body_cache": cache,
         "vectors_factory": vector_factory,
         "cache_factory": lambda uow, identity, memories: RedisExecutor(
-            uow, identity, memories, cache, authority_reader=memories.read_authority
+            uow,
+            identity,
+            memories,
+            cache,
+            authority_reader=getattr(memories, "read_authority", None),
         ),
     }
     resources.providers[key] = options

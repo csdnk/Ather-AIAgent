@@ -66,6 +66,7 @@ from aether_agent_memory.runtime.foundation.timings import measure_stage
 from aether_agent_memory.runtime.foundation.transactions import native
 from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
+from .batching import select_batch
 from .comparison import (
     ComparisonDecision,
     ComparisonPort,
@@ -143,6 +144,9 @@ def checkpoint_provider_identity(provider: Any, seen: frozenset[int] = frozenset
     if callable(declared):
         return {"provider": kind, "identity": declared()}
     identity: dict[str, Any] = {"provider": kind}
+    public_model_identity = getattr(provider, "model_identity", None)
+    if isinstance(public_model_identity, dict):
+        identity["model_identity"] = public_model_identity
     for name in ("model_id", "prompt_version"):
         value = getattr(provider, name, None)
         if isinstance(value, str):
@@ -185,9 +189,11 @@ class RememberPipeline(Revalidation):
         documents: Any = None,
         support_verifier: Any = None,
         summarizer: SummaryPort | None = None,
+        llmlingua_preprocessor: Any = None,
         **kwargs: Any,
     ) -> None:
         self.bodies, self.tokenizer = bodies, tokenizer
+        self.llmlingua_preprocessor = llmlingua_preprocessor
         self.policy = policy or RememberPolicy()
         self.max_input_bytes = self.policy.max_input_bytes
         self.processing_seconds = self.policy.processing_seconds
@@ -234,6 +240,14 @@ class RememberPipeline(Revalidation):
                 },
             )
         tx.write("remember_latest_task", fingerprint([memory.ref.memory_id, kind]), task_id)
+        if kind == "remember.compress" and memory.kind == MemoryKind.WORKING:
+            pending = tx.read("remember_pending", memory.ref.memory_id)
+            if pending and pending["ref"] == memory.ref.model_dump(mode="json"):
+                tx.write(
+                    "remember_pending",
+                    memory.ref.memory_id,
+                    {**pending, "compression_task_id": task_id},
+                )
         if kind == "remember.extract" and memory.kind == MemoryKind.WORKING:
             pending = tx.read("remember_pending", memory.ref.memory_id)
             if pending and pending["ref"] == memory.ref.model_dump(mode="json"):
@@ -298,6 +312,11 @@ class RememberPipeline(Revalidation):
         if previous_semantic != fingerprint(semantic):
             sequence = tx.read("remember_space_seq", semantic_key) or 0
             tx.write("remember_space_seq", semantic_key, sequence + 1)
+            if snapshot.kind != MemoryKind.WORKING:
+                # New incoming Working messages must not repeatedly invalidate a
+                # candidate-first comparison of the unchanged long-term inventory.
+                long_term_sequence = tx.read("remember_long_term_seq", semantic_key) or 0
+                tx.write("remember_long_term_seq", semantic_key, long_term_sequence + 1)
             tx.write(
                 "remember_semantic_fingerprints", snapshot.ref.memory_id, fingerprint(semantic)
             )
@@ -330,8 +349,39 @@ class RememberPipeline(Revalidation):
             importance_policy_version=snapshot.importance_policy_version,
         )
         ref = memory_ref(snapshot.ref, versioned=True)
+        previous = tx.get(ref)
+        # Projection/relations revisions retain a valid cache address. Content versions
+        # and withdrawn records never inherit another body's admission marker.
+        if (
+            previous
+            and previous.get("body_location") == record.body_location.model_dump(mode="json")
+            and snapshot.status == MemoryStatus.ACTIVE
+        ):
+            cache = previous.get("cache_location")
+            if cache is not None:
+                record = record.model_copy(
+                    update={"cache_location": ResourceLocation.model_validate(cache)}
+                )
         tx.put_if_revision(ref, record.model_dump(mode="json"), tx.revision(ref))
         tx.write("remember_current", snapshot.ref.memory_id, ref.model_dump(mode="json"))
+        admission = tx.read("remember_cache_admission", snapshot.ref.memory_id)
+        if admission and (
+            admission.get("memory") != snapshot.ref.model_dump(mode="json")
+            or snapshot.status != MemoryStatus.ACTIVE
+        ):
+            tx.write(
+                "remember_cache_admission",
+                snapshot.ref.memory_id,
+                {
+                    "memory": snapshot.ref.model_dump(mode="json"),
+                    "content_hash": snapshot.content_hash,
+                    "state": "not_attempted"
+                    if snapshot.status == MemoryStatus.ACTIVE
+                    else "invalidated",
+                    "checked_at": self.identity.clock(),
+                    "bytes": len(snapshot.content.encode("utf-8")),
+                },
+            )
 
     @staticmethod
     def space_key(scope: Scope) -> str:
@@ -560,18 +610,10 @@ class RememberPipeline(Revalidation):
         duplicate_result = await asyncio.to_thread(inspect_source)
         if duplicate_result is not None:
             return duplicate_result
-        summarized = self.summaries.needed(text, request.content.kind == "document")
-        source_ref = SourceRef(
-            source_id=fingerprint([key, "source"]),
-            source_version=1,
-            content_hash=text_hash(text),
-            locator=self.bodies.location(scope, text).object_key,
-        )
-        working_text = (
-            self.summaries.descriptor(source_ref, text, request.task_context)
-            if summarized
-            else text
-        )
+        summarized = len(text.encode("utf-8")) >= self.policy.compression_min_bytes
+        # Long and short Working records both address the real immutable body.
+        # Length affects processing admission, never the meaning of the body.
+        working_text = text
         return {
             "scope": scope.model_dump(mode="json"),
             "key": key,
@@ -586,7 +628,8 @@ class RememberPipeline(Revalidation):
             return
         scope = Scope.model_validate(prepared["scope"])
         await self.bodies.persist(ctx, scope, prepared["text"])
-        if prepared["summarized"]:
+        # Older in-flight save snapshots may still contain a descriptor body.
+        if prepared["working_text"] != prepared["text"]:
             await self.bodies.persist(ctx, scope, prepared["working_text"])
 
     def commit_save(
@@ -597,7 +640,7 @@ class RememberPipeline(Revalidation):
         scope, key = Scope.model_validate(prepared["scope"]), prepared["key"]
         ref = MemoryRef(scope=scope, memory_id=key, version=1)
         text, working_text = prepared["text"], prepared["working_text"]
-        document, summarized = prepared["document"], prepared["summarized"]
+        document = prepared["document"]
         with self.uow.transaction() as tx:
             key, previous = self.replay(tx, ctx, "remember.save", request)
             self.identity.authorize(tx, ctx, Permission.WRITE, memory_ref(ref))
@@ -638,19 +681,20 @@ class RememberPipeline(Revalidation):
                 {
                     "ref": item.ref.model_dump(mode="json"),
                     "tokens": self.tokenizer.count(text),
+                    "bytes": len(text.encode("utf-8")),
                     "created_at": item.created_at,
-                    "state": "waiting_summary" if summarized else "pending",
+                    "state": "pending",
                     "context": ctx.model_dump(mode="json"),
                 },
             )
-            if summarized:
-                self.summaries.register(tx, item, request.task_context)
-                task_ids = [self.enqueue(tx, ctx, item, "remember.summarize")]
-            else:
-                task_ids = list(self.schedule(tx, ctx, scope, force=request.trigger != "observe"))
+            if working_text != text:
+                # Preserve historical prepared saves without indexing descriptors.
+                self.register_source_reference(tx, item, len(text.encode("utf-8")))
+            task_ids = list(self.schedule(tx, ctx, scope, force=request.trigger != "observe"))
+            # Original-body indexing is independent of consolidation.
+            # Recall can consume its normal Working projection as soon as ready.
+            if self.projection_buildable(tx, item):
                 task_ids.append(self.enqueue(tx, ctx, item, "remember.project"))
-            if not summarized and len(text.encode("utf-8")) >= self.policy.compression_min_bytes:
-                task_ids.append(self.enqueue(tx, ctx, item, "remember.compress"))
             self.emit(tx, ctx, item, "saved")
             result = RememberReceipt(
                 operation_id=ctx.operation_id,
@@ -674,21 +718,92 @@ class RememberPipeline(Revalidation):
     async def admit_save_cache(
         self, ctx: TrustedContext, prepared: dict[str, Any], result: RememberReceipt
     ) -> RememberReceipt:
-        if "previous" in prepared:
-            return result
-        scope, key = Scope.model_validate(prepared["scope"]), prepared["key"]
-        working_text = prepared["working_text"]
         memory = result.memories[0]
+        key = memory.memory_id
+        if "previous" in prepared:
+            # Retrying a durable save also retries optional cache admission. The
+            # receipt's exact version must still be current before loading its body.
+            try:
+                await self.hydrate(ctx, (memory,), "recall")
+            except FoundationError as exc:
+                if exc.code in {
+                    ErrorCode.MEMORY_GONE,
+                    ErrorCode.NOT_FOUND,
+                    ErrorCode.FORBIDDEN,
+                    ErrorCode.VERSION_CONFLICT,
+                }:
+                    return result
+                raise
 
-        def allowed_before_cache() -> bool:
+            def prior_text() -> str | None:
+                with self.uow.transaction() as tx:
+                    if (
+                        self.final_guard(tx, ctx, (memory,), "recall").items[0].decision
+                        != "allowed"
+                    ):
+                        return None
+                    item = self.current(tx, key)
+                    return item.content if item.ref == memory else None
+
+            working_text = await asyncio.to_thread(prior_text)
+            if working_text is None:
+                return result
+        else:
+            working_text = prepared["working_text"]
+
+        await self.admit_verified_cache(ctx, memory, working_text, initial=True)
+        return result
+
+    async def admit_verified_cache(
+        self,
+        ctx: TrustedContext,
+        memory: MemoryRef,
+        working_text: str,
+        *,
+        initial: bool = False,
+    ) -> None:
+        """Admit a confirmed body, fencing both physical I/O and metadata updates."""
+        scope, key = memory.scope, memory.memory_id
+
+        def allowed_before_cache() -> MemoryRecord | MemorySnapshot | None:
             with self.uow.transaction() as tx:
                 allowed = (
                     self.final_guard(tx, ctx, (memory,), "recall").items[0].decision == "allowed"
                 )
-            return allowed
+                if not allowed:
+                    return None
+                ref = memory_ref(memory, versioned=True)
+                if tx.read("remember_current", key) != ref.model_dump(mode="json"):
+                    return None
+                raw = tx.get(ref)
+                if raw is None:
+                    return None
+                # The caller already fetched and verified this exact body. Read
+                # metadata only: current()/decode() would fetch it again while
+                # holding the transaction and break the single-fetch read path.
+                item: MemoryRecord | MemorySnapshot
+                if "body_location" in raw:
+                    item = MemoryRecord.model_validate(raw)
+                    digest = item.body_location.content_hash
+                else:
+                    item = MemorySnapshot.model_validate(raw)
+                    digest = item.content_hash
+                if item.ref != memory or digest != text_hash(working_text):
+                    return None
+                return item
 
-        allowed = await asyncio.to_thread(allowed_before_cache)
-        cache = await self.bodies.admit(scope, working_text) if allowed else "ineligible"
+        metadata = await asyncio.to_thread(allowed_before_cache)
+        if metadata is None:
+            cache = "ineligible"
+        elif initial:
+            snapshot = (
+                self.authority_snapshot(metadata, working_text)
+                if isinstance(metadata, MemoryRecord)
+                else metadata.model_copy(update={"content": working_text})
+            )
+            cache = await self.bodies.admit_initial(snapshot, ctx)
+        else:
+            cache = await self.bodies.admit(scope, working_text)
 
         def allowed_after_cache() -> bool:
             with self.uow.transaction() as tx:
@@ -714,14 +829,72 @@ class RememberPipeline(Revalidation):
 
         def record_cache() -> None:
             with self.uow.transaction() as tx:
+                state = {
+                    "state": cache,
+                    "bytes": len(working_text.encode("utf-8")),
+                    "memory": memory.model_dump(mode="json"),
+                    "content_hash": text_hash(working_text),
+                    "checked_at": self.identity.clock(),
+                }
+                tx.write("remember_cache_admission_history", self.refkey(memory), state)
+                current = tx.read("remember_current", key)
+                ref = memory_ref(memory, versioned=True)
+                if current != ref.model_dump(mode="json"):
+                    return
+                raw = tx.get(ref)
+                if raw is None:
+                    return
+                record = MemoryRecord.model_validate(raw)
+                if record.body_location.content_hash != text_hash(working_text):
+                    return
+                cache_location = None
+                provider = self.bodies.cache
+                cache_keys = getattr(provider, "keys", None)
+                cache_namespace = getattr(provider, "namespace", None)
+                current_allowed = (
+                    self.final_guard(tx, ctx, (memory,), "recall").items[0].decision == "allowed"
+                )
+                if not current_allowed:
+                    state["state"] = "ineligible"
+                registered = getattr(provider, "registration_current", None)
+                current_placement = not callable(registered) or registered(
+                    tx, memory, record.body_location.content_hash
+                )
+                if cache == "cached" and not current_placement:
+                    state["state"] = "not_admitted"
+                if (
+                    cache == "cached"
+                    and current_placement
+                    and current_allowed
+                    and record.status == MemoryStatus.ACTIVE
+                    and callable(cache_keys)
+                    and isinstance(cache_namespace, str)
+                ):
+                    bucket, field, _ = cache_keys(scope, record.body_location.content_hash)
+                    cache_location = record.body_location.model_copy(
+                        update={
+                            "kind": "cache",
+                            "provider_id": "redis",
+                            "provider_instance_id": cache_namespace,
+                            "namespace": cache_namespace,
+                            "object_key": bucket + "/" + field,
+                        }
+                    )
+                    state["expires_at"] = later(
+                        self.identity.clock(), self.policy.cache_ttl_seconds
+                    )
+                changed = record.model_copy(update={"cache_location": cache_location})
+                tx.put_if_revision(ref, changed.model_dump(mode="json"), tx.revision(ref))
+                # Publication may have been superseded by cooling since Redis I/O.
+                # Keep the versioned audit in agreement with the final cache marker.
+                tx.write("remember_cache_admission_history", self.refkey(memory), state)
                 tx.write(
                     "remember_cache_admission",
                     key,
-                    {"state": cache, "bytes": len(working_text.encode("utf-8"))},
+                    state,
                 )
 
         await asyncio.to_thread(record_cache)
-        return result
 
     def schedule(
         self, tx: MetadataTransaction, ctx: TrustedContext, scope: Scope, *, force: bool = False
@@ -729,11 +902,23 @@ class RememberPipeline(Revalidation):
         pending = [
             (key, row)
             for key, row in tx.rows("remember_pending")
-            if row["state"] == "pending" and row["ref"]["scope"] == scope.model_dump(mode="json")
+            if row["ref"]["scope"] == scope.model_dump(mode="json") and row["state"] == "pending"
+        ]
+        # A historical compression/summary may have released its pending row
+        # before its task terminal is durable. Do not race that task or an
+        # unresolved extraction with a new direct-original batch.
+        pending = [
+            (key, row)
+            for key, row in pending
+            if not self.working_processing_busy(tx, MemoryRef.model_validate(row["ref"]))
         ]
         pending.sort(key=lambda x: (x[1]["created_at"], x[0]))
         if not pending:
             return ()
+        # Old rows predate byte accounting. Source manifests retain exact byte ends.
+        pending = [
+            (key, {**row, "bytes": self.pending_bytes(tx, key, row)}) for key, row in pending
+        ]
         due = (
             later(pending[0][1]["created_at"], self.policy.consolidation_seconds)
             <= self.identity.clock()
@@ -742,11 +927,11 @@ class RememberPipeline(Revalidation):
             force
             or due
             or len(pending) >= self.policy.consolidation_messages
-            or sum(r["tokens"] for _, r in pending) >= self.policy.consolidation_tokens
+            or sum(r["bytes"] for _, r in pending) >= self.policy.consolidation_bytes
         ):
             return ()
         # Bound one task's input count; subsequent ticks pick up the remainder.
-        pending = pending[: self.policy.consolidation_messages]
+        pending = select_batch(pending, self.policy)
         items = []
         for key, row in pending:
             item = self.current(tx, key)
@@ -758,7 +943,12 @@ class RememberPipeline(Revalidation):
             return ()
         task_id = self.enqueue(tx, ctx, items[0], "remember.extract")
         tx.write(
-            "remember_batches", task_id, {"refs": [x.ref.model_dump(mode="json") for x in items]}
+            "remember_batches",
+            task_id,
+            {
+                "refs": [x.ref.model_dump(mode="json") for x in items],
+                "context_refs": [],
+            },
         )
         for item in items:
             row = tx.read("remember_pending", item.ref.memory_id)
@@ -768,6 +958,33 @@ class RememberPipeline(Revalidation):
                 {**row, "state": "scheduled", "task_id": task_id},
             )
         return (task_id,)
+
+    def pending_bytes(self, tx: MetadataTransaction, key: str, row: dict[str, Any]) -> int:
+        if "bytes" in row:
+            return int(row["bytes"])
+        item = self.current(tx, key)
+        total = 0
+        for source in item.sources:
+            manifest = tx.read("remember_source_ranges", source.source_id)
+            if manifest and manifest.get("pages"):
+                total += manifest["pages"][-1]["end_byte"]
+            else:
+                total += len(item.content.encode("utf-8"))
+        return total
+
+    def register_source_reference(
+        self, tx: MetadataTransaction, item: MemorySnapshot, byte_size: int
+    ) -> None:
+        tx.write(
+            "remember_working_representations",
+            item.ref.memory_id,
+            {
+                "memory": item.ref.model_dump(mode="json"),
+                "source": item.sources[0].model_dump(mode="json"),
+                "representation": "source_reference",
+                "original_bytes": byte_size,
+            },
+        )
 
     def consolidate(
         self,
@@ -826,15 +1043,15 @@ class RememberPipeline(Revalidation):
                 raise FoundationError(
                     ErrorCode.MEMORY_GONE, "inactive memory cannot be reprocessed"
                 )
-            kind = "remember.extract" if item.kind == MemoryKind.WORKING else "remember.project"
-            summary = tx.read("remember_working_summaries", memory_id)
-            if (
-                item.kind == MemoryKind.WORKING
-                and summary
-                and summary["state"] != "ready"
-                and summary["memory"] == item.ref.model_dump(mode="json")
-            ):
-                kind = "remember.summarize"
+            kind = (
+                self.working_task_kind(tx, item)
+                if item.kind == MemoryKind.WORKING
+                else "remember.project"
+            )
+            if kind is None:
+                raise FoundationError(
+                    ErrorCode.INVALID_ARGUMENT, "no processing task for reference"
+                )
             task_id = self.enqueue(tx, ctx, item, kind)
             mutation.finish({"task_id": task_id}, task_ids=(task_id,))
             return task_id
@@ -980,6 +1197,24 @@ class RememberPipeline(Revalidation):
                 )
             )
             pending = tx.read("remember_pending", memory_id)
+            if (
+                pending
+                and pending["state"] == "processed"
+                and pending.get("compression_terminal") == "failed"
+                and current_rows
+                and all(
+                    r.get("effect_status") != "unknown"
+                    and (
+                        r["state"] in {"succeeded", "cancelled"}
+                        or (
+                            r["task_id"] == pending.get("compression_task_id")
+                            and r["state"] in {"failed", "attention_required"}
+                        )
+                    )
+                    for r in current_rows
+                )
+            ):
+                state = "completed_with_compression_failure"
             if pending and pending["state"] == "pending" and item.status == MemoryStatus.ACTIVE:
                 state = "awaiting_consolidation"
             if (
@@ -1084,12 +1319,22 @@ class RememberPipeline(Revalidation):
                     for r in rows
                 ],
                 "artifact": tx.read("remember_artifacts", self.refkey(item.ref)),
+                "compressed_artifacts": self.precompression_artifact_status(tx, ctx, item),
                 "working_summary": summary,
+                "working_representation": tx.read("remember_working_representations", memory_id),
+                "cache_admission": tx.read("remember_cache_admission", memory_id),
                 "recovery": recovery,
                 "sources": [s.model_dump(mode="json") for s in item.sources],
                 "physical_erasure": False,
                 "source_retention": "retained",
             }
+
+    def precompression_artifact_status(
+        self, tx: MetadataTransaction, ctx: TrustedContext, item: MemorySnapshot
+    ) -> list[dict[str, Any]]:
+        from .candidate_consolidation import precompression_artifact_status
+
+        return precompression_artifact_status(self, tx, ctx, item)
 
     def periodic(self) -> int:
         count = self.retention.periodic() if hasattr(self, "retention") else 0
@@ -1097,26 +1342,23 @@ class RememberPipeline(Revalidation):
             count += self.reflection.periodic()
         with self.uow.transaction() as tx:
             pending = [
-                (key, row) for key, row in tx.rows("remember_pending") if row["state"] == "pending"
+                (key, row)
+                for key, row in tx.rows("remember_pending")
+                if row["state"] in {"pending", "waiting_compression"}
             ]
-        seen = set()
-        for _, row in pending:
-            scope = MemoryRef.model_validate(row["ref"]).scope
-            scope_key = fingerprint(scope.model_dump(mode="json"))
-            if scope_key in seen:
-                continue
-            seen.add(scope_key)
+        for key, row in pending:
             ctx = TrustedContext.model_validate(row["context"])
             ctx = ctx.model_copy(
                 update={
                     "deadline_at": later(self.identity.clock(), self.processing_seconds),
-                    "operation_id": fingerprint(["consolidate", row["ref"]]),
+                    "operation_id": row.get("reschedule_operation_id")
+                    or fingerprint(["consolidate", row["ref"]]),
                 }
             )
             try:
                 with self.uow.transaction() as tx:
                     self.identity.revalidate(tx, ctx)
-                    count += len(self.schedule(tx, ctx, scope))
+                    count += self.periodic_pending(tx, key)
             except FoundationError:
                 # Revoked principals must never run using maintenance authority.
                 continue
@@ -1124,17 +1366,40 @@ class RememberPipeline(Revalidation):
 
     def periodic_pending(self, tx: MetadataTransaction, key: str) -> int:
         row = tx.read("remember_pending", key)
-        if not row or row["state"] != "pending":
+        if not row or row["state"] not in {"pending", "waiting_compression"}:
             return 0
         scope = MemoryRef.model_validate(row["ref"]).scope
         ctx = TrustedContext.model_validate(row["context"]).model_copy(
             update={
                 "deadline_at": later(self.identity.clock(), self.processing_seconds),
-                "operation_id": fingerprint(["consolidate", row["ref"]]),
+                "operation_id": row.get("reschedule_operation_id")
+                or fingerprint(["consolidate", row["ref"]]),
             }
         )
         self.identity.revalidate(tx, ctx)
-        return len(self.schedule(tx, ctx, scope))
+        force = bool(row.get("reschedule_operation_id"))
+        if row["state"] == "waiting_compression":
+            task_id = row.get("compression_task_id")
+            envelope = tx.read("tasks", task_id) if task_id else None
+            task = (envelope or {}).get("record", {})
+            # Uncertain/running external effects must be reconciled, never guessed.
+            if (
+                task.get("state") not in {"failed", "cancelled", "attention_required", "succeeded"}
+                or task.get("effect_status") == "unknown"
+            ):
+                return 0
+            tx.write(
+                "remember_pending",
+                key,
+                {
+                    **row,
+                    "state": "pending",
+                    "compression_terminal": task["state"],
+                    "consolidation_input": "original",
+                },
+            )
+            force = True
+        return len(self.schedule(tx, ctx, scope, force=force))
 
     async def correct_async(
         self, ctx: TrustedContext, memory_id: str, request: CorrectionRequest
@@ -1143,7 +1408,27 @@ class RememberPipeline(Revalidation):
         scope = Scope.model_validate(prepared["scope"])
         for body in dict.fromkeys((prepared["text"], prepared["working_text"])):
             await self.bodies.persist(ctx, scope, body)
-        return self.correct(ctx, memory_id, request)
+        result = self.correct(ctx, memory_id, request)
+        return await self.admit_correction_cache(ctx, result)
+
+    async def admit_correction_cache(
+        self, ctx: TrustedContext, result: RememberReceipt
+    ) -> RememberReceipt:
+        """A corrected Working is a new body/version eligible for first admission."""
+        memory = result.memories[0]
+
+        def is_current_working() -> bool:
+            with self.uow.transaction() as tx:
+                if self.final_guard(tx, ctx, (memory,), "recall").items[0].decision != "allowed":
+                    return False
+                raw = tx.get(memory_ref(memory, versioned=True))
+                return bool(raw and raw["kind"] == MemoryKind.WORKING)
+
+        if await asyncio.to_thread(is_current_working):
+            # Reuse saved-receipt hydration and exact-version fences. In particular,
+            # command replay must never readmit the older body or undo later cooling.
+            await self.admit_save_cache(ctx, {"previous": True}, result)
+        return result
 
     def prepare_correction(
         self, ctx: TrustedContext, memory_id: str, request: CorrectionRequest
@@ -1156,26 +1441,10 @@ class RememberPipeline(Revalidation):
             or len(request.content.encode("utf-8")) > self.max_input_bytes
         ):
             raise FoundationError(ErrorCode.INVALID_ARGUMENT, "correction exceeds input policy")
-        working_text = request.content
-        if item.kind == MemoryKind.WORKING:
-            with self.uow.transaction() as tx:
-                key, _ = self.replay(tx, ctx, "correct_" + memory_id, request)
-                prior = tx.read("remember_working_summaries", memory_id)
-            if self.summaries.needed(request.content, request.source.kind == "document"):
-                source = SourceRef(
-                    source_id=fingerprint([key, "correction_source"]),
-                    source_version=1,
-                    content_hash=text_hash(request.content),
-                    locator=self.bodies.location(item.ref.scope, request.content).object_key,
-                )
-                body = self.summaries.descriptor(
-                    source, request.content, (prior or {}).get("task_context", "")
-                )
-                working_text = body
         return {
             "scope": item.ref.scope.model_dump(mode="json"),
             "text": request.content,
-            "working_text": working_text,
+            "working_text": request.content,
             "memory_id": memory_id,
         }
 
@@ -1188,44 +1457,77 @@ class RememberPipeline(Revalidation):
         request: CorrectionRequest,
     ) -> str:
         prior = tx.read("remember_working_summaries", item.ref.memory_id)
-        summarize = self.summaries.needed(request.content, request.source.kind == "document")
+        source_policy = tx.read("remember_source_policy", item.sources[0].source_id) or {}
+        tx.write("remember_source_policy", source.source_id, source_policy)
         new_ref = item.ref.model_copy(update={"version": item.ref.version + 1})
-        if summarize:
-            task_context = (prior or {}).get("task_context", "")
-            body = self.summaries.descriptor(source, request.content, task_context)
-            self.summaries.register(
-                tx, item.model_copy(update={"ref": new_ref, "sources": (source,)}), task_context
+        body = request.content
+        if prior:
+            # Keep old summary history bound to the previous version; every new
+            # correction, regardless of length, uses the actual corrected body.
+            tx.write(
+                "remember_working_summaries", item.ref.memory_id, {**prior, "state": "obsolete"}
             )
-        else:
-            body = request.content
-            if prior:
-                # Keep the old version binding for audit; it cannot schedule a summary
-                # or overwrite this short correction under an earlier worker lease.
-                tx.write(
-                    "remember_working_summaries", item.ref.memory_id, {**prior, "state": "obsolete"}
-                )
         tx.write(
             "remember_pending",
             item.ref.memory_id,
             {
                 "ref": new_ref.model_dump(mode="json"),
                 "tokens": self.tokenizer.count(request.content),
+                "bytes": len(request.content.encode("utf-8")),
                 "created_at": self.identity.clock(),
                 "context": ctx.model_dump(mode="json"),
-                "state": "waiting_summary" if summarize else "pending",
+                "state": "pending",
             },
         )
         return body
 
-    def working_task_kind(self, tx: MetadataTransaction, item: MemorySnapshot) -> str:
-        row = tx.read("remember_working_summaries", item.ref.memory_id)
-        if row and row["memory"] == item.ref.model_dump(mode="json") and row["state"] != "ready":
-            return "remember.summarize"
+    def working_task_kind(self, tx: MetadataTransaction, item: MemorySnapshot) -> str | None:
+        if self.working_processing_busy(tx, item.ref):
+            raise FoundationError(
+                ErrorCode.REQUEST_IN_PROGRESS,
+                "existing Working processing must finish or reconcile before reprocessing",
+            )
         return "remember.extract"
+
+    def working_processing_busy(self, tx: MetadataTransaction, memory: MemoryRef) -> bool:
+        """Fail closed around current-version processing, including legacy tasks."""
+        ref = memory.model_dump(mode="json")
+        pending = tx.read("remember_pending", memory.memory_id)
+        owned: set[str] = set()
+        if pending and pending["ref"] == ref:
+            owned.update(
+                pending[field] for field in ("task_id", "compression_task_id") if pending.get(field)
+            )
+        candidates = set(owned)
+        for kind in ("remember.extract", "remember.compress", "remember.summarize"):
+            task_id = tx.read("remember_latest_task", fingerprint([memory.memory_id, kind]))
+            if task_id:
+                candidates.add(task_id)
+        for task_id in candidates:
+            envelope = tx.read("tasks", task_id)
+            if not envelope:
+                # Missing ledger evidence cannot authorize a second execution.
+                return True
+            task = envelope["record"]
+            if task_id not in owned:
+                original = tx.get(RecordRef.model_validate(task["input_ref"]))
+                if original is None:
+                    return True
+                if original.get("ref") != ref:
+                    continue
+            if (
+                task["state"] not in {"succeeded", "failed", "cancelled", "attention_required"}
+                or task.get("effect_status") == "unknown"
+            ):
+                return True
+        return False
 
     def projection_buildable(self, tx: MetadataTransaction, item: MemorySnapshot) -> bool:
         if item.kind != MemoryKind.WORKING:
             return True
+        representation = tx.read("remember_working_representations", item.ref.memory_id)
+        if representation and representation["memory"] == item.ref.model_dump(mode="json"):
+            return False
         row = tx.read("remember_working_summaries", item.ref.memory_id)
         return (
             not row or row["memory"] != item.ref.model_dump(mode="json") or row["state"] == "ready"
@@ -1382,6 +1684,10 @@ class RememberPipeline(Revalidation):
         item, location = selected
         with measure_stage("memory_fetch"):
             content, path = await self.bodies.read(ref.scope, location)
+        if path != "cache":
+            # A corrupt/missing hot replica must not retain a stale cached marker.
+            # Reuse the same version/permission fences as initial admission.
+            await self.admit_verified_cache(ctx, ref, content)
 
         def recheck_body() -> FullBodyReadResult | GuardStamp:
             with self.uow.transaction() as tx:
@@ -1513,7 +1819,9 @@ class RememberPipeline(Revalidation):
         if task.kind in {"remember.extract", "remember.compress"}:
             return await self.source_access.originals(ctx, items)
         if task.kind == "remember.distill":
-            if not hasattr(self.extraction, "review_episodes"):
+            if not hasattr(self.extraction, "review_episodes") and not getattr(
+                self.extraction, "supports_consolidation", False
+            ):
                 return RunResult(
                     outcome="failed",
                     effect_status=EffectStatus.NO_EFFECT,
@@ -1603,6 +1911,11 @@ class RememberPipeline(Revalidation):
                                     if eligibility.decision == "allowed"
                                     else "obsolete",
                                     "context": retry_ctx.model_dump(mode="json"),
+                                    # The original task is still running here, so
+                                    # dispatch may wait for its terminal record.
+                                    # Preserve the new identity across that wait;
+                                    # reusing the old task ID cannot restart it.
+                                    "reschedule_operation_id": retry_ctx.operation_id,
                                 },
                             )
                     self.schedule(tx, retry_ctx, refs[0].scope, force=True)
@@ -1634,21 +1947,25 @@ class RememberPipeline(Revalidation):
 
     def checkpoint_binding(self, kind: str | None = None) -> str:
         kind = kind or _task_kind.get()
-        processing = ("extraction", "comparison", "equivalence_verifier", "support_verifier")
+        processing = (
+            ("extraction", "llmlingua_preprocessor")
+            if getattr(self.extraction, "supports_candidate_pipeline", False)
+            else ("extraction", "comparison", "equivalence_verifier")
+        )
         providers = {
             "remember.extract": processing,
             "remember.distill": processing,
             "remember.summarize": ("summaries",),
-            "remember.compress": ("compressor", "quality"),
+            "remember.compress": ("compressor",),
             "remember.revalidate": ("support_verifier",),
             "remember.project": (),
             "remember.cleanup": (),
-        }.get(kind or "", (*processing, "compressor", "quality", "summaries"))
+        }.get(kind or "", (*processing, "compressor", "summaries"))
         return fingerprint(
             [
-                # Do not replay old key-only merge decisions under the new
-                # occurrence evidence policy. Storage-only tasks stay compatible.
-                "remember_occurrence_checkpoint_v6"
+                # Candidate-first decisions must never replay an older source-first
+                # comparison or a compressed-input extraction checkpoint.
+                "remember_occurrence_checkpoint_v8_two_stage_candidates"
                 if kind in {None, "remember.extract", "remember.distill"}
                 else "remember_processing_checkpoint_v2",
                 kind,
@@ -1671,6 +1988,18 @@ class RememberPipeline(Revalidation):
                 raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "model call budget exhausted")
             tx.write("remember_model_calls", task.task_id, count + 1)
 
+    def consume_projection_call(self, task: TaskRecord, chunk_key: str) -> None:
+        """Reserve a bounded embedding attempt for one immutable original chunk."""
+        key = fingerprint([task.task_id, chunk_key])
+        with self.uow.transaction() as tx:
+            self.tasks.guard(tx, task)
+            count = tx.read("remember_projection_embedding_calls", key) or 0
+            if count >= self.policy.projection_embedding_attempts:
+                raise FoundationError(
+                    ErrorCode.CONTRACT_VIOLATION, "chunk embedding attempt budget exhausted"
+                )
+            tx.write("remember_projection_embedding_calls", key, count + 1)
+
     async def compress(
         self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot
     ) -> RunResult:
@@ -1682,22 +2011,23 @@ class RememberPipeline(Revalidation):
     async def generate_compression(
         self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot
     ) -> dict[str, Any]:
-        from .compression_attempts import compress_part
+        from .compression_attempts import compress_part, reserve_legacy_reviews
 
         output_text = ""
         result: dict[str, Any] = {
             "quality": "failed",
             "published": False,
-            "reason": "compression_or_quality_provider_not_configured",
+            "reason": "compression_provider_not_configured",
             "target_ratio": self.policy.compression_target_ratio,
             "ratio_required": self.policy.compression_require_ratio,
             "original_bytes": len(item.content.encode("utf-8")),
+            "quality_review_enabled": False,
+            "quality_review_reason": "additional_quality_review_disabled",
         }
-        if self.compressor is not None and self.quality is not None:
+        if self.compressor is not None:
             parts = chunks(item.content, self.tokenizer.count, self.policy.extraction_chunk_tokens)
-            compressed, reports = [], []
-            for index, (start, end, text) in enumerate(parts):
-                checkpoint_key = fingerprint(
+            part_keys = [
+                fingerprint(
                     [
                         task.task_id,
                         self.checkpoint_binding(),
@@ -1707,6 +2037,12 @@ class RememberPipeline(Revalidation):
                         "quality_repair_v1",
                     ]
                 )
+                for index, (_, _, text) in enumerate(parts)
+            ]
+            reserve_legacy_reviews(self, task, part_keys)
+            compressed, reports = [], []
+            for index, (start, end, text) in enumerate(parts):
+                checkpoint_key = part_keys[index]
                 with self.uow.transaction() as tx:
                     checkpoint = tx.read("remember_compression_parts", checkpoint_key)
                     if checkpoint is not None:
@@ -1743,38 +2079,82 @@ class RememberPipeline(Revalidation):
             output_text = "\n".join(compressed)
             size = len(output_text.encode("utf-8"))
             ratio = result["original_bytes"] / size if size else 0
-            quality_ok = bool(size) and all(
-                r["quality"]["passed"]
-                and not r["quality"].get("critical_failures")
-                and not r["quality"].get("critical_unknowns")
-                for r in reports
+            checked = [r for r in reports if r.get("quality") is not None]
+            unchecked = [r for r in reports if r.get("quality") is None]
+            with self.uow.transaction() as tx:
+                self.tasks.guard(tx, task)
+                review_slot = tx.read("remember_compression_review_slots", task.task_id)
+            task_review_unknown = bool(
+                review_slot and review_slot.get("review_state") in {"started", "unknown"}
             )
-            # Keep the target visible even when ratio is advisory. Quality is never optional.
+            if review_slot and review_slot.get("review_state") == "legacy_consumed_or_unknown":
+                legacy_key = review_slot.get("part_key")
+                task_review_unknown = (
+                    legacy_key not in part_keys
+                    or reports[part_keys.index(legacy_key)].get("quality") is None
+                )
+            quality_ok = (
+                bool(size)
+                and bool(reports)
+                and not task_review_unknown
+                and all(
+                    r["quality"]["passed"]
+                    and not r["quality"].get("critical_failures")
+                    and not r["quality"].get("critical_unknowns")
+                    for r in checked
+                )
+                and all(
+                    r.get("quality_status") in {"not_sampled", "not_checked"} for r in unchecked
+                )
+            )
+            if not quality_ok:
+                quality_status = "failed"
+            elif not unchecked:
+                quality_status = "passed"
+            elif checked:
+                quality_status = "sampled_passed"
+            else:
+                # Preserve the public artifact enum; reason/enabled fields make
+                # clear this is disabled review, not an active random sample.
+                quality_status = "not_sampled"
+            # "passed" remains exclusive to fully checked artifacts so the existing
+            # quality dashboard cannot count unchecked blocks as verified samples.
             ratio_met = ratio >= max(5.0, self.policy.compression_target_ratio)
             result.update(
                 ratio=ratio,
                 ratio_met=ratio_met,
-                quality="passed" if quality_ok else "failed",
+                quality=quality_status,
+                quality_checked_parts=len(checked),
+                quality_unchecked_parts=len(unchecked),
+                quality_unknown_parts=sum(r.get("quality_status") == "unknown" for r in reports),
+                quality_task_review_unknown=task_review_unknown,
+                quality_total_parts=len(reports),
                 stored_bytes=size,
                 token_ratio=self.tokenizer.count(item.content)
                 / max(1, self.tokenizer.count(output_text)),
                 quality_evidence=[r["quality"] for r in reports],
+                quality_sampling=[r.get("sampling") for r in reports],
                 quality_attempts=[r.get("attempts", 1) for r in reports],
                 covered_ranges=[[r["start_char"], r["end_char"]] for r in reports],
-                strategy="chunked_quality_v3",
-                reason="quality_rejected" if not quality_ok else "ratio_unmet",
+                strategy="chunked_no_extra_review_v5",
+                reason="quality_review_unknown"
+                if task_review_unknown or any(r.get("quality_status") == "unknown" for r in reports)
+                else "quality_rejected"
+                if not quality_ok
+                else "ratio_unmet",
                 declared_use="locator_only"
-                if any(r["quality"].get("declared_use") == "locator_only" for r in reports)
+                if any(r["quality"].get("declared_use") == "locator_only" for r in checked)
+                else "extraction_view"
+                if unchecked
                 else "supported_summary",
             )
             if quality_ok and (ratio_met or not self.policy.compression_require_ratio):
                 location = self.bodies.location(item.ref.scope, output_text)
                 result.update(
-                    quality="passed",
                     published=True,
-                    reason="quality_and_ratio_passed"
+                    reason=f"{quality_status}_and_ratio_met"
                     if ratio_met
-                    else "quality_passed_ratio_target_unmet",
+                    else f"{quality_status}_ratio_target_unmet",
                     location=location.model_copy(update={"kind": "artifact"}).model_dump(
                         mode="json"
                     ),
@@ -1807,6 +2187,22 @@ class RememberPipeline(Revalidation):
             if result["published"]:
                 updated = self.change(tx, self.current(tx, item.ref.memory_id))
                 self.emit(tx, ctx, updated, "artifact_ready")
+            pending = tx.read("remember_pending", item.ref.memory_id)
+            if (
+                pending
+                and pending["ref"] == item.ref.model_dump(mode="json")
+                and pending["state"] == "waiting_compression"
+            ):
+                tx.write(
+                    "remember_pending",
+                    item.ref.memory_id,
+                    {
+                        **pending,
+                        "state": "pending",
+                        "compression_terminal": "published" if result["published"] else "failed",
+                    },
+                )
+                self.schedule(tx, ctx, item.ref.scope, force=True)
             return self.finish(tx, ctx, task, result)
 
     async def occurrence_evidence_context(
@@ -2031,46 +2427,27 @@ class RememberPipeline(Revalidation):
                         found.append(candidate.model_copy(update={"evidence": evidence}))
         merged: dict[Any, CandidateFact] = {}
         rejections: dict[str, dict[str, Any]] = {}
+        support_audit: list[dict[str, Any]] = []
+        from .consolidation import candidate_support_audit
+
         for candidate_index, candidate in enumerate(found):
             candidate = self.validate_candidate(candidate, items)
-            quotes = "\n".join(e.quote for e in candidate.evidence)
-            if candidate.text not in quotes:
-                if self.support_verifier is None:
-                    raise FoundationError(
-                        ErrorCode.CONTRACT_VIOLATION,
-                        "paraphrased candidate requires an independent support verifier",
-                    )
-                candidate_hash = fingerprint(candidate.model_dump(mode="json"))
-                binding = self.checkpoint_binding()
-                verification_key = fingerprint([task.task_id, binding, candidate_hash])
-                with self.uow.transaction() as tx:
-                    verification = tx.read("remember_support_verifications", verification_key)
-                if verification is None:
-                    self.consume_call(task)
-                    # Provider failures must propagate: unavailable evidence is not
-                    # a negative verdict and must remain retryable without a cache entry.
-                    supported = await self.support_verifier.verify(ctx, candidate, quotes)
-                    if not isinstance(supported, bool):
-                        raise FoundationError(
-                            ErrorCode.CONTRACT_VIOLATION, "invalid support verifier verdict"
-                        )
-                    verification = {
-                        "task_id": task.task_id,
-                        "binding": binding,
-                        "candidate_hash": candidate_hash,
-                        "sources": [s.model_dump(mode="json") for s in candidate.sources],
-                        "evidence": [e.model_dump(mode="json") for e in candidate.evidence],
-                        "status": "supported" if supported else "rejected",
-                        "reason": "evidence_supports_claim"
-                        if supported
-                        else "evidence_does_not_support_claim",
-                    }
-                    with self.uow.transaction() as tx:
-                        self.tasks.guard(tx, task)
-                        tx.write("remember_support_verifications", verification_key, verification)
-                if verification["status"] == "rejected":
-                    rejections[verification_key] = verification
-                    continue
+            candidate_hash = fingerprint(candidate.model_dump(mode="json"))
+            binding = self.checkpoint_binding()
+            verification_key = fingerprint([task.task_id, binding, candidate_hash])
+            verification = await candidate_support_audit(
+                self,
+                ctx,
+                task,
+                candidate,
+                binding=binding,
+                table="remember_support_verifications",
+                key=verification_key,
+            )
+            support_audit.append(verification)
+            if verification["status"] == "rejected":
+                rejections[verification_key] = verification
+                continue
             # Identical words in distinct events or source ranges are not one occurrence.
             key: tuple[Any, ...]
             if candidate.kind == "episodic":
@@ -2129,6 +2506,7 @@ class RememberPipeline(Revalidation):
                     "binding": self.checkpoint_binding(),
                     "candidates": [c.model_dump(mode="json") for c in merged.values()],
                     "rejections": list(rejections.values()),
+                    "support_audit": support_audit,
                 },
             )
         return tuple(merged.values())
@@ -2137,44 +2515,28 @@ class RememberPipeline(Revalidation):
         self,
         ctx: TrustedContext,
         items: tuple[MemorySnapshot, ...],
-        allow_artifacts: bool = True,
+        allow_artifacts: bool = False,
         task: TaskRecord | None = None,
     ) -> list[CandidateFact]:
-        """Bound model inputs, preserving original source-relative evidence offsets."""
-        units: list[tuple[MemorySnapshot, int, int, str | None]] = []
-        used_artifact = False
+        """Legacy batch adapter: original input only, with source-relative offsets.
+
+        The old allow_artifacts argument is ignored. LLMLingua input views are
+        selected by the current long-memory route, not by this legacy flag.
+        Official LangMem uses prepare_consolidation and complete messages instead.
+        """
+        units: list[tuple[MemorySnapshot, int, int]] = []
         budget = self.policy.extraction_chunk_tokens
         for item in items:
-            summary = None
-            if allow_artifacts and getattr(self.extraction, "supports_representations", False):
-                with self.uow.transaction() as tx:
-                    artifact = tx.read("remember_artifacts", self.refkey(item.ref))
-                if (
-                    artifact
-                    and artifact["published"]
-                    and artifact.get("declared_use", "supported_summary") == "supported_summary"
-                    and artifact["source_hash"] == item.content_hash
-                ):
-                    summary, _ = await self.bodies.read(
-                        item.ref.scope, ResourceLocation.model_validate(artifact["location"])
+            for start, _, piece in chunks(item.content, self.tokenizer.count, budget):
+                units.append(
+                    (
+                        item.model_copy(update={"content": piece}),
+                        start,
+                        self.tokenizer.count(piece),
                     )
-                    if self.tokenizer.count(summary) > budget:
-                        summary = None
-            if summary:
-                units.append((item, 0, self.tokenizer.count(summary), summary))
-                used_artifact = True
-            else:
-                for start, _, piece in chunks(item.content, self.tokenizer.count, budget):
-                    units.append(
-                        (
-                            item.model_copy(update={"content": piece}),
-                            start,
-                            self.tokenizer.count(piece),
-                            None,
-                        )
-                    )
-        groups: list[list[tuple[MemorySnapshot, int, int, str | None]]] = []
-        group: list[tuple[MemorySnapshot, int, int, str | None]] = []
+                )
+        groups: list[list[tuple[MemorySnapshot, int, int]]] = []
+        group: list[tuple[MemorySnapshot, int, int]] = []
         total = 0
         source_ids: set[str] = set()
         for unit in units:
@@ -2188,29 +2550,68 @@ class RememberPipeline(Revalidation):
         if group:
             groups.append(group)
         found: list[CandidateFact] = []
-        try:
-            for group in groups:
-                kwargs: dict[str, Any] = {}
-                if getattr(self.extraction, "supports_representations", False):
-                    kwargs["representations"] = [
-                        {"source_id": s.source_id, "text": summary}
-                        for item, _, _, summary in group
-                        if summary
-                        for s in item.sources
-                    ]
-                checkpoint_key = fingerprint(
+        for group in groups:
+            kwargs: dict[str, Any] = {}
+            checkpoint_key = fingerprint(
+                [
+                    task.task_id if task else ctx.operation_id,
+                    self.checkpoint_binding(),
                     [
-                        task.task_id if task else ctx.operation_id,
-                        self.checkpoint_binding(),
-                        [
-                            (u[0].ref.model_dump(mode="json"), u[1], text_hash(u[0].content), u[3])
-                            for u in group
-                        ],
-                    ]
-                )
+                        (u[0].ref.model_dump(mode="json"), u[1], text_hash(u[0].content))
+                        for u in group
+                    ],
+                ]
+            )
+            with self.uow.transaction() as tx:
+                checkpoint = tx.read("remember_extraction_parts", checkpoint_key)
+                if checkpoint is not None and task is not None:
+                    self.tasks.progress.part(
+                        tx,
+                        ctx,
+                        task,
+                        "extraction",
+                        "remember_extraction_parts",
+                        checkpoint_key,
+                        config_version=self.policy.version,
+                    )
+            if checkpoint is None:
+                for repair in range(3):
+                    if task is not None:
+                        self.consume_call(task)
+                    try:
+                        output = ExtractionResult.model_validate(
+                            await cast(Any, self.extraction).extract_batch(
+                                ctx, tuple(u[0] for u in group), self.policy.version, **kwargs
+                            )
+                        )
+                        break
+                    except ValueError as exc:
+                        if repair == 2:
+                            raise FoundationError(
+                                ErrorCode.CONTRACT_VIOLATION,
+                                "model extraction evidence invalid after bounded repair",
+                            ) from exc
+                        if getattr(self.extraction, "supports_evidence_repair", False):
+                            kwargs["repair_feedback"] = {
+                                **(
+                                    exc.feedback
+                                    if isinstance(exc, EvidenceValidationError)
+                                    else {"reason": "invalid_extraction_schema"}
+                                ),
+                                "attempt": repair + 1,
+                                "instruction": "Regenerate the complete result. Copy exact "
+                                "unique source quotes including whitespace, punctuation and "
+                                "Markdown. Never invent missing evidence or source IDs.",
+                            }
                 with self.uow.transaction() as tx:
-                    checkpoint = tx.read("remember_extraction_parts", checkpoint_key)
-                    if checkpoint is not None and task is not None:
+                    if task is not None:
+                        self.tasks.guard(tx, task)
+                    tx.write(
+                        "remember_extraction_parts",
+                        checkpoint_key,
+                        output.model_dump(mode="json"),
+                    )
+                    if task is not None:
                         self.tasks.progress.part(
                             tx,
                             ctx,
@@ -2220,81 +2621,24 @@ class RememberPipeline(Revalidation):
                             checkpoint_key,
                             config_version=self.policy.version,
                         )
-                if checkpoint is None:
-                    for repair in range(3):
-                        if task is not None:
-                            self.consume_call(task)
-                        try:
-                            output = ExtractionResult.model_validate(
-                                await cast(Any, self.extraction).extract_batch(
-                                    ctx, tuple(u[0] for u in group), self.policy.version, **kwargs
-                                )
-                            )
-                            break
-                        except ValueError as exc:
-                            if repair == 2:
-                                raise FoundationError(
-                                    ErrorCode.CONTRACT_VIOLATION,
-                                    "model extraction evidence invalid after bounded repair",
-                                ) from exc
-                            if getattr(self.extraction, "supports_evidence_repair", False):
-                                kwargs["repair_feedback"] = {
-                                    **(
-                                        exc.feedback
-                                        if isinstance(exc, EvidenceValidationError)
-                                        else {"reason": "invalid_extraction_schema"}
-                                    ),
-                                    "attempt": repair + 1,
-                                    "instruction": "Regenerate the complete result. Copy exact "
-                                    "unique source quotes including whitespace, punctuation and "
-                                    "Markdown. Never invent missing evidence or source IDs.",
-                                }
-                    with self.uow.transaction() as tx:
-                        if task is not None:
-                            self.tasks.guard(tx, task)
-                        tx.write(
-                            "remember_extraction_parts",
-                            checkpoint_key,
-                            output.model_dump(mode="json"),
-                        )
-                        if task is not None:
-                            self.tasks.progress.part(
-                                tx,
-                                ctx,
-                                task,
-                                "extraction",
-                                "remember_extraction_parts",
-                                checkpoint_key,
-                                config_version=self.policy.version,
-                            )
-                else:
-                    output = ExtractionResult.model_validate(checkpoint)
-                offsets = {
-                    s.source_id: offset for item, offset, _, _ in group for s in item.sources
-                }
-                for candidate in output.candidates:
-                    evidence = tuple(
-                        e.model_copy(
-                            update={
-                                "start_char": e.start_char + offsets.get(e.source.source_id, 0),
-                                "end_char": e.end_char + offsets.get(e.source.source_id, 0),
-                            }
-                        )
-                        for e in candidate.evidence
+            else:
+                output = ExtractionResult.model_validate(checkpoint)
+            offsets = {s.source_id: offset for item, offset, _ in group for s in item.sources}
+            for candidate in output.candidates:
+                evidence = tuple(
+                    e.model_copy(
+                        update={
+                            "start_char": e.start_char + offsets.get(e.source.source_id, 0),
+                            "end_char": e.end_char + offsets.get(e.source.source_id, 0),
+                        }
                     )
-                    found.append(
-                        self.validate_candidate(
-                            candidate.model_copy(update={"evidence": evidence}), items
-                        )
+                    for e in candidate.evidence
+                )
+                found.append(
+                    self.validate_candidate(
+                        candidate.model_copy(update={"evidence": evidence}), items
                     )
-        except (ValueError, FoundationError) as exc:
-            if (
-                not used_artifact
-                or isinstance(exc, FoundationError)
-                and exc.code != ErrorCode.CONTRACT_VIOLATION
-            ):
-                raise
-            return await self.extract_inputs(ctx, items, allow_artifacts=False, task=task)
+                )
         return found
 
     async def related(
@@ -2302,51 +2646,74 @@ class RememberPipeline(Revalidation):
     ) -> tuple[MemorySnapshot, ...]:
         discovered = []
         if self.vector_search is not None:
-            # Query is bounded separately; the full candidate remains available to comparison.
-            query = chunks(
-                candidate.text, self.tokenizer.count, self.policy.projection_chunk_tokens
-            )[0][2]
-            op = fingerprint([ctx.operation_id, candidate.model_dump(mode="json"), "related"])
-            embedded = await self.embedding.embed(
-                ctx,
-                EmbeddingRequest(
-                    operation_id=op,
-                    usage="query",
-                    texts=(query,),
-                    model_space=self.model_space,
-                    deadline_at=ctx.deadline_at,
-                ),
-            )
-            if (
-                embedded.operation_id != op
-                or embedded.usage != "query"
-                or embedded.model_space != self.model_space
-                or len(embedded.items) != 1
-                or embedded.items[0].input_hash != text_hash(query)
-            ):
-                raise FoundationError(
-                    ErrorCode.CONTRACT_VIOLATION, "comparison query embedding mismatch"
+            # Every candidate fragment can contain the distinguishing condition.
+            # Search all fragments; comparison still receives the full candidate.
+            queries = tuple(
+                part
+                for _, _, part in chunks(
+                    candidate.text,
+                    getattr(self, "embedding_count", self.tokenizer.count),
+                    self.policy.projection_chunk_tokens,
                 )
-            result = await self.vector_search.search(
-                ctx,
-                VectorSearchRequest(
-                    memory_source="long_term",
-                    selection=ScopeSelector(
-                        **scope.model_dump(
-                            exclude={"tenant_id", "application_id", "user_id", "agent_id"}
-                        )
+            )
+            ranked: dict[str, tuple[int, int]] = {}
+            for query_index, query in enumerate(queries):
+                # The shared query contract accepts exactly one text. Keep that
+                # interface intact rather than pretending queries are passages.
+                op = fingerprint(
+                    [
+                        ctx.operation_id,
+                        candidate.model_dump(mode="json"),
+                        "related_candidate_chunks_v2",
+                        query_index,
+                        query,
+                        self.model_space,
+                    ]
+                )
+                embedded = await self.embedding.embed(
+                    ctx,
+                    EmbeddingRequest(
+                        operation_id=op,
+                        usage="query",
+                        texts=(query,),
+                        model_space=self.model_space,
+                        deadline_at=ctx.deadline_at,
                     ),
-                    vector=embedded.items[0].vector,
-                    model_space=self.model_space,
-                    limit=self.policy.comparison_candidates,
-                    deadline_at=ctx.deadline_at,
-                ),
-            )
-            if result.coverage == "unavailable":
-                raise FoundationError(
-                    ErrorCode.DEPENDENCY_UNAVAILABLE, "comparison discovery unavailable"
                 )
-            discovered = [x.target.memory.memory_id for x in result.candidates]
+                if (
+                    embedded.operation_id != op
+                    or embedded.usage != "query"
+                    or embedded.model_space != self.model_space
+                    or len(embedded.items) != 1
+                    or embedded.items[0].index != 0
+                    or embedded.items[0].input_hash != text_hash(query)
+                ):
+                    raise FoundationError(
+                        ErrorCode.CONTRACT_VIOLATION, "comparison query embedding mismatch"
+                    )
+                result = await self.vector_search.search(
+                    ctx,
+                    VectorSearchRequest(
+                        memory_source="long_term",
+                        selection=ScopeSelector(
+                            **scope.model_dump(
+                                exclude={"tenant_id", "application_id", "user_id", "agent_id"}
+                            )
+                        ),
+                        vector=embedded.items[0].vector,
+                        model_space=self.model_space,
+                        limit=self.policy.comparison_candidates,
+                        deadline_at=ctx.deadline_at,
+                    ),
+                )
+                if result.coverage == "unavailable":
+                    raise FoundationError(
+                        ErrorCode.DEPENDENCY_UNAVAILABLE, "comparison discovery unavailable"
+                    )
+                for rank, found in enumerate(result.candidates):
+                    key = found.target.memory.memory_id
+                    ranked[key] = min(ranked.get(key, (rank, query_index)), (rank, query_index))
+            discovered = sorted(ranked, key=lambda key: (*ranked[key], key))
         return self.related_metadata(ctx, candidate, scope, discovered)
 
     def related_metadata(
@@ -2406,7 +2773,12 @@ class RememberPipeline(Revalidation):
         self, ctx: TrustedContext, task: TaskRecord, items: tuple[MemorySnapshot, ...]
     ) -> RunResult:
         for _ in range(self.policy.max_commit_retries + 1):
-            prepared = await self.generate_extraction(ctx, task, items)
+            try:
+                prepared = await self.generate_extraction(ctx, task, items)
+            except FoundationError as exc:
+                if exc.code != ErrorCode.RESULT_INVALIDATED:
+                    raise
+                continue
             for candidate, decision, _ in prepared["proposals"]:
                 # Commit may preserve an earlier equivalence as a conflict after
                 # a batch amendment. Its immutable body must already be confirmed.
@@ -2424,13 +2796,30 @@ class RememberPipeline(Revalidation):
     async def generate_extraction(
         self, ctx: TrustedContext, task: TaskRecord, items: tuple[MemorySnapshot, ...]
     ) -> dict[str, Any]:
-        candidates = await self.candidates(ctx, task, items)
+        formation = None
+        validation_items = items
+        if getattr(self.extraction, "supports_consolidation", False):
+            from .consolidation import prepare_consolidation
+
+            formation = await prepare_consolidation(self, ctx, task, items)
+            if formation.get("two_stage") is True:
+                from .official_commit import prepare_two_stage_commit
+
+                return prepare_two_stage_commit(self, ctx, task, items, formation)
+            candidates = formation["candidates"]
+            validation_items = formation["validation_items"]
+        else:
+            candidates = await self.candidates(ctx, task, items)
         if task.kind == "remember.distill":
             candidates = tuple(c for c in candidates if c.kind == "semantic")
         with self.uow.transaction() as tx:
             batch = tx.read("remember_batches", task.task_id)
             candidate_checkpoint = tx.read("remember_candidates", task.task_id) or {}
             rejections = candidate_checkpoint.get("rejections", [])
+            support_audit = candidate_checkpoint.get("support_audit", [])
+            if formation is not None:
+                rejections = formation["rejections"]
+                support_audit = formation.get("support_audit", [])
         refs = (
             tuple(MemoryRef.model_validate(r) for r in batch["refs"])
             if batch
@@ -2447,7 +2836,9 @@ class RememberPipeline(Revalidation):
                 )
             space_key = self.space_key(items[0].ref.scope)
             expected_space_seq = tx.read("remember_space_seq", space_key) or 0
-            source_binding = self.comparison_source_binding(tx, items)
+            if formation is not None:
+                expected_space_seq = formation["expected_space_seq"]
+            source_binding = self.comparison_source_binding(tx, validation_items)
             processing_binding = self.checkpoint_binding()
             checkpoint_key = fingerprint(
                 [
@@ -2456,6 +2847,7 @@ class RememberPipeline(Revalidation):
                     task.kind,
                     task.input_ref.model_dump(mode="json"),
                     processing_binding,
+                    formation["binding"] if formation is not None else None,
                     attempt,
                     space_key,
                     expected_space_seq,
@@ -2476,7 +2868,7 @@ class RememberPipeline(Revalidation):
                 raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "invalid comparison cursor")
             proposals = [
                 (
-                    self.validate_candidate(CandidateFact.model_validate(c), items),
+                    self.validate_candidate(CandidateFact.model_validate(c), validation_items),
                     ComparisonDecision.model_validate(d),
                     MemorySnapshot.model_validate(t) if t else None,
                 )
@@ -2491,8 +2883,13 @@ class RememberPipeline(Revalidation):
         for candidate_index, candidate in enumerate(candidates[cursor:], start=cursor):
             verified_amend_identity = False
             existing: tuple[MemorySnapshot, ...]
-            duplicate = self.duplicate(ctx, candidate, items[0].ref.scope)
-            if duplicate is not None:
+            duplicate = (
+                self.duplicate(ctx, candidate, items[0].ref.scope) if formation is None else None
+            )
+            if formation is not None:
+                existing = (*formation["existing"], *virtual.values())
+                decision = formation["proposals"][candidate_index].decision
+            elif duplicate is not None:
                 existing = (duplicate,)
                 decision = ComparisonDecision(
                     outcome="no_change",
@@ -2807,7 +3204,7 @@ class RememberPipeline(Revalidation):
                         "attempts", 0
                     )
                     == attempt
-                    and self.comparison_source_binding(tx, items) == source_binding
+                    and self.comparison_source_binding(tx, validation_items) == source_binding
                     and self.checkpoint_binding() == processing_binding
                 ):
                     tx.write(
@@ -2830,6 +3227,18 @@ class RememberPipeline(Revalidation):
                         },
                     )
         return {
+            "official_guard": None
+            if formation is None
+            else {
+                "refs": [
+                    r.model_dump(mode="json")
+                    for r in (*formation["context_refs"], *(i.ref for i in formation["existing"]))
+                ],
+                "versions": {i.ref.memory_id: i.object_revision for i in formation["existing"]},
+                "sources": [s.model_dump(mode="json") for i in validation_items for s in i.sources],
+                "source_binding": formation["source_binding"],
+                "discovery": formation["discovery"],
+            },
             "attempt": attempt,
             "space_key": space_key,
             "expected_space_seq": expected_space_seq,
@@ -2837,6 +3246,18 @@ class RememberPipeline(Revalidation):
             "virtual": list(virtual),
             "candidate_count": len(candidates),
             "candidate_rejections": rejections,
+            "candidate_support_audit": support_audit,
+            "candidate_support_counts": {
+                status: sum(row["status"] == status for row in support_audit)
+                for status in (
+                    "supported",
+                    "rejected",
+                    "not_sampled",
+                    "not_checked",
+                    "source_bound_exact",
+                    "unknown",
+                )
+            },
             "proposals": [
                 [
                     c.model_dump(mode="json"),
@@ -2872,8 +3293,16 @@ class RememberPipeline(Revalidation):
         items: tuple[MemorySnapshot, ...],
         prepared: dict[str, Any],
     ) -> RunResult | None:
+        from .official_commit import TWO_STAGE_ACTIONS, TWO_STAGE_COMMIT_SCHEMA
+
         attempt, space_key = prepared["attempt"], prepared["space_key"]
         expected_space_seq, virtual = prepared["expected_space_seq"], prepared["virtual"]
+        two_stage = prepared.get("two_stage") is True
+        if two_stage and (
+            (prepared.get("official_guard") or {}).get("two_stage") != TWO_STAGE_COMMIT_SCHEMA
+            or virtual
+        ):
+            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "invalid two-stage commit contract")
         refs = tuple(MemoryRef.model_validate(r) for r in prepared["refs"])
         proposals = [
             (
@@ -2883,9 +3312,70 @@ class RememberPipeline(Revalidation):
             )
             for c, d, t in prepared["proposals"]
         ]
+        if two_stage:
+            targets = [target.ref.memory_id for _, _, target in proposals if target]
+            groups = prepared.get("candidate_groups", [])
+            covered = [candidate_id for group in groups for candidate_id in group]
+            if (
+                len(targets) != len(set(targets))
+                or len(groups) != len(proposals)
+                or any(not group for group in groups)
+                or len(covered) != len(set(covered))
+                or len(covered) != prepared["candidate_count"]
+                or any(
+                    decision.outcome not in TWO_STAGE_ACTIONS
+                    or (
+                        decision.outcome == "create"
+                        and (target is not None or decision.target_id is not None)
+                    )
+                    or (
+                        decision.outcome != "create"
+                        and (target is None or decision.target_id != target.ref.memory_id)
+                    )
+                    or (
+                        target is not None
+                        and decision.outcome != "conflict"
+                        and target.kind.value != candidate.kind
+                    )
+                    for candidate, decision, target in proposals
+                )
+            ):
+                raise FoundationError(
+                    ErrorCode.CONTRACT_VIOLATION, "invalid two-stage candidate decisions"
+                )
         with self.uow.transaction() as tx:
             self.tasks.guard(tx, task)
-            if (tx.read("remember_space_seq", space_key) or 0) != expected_space_seq:
+            official_guard = prepared.get("official_guard")
+            if official_guard is not None:
+                guard_refs = tuple(MemoryRef.model_validate(r) for r in official_guard["refs"])
+                if guard_refs and any(
+                    x.decision != "allowed"
+                    for x in self.final_guard(tx, ctx, guard_refs, "recall").items
+                ):
+                    return RunResult(
+                        outcome="obsolete",
+                        effect_status=EffectStatus.NO_EFFECT,
+                        reason="consolidation history or context no longer eligible",
+                    )
+                evidence_items = (
+                    items[0].model_copy(
+                        update={
+                            "sources": tuple(
+                                SourceRef.model_validate(s) for s in official_guard["sources"]
+                            )
+                        }
+                    ),
+                )
+                if self.comparison_source_binding(tx, evidence_items) != official_guard[
+                    "source_binding"
+                ] or any(
+                    self.current(tx, key).object_revision != version
+                    for key, version in official_guard["versions"].items()
+                ):
+                    tx.write("remember_comparison_retries", task.task_id, {"attempts": attempt + 1})
+                    return None
+            sequence_table = "remember_long_term_seq" if two_stage else "remember_space_seq"
+            if (tx.read(sequence_table, space_key) or 0) != expected_space_seq:
                 tx.write("remember_comparison_retries", task.task_id, {"attempts": attempt + 1})
                 return None
             if any(
@@ -2909,6 +3399,7 @@ class RememberPipeline(Revalidation):
                 tx.write("remember_comparison_retries", task.task_id, {"attempts": attempt + 1})
                 return None
             outputs, decisions = [], []
+            output_sources: dict[str, set[tuple[str, int, str]]] = {}
             for index, (candidate, decision, target) in enumerate(proposals):
                 compared_ref = target.ref if target else None
                 if target is not None:
@@ -2916,7 +3407,20 @@ class RememberPipeline(Revalidation):
                     # transaction, after the external CAS checks above passed.
                     latest = self.current(tx, target.ref.memory_id)
                     changed_content = latest.content_hash != target.content_hash
-                    if decision.outcome == "amend":
+                    if two_stage:
+                        # Each old object has exactly one grouped decision. Do not
+                        # reinterpret the model decision using the legacy episodic
+                        # substring gate or an extra semantic reviewer.
+                        if changed_content or latest.ref != target.ref:
+                            raise FoundationError(
+                                ErrorCode.RESULT_INVALIDATED,
+                                "two-stage target changed within commit",
+                            )
+                        if decision.outcome in {"amend", "correct"}:
+                            self.identity.authorize(
+                                tx, ctx, Permission.CORRECT, memory_ref(latest.ref)
+                            )
+                    elif decision.outcome == "amend":
                         relation = tx.read("remember_relations", latest.ref.memory_id) or {}
                         if (
                             candidate.kind == "episodic"
@@ -2964,6 +3468,11 @@ class RememberPipeline(Revalidation):
                         "compared_memory": compared_ref.model_dump(mode="json")
                         if compared_ref
                         else None,
+                        **(
+                            {"candidate_ids": prepared["candidate_groups"][index]}
+                            if two_stage
+                            else {}
+                        ),
                     }
                 )
                 if decision.outcome == "reject":
@@ -2999,7 +3508,7 @@ class RememberPipeline(Revalidation):
                     else:
                         fact = self.change(tx, current, **updates)
                         self.emit(tx, ctx, fact, "processing")
-                elif decision.outcome == "amend":
+                elif decision.outcome == "amend" or (two_stage and decision.outcome == "correct"):
                     assert target is not None
                     old = self.change(
                         tx,
@@ -3016,17 +3525,41 @@ class RememberPipeline(Revalidation):
                             "object_revision": old.object_revision + 1,
                             "content": candidate.text,
                             "content_hash": text_hash(candidate.text),
-                            "sources": candidate.sources,
+                            "sources": tuple(
+                                {
+                                    source.model_dump_json(): source
+                                    for source in (*old.sources, *candidate.sources)
+                                }.values()
+                            )
+                            if two_stage
+                            else candidate.sources,
                             "status": MemoryStatus.ACTIVE,
                             "projection_state": ProjectionState.PENDING,
                             "model_space": None,
                             "supersedes": old.ref,
+                            **({"created_at": self.identity.clock()} if two_stage else {}),
                         }
                     )
+                    # A new version uses a new versioned MemoryRecord. put() drops
+                    # stale projection/cache locations and resets cache admission.
                     self.put(tx, fact)
                     self.enqueue(tx, ctx, fact, "remember.project")
                     self.emit(tx, ctx, fact, "corrected")
                 else:
+                    if two_stage:
+                        self.identity.authorize(
+                            tx,
+                            ctx,
+                            Permission.WRITE,
+                            memory_ref(
+                                items[0].ref.model_copy(
+                                    update={
+                                        "memory_id": fingerprint([task.task_id, index]),
+                                        "version": 1,
+                                    }
+                                )
+                            ),
+                        )
                     fact = self.new_memory(
                         tx,
                         fingerprint([task.task_id, index]),
@@ -3134,12 +3667,41 @@ class RememberPipeline(Revalidation):
                     )
                     tx.write("remember_conflicts", group.group_id, group.model_dump(mode="json"))
                 outputs.append(fact.ref.model_dump(mode="json"))
+                output_sources.setdefault(fact.ref.memory_id, set()).update(
+                    (source.source_id, source.source_version, source.content_hash)
+                    for source in candidate.sources
+                )
             tx.write(
                 "remember_decisions",
                 task.task_id,
-                {"decisions": decisions, "policy_version": self.policy.version},
+                {
+                    "decisions": decisions,
+                    "policy_version": self.policy.version,
+                    **({"two_stage": TWO_STAGE_COMMIT_SCHEMA} if two_stage else {}),
+                },
             )
-            deferred = tx.read("remember_deferred_extraction", task.task_id) or []
+            # A complete candidate-first result consumes the entire new input
+            # batch; old literal-adapter deferrals cannot survive this boundary.
+            deferred = (
+                [] if two_stage else (tx.read("remember_deferred_extraction", task.task_id) or [])
+            )
+            from .consolidation_metrics import compression_metrics
+
+            # Count final current bodies once, including reused memories. Several
+            # proposals may have referred to successive versions of the same ID.
+            final_outputs = tuple(
+                self.current(tx, memory_id)
+                for memory_id in dict.fromkeys(r["memory_id"] for r in outputs)
+            )
+            metrics = compression_metrics(
+                items,
+                final_outputs,
+                target_factor=self.policy.compression_target_ratio,
+                long_input_bytes=self.policy.consolidation_bytes,
+                complete=not deferred,
+                output_sources=output_sources,
+            )
+            tx.write("remember_consolidation_metrics", task.task_id, metrics)
             for item in items:
                 row = tx.read("remember_pending", item.ref.memory_id)
                 if row and row.get("task_id") == task.task_id:
@@ -3160,8 +3722,14 @@ class RememberPipeline(Revalidation):
                 {
                     "memories": list({fingerprint(r): r for r in outputs}.values()),
                     "candidate_count": prepared["candidate_count"],
+                    "compression_metrics": metrics,
                     "rejected_candidate_count": len(prepared.get("candidate_rejections", [])),
                     "candidate_rejections": prepared.get("candidate_rejections", []),
+                    "candidate_support_audit": prepared.get("candidate_support_audit", []),
+                    "candidate_support_counts": prepared.get("candidate_support_counts", {}),
+                    "consolidation_discovery": (prepared.get("official_guard") or {}).get(
+                        "discovery"
+                    ),
                     "zero_output": not outputs,
                     "zero_output_reason": (
                         "all_candidates_rejected"
@@ -3296,7 +3864,7 @@ class RememberPipeline(Revalidation):
                         config_version=self.policy.version,
                     )
             if checkpoint is None:
-                self.consume_call(task)
+                self.consume_projection_call(task, checkpoint_key)
                 embedded = await self.embedding.embed(
                     ctx,
                     EmbeddingRequest(

@@ -578,16 +578,17 @@ class Remember:
                 "remember_source_input", source.source_id, request.source.model_dump(mode="json")
             )
             self.put(tx, updated)
-            task_id = self.enqueue(
-                tx,
-                ctx,
-                updated,
+            task_kind = (
                 self.working_task_kind(tx, updated)
                 if item.kind == MemoryKind.WORKING
-                else "remember.project",
+                else "remember.project"
             )
-            task_ids = [task_id]
-            if item.kind == MemoryKind.WORKING and self.projection_buildable(tx, updated):
+            task_ids = [self.enqueue(tx, ctx, updated, task_kind)] if task_kind else []
+            if (
+                task_kind
+                and item.kind == MemoryKind.WORKING
+                and self.projection_buildable(tx, updated)
+            ):
                 task_ids.append(self.enqueue(tx, ctx, updated, "remember.project"))
             self.emit(tx, ctx, updated, "corrected")
             result = RememberReceipt(
@@ -596,7 +597,7 @@ class Remember:
                 source=source,
                 memories=(updated.ref,),
                 task_ids=tuple(task_ids),
-                phase="processing",
+                phase="processing" if task_ids else "saved",
             )
             self.remember_result(tx, key, request, result)
             tx.write(
@@ -621,7 +622,7 @@ class Remember:
     ) -> str:
         return request.content
 
-    def working_task_kind(self, tx: MetadataTransaction, item: MemorySnapshot) -> str:
+    def working_task_kind(self, tx: MetadataTransaction, item: MemorySnapshot) -> str | None:
         return "remember.extract"
 
     def projection_buildable(self, tx: MetadataTransaction, item: MemorySnapshot) -> bool:
@@ -765,9 +766,9 @@ class Remember:
             admitted = []
             if request.target == "active":
                 if item.kind == MemoryKind.WORKING:
-                    admitted.append(
-                        self.enqueue(tx, ctx, updated, self.working_task_kind(tx, updated))
-                    )
+                    task_kind = self.working_task_kind(tx, updated)
+                    if task_kind:
+                        admitted.append(self.enqueue(tx, ctx, updated, task_kind))
                 if self.projection_buildable(tx, updated):
                     admitted.append(self.enqueue(tx, ctx, updated, "remember.project"))
             self.emit(tx, ctx, updated, "activated" if request.target == "active" else "archived")

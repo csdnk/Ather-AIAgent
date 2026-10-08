@@ -693,7 +693,8 @@ class AdminDiagnostics:
         config = getattr(getattr(self.execution, "ledger", None), "config", None)
         with self.uow.transaction() as tx:
             bindings = dict(tx.rows("temporal_bindings"))
-            actions, counts = {}, {}
+            actions: dict[str, dict[str, Any]] = {}
+            counts: dict[str, int] = {}
             for task_id, intent in tx.rows("operate_task_actions"):
                 action_id = intent.get("action_id")
                 if not self.in_deployment(bindings.get(task_id)) or action_id in actions:

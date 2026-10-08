@@ -382,8 +382,8 @@ class WorkingSummaries:
             tasks = []
             if failure is None:
                 tasks.append(owner.enqueue(tx, follow_ctx, updated, "remember.project"))
-            if (tx.read("remember_source_ranges", source.source_id) or {}).get("chars", 0):
-                tasks.append(owner.enqueue(tx, follow_ctx, updated, "remember.compress"))
+            # Legacy summary completion may still release its original source
+            # for consolidation, but must not create a new precompression task.
             tasks.extend(owner.schedule(tx, follow_ctx, updated.ref.scope, force=True))
             result = cast(
                 RunResult,

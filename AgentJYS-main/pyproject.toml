@@ -27,9 +27,17 @@ dependencies = [
   "uvicorn>=0.35,<1",
   "tiktoken>=0.9,<1",
   "temporalio==1.33.0",
+  "langmem==0.0.30",
+  "langchain-openai==0.3.35",
+  "langchain-text-splitters==0.3.11",
 ]
 
 [project.optional-dependencies]
+remember-llmlingua = [
+  "llmlingua==0.2.2",
+  "torch>=2.6,<3",
+  "transformers>=4.45,<5",
+]
 remember-postgres = [
   "psycopg[binary]>=3.2,<4",
   "psycopg-pool>=3.2,<4",
@@ -151,6 +159,9 @@ module = [
   "google.protobuf.*",
   "grpc.*",
   "jieba.*",
+  "jsonpatch.*",
+  "langmem.*",
+  "llmlingua.*",
   "milvus_lite.*",
   "onnxruntime.*",
   "openvino.*",

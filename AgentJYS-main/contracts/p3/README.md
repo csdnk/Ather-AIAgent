@@ -1,5 +1,7 @@
 # P3 可校验契约
 
+2026-10-08 Remember：长短内容统一保存原文 Working，达到阈值后异步整理；来源片段读取使用既有范围接口，见 [Remember HTTP 接口](remember-live-http.yaml)。
+
 2026-09-22：五个投影模型的规范名称迁至 remember；ProjectionPort/GenerationProjectionPort 与 VectorSearchPort/GenerationSearchPort 分离。旧Python导入保留别名，Schema规范文件名使用新所有者。对象仍118个、方法仍68个，正式接口组24组。
 
 2026-09-22：RF新监测接口及公共对象已有本地服务接入，见[RF运行服务](../../docs/p3/development/08_RF运行服务与HTTP接入.md)。B/A/C新接口仍待业务接线。下方2026-09-21说明及catalog中的contract_only为原契约批次范围。

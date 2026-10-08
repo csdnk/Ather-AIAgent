@@ -16,11 +16,10 @@ from aether_agent_memory.operate.basic.body_cache import TieredBodyCache
 from aether_agent_memory.operate.basic.continuous import ContinuousOperate
 from aether_agent_memory.operate.standalone.policy import Settings
 from aether_agent_memory.remember.basic.comparison import (
-    LangMemComparison,
     ModelEquivalenceVerifier,
 )
 from aether_agent_memory.remember.basic.compression import ModelCompression
-from aether_agent_memory.remember.basic.extraction import LangMemBatchExtraction
+from aether_agent_memory.remember.basic.official_langmem import OfficialLangMemConsolidation
 from aether_agent_memory.remember.documents import Documents
 from aether_agent_memory.remember.local import create_runtime
 from aether_agent_memory.runtime.contracts.models import TrustedContext
@@ -35,7 +34,7 @@ from .keycloak_directory import KeycloakDirectory
 from .observability import configure_tracing
 
 if TYPE_CHECKING:
-    from aether_agent_memory.remember.model_provider import ModelProvider
+    from .ruoyi_auth import RuoyiAuthenticator
 
 
 class Service:
@@ -115,24 +114,26 @@ class Service:
             providers.update(self.storage_providers.runtime_options())
         if config.language_model:
             from aether_agent_memory.remember.model_provider import (
-                CompressionVerifier,
                 ModelProvider,
                 SupportVerifier,
             )
 
             model = ModelProvider(config.language_model)
             self.closers.append(model.close)
+            from aether_agent_memory.remember.langmem_model import create_langmem_chat_model
+
+            memory_model = create_langmem_chat_model(config.language_model)
+            self.closers.append(memory_model.aclose)
             verifier = ModelProvider(config.verifier_model) if config.verifier_model else model
             if verifier is not model:
                 self.closers.append(verifier.close)
             defaults = {
-                "extraction": LangMemBatchExtraction(model, config.language_model.model),
-                "comparison": LangMemComparison(model),
+                "extraction": OfficialLangMemConsolidation.from_model(
+                    memory_model, config.language_model.model
+                ),
                 "equivalence_verifier": ModelEquivalenceVerifier(verifier),
                 "support_verifier": SupportVerifier(verifier),
                 "compressor": ModelCompression(model),
-                "compression_quality": CompressionVerifier(verifier),
-                "summarizer": model,
             }
             providers = {**defaults, **providers}
         if config.p2_endpoint and "p2" not in providers:
@@ -193,7 +194,7 @@ class Service:
         self.keycloak_directory = KeycloakDirectory(self.runtime.foundation.identity)
         self.closers.append(self.keycloak_directory.close)
         self.jwt_auth = JWTAuthenticator()
-        self.ruoyi_auth = None
+        self.ruoyi_auth: RuoyiAuthenticator | None = None
         self.closers.append(self.jwt_auth.close)
         self.tracing_provider = configure_tracing(
             self.runtime.foundation.telemetry,
@@ -249,8 +250,7 @@ class Service:
         if self.config.language_model:
 
             async def model(ctx: TrustedContext) -> dict[str, object]:
-                manager = cast("ModelProvider", remember.extraction.manager)
-                return await manager.health()
+                return cast(dict[str, object], await remember.extraction.health())
 
             health.register("extraction", model, replace=True)
             required.append("extraction")

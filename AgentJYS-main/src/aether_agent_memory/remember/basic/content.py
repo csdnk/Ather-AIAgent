@@ -7,6 +7,7 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
+from aether_agent_memory.remember.contracts.models import MemorySnapshot
 from aether_agent_memory.runtime.contracts.foundation import ResourceLocation
 from aether_agent_memory.runtime.contracts.models import (
     ErrorCode,
@@ -307,5 +308,15 @@ class Bodies:
             return "disabled"
         try:
             return "cached" if await self.cache.put(scope, text) else "not_admitted"
+        except Exception:
+            return "unavailable"
+
+    async def admit_initial(self, memory: MemorySnapshot, ctx: TrustedContext) -> str:
+        """Admit a newly committed body through a placement-aware cache boundary."""
+        admission = getattr(self.cache, "admit_initial", None)
+        if not callable(admission):
+            return await self.admit(memory.ref.scope, memory.content)
+        try:
+            return "cached" if await admission(memory, ctx) else "not_admitted"
         except Exception:
             return "unavailable"

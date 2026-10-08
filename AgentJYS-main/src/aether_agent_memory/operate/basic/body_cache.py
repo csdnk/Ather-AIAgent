@@ -2,16 +2,43 @@
 
 import asyncio
 
-from aether_agent_memory.remember.contracts.models import MemoryRef
-from aether_agent_memory.runtime.contracts.models import Scope
+from aether_agent_memory.remember.contracts.models import MemoryRef, MemorySnapshot
+from aether_agent_memory.runtime.contracts.models import Scope, TrustedContext
 from aether_agent_memory.runtime.storage.cache import BodyCache
+from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
-from .cache_port import CacheExecutor
+from .cache_port import CacheCapacityError, CacheExecutor
 
 
 class TieredBodyCache:
     def __init__(self, executor: CacheExecutor, redis: BodyCache | None = None) -> None:
         self.executor, self.redis = executor, redis
+
+    @property
+    def namespace(self) -> str | None:
+        value = getattr(self.redis, "namespace", None)
+        return value if isinstance(value, str) else None
+
+    def keys(self, scope: Scope, digest: str) -> tuple[str, str, str]:
+        address = getattr(self.redis, "keys", None)
+        if not callable(address):
+            raise ValueError("cache backend does not expose a Redis address")
+        bucket, body, expiry = address(scope, digest)
+        return str(bucket), str(body), str(expiry)
+
+    async def admit_initial(self, memory: MemorySnapshot, ctx: TrustedContext) -> bool:
+        """Explicit Remember write; ordinary read-through keeps its policy guard."""
+        admission = getattr(self.executor, "admit_initial", None)
+        if not callable(admission):
+            return False
+        try:
+            return bool(await asyncio.to_thread(admission, memory, ctx))
+        except CacheCapacityError:
+            return False
+
+    def registration_current(self, tx: MetadataTransaction, memory: MemoryRef, digest: str) -> bool:
+        registered = getattr(self.executor, "registration_current", None)
+        return bool(registered(tx, memory, digest)) if callable(registered) else False
 
     async def get(self, scope: Scope, digest: str) -> str | None:
         content = await asyncio.to_thread(self.executor.read_cached, scope, digest)

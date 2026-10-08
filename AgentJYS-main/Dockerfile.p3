@@ -8,11 +8,11 @@ import pathlib
 import tomllib
 project = tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']
 requirements = list(project['dependencies'])
-for extra in ('embedding-onnx', 'resource-documents', 'recall-rerank', 'remember-ceph'):
+for extra in ('embedding-onnx', 'resource-documents', 'recall-rerank', 'remember-ceph', 'remember-llmlingua'):
     requirements.extend(project['optional-dependencies'][extra])
 pathlib.Path('/tmp/p3-requirements.txt').write_text('\n'.join(requirements) + '\n')
 PY
-# AKS uses CPU nodes. Keep reranking support without CUDA runtime packages.
+# AKS uses CPU nodes. Keep reranking and LLMLingua without CUDA runtime packages.
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu 'torch==2.14.1+cpu'
 RUN pip install --no-cache-dir -r /tmp/p3-requirements.txt \
     && pip check \

@@ -2,13 +2,50 @@
 
 import hashlib
 import json
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, Never, TypedDict, cast
 
 from fastapi import HTTPException
+from psycopg import Connection
 from psycopg.types.json import Jsonb
 
+from aether_platform.directory import Actor
 from aether_platform.operations.models import Command, now, page
 from aether_platform.p3 import P3Error, identifier
+
+if TYPE_CHECKING:
+    from aether_platform.operations.service import Operations
+
+
+class TaskWorkflow(TypedDict):
+    status: str | None
+    state: str | None
+    start_time: str | None
+    close_time: str | None
+
+
+class TaskSnapshot(TypedDict):
+    task_id: str
+    revision: int
+    kind: str | None
+    state: str | None
+    effect_status: str | None
+    error_code: str | None
+    subject: dict[str, Any]
+    workflow: TaskWorkflow
+    stage: str | None
+    wait: dict[str, Any]
+
+
+class Verification(TypedDict):
+    passed: bool
+    reason: str
+    reviewer_id: str
+    note: str
+    at: str
+    evidence_hash: str
+
 
 TERMINAL = {"failed", "attention_required", "succeeded", "cancelled"}
 ACTIVE = {"pending", "queued", "running", "retry_wait", "recovery_wait"}
@@ -28,7 +65,7 @@ ACTIONS = {
 }
 
 
-def require(actor, permission="aether:ops:read"):
+def require(actor: Actor, permission: str = "aether:ops:read") -> None:
     permissions = getattr(actor, "permissions", ())
     if actor.role != "platform_admin" or (
         "*:*:*" not in permissions
@@ -37,32 +74,35 @@ def require(actor, permission="aether:ops:read"):
         raise HTTPException(403, detail={"code": "CASE_PERMISSION_REQUIRED"})
 
 
-def fail(code):
+def fail(code: str) -> Never:
     raise HTTPException(409, detail={"code": code})
 
 
-def note(parameters):
+def note(parameters: Mapping[str, object]) -> str:
     value = parameters.get("note")
     if not isinstance(value, str) or not 8 <= len(value.strip()) <= 2000:
         fail("CASE_NOTE_REQUIRED")
     return value.strip()
 
 
-def snapshot(data):
+def snapshot(data: Mapping[str, Any]) -> TaskSnapshot:
     task = data.get("task", {})
-    if not task.get("task_id") or type(task.get("revision")) is not int:
+    task_id, revision = task.get("task_id"), task.get("revision")
+    if not isinstance(task_id, str) or not task_id or type(revision) is not int:
         fail("CASE_TASK_UNAVAILABLE")
     return {
-        "task_id": task["task_id"],
-        "revision": task["revision"],
+        "task_id": task_id,
+        "revision": revision,
         "kind": task.get("kind"),
         "state": task.get("state"),
         "effect_status": task.get("effect_status"),
         "error_code": task.get("error_code"),
         "subject": task.get("subject", {}),
         "workflow": {
-            k: data.get("workflow", {}).get(k)
-            for k in ("status", "state", "start_time", "close_time")
+            "status": data.get("workflow", {}).get("status"),
+            "state": data.get("workflow", {}).get("state"),
+            "start_time": data.get("workflow", {}).get("start_time"),
+            "close_time": data.get("workflow", {}).get("close_time"),
         },
         "stage": data.get("binding", {}).get("stage"),
         "wait": {
@@ -72,15 +112,15 @@ def snapshot(data):
     }
 
 
-def digest(value):
+def digest(value: object) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
 
 
-def scope(task):
-    return task.get("subject", {}).get("scope", {})
+def scope(task: TaskSnapshot) -> dict[str, Any]:
+    return cast(dict[str, Any], task.get("subject", {}).get("scope", {}))
 
 
-def controlled(task):
+def controlled(task: TaskSnapshot) -> bool:
     return (
         task["state"] in ACTIVE
         and task["revision"] > 0
@@ -89,7 +129,7 @@ def controlled(task):
     )
 
 
-def completed(task):
+def completed(task: TaskSnapshot) -> bool:
     return (
         task["state"] == "succeeded"
         and task["effect_status"] == "confirmed"
@@ -98,36 +138,49 @@ def completed(task):
     )
 
 
-def follows(original, replacement):
+def follows(original: TaskSnapshot, replacement: TaskSnapshot) -> bool:
     try:
-        ended = datetime.fromisoformat(original["workflow"]["close_time"])
-        started = datetime.fromisoformat(replacement["workflow"]["start_time"])
+        close_time = original["workflow"]["close_time"]
+        start_time = replacement["workflow"]["start_time"]
+        if close_time is None or start_time is None:
+            return False
+        ended = datetime.fromisoformat(close_time)
+        started = datetime.fromisoformat(start_time)
         return ended.tzinfo is not None and started.tzinfo is not None and started >= ended
     except (KeyError, TypeError, ValueError):
         return False
 
 
 class TaskCases:
-    def __init__(self, operations):
+    def __init__(self, operations: "Operations") -> None:
         self.ops, self.store = operations, operations.store
 
-    def task(self, actor, token, task_id):
+    def task(self, actor: Actor, token: str | Callable[[], str], task_id: str) -> TaskSnapshot:
         data = self.ops.p3_call(actor, token, "GET", "/p3/admin/tasks/" + identifier(task_id))
         result = snapshot(data)
         if result["task_id"] != task_id:
             fail("CASE_TASK_MISMATCH")
         return result
 
-    def read(self, actor, *, task_id=None, state=None, limit=50, offset=0):
+    def read(
+        self,
+        actor: Actor,
+        *,
+        task_id: str | None = None,
+        state: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
         require(actor)
         with self.ops.directory.connection() as conn:
             clause = (
                 "(%s::text IS NULL OR task_id=%s) AND (%s::text IS NULL OR payload->>'state'=%s)"
             )
             args = (task_id, task_id, state, state)
-            count = conn.execute(
+            count_row = conn.execute(
                 "SELECT count(*) AS n FROM ops_task_cases WHERE " + clause, args
-            ).fetchone()["n"]
+            ).fetchone()
+            assert count_row is not None
             rows = conn.execute(
                 "SELECT * FROM ops_task_cases WHERE "
                 + clause
@@ -160,7 +213,7 @@ class TaskCases:
                 {**r["payload"], "version": r["version"], "updated_at": r["updated_at"]}
                 for r in rows
             ],
-            count,
+            count_row["n"],
             by_state={r["state"]: r["n"] for r in counts},
             actor_id=actor.id,
         )
@@ -168,7 +221,7 @@ class TaskCases:
 
         return attach_names(result, "support", actor, self.ops.directory)
 
-    def load(self, conn, task_id):
+    def load(self, conn: Connection[dict[str, Any]], task_id: str) -> dict[str, Any] | None:
         conn.execute(
             "SELECT pg_advisory_xact_lock(hashtextextended(%s,0))", ("task-case:" + task_id,)
         )
@@ -176,15 +229,30 @@ class TaskCases:
             "SELECT * FROM ops_task_cases WHERE task_id=%s FOR UPDATE", (task_id,)
         ).fetchone()
 
-    def save(self, conn, task_id, payload, old):
-        return conn.execute(
+    def save(
+        self,
+        conn: Connection[dict[str, Any]],
+        task_id: str,
+        payload: dict[str, Any],
+        old: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        row = conn.execute(
             "INSERT INTO ops_task_cases(task_id,tenant_id,payload) VALUES (%s,%s,%s) "
             "ON CONFLICT(task_id) DO UPDATE SET payload=EXCLUDED.payload,"
             "version=ops_task_cases.version+1,updated_at=now() RETURNING *",
             (task_id, payload["tenant_id"], Jsonb(payload)),
         ).fetchone()
+        assert row is not None
+        return row
 
-    def verify(self, actor, parameters, payload, original, replacement):
+    def verify(
+        self,
+        actor: Actor,
+        parameters: Mapping[str, object],
+        payload: dict[str, Any],
+        original: TaskSnapshot,
+        replacement: TaskSnapshot | None,
+    ) -> Verification:
         resolution = payload["resolution"]
         kind = resolution["kind"]
         if kind == "no_longer_needed":
@@ -231,7 +299,9 @@ class TaskCases:
             "evidence_hash": digest([original, replacement]),
         }
 
-    def command(self, actor, token, command):
+    def command(
+        self, actor: Actor, token: str | Callable[[], str], command: Command
+    ) -> dict[str, Any]:
         require(actor, "aether:support:execute")
         action = command.action.removeprefix("case_")
         if action not in ACTIONS or not command.target_id:
@@ -446,6 +516,7 @@ class TaskCases:
                     status = "unknown"
                 with self.ops.directory.connection() as conn:
                     current = self.load(conn, command.target_id)
+                    assert current is not None
                     payload = current["payload"]
                     if payload.get("control", {}).get("command_id") == child_id:
                         payload["control"]["status"] = status
@@ -465,7 +536,7 @@ class TaskCases:
             fail("CASE_VERSION_CONFLICT")
 
     @staticmethod
-    def diagnose(conn, task):
+    def diagnose(conn: Connection[dict[str, Any]], task: TaskSnapshot) -> dict[str, Any]:
         checks = []
         user = conn.execute(
             "SELECT enabled FROM users WHERE id=%s AND tenant_id=%s",

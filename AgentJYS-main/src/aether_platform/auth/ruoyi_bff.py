@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import secrets
 import time
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from threading import RLock
@@ -13,14 +14,15 @@ from typing import Any
 import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from starlette.middleware.base import RequestResponseEndpoint
 
 from aether_platform.auth.ruoyi import RuoyiDirectory, RuoyiIdentityVerifier, RuoyiUnavailableError
 from aether_platform.chat import Conversations
 from aether_platform.configuration import RuntimeSettings
-from aether_platform.directory import AccessDeniedError
+from aether_platform.directory import AccessDeniedError, Actor
 from aether_platform.memory import install_memory
 from aether_platform.p3 import P3Error
 from aether_platform.ui_routes import install_chat
@@ -44,7 +46,7 @@ def create_ruoyi_app(
     lock = RLock()
 
     @asynccontextmanager
-    async def lifespan(app):
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         try:
             yield
         finally:
@@ -65,7 +67,7 @@ def create_ruoyi_app(
         if session:
             directory.forget(session["subject"])
 
-    def current(request: Request):
+    def current(request: Request) -> tuple[str, dict[str, Any], Actor]:
         key = digest(request.cookies.get("aether_session", ""))
         with lock:
             session = sessions.get(key)
@@ -81,14 +83,14 @@ def create_ruoyi_app(
             raise HTTPException(401, "登录身份已失效，请重新登录。") from None
         return key, session, actor
 
-    def csrf(request: Request, session: dict[str, Any]):
+    def csrf(request: Request, session: dict[str, Any]) -> None:
         if request.headers.get("origin") != settings.origin or not secrets.compare_digest(
             request.headers.get("x-csrf-token", ""), session["csrf"]
         ):
             raise HTTPException(403, "Request origin or CSRF proof rejected")
 
     @app.middleware("http")
-    async def no_cache(request, call_next):
+    async def no_cache(request: Request, call_next: RequestResponseEndpoint) -> Response:
         with lock:
             expired = [
                 key for key, session in sessions.items() if session["expires"] <= time.time()
@@ -107,23 +109,23 @@ def create_ruoyi_app(
         return response
 
     @app.exception_handler(RequestValidationError)
-    async def invalid(request, exc):
+    async def invalid(request: Request, exc: RequestValidationError) -> JSONResponse:
         return JSONResponse({"detail": "输入格式不正确。"}, status_code=422)
 
     @app.exception_handler(AccessDeniedError)
-    async def denied(request, exc):
+    async def denied(request: Request, exc: AccessDeniedError) -> JSONResponse:
         return JSONResponse({"detail": "当前身份无权访问。"}, status_code=403)
 
     @app.exception_handler(RuoyiUnavailableError)
-    async def unavailable(request, exc):
+    async def unavailable(request: Request, exc: RuoyiUnavailableError) -> JSONResponse:
         return JSONResponse({"detail": "身份服务暂时不可用。"}, status_code=503)
 
     @app.get("/auth/login")
-    def login_entry():
+    def login_entry() -> RedirectResponse:
         return RedirectResponse(settings.cookie_path, status_code=303)
 
     @app.post("/auth/login")
-    def login(request: Request, body: Credentials):
+    def login(request: Request, body: Credentials) -> JSONResponse:
         if request.headers.get("origin") != settings.origin:
             raise HTTPException(403, "Request origin rejected")
         key = digest(body.username.casefold())
@@ -153,7 +155,7 @@ def create_ruoyi_app(
         invalidate(digest(request.cookies.get("aether_session", "")))
         opaque = secrets.token_urlsafe(32)
         session_key = digest(opaque)
-        session = {
+        session: dict[str, Any] = {
             "subject": actor.subject,
             "actor": actor,
             "csrf": secrets.token_urlsafe(32),
@@ -161,7 +163,7 @@ def create_ruoyi_app(
             "expires": time.time() + 3600,
         }
 
-        def fresh_token():
+        def fresh_token() -> str:
             with lock:
                 active = sessions.get(session_key) is session
             try:
@@ -191,8 +193,8 @@ def create_ruoyi_app(
         )
         return response
 
-    @app.get("/auth/me")
-    def me(request: Request):
+    @app.get("/auth/me", response_model=None)
+    def me(request: Request) -> dict[str, Any]:
         _, session, actor = current(request)
         return {
             "user_id": actor.id,
@@ -202,7 +204,7 @@ def create_ruoyi_app(
         }
 
     @app.post("/auth/logout")
-    def logout(request: Request):
+    def logout(request: Request) -> JSONResponse:
         key, session, actor = current(request)
         csrf(request, session)
         invalidate(key)
@@ -222,7 +224,7 @@ def create_ruoyi_app(
         return response
 
     @app.get("/management")
-    def management():
+    def management() -> RedirectResponse:
         return RedirectResponse(settings.management_url, status_code=303)
 
     install_chat(
@@ -234,7 +236,7 @@ def create_ruoyi_app(
         app.mount("/assets", StaticFiles(directory=web_dist / "assets"), name="assets")
 
     @app.get("/")
-    def index():
+    def index() -> Response:
         return (
             FileResponse(web_dist / "index.html")
             if web_dist

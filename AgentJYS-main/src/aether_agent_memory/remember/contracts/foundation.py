@@ -62,7 +62,7 @@ class DerivedArtifact(ContractModel):
     task_id: Identifier
     strategy_version: Identifier
     location: ResourceLocation
-    quality: Literal["pending", "passed", "failed"]
+    quality: Literal["pending", "passed", "failed", "sampled_passed", "not_sampled"]
     created_at: Timestamp
 
     @model_validator(mode="after")
@@ -341,6 +341,29 @@ class MemoryRelationSnapshot(ContractModel):
             raise ValueError("duplicate relation group")
         if any(not any(m.model_dump_json() in refs for m in c.members) for c in self.conflicts):
             raise ValueError("relation must include a queried memory")
+        return self
+
+
+class OriginalPassage(ContractModel):
+    """A verified vector chunk of the original, with Unicode character offsets."""
+
+    chunk_index: Count
+    vector_id: Digest
+    start_char: Count
+    end_char: Positive
+    total_chars: Positive
+    body_hash: Digest
+    range_hash: Digest
+    content: NonEmpty
+
+    @model_validator(mode="after")
+    def exact_range(self) -> Self:
+        if not 0 <= self.start_char < self.end_char <= self.total_chars:
+            raise ValueError("invalid original passage range")
+        if len(self.content) != self.end_char - self.start_char:
+            raise ValueError("passage length does not match source coordinates")
+        if sha256(self.content.encode("utf-8")).hexdigest() != self.range_hash:
+            raise ValueError("passage content hash mismatch")
         return self
 
 

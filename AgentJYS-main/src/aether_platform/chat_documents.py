@@ -5,6 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from aether_platform.directory import Actor
 from aether_platform.p3 import P3Error
 
 
@@ -14,7 +15,9 @@ class Attachment(BaseModel):
     name: str = Field(min_length=1, max_length=255, pattern=r"^[^\x00-\x1f\x7f]+$")
 
 
-def bind_attachments(conn: Any, actor: Any, attachments: list[dict]) -> list[dict]:
+def bind_attachments(
+    conn: Any, actor: Actor, attachments: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     if len(attachments) > 3:
         raise ValueError("Too many attachments")
     result, seen = [], set()
@@ -48,7 +51,7 @@ def bind_attachments(conn: Any, actor: Any, attachments: list[dict]) -> list[dic
     return result
 
 
-def validate_attachment(p3: Any, binding: dict) -> None:
+def validate_attachment(p3: Any, binding: dict[str, Any]) -> None:
     try:
         _validate_attachment(p3, binding)
     except P3Error as error:
@@ -57,7 +60,7 @@ def validate_attachment(p3: Any, binding: dict) -> None:
         raise
 
 
-def _validate_attachment(p3: Any, binding: dict) -> None:
+def _validate_attachment(p3: Any, binding: dict[str, Any]) -> None:
     memory, source = binding["memory"], binding["source"]
     current = p3.call("GET", "/p3/remember/" + memory["memory_id"])
     if (
@@ -72,7 +75,7 @@ def _validate_attachment(p3: Any, binding: dict) -> None:
         raise P3Error("RESULT_INVALIDATED")
 
 
-def read_attachment(p3: Any, binding: dict) -> tuple[str, dict]:
+def read_attachment(p3: Any, binding: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     validate_attachment(p3, binding)
     result = p3.call("POST", "/p3/sources/read-range", body=binding["source"])
     if result.get("source") != binding["source"] or not isinstance(result.get("content"), str):
@@ -91,7 +94,7 @@ def read_attachment(p3: Any, binding: dict) -> tuple[str, dict]:
     ), evidence
 
 
-def recent_attachments(rows: list[dict]) -> list[dict]:
+def recent_attachments(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     selected, seen = [], set()
     for row in reversed(rows):
         if row["role"] != "user":

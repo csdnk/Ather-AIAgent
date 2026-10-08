@@ -6,13 +6,14 @@ and records that adoption. No login grant is renewed or made reusable.
 """
 
 import secrets
-from typing import Any
+from typing import Any, cast
 
 from aether_agent_memory.runtime.contracts.models import (
     ErrorCode,
     EventEnvelope,
     Flow,
     Permission,
+    RecordRef,
     TrustedContext,
 )
 
@@ -144,7 +145,7 @@ def revalidate_placement_context(identity: Any, tx: Any, ctx: TrustedContext) ->
 
 
 def permits_placement(
-    tx: Any, ctx: TrustedContext, permission: Permission, target: Any
+    tx: Any, ctx: TrustedContext, permission: Permission, target: RecordRef
 ) -> bool | None:
     binding = tx.read("operate_scheduler_bindings", ctx.request_id)
     if binding is None:
@@ -161,7 +162,7 @@ def permits_placement(
     if target.owner != Flow.OPERATE:
         return False
     if target.object_type in {"evaluation", "evaluation_result"}:
-        return target.object_id == binding["task_id"]
+        return target.object_id == cast(str, binding["task_id"])
     if target.object_type == "action":
         row = tx.read("operate_actions", target.object_id) or {}
         intent = row.get("intent", {})

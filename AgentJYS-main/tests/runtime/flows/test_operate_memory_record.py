@@ -294,9 +294,12 @@ def evaluation_task(p, *, cleanup=False):
 async def test_prepare_repairs_overwritten_pointer_without_migration_or_access(publication):
     p = publication
     assert (await act(p, Tier.HOT, "heat-first")).state == ActionState.SUCCEEDED
-    # Existing Remember writer rebuilds the row without cache_location.
+    # Simulate a legacy writer omitting the disposable pointer. Current Remember
+    # preserves a valid cache_location, so do not depend on it losing metadata.
     with p.host.uow.transaction() as tx:
-        p.reader.put(tx, p.item)
+        ref = memory_ref(p.item.ref, versioned=True)
+        raw = tx.get(ref)
+        tx.put_if_revision(ref, {**raw, "cache_location": None}, tx.revision(ref))
     assert read_record(p)["cache_location"] is None
     task = evaluation_task(p)
     await p.service.prepare_evaluation(p.ctx, task)

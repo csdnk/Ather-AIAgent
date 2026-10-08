@@ -1,7 +1,13 @@
 """Attach directory display names without changing ownership or authorization."""
 
+from typing import Any
 
-def attach_names(data, resource, actor, directory):
+from aether_platform.directory import Actor, Directory
+
+
+def attach_names(
+    data: dict[str, Any], resource: str, actor: Actor, directory: Directory
+) -> dict[str, Any]:
     rows = list(data.get("items", []))
     rows += data.get("alerts", [])
     usage = data.get("usage", {})

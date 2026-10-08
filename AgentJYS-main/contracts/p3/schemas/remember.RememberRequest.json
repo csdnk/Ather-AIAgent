@@ -237,7 +237,7 @@
       "type": "string"
     },
     "trigger": {
-      "default": "remember",
+      "default": "observe",
       "enum": [
         "remember",
         "observe",

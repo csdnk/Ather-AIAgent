@@ -9996,5 +9996,223 @@
       },
       "unexpected": "rejected"
     }
+  },
+  {
+    "id": "reference-only-remember.RememberRequest",
+    "model": "remember.RememberRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "source": {
+        "kind": "conversation",
+        "external_id": "id_1",
+        "external_version": "id_1",
+        "occurred_at": "2026-09-19T08:00:00.000Z"
+      },
+      "selection": {},
+      "content": {
+        "kind": "text",
+        "text": "id_1"
+      },
+      "memory_mode": "reference_only"
+    }
+  },
+  {
+    "id": "unknown-mode-remember.RememberRequest",
+    "model": "remember.RememberRequest",
+    "valid": false,
+    "schema_valid": false,
+    "payload": {
+      "source": {
+        "kind": "conversation",
+        "external_id": "id_1",
+        "external_version": "id_1",
+        "occurred_at": "2026-09-19T08:00:00.000Z"
+      },
+      "selection": {},
+      "content": {
+        "kind": "text",
+        "text": "id_1"
+      },
+      "memory_mode": "unknown"
+    }
+  },
+  {
+    "id": "positive-remember.ArtifactRecord-sampled_passed",
+    "model": "remember.ArtifactRecord",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "artifact_id": "id_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "representation": "original",
+      "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "output_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "original_bytes": 1,
+      "stored_bytes": 1,
+      "quality": "sampled_passed",
+      "quality_policy": "id_1",
+      "content_ref": "id_1",
+      "content": "id_1",
+      "sources": [
+        {
+          "source_id": "id_1",
+          "source_version": 1,
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "locator": "id_1"
+        }
+      ]
+    }
+  },
+  {
+    "id": "positive-remember.ArtifactRecord-not_sampled",
+    "model": "remember.ArtifactRecord",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "artifact_id": "id_1",
+      "memory": {
+        "scope": {
+          "tenant_id": "id_1",
+          "application_id": "id_1",
+          "user_id": "id_1",
+          "agent_id": "id_1"
+        },
+        "memory_id": "id_1",
+        "version": 1
+      },
+      "representation": "original",
+      "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "output_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "original_bytes": 1,
+      "stored_bytes": 1,
+      "quality": "not_sampled",
+      "quality_policy": "id_1",
+      "content_ref": "id_1",
+      "content": "id_1",
+      "sources": [
+        {
+          "source_id": "id_1",
+          "source_version": 1,
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "locator": "id_1"
+        }
+      ]
+    }
+  },
+  {
+    "id": "positive-remember.DerivedArtifact-sampled_passed",
+    "model": "remember.DerivedArtifact",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "artifact_id": "artifact_1",
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1",
+        "session_id": null,
+        "task_id": null
+      },
+      "source": {
+        "source_id": "id_1",
+        "source_version": 1,
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "locator": "id_1"
+      },
+      "kind": "summary",
+      "task_id": "task_1",
+      "strategy_version": "summary_1",
+      "location": {
+        "kind": "artifact",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "quality": "sampled_passed",
+      "created_at": "2026-09-21T02:00:00.000Z"
+    }
+  },
+  {
+    "id": "positive-remember.DerivedArtifact-not_sampled",
+    "model": "remember.DerivedArtifact",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "artifact_id": "artifact_1",
+      "scope": {
+        "tenant_id": "id_1",
+        "application_id": "id_1",
+        "user_id": "id_1",
+        "agent_id": "id_1",
+        "session_id": null,
+        "task_id": null
+      },
+      "source": {
+        "source_id": "id_1",
+        "source_version": 1,
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617",
+        "locator": "id_1"
+      },
+      "kind": "summary",
+      "task_id": "task_1",
+      "strategy_version": "summary_1",
+      "location": {
+        "kind": "artifact",
+        "provider_id": "p2",
+        "provider_instance_id": "instance_1",
+        "namespace": "memory",
+        "object_key": "body_1",
+        "generation": "gen_1",
+        "content_hash": "a05a451a90bdadd00b35a0039ff370ce7fab69f18435184008b8f8917d8e5617"
+      },
+      "quality": "not_sampled",
+      "created_at": "2026-09-21T02:00:00.000Z"
+    }
+  },
+  {
+    "id": "positive-remember.OriginalPassage",
+    "model": "remember.OriginalPassage",
+    "valid": true,
+    "schema_valid": true,
+    "payload": {
+      "chunk_index": 0,
+      "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "start_char": 10,
+      "end_char": 14,
+      "total_chars": 30,
+      "body_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "range_hash": "761f0f0abcd77204d293013b63a6582807843ff21f72f5a05ff7ef999ae67d1a",
+      "content": "原文片段"
+    }
+  },
+  {
+    "id": "invalid-range-remember.OriginalPassage",
+    "model": "remember.OriginalPassage",
+    "valid": false,
+    "schema_valid": true,
+    "payload": {
+      "chunk_index": 0,
+      "vector_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "start_char": 10,
+      "end_char": 15,
+      "total_chars": 30,
+      "body_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "range_hash": "761f0f0abcd77204d293013b63a6582807843ff21f72f5a05ff7ef999ae67d1a",
+      "content": "原文片段"
+    }
   }
 ]

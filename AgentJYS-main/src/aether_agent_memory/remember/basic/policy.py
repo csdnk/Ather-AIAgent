@@ -1,6 +1,7 @@
 """Versioned Remember policy. Capacity limits are not storage-provider maxima."""
 
 from collections.abc import Callable
+from typing import Literal
 
 from pydantic import Field
 
@@ -8,7 +9,12 @@ from aether_agent_memory.runtime.contracts.models import ContractModel, Identifi
 
 
 class RememberPolicy(ContractModel):
-    version: Identifier = "remember_v5"
+    # v14 uses LangChain recursive source chunks and bounded candidate batches.
+    version: Identifier = "remember_v14"
+    long_memory_route: Literal["llmlingua", "direct"] = "llmlingua"
+    llmlingua_keep_rate: float = Field(default=0.8, gt=0, le=1, allow_inf_nan=False)
+    llmlingua_model: str = "microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank"
+    llmlingua_model_revision: str = "5f0c82792b7ea14c6484e015b6a072009496b7f2"
     working_summary_min_bytes: int = Field(default=65536, ge=1)
     working_summary_max_chars: int = Field(default=2048, ge=256, le=16384)
     summary_part_chars: int = Field(default=256, ge=32, le=2048)
@@ -17,7 +23,17 @@ class RememberPolicy(ContractModel):
     source_page_chars: int = Field(default=4096, ge=256, le=65536)
     source_read_max_chars: int = Field(default=65536, ge=256, le=262144)
     max_input_bytes: int = Field(default=64 * 1024 * 1024, ge=1)
-    compression_min_bytes: int = Field(default=65536, ge=1)
+    # Per-original threshold for the lightweight route, not the sum of a batch.
+    compression_min_bytes: int = Field(default=8000, ge=1)
+    # Historical task/config field only. New admission never schedules a
+    # precompression task, even when an older configuration sets this to True.
+    precompression_enabled: bool = False
+    # Historical task/config fields only. New processing never samples or invokes
+    # either extra reviewer, even when an old snapshot contains rate=1.
+    compression_quality_sample_rate: float = Field(default=0, ge=0, le=1, allow_inf_nan=False)
+    memory_support_sample_rate: float = Field(default=0, ge=0, le=1, allow_inf_nan=False)
+    # Observed original-to-long-term byte factor; never a reason to discard facts.
+    # Historical artifact tasks also retain this target in their frozen policy.
     compression_target_ratio: float = Field(default=5.0, ge=5, allow_inf_nan=False)
     cache_max_body_bytes: int = Field(default=1024 * 1024, ge=1)
     cache_scope_bytes: int = Field(default=16 * 1024 * 1024, ge=1)
@@ -25,15 +41,35 @@ class RememberPolicy(ContractModel):
     processing_seconds: int = Field(default=86400, ge=60)
     consolidation_messages: int = Field(default=32, ge=1)
     consolidation_tokens: int = Field(default=8000, ge=1)
-    consolidation_seconds: int = Field(default=600, ge=1)
+    # Tokens remain readable in old task snapshots; new admission uses UTF-8 bytes.
+    consolidation_bytes: int = Field(default=8000, ge=1)
+    consolidation_seconds: int = Field(default=3600, ge=1)
+    # Historical configuration/task field only; processing ignores it even when
+    # an old snapshot requests overlap. Existing memory comparison is unchanged.
+    consolidation_overlap_messages: int = Field(default=0, ge=0, le=2)
+    # Character/batch defaults follow Hindsight retain/consolidation defaults;
+    # 4096 is this project's configurable tokenizer ceiling, not an industry default.
+    # https://github.com/vectorize-io/hindsight/blob/fb11ddfeac4d5fe9e9ffd96ce144a5284ad7f5a5/hindsight-api-slim/hindsight_api/config.py#L1643
+    extraction_chunk_chars: int = Field(default=3000, ge=1)
     extraction_chunk_tokens: int = Field(default=4096, ge=16)
+    # Target size only: a connected old-target group remains indivisible.
+    decision_batch_candidates: int = Field(default=8, ge=1, le=256)
+    extraction_split_depth: int = Field(default=8, ge=1, le=16)
     projection_chunk_tokens: int = Field(default=256, ge=8)
+    # Bound retries per original-body chunk, not the number of chunks in a file.
+    # Completed vectors are checkpointed; the input byte limit bounds chunk count.
+    projection_embedding_attempts: int = Field(default=3, ge=1, le=10)
     max_candidates: int = Field(default=32, ge=1, le=256)
+    # Per-part extraction limit above; a multi-part task can contain more facts.
+    max_task_candidates: int = Field(default=4096, ge=1, le=65536)
     comparison_candidates: int = Field(default=8, ge=1, le=100)
     comparison_context_tokens: int = Field(default=32768, ge=256)
+    # Headroom for LangMem/tool wrappers beyond serialized content and principles.
+    consolidation_context_reserve_tokens: int = Field(default=2048, ge=0)
     max_commit_retries: int = Field(default=3, ge=1, le=10)
     max_model_calls: int = Field(default=256, ge=1)
-    # Observe the target by default; deployments may opt back into strict publication.
+    # Historical artifact publication only; never trim raw consolidation inputs
+    # or discard facts in order to satisfy this ratio.
     compression_require_ratio: bool = False
 
 

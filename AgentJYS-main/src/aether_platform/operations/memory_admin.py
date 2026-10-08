@@ -1,15 +1,21 @@
 """Scoped memory operations and recall schemes; original actor and request stay durable."""
 
-from typing import Literal
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Literal, NoReturn, Self, cast
 from uuid import uuid4
 
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
+from psycopg import Connection
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from aether_platform.operations.console import Console
+from aether_platform.directory import Actor
+from aether_platform.operations.console import Console, Identity
 from aether_platform.operations.models import Command, page
 from aether_platform.p3 import P3Client, P3Error, identifier
+
+if TYPE_CHECKING:
+    from aether_platform.operations.service import Operations
 
 PERMISSIONS = {
     "memory_create": "aether:memory:create",
@@ -24,11 +30,11 @@ PERMISSIONS = {
 }
 
 
-def fail(code, status=409):
+def fail(code: str, status: int = 409) -> NoReturn:
     raise HTTPException(status, detail={"code": code})
 
 
-def require(actor, action=None):
+def require(actor: Actor, action: str | None = None) -> None:
     wanted = {"aether:ops:read", "aether:content:read"}
     if action:
         if action not in PERMISSIONS:
@@ -77,7 +83,7 @@ class SchemeInput(Target):
     token_budget: int = Field(1800, ge=128, le=8000, strict=True)
 
     @model_validator(mode="after")
-    def working_session(self):
+    def working_session(self) -> Self:
         if self.sources in {"working", "both"} and not self.session_id:
             raise ValueError("session required for working memory")
         if not self.name.strip() or not self.query.strip():
@@ -86,16 +92,25 @@ class SchemeInput(Target):
 
 
 class MemoryAdmin:
-    def __init__(self, operations):
+    def __init__(self, operations: "Operations") -> None:
         self.ops = operations
         self.directory, self.store = operations.directory, operations.store
         self.console = Console(operations.config, operations.directory)
 
-    def target(self, actor, user_id):
+    def target(self, actor: Actor, user_id: str) -> dict[str, Any]:
         require(actor)
         return self.console.target(actor, user_id)
 
-    def upstream(self, actor, token, method, operation_id, *, body=None, target=None):
+    def upstream(
+        self,
+        actor: Actor,
+        token: str | Callable[[], str],
+        method: str,
+        operation_id: str,
+        *,
+        body: dict[str, Any] | None = None,
+        target: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         settings = self.ops.config.get("p3", {})
         if not settings.get("base_url"):
             raise P3Error("P3_NOT_CONFIGURED")
@@ -108,24 +123,32 @@ class MemoryAdmin:
             trusted_http_host=settings.get("internal_http_host")
             or settings.get("trusted_http_host"),
         ) as client:
-            return client.call(
-                method,
-                "/p3/admin/memory-commands"
-                + ("/" + identifier(operation_id) if method == "GET" else ""),
-                body=body,
-                params=target if method == "GET" else None,
-                operation_id=operation_id if method == "POST" else None,
+            return cast(
+                dict[str, Any],
+                client.call(
+                    method,
+                    "/p3/admin/memory-commands"
+                    + ("/" + identifier(operation_id) if method == "GET" else ""),
+                    body=body,
+                    params=target if method == "GET" else None,
+                    operation_id=operation_id if method == "POST" else None,
+                ),
             )
 
-    def read(self, actor, user_id, view, limit=50, offset=0):
-        def read_target(target):
+    def read(
+        self, actor: Actor, user_id: str, view: str, limit: int = 50, offset: int = 0
+    ) -> dict[str, Any]:
+        def read_target(target: dict[str, Any]) -> dict[str, Any]:
             with self.directory.connection() as conn:
                 if view == "schemes":
                     where = (
                         "FROM ops_recall_schemes WHERE tenant_id=%s AND user_id=%s AND NOT deleted"
                     )
                     args = (target["tenant_id"], target["id"])
-                    total = conn.execute("SELECT count(*) AS n " + where, args).fetchone()["n"]
+                    total = cast(
+                        dict[str, Any],
+                        conn.execute("SELECT count(*) AS n " + where, args).fetchone(),
+                    )["n"]
                     rows = conn.execute(
                         "SELECT id,payload,version,updated_at "
                         + where
@@ -147,7 +170,10 @@ class MemoryAdmin:
                         "AND action='recall_execute'"
                     )
                     args = (target["tenant_id"], target["id"])
-                    total = conn.execute("SELECT count(*) AS n " + where, args).fetchone()["n"]
+                    total = cast(
+                        dict[str, Any],
+                        conn.execute("SELECT count(*) AS n " + where, args).fetchone(),
+                    )["n"]
                     rows = conn.execute(
                         "SELECT "
                         "id,actor_id,tenant_id,user_id,action,status,result,created_at,updated_at "
@@ -163,7 +189,7 @@ class MemoryAdmin:
             fail("MEMORY_QUERY_INVALID", 422)
         return self.console.content(actor, "recall_" + view, None, user_id, read_target)
 
-    def validate(self, command):
+    def validate(self, command: Command) -> dict[str, Any]:
         action = command.action
         model = (
             SchemeInput
@@ -213,7 +239,9 @@ class MemoryAdmin:
         return parameters
 
     @staticmethod
-    def scheme(conn, target, sid):
+    def scheme(
+        conn: Connection[dict[str, Any]], target: dict[str, Any], sid: str
+    ) -> dict[str, Any]:
         row = conn.execute(
             "SELECT * FROM ops_recall_schemes WHERE id=%s AND tenant_id=%s AND "
             "user_id=%s AND NOT deleted FOR UPDATE",
@@ -223,7 +251,9 @@ class MemoryAdmin:
             fail("MEMORY_SCHEME_NOT_FOUND", 404)
         return row
 
-    def command(self, actor, token, command: Command):
+    def command(
+        self, actor: Actor, token: str | Callable[[], str], command: Command
+    ) -> dict[str, Any]:
         if command.action == "memory_abandon":
             return self.abandon(actor, token, command)
         require(actor, command.action)
@@ -284,14 +314,14 @@ class MemoryAdmin:
                     }
                     if command.action == "recall_execute":
                         body["action"] = "recall"
-                        sid = parameters.get("scheme_id") or command.target_id
+                        recall_sid = parameters.get("scheme_id") or command.target_id
                         if command.target_id and parameters.get("scheme_id") not in (
                             None,
                             command.target_id,
                         ):
                             fail("MEMORY_PARAMETERS_INVALID", 422)
-                        if sid:
-                            scheme = self.scheme(conn, target, sid)
+                        if recall_sid:
+                            scheme = self.scheme(conn, target, recall_sid)
                             if scheme["version"] != command.expected_version:
                                 fail("MEMORY_VERSION_CONFLICT")
                             saved = scheme["payload"]
@@ -337,7 +367,9 @@ class MemoryAdmin:
         except ValueError:
             fail("MEMORY_COMMAND_CONFLICT")
 
-    def abandon(self, actor, token, command):
+    def abandon(
+        self, actor: Actor, token: str | Callable[[], str], command: Command
+    ) -> dict[str, Any]:
         """Fence a never-admitted ID atomically; late original POSTs must then conflict."""
         try:
             params = AbandonInput.model_validate(command.parameters)
@@ -361,9 +393,13 @@ class MemoryAdmin:
                     "command_id": command.command_id,
                     "status": "abandoned",
                 }
-            record = conn.execute(
-                "SELECT * FROM ops_commands WHERE id=%s", (command.command_id,)
-            ).fetchone()
+            # A conflicting command exists when the insert did not return a row.
+            record = cast(
+                dict[str, Any],
+                conn.execute(
+                    "SELECT * FROM ops_commands WHERE id=%s", (command.command_id,)
+                ).fetchone(),
+            )
             if (
                 record["actor_id"] != actor.id
                 or record["action"] != params.original_action
@@ -385,7 +421,14 @@ class MemoryAdmin:
             }
         return self.status(actor, token, command.command_id)
 
-    def status(self, actor, token, command_id, *, initial=False):
+    def status(
+        self,
+        actor: Actor,
+        token: str | Callable[[], str],
+        command_id: str,
+        *,
+        initial: bool = False,
+    ) -> dict[str, Any]:
         require(actor)
         with self.directory.connection() as conn:
             row = conn.execute(
@@ -423,7 +466,9 @@ class MemoryAdmin:
             if status not in {"pending", "succeeded", "failed"}:
                 raise P3Error("INVALID_RESPONSE")
             error_code = observed.get("error_code", observed.get("code"))
-            compact = {k: observed[k] for k in ("job_id", "operation_id") if k in observed}
+            compact: dict[str, Any] = {
+                k: observed[k] for k in ("job_id", "operation_id") if k in observed
+            }
             result = observed.get("result")
             if isinstance(result, dict) and result.get("recall_id"):
                 compact["recall_id"] = result["recall_id"]
@@ -478,10 +523,10 @@ class MemoryAdmin:
             }
 
 
-def install_memory_admin(app, operations, identity):
+def install_memory_admin(app: FastAPI, operations: "Operations", identity: Identity) -> None:
     from fastapi import Query, Request
 
-    @app.get("/platform-ops/v1/console/recalls")
+    @app.get("/platform-ops/v1/console/recalls", response_model=None)
     def recalls(
         request: Request,
         user_id: str = Query(..., pattern=r"^[A-Za-z0-9_-]{1,128}$"),
@@ -489,7 +534,7 @@ def install_memory_admin(app, operations, identity):
         limit: int = Query(50, ge=1, le=100),
         offset: int = Query(0, ge=0, le=100000),
         cursor: str | None = Query(None, max_length=4096),
-    ):
+    ) -> dict[str, Any]:
         actor, token = identity(request)
         service = MemoryAdmin(operations)
         if q == "records":

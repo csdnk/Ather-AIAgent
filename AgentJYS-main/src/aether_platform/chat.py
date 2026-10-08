@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import builtins
 import json
 import time
 from collections.abc import Callable
 from contextlib import suppress
 from hashlib import sha256
 from threading import Lock
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 import httpx
@@ -162,7 +163,7 @@ class Conversations:
         turn_id: str,
         content: str,
         *,
-        attachments: list[dict] | None = None,
+        attachments: builtins.list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         if not content.strip() or len(content) > 12000 or not 1 <= len(turn_id) <= 64:
             raise ValueError("Invalid message")
@@ -177,7 +178,7 @@ class Conversations:
                 if old["input"] != content or old["attachments"] != attachments:
                     raise ValueError("Turn identifier already used")
                 if old["status"] == "failed":
-                    enforce_admission(conn, actor.tenant_id, new_turn=False)
+                    enforce_admission(conn, cast(str, actor.tenant_id), new_turn=False)
                     if conn.execute(
                         "SELECT 1 FROM chat_turns WHERE conversation_id=%s AND status='pending'",
                         (conversation_id,),
@@ -202,7 +203,7 @@ class Conversations:
                     "started": False,
                     "attempt": old["attempt"],
                 }
-            enforce_admission(conn, actor.tenant_id, new_turn=True)
+            enforce_admission(conn, cast(str, actor.tenant_id), new_turn=True)
             if conn.execute(
                 "SELECT 1 FROM chat_turns WHERE conversation_id=%s AND status='pending'",
                 (conversation_id,),
@@ -483,7 +484,7 @@ class Conversations:
                 "content": "你是 Aether 助手。用清晰自然的中文帮助用户。"
                 "本轮只有当前会话上下文，没有接入长期记忆检索；不要声称已永久记住、查到历史记忆或执行了管理操作。",
             }
-            evidence = None
+            evidence: dict[str, Any] | None = None
             p3 = None
             if p3_settings and p3_settings.get("base_url"):
                 p3 = P3Client(
@@ -571,6 +572,7 @@ class Conversations:
                             parsed, proof = read_attachment(p3, binding)
                             contexts.append(parsed)
                             attachment_evidence.append(proof)
+                        assert evidence is not None
                         evidence["attachments"] = attachment_evidence
                         prompt["content"] += (
                             "\n以下是本会话最近至多三份附件经 P3 解析的原文，直接作为本轮参考。"

@@ -3,10 +3,13 @@
 import hashlib
 import json
 from contextlib import nullcontext
+from typing import Any
 from uuid import uuid4
 
+from psycopg import Connection
 from psycopg.types.json import Jsonb
 
+from aether_platform.directory import Actor, Directory
 from aether_platform.operations.models import Command, page
 
 SCHEMA = """
@@ -68,18 +71,24 @@ CREATE INDEX IF NOT EXISTS ops_content_access_scope_time
 
 
 class OpsStore:
-    def __init__(self, directory):
+    def __init__(self, directory: Directory) -> None:
         self.directory = directory
 
-    def migrate(self):
+    def migrate(self) -> None:
         with self.directory.connection() as conn:
             conn.execute(SCHEMA)
 
     @staticmethod
-    def scope(actor):
+    def scope(actor: Actor) -> tuple[bool, str | None]:
         return actor.role == "platform_admin", actor.tenant_id
 
-    def admit(self, actor, command: Command, *, connection=None):
+    def admit(
+        self,
+        actor: Actor,
+        command: Command,
+        *,
+        connection: Connection[dict[str, Any]] | None = None,
+    ) -> tuple[dict[str, Any], bool]:
         fingerprint = hashlib.sha256(
             json.dumps(command.model_dump(), sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
@@ -108,30 +117,41 @@ class OpsStore:
             row = conn.execute(
                 "SELECT * FROM ops_commands WHERE id=%s", (command.command_id,)
             ).fetchone()
+            assert row is not None
             if row["actor_id"] != actor.id or row["tenant_id"] != actor.tenant_id:
                 raise PermissionError("Command belongs to a different actor")
             if row["fingerprint"] != fingerprint:
                 raise ValueError("Command identifier conflict")
             return dict(row), False
 
-    def finish(self, command_id, status, result, *, connection=None):
+    def finish(
+        self,
+        command_id: str,
+        status: str,
+        result: dict[str, Any],
+        *,
+        connection: Connection[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         with (
             nullcontext(connection)
             if connection is not None
             else self.directory.connection() as conn
         ):
-            return conn.execute(
+            row = conn.execute(
                 "UPDATE ops_commands SET status=%s,result=%s,updated_at=now() WHERE id=%s "
                 "RETURNING *",
                 (status, Jsonb(result), command_id),
             ).fetchone()
+            assert row is not None
+            return row
 
-    def commands(self, actor, limit=50, offset=0):
+    def commands(self, actor: Actor, limit: int = 50, offset: int = 0) -> dict[str, Any]:
         with self.directory.connection() as conn:
-            total = conn.execute(
+            count = conn.execute(
                 "SELECT count(*) AS n FROM ops_commands WHERE (%s OR tenant_id=%s)",
                 self.scope(actor),
-            ).fetchone()["n"]
+            ).fetchone()
+            assert count is not None
             rows = conn.execute(
                 "SELECT id,actor_id,tenant_id,resource,action,target_id,status,result,created_at,"
                 "updated_at "
@@ -139,9 +159,9 @@ class OpsStore:
                 "OFFSET %s",
                 (*self.scope(actor), limit, offset),
             ).fetchall()
-        return page(rows, total)
+        return page(rows, count["n"])
 
-    def command_record(self, actor, command_id):
+    def command_record(self, actor: Actor, command_id: str) -> dict[str, Any] | None:
         with self.directory.connection() as conn:
             return conn.execute(
                 "SELECT id,actor_id,tenant_id,resource,action,target_id,status,result,"
@@ -149,23 +169,33 @@ class OpsStore:
                 (command_id, *self.scope(actor)),
             ).fetchone()
 
-    def records(self, actor, resource, limit=50, offset=0):
+    def records(
+        self, actor: Actor, resource: str, limit: int = 50, offset: int = 0
+    ) -> dict[str, Any]:
         with self.directory.connection() as conn:
             args = (resource, *self.scope(actor))
-            total = conn.execute(
+            count = conn.execute(
                 "SELECT count(*) AS n FROM ops_records WHERE resource=%s AND (%s OR tenant_id=%s)",
                 args,
-            ).fetchone()["n"]
+            ).fetchone()
+            assert count is not None
             rows = conn.execute(
                 "SELECT * FROM ops_records WHERE resource=%s AND (%s OR tenant_id=%s) "
                 "ORDER BY updated_at DESC LIMIT %s OFFSET %s",
                 (*args, limit, offset),
             ).fetchall()
-        return page(rows, total)
+        return page(rows, count["n"])
 
     def save_record(
-        self, actor, resource, record_id, payload, expected_version, *, connection=None
-    ):
+        self,
+        actor: Actor,
+        resource: str,
+        record_id: str,
+        payload: dict[str, Any],
+        expected_version: int | str | None,
+        *,
+        connection: Connection[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         with (
             nullcontext(connection)
             if connection is not None
@@ -188,7 +218,7 @@ class OpsStore:
                 and expected_version not in (None, 0)
             ):
                 raise ValueError("Record version conflict")
-            return conn.execute(
+            row = conn.execute(
                 "INSERT INTO ops_records(resource,id,tenant_id,payload,updated_by) VALUES "
                 "(%s,%s,%s,%s,%s) "
                 "ON CONFLICT(resource,id) DO UPDATE SET "
@@ -196,8 +226,10 @@ class OpsStore:
                 "updated_by=EXCLUDED.updated_by,updated_at=now() RETURNING *",
                 (resource, record_id, actor.tenant_id, Jsonb(payload), actor.id),
             ).fetchone()
+            assert row is not None
+            return row
 
-    def observe(self, metric, tenant_id, value, threshold):
+    def observe(self, metric: str, tenant_id: str | None, value: float, threshold: float) -> None:
         with self.directory.connection() as conn:
             conn.execute(
                 "SELECT pg_advisory_xact_lock(hashtextextended(%s,0))",
@@ -233,7 +265,7 @@ class OpsStore:
                     (value, old["id"]),
                 )
 
-    def alerts(self, actor):
+    def alerts(self, actor: Actor) -> list[dict[str, Any]]:
         with self.directory.connection() as conn:
             return conn.execute(
                 "SELECT * FROM ops_alerts WHERE (%s OR tenant_id=%s) ORDER BY last_seen DESC "
@@ -241,7 +273,16 @@ class OpsStore:
                 self.scope(actor),
             ).fetchall()
 
-    def update_alert(self, actor, alert_id, action, note, *, silence_minutes=30, connection=None):
+    def update_alert(
+        self,
+        actor: Actor,
+        alert_id: str,
+        action: str,
+        note: str | None,
+        *,
+        silence_minutes: int = 30,
+        connection: Connection[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         with (
             nullcontext(connection)
             if connection is not None
@@ -254,14 +295,18 @@ class OpsStore:
             if not row:
                 raise PermissionError("Alert unavailable")
             if action == "acknowledge":
-                return conn.execute(
+                updated = conn.execute(
                     "UPDATE ops_alerts SET owner_id=%s,note=%s WHERE id=%s RETURNING *",
                     (actor.id, note, alert_id),
                 ).fetchone()
+                assert updated is not None
+                return updated
             if action == "silence" and 1 <= silence_minutes <= 1440:
-                return conn.execute(
+                updated = conn.execute(
                     "UPDATE ops_alerts SET silenced_until=now()+(%s * interval '1 "
                     "minute'),note=%s WHERE id=%s RETURNING *",
                     (silence_minutes, note, alert_id),
                 ).fetchone()
+                assert updated is not None
+                return updated
             raise ValueError("Alert closure requires an observed recovery")
