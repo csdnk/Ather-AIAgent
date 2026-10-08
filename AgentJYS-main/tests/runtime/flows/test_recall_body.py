@@ -117,7 +117,8 @@ def test_rc_body_01_only_middle_chunk_hit_delivers_exact_complete_body(app):
     assert delivered.memory == found.candidates[0].memory
     assert loaded == [found.candidates[0].memory]
     assert delivered.content == text and delivered.guard.body_hash == text_hash(text)
-    assert plan.rendered_context == "[1] " + text + "\n"
+    source_refs = ", ".join(f"{s.source_id}@{s.source_version}" for s in delivered.sources)
+    assert plan.rendered_context == "[1] " + text + "\nSources: " + source_refs + "\n"
     assert scorer.documents == [text]
 
 

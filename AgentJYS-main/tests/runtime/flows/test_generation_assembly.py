@@ -4,7 +4,7 @@
 import asyncio
 
 import pytest
-from test_flows import app as app
+from test_flows import app as azure_app
 from test_generation_candidates import example, setup
 
 from aether_agent_memory.recall.basic.assembly import ContextAssembly
@@ -24,6 +24,8 @@ from aether_agent_memory.remember.contracts.models import (
 from aether_agent_memory.runtime.contracts.models import ErrorCode
 from aether_agent_memory.runtime.foundation.common import FoundationError
 from aether_agent_memory.runtime.foundation.requests import text_hash
+
+app = azure_app
 
 
 class BodyAuthority:
@@ -344,10 +346,12 @@ def test_relation_membership_changed_between_reads_fails(app):
 def test_exact_rendered_budget_includes_number_and_separator(app):
     ctx, assembly, body, request = assembly_setup(app)
     first = body.bodies["m1"].content
-    budget = app.recall.tokenizer.count("[1] " + first + "\n")
+    source_refs = ", ".join(f"{s.source_id}@{s.source_version}" for s in body.bodies["m1"].sources)
+    expected = "[1] " + first + "\nSources: " + source_refs + "\n"
+    budget = app.recall.tokenizer.count(expected)
     plan = asyncio.run(assembly.plan(ctx, request.model_copy(update={"token_budget": budget})))
     assert len(plan.units) == 1 and plan.tokens_used == budget
-    assert plan.rendered_context == "[1] " + first + "\n"
+    assert plan.rendered_context == expected
 
 
 @pytest.mark.parametrize("mode", ["success", "fallback", "invalid"])

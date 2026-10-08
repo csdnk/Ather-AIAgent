@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 from aether_agent_memory.recall.contracts.models import ContextGroup, ContextItem
-from aether_agent_memory.remember.contracts.models import MemorySnapshot
+from aether_agent_memory.remember.contracts.models import MemorySnapshot, SourceRef
 from aether_agent_memory.runtime.foundation.common import fingerprint
 
 from .tokenization import TokenCounter
@@ -13,6 +13,11 @@ from .tokenization import TokenCounter
 class RankedMemory:
     memory: MemorySnapshot
     score: float
+
+
+def render_body(content: str, sources: tuple[SourceRef, ...]) -> str:
+    references = ", ".join(f"{source.source_id}@{source.source_version}" for source in sources)
+    return content + "\nSources: " + references + "\n"
 
 
 def fuse(candidates: list[list[MemorySnapshot]]) -> list[RankedMemory]:
@@ -46,7 +51,7 @@ def assemble(
     rendered = ""
     for candidate in candidates:
         item = candidate.memory
-        fragment = f"[{len(groups) + 1}] {item.content}\n"
+        fragment = f"[{len(groups) + 1}] " + render_body(item.content, item.sources)
         if tokenizer.count(rendered + fragment) > budget:
             continue
         groups.append(

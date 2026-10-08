@@ -71,6 +71,7 @@ class Recall:
             {
                 "settings": self.settings.model_dump(),
                 "tokenizer": self.tokenizer.identifier,
+                "context_template": "sources_v1",
                 "reranker": getattr(reranker, "identifier", None),
             }
         )
@@ -279,7 +280,7 @@ class Recall:
                         ).model_dump(mode="json"),
                     },
                 )
-            if isinstance(exc, (FoundationError, asyncio.CancelledError)):
+            if isinstance(exc, FoundationError | asyncio.CancelledError):
                 raise
             raise FoundationError(code, "Recall dependency or deadline failure") from exc
 

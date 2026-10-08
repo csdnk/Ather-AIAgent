@@ -58,6 +58,7 @@ from aether_agent_memory.runtime.foundation.transactions import native
 from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 from .candidates import seconds_left
+from .components import render_body
 from .service import Recall
 
 
@@ -554,8 +555,8 @@ class ContextAssembly:
         selected: list[ContextPackUnit] = []
         rendered = ""
         for unit in units:
-            fragment = (
-                f"[{len(selected) + 1}] " + "\n".join(b.content or "" for b in unit.bodies) + "\n"
+            fragment = f"[{len(selected) + 1}] " + "".join(
+                render_body(b.content or "", b.sources) for b in unit.bodies
             )
             if unit.conflict is not None:
                 fragment += unit.conflict.explanation + "\n"
