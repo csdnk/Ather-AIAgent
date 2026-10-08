@@ -52,7 +52,10 @@ class CrossEncoderReranker:
         if any(len(tokens) > self.max_length for tokens in encoded["input_ids"]):
             raise FoundationError(ErrorCode.INVALID_ARGUMENT, "reranker pair exceeds token limit")
         result = self.model.predict(pairs, batch_size=8, show_progress_bar=False)
-        scores = tuple(float(score) for score in result)
+        try:
+            scores = tuple(float(score) for score in result)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "invalid reranker scores") from exc
         if len(scores) != len(documents) or not all(math.isfinite(score) for score in scores):
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "invalid reranker scores")
         return scores
