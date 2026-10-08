@@ -41,6 +41,8 @@ jobs:
           --basetemp "${{ runner.temp }}/recall-address-tests"
       - name: Platform tests (external integrations explicitly opt in)
         run: python -B -m pytest tests/platform -q -p no:cacheprovider --basetemp "${{ runner.temp }}/platform-tests"
+      - name: Recall vector threshold regression tests
+        run: python -B -m pytest tests/unit/recall/test_vector_threshold.py -q -p no:cacheprovider --basetemp "${{ runner.temp }}/recall-threshold-tests"
       - name: Build Python package
         run: python -m pip wheel --no-deps --wheel-dir "${{ runner.temp }}/p3-wheels" .
       # Real storage and recovery tests run in the manually approved AKS workflow.

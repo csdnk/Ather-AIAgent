@@ -323,6 +323,13 @@ class ContextAssembly:
                         raise FoundationError(
                             ErrorCode.CONTRACT_VIOLATION, "candidate result mismatch"
                         )
+                    # Recall-only admission; shared discovery also serves Remember extraction.
+                    min_score = self.base.settings.vector_min_score
+                    admitted_candidates = tuple(
+                        c
+                        for c in found.candidates
+                        if min_score is None or c.best_score >= min_score
+                    )
                     coverage[source] = found.coverage
                     if found.coverage != "complete":
                         reasons.add(source + "_" + found.stop_reason)
@@ -333,17 +340,17 @@ class ContextAssembly:
                             + ("_index_failed" if readiness.failed_count else "_index_pending")
                         )
                     source_ranks[source] = {
-                        c.memory.model_dump_json(): c.rank for c in found.candidates
+                        c.memory.model_dump_json(): c.rank for c in admitted_candidates
                     }
-                    for candidate in found.candidates:
+                    for candidate in admitted_candidates:
                         key = candidate.memory.model_dump_json()
                         manifests[key], candidate_guards[key] = candidate.manifest, candidate.guard
                         matched_chunks[key] = [
                             h.chunk_index
                             for h in sorted(candidate.hits, key=lambda h: (-h.score, h.chunk_index))
                         ]
-                    if found.candidates:
-                        refs = tuple(c.memory for c in found.candidates)
+                    if admitted_candidates:
+                        refs = tuple(c.memory for c in admitted_candidates)
                         batch = await self.bodies.load_recall_batch(ctx, refs)
                         await asyncio.to_thread(
                             accept_batch, batch, {r.model_dump_json() for r in refs}
