@@ -122,6 +122,7 @@ markers = [
     "integration: integration tests (may require external services)",
     "temporal_server: requires the pinned real Temporal CLI",
     "sources: source selection and coverage tests",
+    "embedding: query embedding and model space tests",
     "p0: Priority 0 - Critical functionality",
     "p1: Priority 1 - Important functionality",
     "p2: Priority 2 - Nice to have",
