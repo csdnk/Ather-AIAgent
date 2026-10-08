@@ -8,6 +8,8 @@ import asyncio
 import math
 from datetime import datetime
 
+from pydantic import ValidationError
+
 from aether_agent_memory.recall.contracts.foundation import (
     ChunkHit,
     ChunkSearchRequest,
@@ -83,9 +85,15 @@ class MemoryCandidates:
         targets = tuple(target(h) for h in hits)
         response = await self.qualification.qualify(ctx, targets, request.purpose)
         self.check_deadline(request.deadline_at)
-        values = tuple(
-            CandidateQualificationResult.model_validate_json(r.model_dump_json()) for r in response
-        )
+        try:
+            values = tuple(
+                CandidateQualificationResult.model_validate_json(r.model_dump_json())
+                for r in response
+            )
+        except ValidationError as exc:
+            raise FoundationError(
+                ErrorCode.CONTRACT_VIOLATION, "invalid qualification evidence"
+            ) from exc
         result = {r.target.model_dump_json(): r for r in values}
         if len(result) != len(values) or set(result) != {t.model_dump_json() for t in targets}:
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "qualification response mismatch")
