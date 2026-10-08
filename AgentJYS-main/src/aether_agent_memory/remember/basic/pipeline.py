@@ -760,22 +760,42 @@ class RememberPipeline(Revalidation):
         """Admit a confirmed body, fencing both physical I/O and metadata updates."""
         scope, key = memory.scope, memory.memory_id
 
-        def allowed_before_cache() -> MemorySnapshot | None:
+        def allowed_before_cache() -> MemoryRecord | MemorySnapshot | None:
             with self.uow.transaction() as tx:
                 allowed = (
                     self.final_guard(tx, ctx, (memory,), "recall").items[0].decision == "allowed"
                 )
                 if not allowed:
                     return None
-                item = self.current(tx, key)
-                if item.ref != memory or item.content_hash != text_hash(working_text):
+                ref = memory_ref(memory, versioned=True)
+                if tx.read("remember_current", key) != ref.model_dump(mode="json"):
+                    return None
+                raw = tx.get(ref)
+                if raw is None:
+                    return None
+                # The caller already fetched and verified this exact body. Read
+                # metadata only: current()/decode() would fetch it again while
+                # holding the transaction and break the single-fetch read path.
+                item: MemoryRecord | MemorySnapshot
+                if "body_location" in raw:
+                    item = MemoryRecord.model_validate(raw)
+                    digest = item.body_location.content_hash
+                else:
+                    item = MemorySnapshot.model_validate(raw)
+                    digest = item.content_hash
+                if item.ref != memory or digest != text_hash(working_text):
                     return None
                 return item
 
-        snapshot = await asyncio.to_thread(allowed_before_cache)
-        if snapshot is None:
+        metadata = await asyncio.to_thread(allowed_before_cache)
+        if metadata is None:
             cache = "ineligible"
         elif initial:
+            snapshot = (
+                self.authority_snapshot(metadata, working_text)
+                if isinstance(metadata, MemoryRecord)
+                else metadata.model_copy(update={"content": working_text})
+            )
             cache = await self.bodies.admit_initial(snapshot, ctx)
         else:
             cache = await self.bodies.admit(scope, working_text)

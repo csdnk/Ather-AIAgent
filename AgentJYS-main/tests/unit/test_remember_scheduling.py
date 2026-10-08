@@ -69,17 +69,26 @@ def test_trigger_boundaries(count, size, at, expected):
     assert bool(owner.schedule(tx, None, scope)) is expected
 
 
-def test_two_adjacent_processed_messages_are_context_only_and_scope_isolated():
+def test_legacy_overlap_setting_cannot_reprocess_old_or_cross_scope_messages():
     owner, tx, scope = scheduler()
+    owner.policy = owner.policy.model_copy(update={"consolidation_overlap_messages": 2})
     for i in range(3):
         add(tx, scope, f"old{i}", state="processed", at=f"2026-10-07T01:5{i}:00Z")
-    add(tx, scope.model_copy(update={"session_id": "elsewhere"}), "foreign", state="processed")
+    foreign_scope = scope.model_copy(update={"session_id": "elsewhere"})
+    add(tx, foreign_scope, "foreign", state="processed")
+    add(tx, foreign_scope, "foreign_pending", size=8000, at="2026-10-07T01:55:00Z")
     add(tx, scope, "new", size=8000)
-    owner.schedule(tx, None, scope)
+    assert owner.schedule(tx, None, scope) == ("task-1",)
     batch = tx.read("remember_batches", "task-1")
     assert [x["memory_id"] for x in batch["refs"]] == ["new"]
-    assert [x["memory_id"] for x in batch["context_refs"]] == ["old1", "old2"]
-    assert tx.read("remember_pending", "old2")["state"] == "processed"
+    assert batch["context_refs"] == []
+    for key in ("old0", "old1", "old2", "foreign"):
+        assert tx.read("remember_pending", key)["state"] == "processed"
+        assert "task_id" not in tx.read("remember_pending", key)
+    assert tx.read("remember_pending", "foreign_pending")["state"] == "pending"
+    assert "task_id" not in tx.read("remember_pending", "foreign_pending")
+    assert tx.read("remember_pending", "new")["state"] == "scheduled"
+    assert tx.read("remember_pending", "new")["task_id"] == "task-1"
 
 
 def test_unprocessed_adjacent_message_blocks_reaching_older_context():
