@@ -176,6 +176,9 @@ class Service:
             operate_factory=partial(
                 ContinuousOperate,
                 settings=Settings(
+                    buffer_limit=config.operate_buffer_limit,
+                    high_watermark=config.operate_high_watermark,
+                    low_watermark=config.operate_low_watermark,
                     decay_seconds=config.operate_decay_seconds,
                     evaluation_window_seconds=config.operate_evaluation_window_seconds,
                     evaluation_timeout_seconds=config.operate_evaluation_timeout_seconds,

@@ -255,6 +255,9 @@ class ServiceConfiguration(ContractModel):
     log_retention_days: int = Field(default=14, ge=1)
     log_max_records: int = Field(default=200000, ge=100)
     cache_capacity_bytes: int = Field(default=268435456, ge=1024)
+    operate_buffer_limit: int = Field(default=1000, gt=0)
+    operate_high_watermark: int = Field(default=800, gt=0)
+    operate_low_watermark: int = Field(default=600, ge=0)
     operate_decay_seconds: float = Field(default=3600, gt=0)
     # Accepted for older deployment files; no longer drive continuous scheduling.
     operate_audit_seconds: float = Field(default=300, gt=0)
@@ -262,6 +265,17 @@ class ServiceConfiguration(ContractModel):
     operate_evaluation_window_seconds: float = Field(default=60, gt=0)
     operate_evaluation_timeout_seconds: float = Field(default=86400, gt=0)
     operate_stats_retention_seconds: float = Field(default=3600, gt=0)
+
+    @model_validator(mode="after")
+    def operate_watermarks(self) -> Self:
+        if not (
+            0
+            <= self.operate_low_watermark
+            < self.operate_high_watermark
+            < self.operate_buffer_limit
+        ):
+            raise ValueError("require operate low < high < buffer limit")
+        return self
 
     @model_validator(mode="after")
     def production_dependencies(self) -> Self:

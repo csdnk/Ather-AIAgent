@@ -64,6 +64,7 @@ from aether_agent_memory.runtime.foundation.requests import select_scope, text_h
 from aether_agent_memory.runtime.foundation.telemetry import observed
 from aether_agent_memory.runtime.foundation.timings import measure_stage
 from aether_agent_memory.runtime.foundation.transactions import native
+from aether_agent_memory.runtime.storage.cache import describe_cache_location
 from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 from .batching import select_batch
@@ -849,8 +850,6 @@ class RememberPipeline(Revalidation):
                     return
                 cache_location = None
                 provider = self.bodies.cache
-                cache_keys = getattr(provider, "keys", None)
-                cache_namespace = getattr(provider, "namespace", None)
                 current_allowed = (
                     self.final_guard(tx, ctx, (memory,), "recall").items[0].decision == "allowed"
                 )
@@ -867,18 +866,12 @@ class RememberPipeline(Revalidation):
                     and current_placement
                     and current_allowed
                     and record.status == MemoryStatus.ACTIVE
-                    and callable(cache_keys)
-                    and isinstance(cache_namespace, str)
                 ):
-                    bucket, field, _ = cache_keys(scope, record.body_location.content_hash)
-                    cache_location = record.body_location.model_copy(
-                        update={
-                            "kind": "cache",
-                            "provider_id": "redis",
-                            "provider_instance_id": cache_namespace,
-                            "namespace": cache_namespace,
-                            "object_key": bucket + "/" + field,
-                        }
+                    cache_location = describe_cache_location(
+                        provider,
+                        scope,
+                        record.body_location.content_hash,
+                        generation=record.body_location.generation,
                     )
                     state["expires_at"] = later(
                         self.identity.clock(), self.policy.cache_ttl_seconds

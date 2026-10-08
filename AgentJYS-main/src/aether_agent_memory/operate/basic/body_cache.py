@@ -3,8 +3,9 @@
 import asyncio
 
 from aether_agent_memory.remember.contracts.models import MemoryRef, MemorySnapshot
+from aether_agent_memory.runtime.contracts.foundation import ResourceLocation
 from aether_agent_memory.runtime.contracts.models import Scope, TrustedContext
-from aether_agent_memory.runtime.storage.cache import BodyCache
+from aether_agent_memory.runtime.storage.cache import BodyCache, describe_cache_location
 from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 from .cache_port import CacheCapacityError, CacheExecutor
@@ -25,6 +26,11 @@ class TieredBodyCache:
             raise ValueError("cache backend does not expose a Redis address")
         bucket, body, expiry = address(scope, digest)
         return str(bucket), str(body), str(expiry)
+
+    def describe_location(
+        self, scope: Scope, digest: str, *, generation: str
+    ) -> ResourceLocation | None:
+        return describe_cache_location(self.redis, scope, digest, generation=generation)
 
     async def admit_initial(self, memory: MemorySnapshot, ctx: TrustedContext) -> bool:
         """Explicit Remember write; ordinary read-through keeps its policy guard."""

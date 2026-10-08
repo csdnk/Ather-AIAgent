@@ -113,7 +113,15 @@ class TriggerSchedule(Operate):
             self.park_capability(tx, key, view)
             return
         view.pop("waiting_capability", None)
-        self.schedule_at(tx, key, view, self.evaluation_not_before(view), "new_input")
+        when, reason = self.evaluation_not_before(view), "new_input"
+        pressure_due = view.get("next_evaluation_at")
+        if view.get("wake_reason") == "buffer_high_watermark" and pressure_due:
+            pressure_due = max(
+                self.identity.clock(), pressure_due, view.get("retry_not_before") or pressure_due
+            )
+            if seconds(pressure_due) <= seconds(when):
+                when, reason = pressure_due, "buffer_high_watermark"
+        self.schedule_at(tx, key, view, when, reason)
 
     def pending(
         self, tx: MetadataTransaction, memory: MemoryRef, exclude_task_id: str | None = None
@@ -192,6 +200,9 @@ class TriggerSchedule(Operate):
             return 0
         return self.periodic_item(tx, key, tick_id)
 
+    def drop_heat(self, tx: MetadataTransaction, key: str) -> None:
+        tx.raw.delete("p3_rf_operate_heat", "system", key)
+
     def periodic_item(self, tx: MetadataTransaction, key: str, tick_id: str) -> int:
         view = tx.read("operate_views", key)
         if not view or view.get("cleanup_completed"):
@@ -199,7 +210,7 @@ class TriggerSchedule(Operate):
         now = self.identity.clock()
         if view.get("wake_reason") == "retire_stats":
             if view.get("next_retention_at") and seconds(view["next_retention_at"]) <= seconds(now):
-                tx.raw.delete("p3_rf_operate_heat", "system", key)
+                self.drop_heat(tx, key)
                 self.schedule_at(tx, key, view, None, "stable_cold")
             return 0
         if not view.get("cleanup") and (not self.should_evaluate(cleanup=False) or self.paused):

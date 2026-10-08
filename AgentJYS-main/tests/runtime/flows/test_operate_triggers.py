@@ -717,3 +717,43 @@ def test_old_version_evaluation_does_not_block_new_version_admission(h, state):
     assert h.service.periodic("same-version-attention") == 0
     assert h.task().task_id == new_task.task_id
     assert h.view()["wake_reason"] == "pending_completion"
+
+
+@pytest.mark.parametrize("reads,expected", [(1, "demote"), (16, "keep")])
+async def test_buffer_pressure_reaches_durable_evaluation_without_forced_cooling(
+    h, reads, expected
+):
+    h.service.settings = Settings(buffer_limit=3, high_watermark=2, low_watermark=0)
+    h.access(reads)
+    first = h.item
+    await h.service.executor.submit(
+        h.ctx(), intent(h.service.executor, h.ctx(), first, Tier.HOT, "initial-hot")
+    )
+    with h.host.uow.transaction() as tx:
+        view = tx.read("operate_views", h.key)
+        h.service.schedule_at(tx, h.key, view, later(h.clock(), 600), "threshold_crossing")
+        second = h.memories.new_memory(
+            tx, "pressure-peer", first.ref.scope, first.content, first.sources, "episodic"
+        )
+    # A distinct scoped memory enters the heat buffer; repeated reads of the
+    # first memory never counted as multiple buffered entries.
+    h.item = second
+    h.access()
+    h.item = first
+    assert h.service.periodic("pressure") == 2
+    task = h.task()
+    with h.host.uow.transaction() as tx:
+        assert (
+            tx.read("operate_evaluation_triggers", task.task_id)["kind"] == "buffer_high_watermark"
+        )
+    decision = h.decision(current="hot")
+    assert decision.outcome == expected
+    if expected == "demote":
+        action = intent(h.service.executor, h.ctx(), first, Tier.COLD, "pressure-cool")
+        action = action.model_copy(update={"decision": decision})
+        result = await h.service.execute(h.ctx(), action)
+        assert result.state == "succeeded"
+        assert h.cache.get_sync(first.ref.scope, first.content_hash) is None
+    else:
+        assert h.cache.get_sync(first.ref.scope, first.content_hash) == first.content
+    assert h.objects[first.content_hash] == first.content

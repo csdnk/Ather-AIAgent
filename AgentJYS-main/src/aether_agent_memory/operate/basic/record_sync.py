@@ -6,7 +6,6 @@ contained in this adapter; Recall never needs to read those private tables.
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from aether_agent_memory.operate.contracts.models import (
@@ -18,7 +17,6 @@ from aether_agent_memory.operate.contracts.models import (
 from aether_agent_memory.remember.basic.service import memory_ref
 from aether_agent_memory.remember.contracts.foundation import MemoryRecord
 from aether_agent_memory.remember.contracts.models import MemoryRef
-from aether_agent_memory.runtime.contracts.foundation import ResourceLocation
 from aether_agent_memory.runtime.contracts.models import ErrorCode
 from aether_agent_memory.runtime.foundation.common import FoundationError, fingerprint
 from aether_agent_memory.runtime.storage.ports import MetadataTransaction
@@ -155,24 +153,10 @@ class MemoryRecordSync:
                 raise FoundationError(ErrorCode.COMMIT_UNCONFIRMED, "hot copy registration missing")
             executor: Any = self.executor
             cache = executor.cache
-            key, field, expiry = cache.keys(memory.scope, observation.content_hash)
-            location = ResourceLocation(
-                kind="cache",
-                provider_id="redis",
-                provider_instance_id=cache.resource_id,
-                namespace=cache.namespace,
-                object_key=json.dumps(
-                    {
-                        "encoding": "redis_hash_v1",
-                        "key": key,
-                        "field": field,
-                        "expiry_field": expiry,
-                    },
-                    sort_keys=True,
-                    separators=(",", ":"),
-                ),
+            location = cache.describe_location(
+                memory.scope,
+                observation.content_hash,
                 generation=raw["body_location"]["generation"],
-                content_hash=observation.content_hash,
             ).model_dump(mode="json")
         elif action is not None and evidence["copy"] is not None:
             raise FoundationError(ErrorCode.COMMIT_UNCONFIRMED, "demotion registration not removed")
