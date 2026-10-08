@@ -108,6 +108,9 @@ class BodyAuthority:
     def working(self, ctx, selection, page):
         return self.load(ctx, tuple(self.snapshots[k].ref for k in self.working_ids))
 
+    async def load_recall_batch(self, ctx, refs):
+        return self.load(ctx, refs)
+
     async def projection_readiness(self, ctx, selection, memory_source):
         return ProjectionReadiness(
             source=memory_source,

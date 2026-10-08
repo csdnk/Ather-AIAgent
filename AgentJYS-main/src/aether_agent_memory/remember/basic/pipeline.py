@@ -16,7 +16,6 @@ from aether_agent_memory.recall.contracts.models import EmbeddingRequest, Vector
 from aether_agent_memory.remember.contracts.foundation import (
     ChunkDescriptor,
     FullBodyReadResult,
-    GuardStamp,
     MemoryRecord,
     ProjectionManifest,
 )
@@ -62,12 +61,12 @@ from aether_agent_memory.runtime.foundation.common import FoundationError, finge
 from aether_agent_memory.runtime.foundation.content_diagnostics import authorize_content_read
 from aether_agent_memory.runtime.foundation.requests import select_scope, text_hash
 from aether_agent_memory.runtime.foundation.telemetry import observed
-from aether_agent_memory.runtime.foundation.timings import measure_stage
 from aether_agent_memory.runtime.foundation.transactions import native
 from aether_agent_memory.runtime.storage.cache import describe_cache_location
 from aether_agent_memory.runtime.storage.ports import MetadataTransaction
 
 from .batching import select_batch
+from .body_reads import BodyReads
 from .comparison import (
     ComparisonDecision,
     ComparisonPort,
@@ -1645,77 +1644,12 @@ class RememberPipeline(Revalidation):
         return self.authority_snapshot(record, text)
 
     async def read_body(self, ctx: TrustedContext, ref: MemoryRef) -> FullBodyReadResult:
-        def inspect_body() -> (
-            FullBodyReadResult | tuple[MemoryRecord | MemorySnapshot, ResourceLocation]
-        ):
-            with self.uow.transaction() as tx:
-                authorize_content_read(self.identity, tx, ctx, memory_ref(ref))
-                eligibility = self.final_guard(tx, ctx, (ref,), "recall")
-                if eligibility.items[0].decision != "allowed":
-                    return FullBodyReadResult(
-                        memory=ref,
-                        outcome="excluded",
-                        path="none",
-                        reason_code=eligibility.items[0].reason,
-                    )
-                # Capture the immutable authority address without decoding or fetching
-                # its body. A later current() would hide another full read here.
-                raw = required_record(tx, memory_ref(ref, versioned=True))
-                item: MemoryRecord | MemorySnapshot
-                if "body_location" in raw:
-                    item = MemoryRecord.model_validate(raw)
-                    location = item.body_location
-                else:
-                    item = MemorySnapshot.model_validate(raw)
-                    location = self.bodies.location(ref.scope, item.content)
-            return item, location
+        return await BodyReads(self).read(ctx, ref)
 
-        with measure_stage("memory_prepare"):
-            selected = await asyncio.to_thread(inspect_body)
-        if isinstance(selected, FullBodyReadResult):
-            return selected
-        item, location = selected
-        with measure_stage("memory_fetch"):
-            content, path = await self.bodies.read(ref.scope, location)
-        if path != "cache":
-            # A corrupt/missing hot replica must not retain a stale cached marker.
-            # Reuse the same version/permission fences as initial admission.
-            await self.admit_verified_cache(ctx, ref, content)
-
-        def recheck_body() -> FullBodyReadResult | GuardStamp:
-            with self.uow.transaction() as tx:
-                eligible = self.final_guard(tx, ctx, (ref,), "recall").items[0]
-                if (
-                    eligible.decision != "allowed"
-                    or eligible.checked_revision != item.object_revision
-                ):
-                    return FullBodyReadResult(
-                        memory=ref, outcome="stale", path="none", reason_code="changed_during_read"
-                    )
-                guard = GuardStamp(
-                    memory=ref,
-                    object_revision=item.object_revision,
-                    relations_revision=item.revision,
-                    authorization_epoch=ctx.principal.auth_epoch,
-                    body_hash=location.content_hash,
-                    checked_at=self.identity.clock(),
-                )
-            return guard
-
-        with measure_stage("memory_validate"):
-            guard = await asyncio.to_thread(recheck_body)
-        if isinstance(guard, FullBodyReadResult):
-            return guard
-        return FullBodyReadResult(
-            memory=ref,
-            outcome="read",
-            content=content,
-            sources=item.sources,
-            location=location.model_copy(update={"kind": "cache"}) if path == "cache" else location,
-            guard=guard,
-            path=path,
-            reason_code="verified_full_body",
-        )
+    async def load_recall_batch(
+        self, ctx: TrustedContext, refs: tuple[MemoryRef, ...]
+    ) -> MemoryReadBatch:
+        return await BodyReads(self).load(ctx, refs)
 
     def accepts_projection(self, target: ProjectionTarget) -> bool:
         with self.uow.transaction() as tx:

@@ -21,6 +21,9 @@ class Records:
     def put(self, namespace, tenant, key, value):
         self.data[namespace, tenant, key] = value
 
+    def delete(self, namespace, tenant, key):
+        self.data.pop((namespace, tenant, key), None)
+
     def scan(self, namespace):
         return [(t, k, v) for (n, t, k), v in self.data.items() if n == namespace]
 

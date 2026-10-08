@@ -2,6 +2,7 @@
 
 import asyncio
 from hashlib import sha256
+from types import SimpleNamespace
 
 import pytest
 from test_p3_admin_diagnostics import runtime, seed
@@ -13,6 +14,7 @@ from aether_agent_memory.runtime.contracts.models import Permission, Principal, 
 from aether_agent_memory.runtime.foundation.common import FoundationError
 from aether_agent_memory.runtime.foundation.identity import Identity
 from aether_agent_memory.runtime.foundation.transactions import StorageTransaction
+from aether_agent_memory.runtime.storage.redis_cache import RedisCache
 
 
 @pytest.fixture
@@ -43,17 +45,64 @@ def body_world(tmp_path):
 
 def count_fetches(monkeypatch, bodies, after=None):
     reads = []
-    original = bodies.read
+    original = bodies.read_authority
 
-    async def read(scope, location):
+    async def read(location):
         reads.append(location)
-        result = await original(scope, location)
+        result = await original(location)
         if after is not None:
             after()
         return result
 
-    monkeypatch.setattr(bodies, "read", read)
+    monkeypatch.setattr(bodies, "read_authority", read)
+    if bodies.cache_reader is not None:
+        original_cache = bodies.cache_reader.read_location
+
+        async def read_cache(scope, location, authority):
+            reads.append(location)
+            result = await original_cache(scope, location, authority)
+            if after is not None:
+                after()
+            return result
+
+        monkeypatch.setattr(bodies.cache_reader, "read_location", read_cache)
     return reads
+
+
+def register_cache(host, item, content):
+    """Exercise the real address validator/decoder; only Redis I/O is substituted."""
+
+    def eval_read(script, key_count, *args):
+        assert script == RedisCache._READ and key_count == 1 and len(args) == 3
+        return content.encode("utf-8")
+
+    cache = RedisCache(
+        SimpleNamespace(
+            connection_pool=SimpleNamespace(
+                connection_kwargs={
+                    "host": "test-redis",
+                    "port": 6379,
+                    "db": 0,
+                    "socket_timeout": 0.1,
+                }
+            ),
+            eval=eval_read,
+        ),
+        host.remember.policy,
+        namespace="platform-body",
+    )
+    with host.foundation.uow.transaction() as tx:
+        ref = memory_ref(item.ref, versioned=True)
+        raw = tx.get(ref)
+        authority = ResourceLocation.model_validate(raw["body_location"])
+        location = cache.describe_location(
+            item.ref.scope, authority.content_hash, generation=authority.generation
+        )
+        tx.put_if_revision(
+            ref, {**raw, "cache_location": location.model_dump(mode="json")}, tx.revision(ref)
+        )
+    host.remember.bodies.cache_reader = cache
+    return location
 
 
 @pytest.mark.parametrize("cached", [False, True])
@@ -65,18 +114,15 @@ def test_body_fetches_once_and_keeps_actual_path(body_world, monkeypatch, cached
 
     monkeypatch.setattr(host.remember, "decode", no_decode)
     if cached:
-
-        class Cache:
-            async def get(self, scope, digest):
-                return item.content
-
-        host.remember.bodies.cache = Cache()
+        location = register_cache(host, item, item.content)
     reads = count_fetches(monkeypatch, host.remember.bodies)
     result = asyncio.run(host.remember.read_body(ctx, item.ref))
     assert result.content == "immutable complete body"
     assert result.path == ("cache" if cached else "authority")
     assert result.guard.object_revision == 1
     assert len(reads) == 1
+    if cached:
+        assert result.location == location
 
 
 def test_body_uses_stored_immutable_address(body_world):
@@ -96,16 +142,13 @@ def test_body_uses_stored_immutable_address(body_world):
     assert result.location == location
 
 
-def test_corrupt_cache_falls_back_to_verified_authority(body_world):
+def test_corrupt_cache_falls_back_to_verified_authority(body_world, monkeypatch):
     host, ctx, item = body_world
-
-    class CorruptCache:
-        async def get(self, scope, digest):
-            return "corrupt cache entry"
-
-    host.remember.bodies.cache = CorruptCache()
+    cache_location = register_cache(host, item, "corrupt cache entry")
+    reads = count_fetches(monkeypatch, host.remember.bodies)
     result = asyncio.run(host.remember.read_body(ctx, item.ref))
     assert result.content == "immutable complete body" and result.path == "authority"
+    assert reads == [cache_location, result.location]
 
 
 def test_corrupt_authority_never_returns_plaintext(body_world):

@@ -43,7 +43,7 @@ from aether_agent_memory.remember.contracts.models import (
 )
 from aether_agent_memory.remember.contracts.ports import (
     MemoryContextGuardPort,
-    MemoryFoundationPort,
+    RecallBodyReadPort,
 )
 from aether_agent_memory.runtime.contracts.models import (
     ErrorCode,
@@ -74,7 +74,7 @@ class ContextAssembly:
         self,
         base: Recall,
         candidates: MemoryCandidatePort,
-        bodies: MemoryFoundationPort,
+        bodies: RecallBodyReadPort,
         guards: MemoryContextGuardPort,
     ) -> None:
         # A 负责排序组包，B 接口负责正文、关系与最终有效性；复用原 Recall 基础设施。
@@ -344,7 +344,7 @@ class ContextAssembly:
                         ]
                     if found.candidates:
                         refs = tuple(c.memory for c in found.candidates)
-                        batch = await asyncio.to_thread(self.base.memories.load, ctx, refs)
+                        batch = await self.bodies.load_recall_batch(ctx, refs)
                         await asyncio.to_thread(
                             accept_batch, batch, {r.model_dump_json() for r in refs}
                         )
@@ -414,9 +414,7 @@ class ContextAssembly:
             queried.update(missing)
             saved_relation = (snapshots.copy(), conflicts.copy(), relation_guards.copy())
             try:
-                batch = await asyncio.to_thread(
-                    self.base.memories.load, ctx, tuple(missing.values())
-                )
+                batch = await self.bodies.load_recall_batch(ctx, tuple(missing.values()))
                 await asyncio.to_thread(accept_batch, batch, set(missing))
             except FoundationError as exc:
                 if exc.code != ErrorCode.DEPENDENCY_UNAVAILABLE:

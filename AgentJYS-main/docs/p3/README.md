@@ -1,12 +1,14 @@
 # P3 总体设计与协作契约
 
+**2026-10-08 Recall 正文读取：** 已接入“有效热地址优先、不可用回源权威地址”。从[冷热地址读取契约](development/17_Recall冷热地址读取契约.md)了解实际调用、跨模块职责和本地验证范围；[三流程时序](architecture/03_三流程与异常时序.md)已同步。新增内部 `RecallBodyReadPort.load_recall_batch`，外部请求/响应模型不变，云端部署验收另行取证。
+
 **2026-10-04 当前入口：** 同一套源码使用 Azure PG/Redis/Milvus/Ceph 与独立 Temporal。旧 SQLite、RF 调度、Lite 启动器、迁移和重复测试已退役，旧数据不迁移。开发者从 [当前开发与 Azure 指南入口](../../README.md#快速启动) 阅读完整 AI 环境说明，建立自己的数据范围，在 AKS 跑真实回归。以下日期化批次说明及数字保留历史证据，不代表当前运行装配。
 
 **2026-10-01 Working / Milvus：** [开发指南](development/Working与Milvus_本地开发指南.md) · [当前流程图](architecture/Working与Milvus_当前流程.svg) · [验收报告](development/Working与Milvus_验收报告.md)。统一服务的 Working 已接通原生 BGE、向量投影和来源过滤；官方本地 Lite 完成真实写入、召回及重启验证。下方早期批次中的“仅协议测试／待真实服务器”保留历史范围，不代表当前 Lite 状态；生产集群尚未验收。
 
 CI 运行与复验：[检查清单及依赖说明](development/11_CI检查与复验.md)，区分全仓检查、P3 门禁及真实依赖验证。
 
-**2026-09-23 A侧增量：** [Recall与Embedding接入](development/10_Recall与Embedding_A侧接入.md)。新A实现已完成契约环境验收，现有链路完成真实BGE与TCP HTTP验证；新多块B提供方仍待接。以下各旧批次说明保留其历史范围。
+**2026-09-23 A侧历史增量：** 当时新A完成契约环境验收，新多块B提供方尚待接。当前已由 RememberFactory 装配真实 RememberBoundary；[Recall与Embedding接入](development/10_Recall与Embedding_A侧接入.md)同时说明当前接口和当时证据，不能用历史“待接入”判断当前代码。
 
 投影职责调整：[写入与搜索拆分接入](development/09_投影与搜索职责划分.md)。
 
@@ -45,6 +47,7 @@ CI 运行与复验：[检查清单及依赖说明](development/11_CI检查与复
 | 11 | [代码复用清单](development/03_现有代码复用与改造清单.md) | 全员：现有实现如何处理 |
 | 12 | [验收说明](acceptance/01_验收场景与证据要求.md) | 全员：PRD、测试规格、运行证据 |
 | 13 | [选型修订 ADR](adr/ADR-P3-001_V1.2产品基线与框架采用.md) | 全员：框架、基座和产品边界 |
+| 14 | [Recall 冷热地址读取](development/17_Recall冷热地址读取契约.md) | A/B/C/RF：先热后冷、只读职责、提供方适配与复验 |
 
 ## 当前需求基线
 

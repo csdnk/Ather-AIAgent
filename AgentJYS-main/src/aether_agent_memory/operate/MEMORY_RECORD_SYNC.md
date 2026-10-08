@@ -1,6 +1,6 @@
 # Operate 的 MemoryRecord 写回闭环
 
-更新日期：2026-10-07。MemoryRecord 写回逻辑位于 Operate；配套修改包括 Remember 的权威正文读取接口，以及 Runtime 的真实 Redis 执行器和 Temporal 到期调度接入。Recall 本次未修改。
+更新日期：2026-10-08。MemoryRecord 写回逻辑位于 Operate；2026-10-07 的写回闭环继续保留。当前 Recall 已通过 Remember 公共读取接口消费登记地址：先热地址，无法读取时再冷地址。读取不再依赖 Operate 执行器，也不修复地址；本次读取适配没有修改 Operate 生产代码。详见[冷热地址读取契约](../../../docs/p3/development/17_Recall冷热地址读取契约.md)。
 
 ## 1. 现在的顺序
 
@@ -71,13 +71,11 @@ Operate 在写回事务内读取最新完整记录，只替换 `cache_location`�
 不会用动作创建时的旧 MemoryRecord 覆盖后来的业务字段。
 同一记忆的副本操作序号在核验期间发生变化，则放弃本次写回并重新核验；其他记忆引起的全局 epoch 变化不会单独阻止写回。
 
-### Remember 后续保存时又清空了 cache_location
+### Remember 后续保存与 cache_location 的关系
 
-目前 Remember 的保存逻辑可能重新构造 MemoryRecord，并把 cache_location 设回空。本次未修改 Remember 的保存写入逻辑。
-已有的 memory.changed、访问信号或到期评估触发 Operate 时，会重新核验实际副本并补写，即使当时不需要迁移也会处理。
+当前 `RememberPipeline.put` 对同一版本、相同 body_location 且仍 active 的记录保留已有缓存地址；新内容版本或撤回的记录不继承旧正文的准入标记。这是已有保存行为，冷热地址读取适配没有重写它。新写入和后续同步均复用 RedisCache 的规范地址构造。
 
-因此，**只修改 Operate 能做到核验后可靠写回、失败恢复，以及后续评估时修复；不能保证其他模块任意写入后的瞬间一致**。
-如果其他模块静默修改且之后没有任何评估，这次修改没有新增扫描器来兜底。要彻底消除该窗口，后续需要所有 MemoryRecord 写入方遵守字段合并约定。
+Redis TTL、回收或故障仍可能使登记地址与副本实际状态暂时不同。已有 memory.changed、成功读取事件或到期评估触发 Operate 时，由维护方重新核验并处理地址。Recall 普通回源不创建副本、不续期，也不更新或清空 cache_location；读取超时不能作为副本已不存在的证明。静默漂移没有新增即时扫描兜底，不能承诺地址与存储始终同步。
 
 ## 4. 新增登记与兼容边界
 
@@ -87,8 +85,9 @@ Operate 在写回事务内读取最新完整记录，只替换 `cache_location`�
 - 适配目前具备 Ceph 正文核验能力的真实 Redis 执行器。适配器对副本登记表的依赖集中在 `basic/record_sync.py`，执行器内部格式变化时需要同步检查这里。
 - 历史 inline MemorySnapshot 没有地址字段，保持兼容，不凭空补造地址。对具有 body_location、但缺少受支持地址适配器的记录，不伪造写回成功。
 - **Redis 和 PostgreSQL 不是同一个事务**：两者之间仍存在短暂状态差，通过持久化动作、重新核验和重试收敛。
-- Recall 本次未改，仍走原有读取路径。这里只为其后续使用 cache_location 准备可靠的地址信息，不宣称 Recall 已改为使用该字段。
-- 后续读取缓存地址时，仍需要校验租户与内容，并在副本失效时回退正文；缓存地址本身不是权限凭证，也不代表永不过期。
+- Recall 候选加载、冲突补读使用 `load_recall_batch`，最终正文使用 `load_bodies`，两者统一到 BodyReads。地址为空时不查 Redis；热地址失败回源，结果返回真实读取位置。
+- 公共读取器检查完整作用域、已配置实例、namespace、generation/hash、实际内容及当前权限。未知历史地址格式安全回源，不由 Recall 迁移。
+- `recall.access` 的 `stage=read`、`outcome=succeeded` 及原去重键不变。普通读取和缓存管理分离；TieredBodyCache 的显式准入、登记及清理能力保留。
 
 ## 5. 测试依据
 
@@ -100,3 +99,5 @@ Operate 在写回事务内读取最新完整记录，只替换 `cache_location`�
 
 2026-10-07 本地执行结果：上述专项和兼容回归合计 **103 项通过**；本次涉及的 4 个 Python 文件通过 Ruff 检查与格式检查，3 个 Operate 源码文件通过限定范围的 mypy 检查。
 这些测试不等同于真实 Ceph、线上 Azure 或完整远端 Temporal 集群联调。
+
+2026-10-08 读取适配的本地专项为 118 项通过，其中既有地址发布 16 项、新地址读取 52 项、公共正文 39 项、Recall 组包 9 项、正文 HTTP 2 项。Redis/Ceph 传输使用隔离替身，不是上述真实 PG/Redis 套件的重新验收。实际运行命令和外部联调边界见[CI 检查与复验](../../../docs/p3/development/11_CI检查与复验.md)。

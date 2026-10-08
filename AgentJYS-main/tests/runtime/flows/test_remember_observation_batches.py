@@ -166,16 +166,22 @@ def test_late_cache_completion_cannot_mark_new_content_version_cached(app):
     async def replace_during_admit(scope, text):
         nonlocal corrected
         result = await original(scope, text)
-        corrected = await app.remember.correct_async(
-            context(app, operation="cache-race-correction"),
-            receipt.memories[0].memory_id,
-            CorrectionRequest(
-                expected_version=1,
-                content="新内容",
-                source=source("race-correction"),
-                reason="explicit correction",
-            ),
+        correction_ctx = context(app, operation="cache-race-correction")
+        correction = CorrectionRequest(
+            expected_version=1,
+            content="新内容",
+            source=source("race-correction"),
+            reason="explicit correction",
         )
+        # Commit v2 while the old admission is still awaiting its receipt. Pause
+        # before v2's own admission so this hook cannot recursively correct again.
+        # CorrectionStages uses the same prepare / persist / correct boundary;
+        # v2's initial cache admission is covered by test_remember_initial_cache.
+        prepared_correction = app.remember.prepare_correction(
+            correction_ctx, receipt.memories[0].memory_id, correction
+        )
+        await app.remember.bodies.persist(correction_ctx, scope, prepared_correction["text"])
+        corrected = app.remember.correct(correction_ctx, receipt.memories[0].memory_id, correction)
         return result
 
     app.remember.bodies.admit = replace_during_admit
@@ -190,7 +196,7 @@ def test_late_cache_completion_cannot_mark_new_content_version_cached(app):
 
 
 @pytest.mark.parametrize("fault", ["revocation", "unavailable"])
-def test_authority_read_cache_repair_preserves_read_and_permission_guards(app, fault):
+def test_authority_fallback_is_read_only_and_rechecks_permission(app, fault, monkeypatch):
     from aether_agent_memory.remember.contracts.models import DeleteRequest
 
     receipt = observation(app, "Verified authority body.")
@@ -200,30 +206,49 @@ def test_authority_read_cache_repair_preserves_read_and_permission_guards(app, f
         ref.scope, app.remember.get(context(app), ref.memory_id).content_hash
     )
     cache.client.hset(key, field, b"corrupt")
-    original = cache.put
+    original = app.remember.bodies.read_authority
+    writes = []
+    expected = None
 
-    async def inject(scope, text):
-        if fault == "unavailable":
-            raise OSError("controlled cache failure")
-        value = await original(scope, text)
-        app.remember.revoke_source(
-            context(app),
-            receipt.source.source_id,
-            DeleteRequest(expected_revision=1, reason="revoked during cache repair"),
-        )
+    def metadata():
+        with app.foundation.uow.transaction() as tx:
+            return (
+                tx.get(memory_ref(ref, versioned=True)),
+                tx.read("remember_cache_admission", ref.memory_id),
+            )
+
+    async def forbid_put(scope, text):
+        writes.append((scope, text))
+        raise AssertionError("ordinary body read must not repair the cache")
+
+    async def unavailable(*args):
+        raise OSError("controlled cache failure")
+
+    async def inject(location):
+        nonlocal expected
+        value = await original(location)
+        if fault == "revocation":
+            app.remember.revoke_source(
+                context(app),
+                receipt.source.source_id,
+                DeleteRequest(expected_revision=1, reason="revoked during authority fetch"),
+            )
+        # The explicit revoke operation may change metadata. The ordinary read
+        # must not make further cache/address changes after this point.
+        expected = metadata()
         return value
 
-    cache.put = inject
+    monkeypatch.setattr(cache, "put", forbid_put)
+    if fault == "unavailable":
+        monkeypatch.setattr(cache, "read_location", unavailable)
+    monkeypatch.setattr(app.remember.bodies, "read_authority", inject)
     body = asyncio.run(app.remember.read_body(context(app), ref))
-    with app.foundation.uow.transaction() as tx:
-        record = tx.get(memory_ref(ref, versioned=True))
-        admission = tx.read("remember_cache_admission", ref.memory_id)
-    assert record["cache_location"] is None
+    assert not writes
+    assert expected is not None and metadata() == expected
     if fault == "unavailable":
         assert body.outcome == "read" and body.content == "Verified authority body."
         assert body.path == "authority"
-        assert admission["state"] == "unavailable"
+        assert expected[0]["cache_location"] is not None
+        assert expected[1]["state"] == "cached"
     else:
         assert body.outcome == "stale" and body.content is None
-        assert admission["state"] == "ineligible"
-        assert cache.raw_sync(ref.scope, record["body_location"]["content_hash"]) is None

@@ -6,6 +6,8 @@ Aether P3 是面向 AI Agent 的持久记忆服务：接收对话、任务信息
 
 ## 当前状态
 
+**2026-10-08 源码更新：Recall 已按记忆记录先读热地址、不可用再读冷地址。** 候选加载、冲突成员补读及最终正文读取共用 Remember 的公共读取服务；读取不再调用 Operate 缓存执行器，也不创建副本、续期或修改地址。Remember 显式写入和 Operate 维护继续负责地址发布。见[读取流程与模块影响](AgentJYS-main/docs/p3/development/17_Recall冷热地址读取契约.md)和[三流程时序](AgentJYS-main/docs/p3/architecture/03_三流程与异常时序.md)。这是当前本地代码状态，不表示下方 Azure 部署已升级。
+
 **2026-10-06：若依统一管理后台与 Agent 已部署到 Azure。** [打开若依后台](https://aether-p3-demo-c50c3827.southeastasia.cloudapp.azure.com/ruoyi/)；[打开 Agent](https://aether-p3-demo-c50c3827.southeastasia.cloudapp.azure.com/ruoyi-agent/)。企业账号查看本企业用户、会话与记忆；平台管理员查看全局任务、Temporal 工作流和队列。部署边界与回退见[若依运行手册](AgentJYS-main/deploy/ruoyi/RUNBOOK.md)。2026-10-05 的 Agent/Budibase 发布记录保留为历史证据。
 
 2026-10-01：Working 已使用真实 BGE 向量投影与官方本地 Milvus Lite；五项必选真实功能验证通过，涵盖来源/租户隔离、持久重启和生命周期。见[本地开发指南](AgentJYS-main/docs/p3/development/Working与Milvus_本地开发指南.md)、[当前流程图](AgentJYS-main/docs/p3/architecture/Working与Milvus_当前流程.svg)和[验收报告](AgentJYS-main/docs/p3/development/Working与Milvus_验收报告.md)。本地 Lite 通过不代表生产集群验收，也不代表当前 AKS 测试部署已连接 Milvus。
@@ -44,6 +46,7 @@ cd AgentJYS-main
 | 位置 | 内容 |
 |---|---|
 | [业务代码与使用指南](AgentJYS-main/README.md) | 安装、鉴权、接口示例、模型接入、持续运行和开发验证 |
+| [Recall 冷热地址读取契约](AgentJYS-main/docs/p3/development/17_Recall冷热地址读取契约.md) | 先热后冷的调用关系、Remember/Operate 职责、接口及验证边界 |
 | [Temporal 部署运行指南](交付成果/部署运行/P3_Temporal本地运行与迁移指南_20260930.md) | 新启动方式、已有任务迁移、故障恢复与单实例约束 |
 | [Temporal 工程验收](交付成果/测试与验收/P3_Temporal接入工程验收_20260930.md) | 测试结果、18 项场景证据和部署限制 |
 | [交付成果](交付成果/README.md) | PRD、ADR、Epic、架构、Mock、验收报告和评审材料 |

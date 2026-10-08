@@ -8,7 +8,7 @@ from aether_agent_memory.recall.basic.vector_search import SearchAccess
 from aether_agent_memory.recall.contracts.foundation import EmbeddingSpace
 from aether_agent_memory.runtime.flows.host import ThreeFlows
 from aether_agent_memory.runtime.foundation.common import fingerprint
-from aether_agent_memory.runtime.storage.cache import BodyCache
+from aether_agent_memory.runtime.storage.cache import BodyCache, CacheLocationReader
 
 from .basic.boundary import RememberBoundary
 from .basic.content import Bodies
@@ -28,6 +28,7 @@ class RememberFactory:
         p2: Any = None,
         redis: Any = None,
         body_cache: BodyCache | None = None,
+        cache_reader: CacheLocationReader | None = None,
         generation_search: Any = None,
         space: EmbeddingSpace | None = None,
         **providers: Any,
@@ -41,6 +42,7 @@ class RememberFactory:
         self.root = Path(body_root) if body_root else Path(str(database) + ".bodies")
         self.providers = providers
         self.body_cache = body_cache
+        self.cache_reader = cache_reader
         self.generation_search, self.space = generation_search, space
 
     def __call__(self, *args: Any, tokenizer: TokenCounter) -> RememberPipeline:
@@ -49,6 +51,7 @@ class RememberFactory:
             self.policy,
             p2=self.p2,
             cache=self.body_cache,
+            cache_reader=self.cache_reader,
         )
         bodies.remote_only = self.p2 is not None
         bodies.require_prepared = bodies.remote_only
@@ -121,6 +124,7 @@ def create_runtime(
     p2: Any = None,
     redis: Any = None,
     body_cache: BodyCache | None = None,
+    cache_reader: CacheLocationReader | None = None,
     comparison: Any = None,
     equivalence_verifier: Any = None,
     support_verifier: Any = None,
@@ -143,6 +147,7 @@ def create_runtime(
             p2=p2,
             redis=redis,
             body_cache=body_cache,
+            cache_reader=cache_reader,
             comparison=comparison,
             equivalence_verifier=equivalence_verifier,
             support_verifier=support_verifier,

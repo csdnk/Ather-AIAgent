@@ -9,6 +9,7 @@ owns action receipts and Ceph owns original bytes.
 
 import asyncio
 import json
+import math
 import re
 from collections.abc import Callable
 from typing import Any
@@ -109,6 +110,14 @@ return total
             [options.get("host"), options.get("port"), options.get("db", 0)]
         )
 
+    @property
+    def read_timeout_seconds(self) -> float | None:
+        """Expose the configured socket bound without inventing a read deadline."""
+        timeout = self.client.connection_pool.connection_kwargs.get("socket_timeout")
+        if type(timeout) in (int, float) and math.isfinite(timeout) and timeout > 0:
+            return float(timeout)
+        return None
+
     def keys(self, scope: Scope, digest: str) -> tuple[str, str, str]:
         """Return the hash key, body field and expiry field, all in one hash slot."""
         if not re.fullmatch(r"[0-9a-f]{64}", digest):
@@ -204,6 +213,34 @@ return total
 
     async def get(self, scope: Scope, digest: str) -> str | None:
         return await asyncio.to_thread(self.get_sync, scope, digest)
+
+    async def read_location(
+        self, scope: Scope, location: ResourceLocation, authority: ResourceLocation
+    ) -> str | None:
+        """Validate a registered address before using this configured Redis client."""
+        expected = self.describe_location(
+            scope, authority.content_hash, generation=authority.generation
+        )
+        if location.model_dump(exclude={"object_key"}) != expected.model_dump(
+            exclude={"object_key"}
+        ):
+            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "cache address binding differs")
+        try:
+            # Tuple pairs preserve duplicates; arrays remain lists and are rejected.
+            fields = json.loads(location.object_key, object_pairs_hook=tuple)
+            expected_fields = json.loads(expected.object_key)
+            valid = (
+                isinstance(fields, tuple)
+                and len(fields) == len(expected_fields)
+                and dict(fields) == expected_fields
+            )
+        except (ValueError, TypeError, RecursionError):
+            valid = False
+        if not valid:
+            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "cache address format differs")
+        # Use only the server-derived scope/hash after checking the recorded key.
+        # get_sync retains the atomic logical-TTL read and UTF-8/hash verification.
+        return await asyncio.to_thread(self.get_sync, scope, authority.content_hash)
 
     async def put(self, scope: Scope, text: str) -> bool:
         return await asyncio.to_thread(self.put_sync, scope, text)

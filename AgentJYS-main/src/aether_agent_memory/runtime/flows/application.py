@@ -97,6 +97,7 @@ class Service:
                 "p2",
                 "redis",
                 "body_cache",
+                "cache_reader",
                 "vectors",
                 "vectors_factory",
                 "cache_factory",

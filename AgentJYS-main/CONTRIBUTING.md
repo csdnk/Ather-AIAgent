@@ -22,6 +22,7 @@
 - [架构与机制](docs/p3/README.md)：领域职责、状态、事务与恢复。
 - [流程责任](docs/p3/development/02_三流程接入与责任表.md)：提供方/消费方及交接条件。
 - [当前 CI 检查](docs/p3/development/11_CI检查与复验.md)：静态检查、契约与 AKS 真实后端测试的边界。
+- [Recall 冷热地址读取契约](docs/p3/development/17_Recall冷热地址读取契约.md)：现行正文接口、缓存回源规则、模块影响及离线验收入口。
 
 ## 当前检查入口
 
@@ -47,7 +48,7 @@ Web 用 Node.js 22，执行 `npm ci`、`npm run lint`、`npm test`、`npm run bu
 
 GitHub 的实际入口是仓库根 `.github/workflows/`，嵌套重复工作流已删除。
 
-- `ci.yml`：Python 静态/Schema/wheel、Web 与 Rust 检查。
+- `ci.yml`：Python 静态/Schema、冷热地址离线回归、平台测试、wheel，以及 Web 与 Rust 检查。
 - `p3-contracts.yml`：独立契约检查。
 - `p3-azure-tests.yml`：手动指定 reviewed full SHA，通过 `azure-tests` environment 的受控 Secret 在 AKS 跑真实回归。
 - `azure-pipelines.p3.yml`：源码与契约检查入口。

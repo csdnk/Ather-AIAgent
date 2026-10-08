@@ -1,7 +1,7 @@
 """Remember implementations of the existing generation Recall contracts."""
 
 import asyncio
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from aether_agent_memory.remember.contracts.foundation import (
     CandidateQualificationResult,
@@ -13,7 +13,7 @@ from aether_agent_memory.remember.contracts.foundation import (
     ProjectionManifest,
     ProjectionReadiness,
 )
-from aether_agent_memory.remember.contracts.models import MemoryRef
+from aether_agent_memory.remember.contracts.models import MemoryReadBatch, MemoryRef
 from aether_agent_memory.runtime.contracts.models import (
     ErrorCode,
     RecordRef,
@@ -214,6 +214,12 @@ class RememberBoundary:
             guards = tuple(self.guard_in(tx, ctx, ref) for ref in refs)
             conflicts = self.remember.conflict_groups_in(tx, ctx, refs)
             return MemoryRelationSnapshot(guards=guards, conflicts=conflicts)
+
+    async def load_recall_batch(
+        self, ctx: TrustedContext, refs: tuple[MemoryRef, ...]
+    ) -> MemoryReadBatch:
+        self.distinct(refs)
+        return cast(MemoryReadBatch, await self.remember.load_recall_batch(ctx, refs))
 
     async def load_bodies(
         self, ctx: TrustedContext, refs: tuple[MemoryRef, ...]
