@@ -11,6 +11,10 @@ class RecallSettings(BaseModel):
     tokenizer: str = "o200k_base"
     tokenizer_path: str | None = None
     candidate_limit: int = Field(default=20, ge=1, le=100)
+    # Disabled admission must preserve policy hashes created before this setting existed.
+    vector_min_score: float | None = Field(
+        default=None, allow_inf_nan=False, exclude_if=lambda value: value is None
+    )
     max_items: int = Field(default=5, ge=1, le=20)
     max_discovery: int = Field(default=100, ge=20, le=1000)
     source_timeout_seconds: float = Field(default=10, gt=0, le=120)

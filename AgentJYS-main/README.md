@@ -139,10 +139,18 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8080/p3/recall -Headers $P3
 | `azure_storage.ceph` | HTTPS RGW、bucket、S3 凭据变量名和可选私有 CA |
 | `embedding_profile: native`、`embedding_config` | BGE 中文 512 维编码；预置模型与一致的推理配置 |
 | `language_model`、`verifier_model` | 语义加工及可选独立审核模型 |
-| `recall_config` | 预算与可选 reranker；Azure 模式拒绝第二套 Milvus 连接配置 |
+| `recall_config` | 候选阈值、预算与可选 reranker；Azure 模式拒绝第二套 Milvus 连接配置 |
 | `temporal` | endpoint、已存在的 namespace、deployment_id、task_queue_prefix 与可选 TLS |
 
 模型服务需支持结构化输出与健康查询。模型空间、向量、正文提供方与历史数据持久绑定；更换时需显式迁移和验证，不得改标签或清库绕过。当前新配置模板支持 production profile，不代表生产验收通过。
+
+### Recall 向量阈值
+
+`configs/recall.azure.json` 设置 `vector_min_score: 0.8`。当前 `GenerationRecall` 对 Working 和 Long-term 主候选分别按记忆的 `best_score >= vector_min_score` 准入，再读取正文、融合排序和组包。`best_score` 是该记忆已核验命中块的最高向量分数，不是 RRF 或重排分数。Remember 共用的候选搜索接口不受此阈值影响。
+
+每来源仍最多检索 20 条候选记忆、检查 100 个块命中，最终最多保留 5 组，且受 token 预算约束。这些都是上限；低分候选不会为凑数而补回。全部低分且搜索完整、索引就绪时返回正常空结果；依赖故障和索引待发布仍按原规则报告。命中冲突组时仍须补全可信成员，因此关系补读成员不要求单独达到阈值。
+
+`0.8` 是当前余弦分数的试验值，尚未通过业务样本校准，也不是通用的相关性保证。该配置只由服务端管理；省略字段或设为 `null` 可关闭阈值并保留旧策略序列化。启用或调整阈值会改变 Recall 策略绑定，在途任务不能套用新策略继续旧快照；部署前应等待旧任务结束，再加载新配置发起新请求。本仓库的配置修改不会自动更新云端部署目录。
 
 ## 持续运行与排障
 
