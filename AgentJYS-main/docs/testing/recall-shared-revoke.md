@@ -24,6 +24,7 @@ U08 本地、U09 无 grant 非空对照，真实设置单一 READ grant，再让
 凭据、停用 tenant 或改 home/permissions 代替撤销共享。没有控制器或回执记 blocked_fixture。
 该部署路径不宣称补齐 AET-27 中缺失的 Remember 共享入口。
 
+本组夹具要求 grant.expires_at=None，避免自然到期伪装成显式撤销成功。
 RevokeReceipt 绑定 run/control operation、Q18、observer、目标源码 SHA/镜像/config/backend/model，
 实际撤销的完整 grant、新 revision、UTC submitted/committed/effective/observed 时刻、未改变的
 Principals、实际空 grant 集合，以及真实 U08 对原精确 target 的 excluded qualification 和检查时刻。

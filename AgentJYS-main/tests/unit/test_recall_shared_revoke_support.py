@@ -85,6 +85,13 @@ def revocation(case):
     return receipt
 
 
+def test_expiry_cannot_masquerade_as_successful_explicit_revocation(tmp_path):
+    data = revoke_case(tmp_path).model_dump(mode="json")
+    data["grant"]["expires_at"] = "2026-10-09T00:00:01.000Z"
+    with pytest.raises(ValueError, match="nonexpiring grant"):
+        RevokeCase.model_validate(data)
+
+
 def test_authority_barrier_requires_removed_grant_with_real_replicas_retained(tmp_path):
     case = revoke_case(tmp_path)
     assert_revoked(

@@ -40,6 +40,10 @@ class RevokeCase(SharedReadCase):
 
     @model_validator(mode="after")
     def independent_paths(self) -> "RevokeCase":
+        if self.grant.expires_at is not None:
+            raise ValueError(
+                "revocation fixture requires a nonexpiring grant; expiry confounds denial"
+            )
         paths = [
             external_path(p)
             for p in (
