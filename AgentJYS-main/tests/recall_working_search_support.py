@@ -18,7 +18,9 @@ F2_TEXT = "用户长期保持喝咖啡不加糖的习惯。"
 
 class WorkingSearchProbe:
     def __init__(self, runtime, monkeypatch):
+        self.runtime = runtime
         self.embeddings, self.searches = [], []
+        self.sdk_calls = []
         active_embedding = ContextVar("working_probe_embedding", default=None)
         active_search = ContextVar("working_probe_search", default=None)
         embed = runtime.embedding.embed
@@ -71,9 +73,15 @@ class WorkingSearchProbe:
 
         def observed_sdk(*args, **kwargs):
             row = active_search.get()
+            call = {"request": deepcopy(kwargs), "result": None}
+            self.sdk_calls.append(call)
             if row is not None:
-                row["sdk"].append(deepcopy(kwargs))
-            return sdk_search(*args, **kwargs)
+                row["sdk"].append(call["request"])
+            result = sdk_search(*args, **kwargs)
+            call["result"] = result
+            if row is not None:
+                row.setdefault("sdk_results", []).append(result)
+            return result
 
         monkeypatch.setattr(runtime.embedding, "embed", observed_embed)
         monkeypatch.setattr(runtime.native_embedding.backends["Query"], "compute", observed_compute)
@@ -149,7 +157,7 @@ def required_search_filters(expression):
 
 
 def assert_execution(
-    probe, operation_id, query, native, source, expected_refs, allowed_stale_refs=()
+    probe, operation_id, query, native, source, expected_refs, allowed_discovery_refs=()
 ):
     encodings = [r for r in probe.embeddings if r["operation_id"] == operation_id]
     searches = [r for r in probe.searches if r["operation_id"] == operation_id]
@@ -231,10 +239,11 @@ def assert_execution(
                 "vector_hash": sha256(json.dumps(list(request.vector)).encode()).hexdigest(),
                 "sdk": sdk_evidence,
                 "candidate_count": len(result.candidates),
+                "discovery_limit": request.limit,
             }
         )
     assert set(expected_refs).issubset(candidates), "required fixture Refs missing"
-    assert candidates <= set(expected_refs) | set(allowed_stale_refs), "unexpected fixture Refs"
+    assert candidates <= set(expected_refs) | set(allowed_discovery_refs), "unexpected fixture Refs"
     return {
         "operation_id": operation_id,
         "trace_id": next(iter(traces)),
@@ -244,6 +253,7 @@ def assert_execution(
         "vector_calls": len(searches),
         "sdk_calls": sdk_count,
         "long_term_calls": sum(r["request"].memory_source == "long_term" for r in searches),
+        "working_calls": sum(r["request"].memory_source == "working" for r in searches),
         "native_evidence_refs": native_evidence,
         "search_requests": search_evidence,
     }

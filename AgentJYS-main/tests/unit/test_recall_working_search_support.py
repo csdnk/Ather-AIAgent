@@ -102,6 +102,33 @@ async def test_probe_forwards_real_boundary_returns_and_records_failed_search(mo
     assert probe.searches[0]["operation_id"] == "original-operation"
 
 
+async def test_probe_preserves_actual_sdk_hits_across_worker_thread(monkeypatch):
+    import asyncio
+
+    ctx = SimpleNamespace(operation_id="search-operation", trace_id="b" * 32)
+    hits = [[{"id": "actual-id", "distance": 0.75, "entity": {"target": {}}}]]
+
+    async def unused(*args):
+        raise AssertionError("unexpected embedding call")
+
+    sdk = SimpleNamespace(search=lambda **kwargs: hits)
+
+    async def search(context, request):
+        assert context is ctx
+        return await asyncio.to_thread(sdk.search, filter="actual-filter", limit=1)
+
+    runtime = SimpleNamespace(
+        native_embedding=SimpleNamespace(backends={"Query": SimpleNamespace(compute=unused)}),
+        embedding=SimpleNamespace(embed=unused),
+        vectors=SimpleNamespace(search=search, client=sdk),
+    )
+    probe = WorkingSearchProbe(runtime, monkeypatch)
+    assert await runtime.vectors.search(ctx, object()) is hits
+    assert probe.searches[0]["sdk_results"][0] is hits
+    assert probe.sdk_calls[0]["result"] is hits
+    assert probe.sdk_calls[0]["request"] == {"filter": "actual-filter", "limit": 1}
+
+
 def observed_execution():
     from hashlib import sha256
 
@@ -114,7 +141,6 @@ def observed_execution():
         operation_id="encoding",
         usage="query",
         model_space=space.model_space,
-        limit=20,
         dimensions=2,
         items=(SimpleNamespace(input_hash=sha256(b"query").hexdigest(), vector=(1.0, 0.0)),),
     )
@@ -149,6 +175,7 @@ def observed_execution():
             model_space=space.model_space,
             selection=ScopeSelector(session_id="s1"),
             vector=(1.0, 0.0),
+            limit=20,
         ),
         "result": SimpleNamespace(coverage="complete", candidates=()),
         "sdk": [

@@ -4,6 +4,7 @@ Missing prerequisites fail with blocked_fixture; a skip is never acceptance.
 All writes and lifecycle changes affect only this test's owned Azure resources.
 """
 
+import json
 import os
 import time
 from hashlib import sha256
@@ -74,14 +75,16 @@ def verify_ready(http, ref, text, model_space, kind):
 
 @pytest.fixture
 def working_target(request, tmp_path, monkeypatch):
-    evidence = SafeEvidence("AET-34", request.node.name)
+    options = getattr(request, "param", {})
+    case_id = options.get("case_id", "AET-34")
+    evidence = SafeEvidence(case_id, request.node.name)
     evidence.data.update(acceptance="failed", lane="native-http-azure")
     directory = (
         external_path(
             Path(
                 os.environ.get(
                     "P3_RECALL_EVIDENCE_DIR",
-                    str(Path(gettempdir()) / "aether-workspace-support/AET-34"),
+                    str(Path(gettempdir()) / "aether-workspace-support" / case_id),
                 )
             )
         )
@@ -147,11 +150,21 @@ def working_target(request, tmp_path, monkeypatch):
             }
         )
     )
+    recall_config = tmp_path / "recall.json"
+    recall_config.write_text(
+        json.dumps(
+            {
+                "candidate_limit": options.get("candidate_limit", 20),
+                "rerank_policy": "disabled",
+            }
+        )
+    )
     config = ComponentConfiguration(
         data_dir=tmp_path / "state",
         identity_file=identity,
         embedding_profile="native",
         embedding_config=Path(native_path),
+        recall_config=recall_config,
         remember={"consolidation_messages": 1},
         periodic_seconds=0.2,
         poll_seconds=0.02,
@@ -169,6 +182,7 @@ def working_target(request, tmp_path, monkeypatch):
         backend_binding=service.runtime.vectors.binding(),
         executions=[],
         fixtures=[],
+        server_candidate_limit=service.runtime.recall.settings.candidate_limit,
     )
     try:
         with TestClient(service.app()) as client:
@@ -190,7 +204,7 @@ def recall(
     memories,
     label,
     query=QUERY,
-    stale_refs=(),
+    discovery_refs=(),
 ):
     http = RecallHTTP(client, actor)
     operation_id = label + "-" + uuid4().hex
@@ -209,7 +223,7 @@ def recall(
     result = http.get(f"/p3/recalls/{pack.recall_id}/result")
     assert result.status_code == 200 and result.json() == payload
     observed = assert_execution(
-        probe, operation_id, query, native, source, [m.ref for m in memories], stale_refs
+        probe, operation_id, query, native, source, [m.ref for m in memories], discovery_refs
     )
     observed.update(job_id=job_id, recall_id=pack.recall_id, label=label)
     task = http.get(f"/p3/tasks/{job_id}")
@@ -339,7 +353,7 @@ def test_working_native_search_never_falls_back(working_target, actor, scenario)
             "working",
             (),
             "working-empty",
-            stale_refs=(MemoryRef.model_validate(original),),
+            discovery_refs=(MemoryRef.model_validate(original),),
         )
         recall(client, native, probe, evidence, actor, session, "long_term", (f2,), "f2-after")
     evidence.data["acceptance"] = "passed"
