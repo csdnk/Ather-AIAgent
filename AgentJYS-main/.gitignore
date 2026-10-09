@@ -4,6 +4,12 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+# RuoYi's Vite configuration is source code, not generated build output.
+!ruoyi/frontend/build/
+ruoyi/frontend/build/*
+!ruoyi/frontend/build/vite/
+ruoyi/frontend/build/vite/*
+!ruoyi/frontend/build/vite/*.ts
 *.egg
 
 # uv
