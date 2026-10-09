@@ -9,3 +9,13 @@
 - 更新用户可读的入口与相对链接；移动文件先检查路径与同名冲突，保留用户改动。遇到用户正在打开的文件，不结束其应用、不强行覆盖或丢弃更改。
 - `P3_框架研读与工程验证_V1.0` 是现有研读项目，目前因 Typora 使用而保留原位，运行环境和处理记录已移出。它不是助手临时目录。
 - 此前生成器已归档到独立工作区，不直接重跑旧生成器恢复旧布局。新任务按以上约定写文件。
+
+## Agent skills
+
+### Issue tracker
+
+使用 Linear（workspace: yu-xiao, team: AET, project: Recall Testcase）。详见 `docs/agents/issue-tracker.md`。
+
+### Domain docs
+
+单上下文配置：根目录的 `GLOSSARY.md` + `docs/adr/` 目录。详见 `docs/agents/domain.md`。
