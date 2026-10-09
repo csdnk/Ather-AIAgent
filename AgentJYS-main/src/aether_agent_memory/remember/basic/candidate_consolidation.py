@@ -21,6 +21,7 @@ from aether_agent_memory.remember.basic.llmlingua import (
 )
 from aether_agent_memory.remember.basic.official_langmem import (
     CandidateCapacityError,
+    CandidateDecisionCoverageError,
     CandidateExtractionResult,
     ConsolidationResult,
     ExtractedCandidate,
@@ -267,9 +268,15 @@ _SOURCE_SEPARATORS = [
 ]
 
 
-def _recursive_pieces(text: str, budget: int, count: Callable[[str], int]) -> list[str]:
+def _recursive_pieces(
+    text: str,
+    budget: int,
+    count: Callable[[str], int],
+    *,
+    separators: list[str] | None = None,
+) -> list[str]:
     pieces = RecursiveCharacterTextSplitter(
-        separators=_SOURCE_SEPARATORS,
+        separators=_SOURCE_SEPARATORS if separators is None else separators,
         chunk_size=budget,
         chunk_overlap=0,
         length_function=count,
@@ -348,36 +355,20 @@ def _extraction_batches(owner: Any, items: tuple[MemorySnapshot, ...]) -> list[_
     return batches
 
 
-def _complete_short_part(owner: Any, part: _ExtractionPart) -> bool:
-    short_items = [
-        item
-        for item in part.items
-        if len(item.content.encode("utf-8")) < owner.policy.compression_min_bytes
-    ]
-    for item in short_items:
-        if not item.sources or any(
-            part.ranges.get(source.source_id) != (0, len(item.content)) for source in item.sources
-        ):
-            raise FoundationError(
-                ErrorCode.CONTRACT_VIOLATION,
-                "incomplete short message source range cannot be extracted or subdivided",
-            )
-    return len(part.items) == 1 and len(short_items) == 1
-
-
-def _short_capacity_error() -> FoundationError:
-    return FoundationError(
-        ErrorCode.CONTRACT_VIOLATION,
-        "complete short message exceeds extraction capacity; "
-        "source remains unprocessed and was not split within the message",
-    )
-
-
 def _split_part(owner: Any, part: _ExtractionPart) -> tuple[_ExtractionPart, ...]:
-    # A short statement's subject and predicate are one semantic unit. An output
-    # limit is not evidence that its input can safely be divided by character.
-    if _complete_short_part(owner, part):
-        raise _short_capacity_error()
+    # Subdivision changes only model input ranges, never the Working identity or
+    # completion boundary. Reject malformed ranges before producing checkpoints.
+    for item in part.items:
+        bounds = [part.ranges.get(source.source_id) for source in item.sources]
+        if (
+            not bounds
+            or any(
+                value is None or not 0 <= value[0] < value[1] <= len(item.content)
+                for value in bounds
+            )
+            or len(set(bounds)) != 1
+        ):
+            raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "invalid extraction source range")
     if part.depth >= owner.policy.extraction_split_depth:
         raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "extraction subdivision limit exceeded")
     if len(part.items) > 1:
@@ -398,11 +389,31 @@ def _split_part(owner: Any, part: _ExtractionPart) -> tuple[_ExtractionPart, ...
         raise FoundationError(
             ErrorCode.CONTRACT_VIOLATION, "minimal source part still exceeds extraction capacity"
         )
-    ranges = _ranges(
-        owner,
-        item.content[start:end],
-        char_budget=min(owner.policy.extraction_chunk_chars, max(1, (end - start) // 2)),
-    )
+    target = min(owner.policy.extraction_chunk_chars, max(1, (end - start) // 2))
+    if len(item.content.encode("utf-8")) < owner.policy.compression_min_bytes:
+        # A dense short message can contain many facts, but a single sentence
+        # must not become subject-less character fragments. Use the same official
+        # recursive splitter, stopping at paragraph/line/sentence boundaries;
+        # never fall through to spaces, commas or individual characters.
+        pieces = _recursive_pieces(
+            item.content[start:end],
+            target,
+            len,
+            separators=_SOURCE_SEPARATORS[:11],
+        )
+        if len(pieces) < 2:
+            raise FoundationError(
+                ErrorCode.CONTRACT_VIOLATION,
+                "indivisible source exceeds extraction capacity at semantic boundaries; "
+                "Working remains unprocessed",
+            )
+        ranges = []
+        cursor = 0
+        for piece in pieces:
+            ranges.append((cursor, cursor + len(piece)))
+            cursor += len(piece)
+    else:
+        ranges = _ranges(owner, item.content[start:end], char_budget=target)
     return tuple(
         _ExtractionPart(
             part.items,
@@ -508,7 +519,8 @@ def _split_decision_batch(
     if len(components) < 2:
         raise FoundationError(
             ErrorCode.CONTRACT_VIOLATION,
-            "indivisible candidate/current-memory group exceeds decision output capacity; "
+            "indivisible candidate/current-memory group exceeds decision output or coverage "
+            "capacity; "
             "Working sources remain unprocessed and no decisions were committed",
         )
     # Components, rather than arbitrary candidates, are the indivisible unit.
@@ -622,19 +634,15 @@ async def prepare_candidate_consolidation(
             guard_sources(tx)
             saved = tx.read("remember_candidate_extractions", binding)
             split = tx.read("remember_candidate_extraction_splits", binding)
-            capacity_failures = tx.read("remember_short_extraction_failures", binding) or 0
+            legacy_failures = tx.read("remember_short_extraction_failures", binding) or 0
         split_reason = (split or {}).get("reason")
-        whole_short = _complete_short_part(owner, part)
-        if whole_short and saved is not None:
+        if saved is not None:
             split_reason = None
-        if whole_short and saved is None:
-            # Older workers persisted an unsafe split after their first failure.
-            # Resume at the complete parent, never replay its partial children.
-            if split_reason in {"output_capacity", "candidate_capacity"}:
-                capacity_failures = max(1, capacity_failures)
-                split_reason = None
-            if capacity_failures >= 2:
-                raise _short_capacity_error()
+        elif split_reason is None and isinstance(legacy_failures, int) and legacy_failures > 0:
+            # Read-only migration: legacy whole-short exhaustion must not block
+            # recoverable dense sources. It did not record the failure subtype.
+            split_reason = "legacy_capacity"
+        capacity_details: dict[str, Any] = dict((split or {}).get("capacity", {}))
         try:
             views = (
                 await _precompressed_views(owner, part, guard_sources, ctx=ctx, task=task)
@@ -644,13 +652,14 @@ async def prepare_candidate_consolidation(
         except Exception as exc:
             _record_stage_failure(owner, task, "precompression", binding, exc)
             raise
-        if (
-            split_reason is None
-            and saved is None
-            and _cost(owner, "extraction", part.payload(owner, views))
-            > owner.policy.comparison_context_tokens
-        ):
-            split_reason = "input_budget"
+        if split_reason is None and saved is None:
+            input_cost = _cost(owner, "extraction", part.payload(owner, views))
+            if input_cost > owner.policy.comparison_context_tokens:
+                split_reason = "input_budget"
+                capacity_details = {
+                    "input_tokens": input_cost,
+                    "input_limit": owner.policy.comparison_context_tokens,
+                }
         result = None
         if split_reason is None:
             try:
@@ -669,31 +678,46 @@ async def prepare_candidate_consolidation(
                     result = CandidateExtractionResult.model_validate(raw_result)
                 else:
                     result = CandidateExtractionResult.model_validate(saved)
-            except CandidateCapacityError:
-                split_reason = "output_capacity"
+            except CandidateCapacityError as exc:
+                split_reason = (
+                    "output_capacity" if exc.reason == "output_truncated" else "candidate_capacity"
+                )
+                capacity_details = {"candidate_limit": exc.limit}
+                if type(exc.count) is int:
+                    capacity_details["candidate_count"] = exc.count
+                if exc.reason == "output_truncated":
+                    # The adapter normalizes several provider stop conditions;
+                    # do not invent an exact provider finish_reason here.
+                    capacity_details["output_truncated"] = True
+                    capacity_details["output_limit"] = _decision_output_limit(owner)
             except Exception as exc:
                 _record_stage_failure(owner, task, "extraction", binding, exc)
                 raise
             if result is not None and len(result.candidates) > owner.policy.max_candidates:
                 split_reason = "candidate_capacity"
+                capacity_details = {
+                    "candidate_count": len(result.candidates),
+                    "candidate_limit": owner.policy.max_candidates,
+                }
         if split_reason is not None:
-            if whole_short:
-                if split_reason in {"output_capacity", "candidate_capacity"}:
-                    # One retry of the complete input. Persist exhaustion so a
-                    # worker restart cannot repeatedly spend model calls or
-                    # turn failure into a partial successful memory.
-                    capacity_failures += 1
-                    with owner.uow.transaction() as tx:
-                        guard_sources(tx)
-                        tx.write("remember_short_extraction_failures", binding, capacity_failures)
-                    if capacity_failures < 2:
-                        pending_parts.append(part)
-                        continue
-                raise _short_capacity_error()
-            children = _split_part(owner, part)
+            # Persist failure before splitting: even an indivisible source or a
+            # depth-limit failure must not spend another model call on restart.
             with owner.uow.transaction() as tx:
                 guard_sources(tx)
-                tx.write("remember_candidate_extraction_splits", binding, {"reason": split_reason})
+                tx.write(
+                    "remember_candidate_extraction_splits",
+                    binding,
+                    {
+                        "reason": split_reason,
+                        "strategy": "semantic_capacity_v2",
+                        "capacity": capacity_details,
+                    },
+                )
+            try:
+                children = _split_part(owner, part)
+            except Exception as exc:
+                _record_stage_failure(owner, task, "extraction_subdivision", binding, exc)
+                raise
             # Deterministic subdivision is persisted: retry visits children, not
             # another costly attempt at the known oversized parent.
             pending_parts.extend(reversed(children))
@@ -891,6 +915,8 @@ async def prepare_candidate_consolidation(
                     decision_result = ConsolidationResult.model_validate(saved)
             except LangMemOutputTruncatedError:
                 split_reason = "output_capacity"
+            except CandidateDecisionCoverageError:
+                split_reason = "incomplete_coverage"
             except Exception as exc:
                 _record_stage_failure(owner, task, "decision", binding, exc)
                 raise

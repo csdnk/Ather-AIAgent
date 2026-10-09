@@ -15,11 +15,43 @@ class RememberPolicy(ContractModel):
     llmlingua_keep_rate: float = Field(default=0.8, gt=0, le=1, allow_inf_nan=False)
     llmlingua_model: str = "microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank"
     llmlingua_model_revision: str = "5f0c82792b7ea14c6484e015b6a072009496b7f2"
-    working_summary_min_bytes: int = Field(default=65536, ge=1)
-    working_summary_max_chars: int = Field(default=2048, ge=256, le=16384)
-    summary_part_chars: int = Field(default=256, ge=32, le=2048)
-    summary_attempts: int = Field(default=3, ge=1, le=5)
-    summary_call_timeout_seconds: float = Field(default=30, gt=0, le=300, allow_inf_nan=False)
+    # Retain the keys/defaults in serialized task policies: removing them changes
+    # historical checkpoint bindings. They are not knobs for new admission.
+    working_summary_min_bytes: int = Field(
+        default=65536,
+        ge=1,
+        json_schema_extra={"deprecated": True},
+        description="Legacy summary threshold; new Working always keeps the full body.",
+    )
+    working_summary_max_chars: int = Field(
+        default=2048,
+        ge=256,
+        le=16384,
+        json_schema_extra={"deprecated": True},
+        description="Only resumes already-persisted summary tasks.",
+    )
+    summary_part_chars: int = Field(
+        default=256,
+        ge=32,
+        le=2048,
+        json_schema_extra={"deprecated": True},
+        description="Only resumes already-persisted summary tasks.",
+    )
+    summary_attempts: int = Field(
+        default=3,
+        ge=1,
+        le=5,
+        json_schema_extra={"deprecated": True},
+        description="Only resumes already-persisted summary tasks.",
+    )
+    summary_call_timeout_seconds: float = Field(
+        default=30,
+        gt=0,
+        le=300,
+        allow_inf_nan=False,
+        json_schema_extra={"deprecated": True},
+        description="Only resumes already-persisted summary tasks.",
+    )
     source_page_chars: int = Field(default=4096, ge=256, le=65536)
     source_read_max_chars: int = Field(default=65536, ge=256, le=262144)
     max_input_bytes: int = Field(default=64 * 1024 * 1024, ge=1)
@@ -27,11 +59,29 @@ class RememberPolicy(ContractModel):
     compression_min_bytes: int = Field(default=8000, ge=1)
     # Historical task/config field only. New admission never schedules a
     # precompression task, even when an older configuration sets this to True.
-    precompression_enabled: bool = False
+    precompression_enabled: bool = Field(
+        default=False,
+        json_schema_extra={"deprecated": True},
+        description="Ignored for new requests; choose long_memory_route instead.",
+    )
     # Historical task/config fields only. New processing never samples or invokes
     # either extra reviewer, even when an old snapshot contains rate=1.
-    compression_quality_sample_rate: float = Field(default=0, ge=0, le=1, allow_inf_nan=False)
-    memory_support_sample_rate: float = Field(default=0, ge=0, le=1, allow_inf_nan=False)
+    compression_quality_sample_rate: float = Field(
+        default=0,
+        ge=0,
+        le=1,
+        allow_inf_nan=False,
+        json_schema_extra={"deprecated": True},
+        description="Ignored; no extra LLM compression reviewer is enabled.",
+    )
+    memory_support_sample_rate: float = Field(
+        default=0,
+        ge=0,
+        le=1,
+        allow_inf_nan=False,
+        json_schema_extra={"deprecated": True},
+        description="Ignored; no extra LLM memory reviewer is enabled.",
+    )
     # Observed original-to-long-term byte factor; never a reason to discard facts.
     # Historical artifact tasks also retain this target in their frozen policy.
     compression_target_ratio: float = Field(default=5.0, ge=5, allow_inf_nan=False)
@@ -40,13 +90,24 @@ class RememberPolicy(ContractModel):
     cache_ttl_seconds: int = Field(default=86400, ge=1)
     processing_seconds: int = Field(default=86400, ge=60)
     consolidation_messages: int = Field(default=32, ge=1)
-    consolidation_tokens: int = Field(default=8000, ge=1)
+    consolidation_tokens: int = Field(
+        default=8000,
+        ge=1,
+        json_schema_extra={"deprecated": True},
+        description="Historical snapshot key; new admission uses consolidation_bytes.",
+    )
     # Tokens remain readable in old task snapshots; new admission uses UTF-8 bytes.
     consolidation_bytes: int = Field(default=8000, ge=1)
     consolidation_seconds: int = Field(default=3600, ge=1)
     # Historical configuration/task field only; processing ignores it even when
     # an old snapshot requests overlap. Existing memory comparison is unchanged.
-    consolidation_overlap_messages: int = Field(default=0, ge=0, le=2)
+    consolidation_overlap_messages: int = Field(
+        default=0,
+        ge=0,
+        le=2,
+        json_schema_extra={"deprecated": True},
+        description="Ignored; only unprocessed messages enter new batches.",
+    )
     # Character/batch defaults follow Hindsight retain/consolidation defaults;
     # 4096 is this project's configurable tokenizer ceiling, not an industry default.
     # https://github.com/vectorize-io/hindsight/blob/fb11ddfeac4d5fe9e9ffd96ce144a5284ad7f5a5/hindsight-api-slim/hindsight_api/config.py#L1643
@@ -70,7 +131,11 @@ class RememberPolicy(ContractModel):
     max_model_calls: int = Field(default=256, ge=1)
     # Historical artifact publication only; never trim raw consolidation inputs
     # or discard facts in order to satisfy this ratio.
-    compression_require_ratio: bool = False
+    compression_require_ratio: bool = Field(
+        default=False,
+        json_schema_extra={"deprecated": True},
+        description="Legacy artifact tasks only; current 5X metric never discards facts.",
+    )
 
 
 def importance(category: str) -> tuple[float, str]:

@@ -1,5 +1,6 @@
 """Bound decision output without dropping candidates or splitting shared targets."""
 
+import json
 from contextlib import contextmanager
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -201,6 +202,86 @@ async def test_truncated_indivisible_group_is_persisted_without_retrying_model()
     assert not any(table == "remember_candidate_decisions" for table, _ in app.uow.rows)
 
 
+class IncompleteDecisionManager:
+    """Return valid tool records but omit one when the batch is too large."""
+
+    def __init__(self, failure="missing"):
+        self.failure, self.calls = failure, []
+
+    async def ainvoke(self, payload, **kwargs):
+        body = json.loads(payload["messages"][0]["content"])
+        candidates = body["candidates"]
+        self.calls.append(tuple(item["candidate_id"] for item in candidates))
+        selected = candidates[:-1] if len(candidates) > 4 else candidates
+        if self.failure == "duplicate":
+            selected = [*candidates, candidates[0]]
+        elif self.failure == "target":
+            selected = candidates
+        return [
+            SimpleNamespace(
+                id="new-" + candidate["candidate_id"],
+                content={
+                    "text": candidate["text"],
+                    "kind": candidate["kind"],
+                    "candidate_ids": [candidate["candidate_id"]],
+                    "evidence_ids": [entry["evidence_id"] for entry in candidate["evidence"]],
+                    "relationship": "amend" if self.failure == "target" else "create",
+                    "reason": "controlled decision",
+                },
+            )
+            for candidate in selected
+        ]
+
+
+async def test_incomplete_official_decision_subdivides_without_losing_candidates_and_replays():
+    app, items, facts = app_and_input(8)
+    manager = IncompleteDecisionManager()
+    adapter = OfficialLangMemConsolidation(manager, "controlled", decision_manager=manager)
+    app.extraction.decide_candidates.side_effect = adapter.decide_candidates
+    task = SimpleNamespace(task_id="missing-decision", kind="remember.extract")
+    first = await prepare_candidate_consolidation(app, None, task, items)
+    assert [len(batch) for batch in manager.calls] == [8, 4, 4]
+    assert first["discovery"]["decision_subdivisions"] == 1
+    assert [cid for proposal in first["proposals"] for cid in proposal.candidate_ids] == [
+        fact.candidate_id for fact in facts
+    ]
+    assert await prepare_candidate_consolidation(app, None, task, items) == first
+    assert [len(batch) for batch in manager.calls] == [8, 4, 4]
+    assert [
+        row["reason"]
+        for (table, _), row in app.uow.rows.items()
+        if table == "remember_candidate_decision_splits"
+    ] == ["incomplete_coverage"]
+
+
+@pytest.mark.parametrize("failure", ["duplicate", "target"])
+async def test_invalid_decision_is_not_treated_as_recoverable_missing_coverage(failure):
+    app, items, _ = app_and_input(8)
+    manager = IncompleteDecisionManager(failure)
+    adapter = OfficialLangMemConsolidation(manager, "controlled", decision_manager=manager)
+    app.extraction.decide_candidates.side_effect = adapter.decide_candidates
+    task = SimpleNamespace(task_id="invalid-decision", kind="remember.extract")
+    with pytest.raises(ValueError):
+        await prepare_candidate_consolidation(app, None, task, items)
+    assert len(manager.calls) == 1
+    assert not any(table == "remember_candidate_decision_splits" for table, _ in app.uow.rows)
+    assert not any(table == "remember_candidate_decisions" for table, _ in app.uow.rows)
+
+
+async def test_incomplete_shared_target_group_fails_without_splitting_same_old_memory():
+    old = snapshot("old", "Existing preference context.", MemoryKind.SEMANTIC)
+    app, items, _ = app_and_input(8, old=old)
+    manager = IncompleteDecisionManager()
+    adapter = OfficialLangMemConsolidation(manager, "controlled", decision_manager=manager)
+    app.extraction.decide_candidates.side_effect = adapter.decide_candidates
+    task = SimpleNamespace(task_id="shared-decision", kind="remember.extract")
+    for _ in range(2):
+        with pytest.raises(FoundationError, match="indivisible.*coverage"):
+            await prepare_candidate_consolidation(app, None, task, items)
+    assert len(manager.calls) == 1
+    assert not any(table == "remember_candidate_decisions" for table, _ in app.uow.rows)
+
+
 async def test_recursive_splits_cover_every_candidate_and_replay_without_calls():
     app, items, facts = app_and_input(8)
     delegate = app.extraction.decide_candidates.side_effect
@@ -234,7 +315,7 @@ async def test_changed_inventory_cannot_reuse_decisions_from_previous_snapshot()
     assert app.related.await_count == 4
 
 
-async def test_truncated_short_preference_retries_whole_message_without_losing_subject():
+async def test_short_preference_extracts_whole_message_without_losing_subject():
     app, _, _ = app_and_input(1)
     item = snapshot("short", "沈舟的首选编辑器是VS Code。")
     calls = []
@@ -242,10 +323,7 @@ async def test_truncated_short_preference_retries_whole_message_without_losing_s
     async def extract(ctx, batch, version, **kwargs):
         bounds = kwargs["source_ranges"][item.sources[0].source_id]
         calls.append(bounds)
-        if len(calls) == 1:
-            raise CandidateCapacityError("output truncated")
-        # The real Azure failure returned only [8,17): it could no longer know
-        # whose preference this was. Every retry must retain the whole statement.
+        # Initial extraction always retains the whole statement.
         assert bounds == (0, len(item.content))
         return CandidateExtractionResult(
             candidates=(candidate(item),), model_id="model", policy_version=version
@@ -254,28 +332,30 @@ async def test_truncated_short_preference_retries_whole_message_without_losing_s
     app.extraction.extract_candidates.side_effect = extract
     task = SimpleNamespace(task_id="short-task", kind="remember.extract")
     result = await prepare_candidate_consolidation(app, None, task, (item,))
-    assert calls == [(0, len(item.content))] * 2
+    assert calls == [(0, len(item.content))]
     assert result["proposals"][0].candidate.text == item.content
     assert result["discovery"]["extraction_subdivisions"] == 0
     assert await prepare_candidate_consolidation(app, None, task, (item,)) == result
-    assert len(calls) == 2
+    assert len(calls) == 1
 
 
-async def test_short_output_retry_limit_survives_resume_without_committing_partial_memory():
+async def test_short_indivisible_capacity_failure_survives_resume_without_partial_memory():
     app, _, _ = app_and_input(1)
     item = snapshot("short", "沈舟的首选编辑器是VS Code。")
-    app.extraction.extract_candidates.side_effect = CandidateCapacityError("output truncated")
+    app.extraction.extract_candidates.side_effect = CandidateCapacityError(
+        0, reason="output_truncated"
+    )
     task = SimpleNamespace(task_id="short-task", kind="remember.extract")
     for _ in range(2):
-        with pytest.raises(FoundationError, match="complete short.*capacity"):
+        with pytest.raises(FoundationError, match="indivisible.*capacity"):
             await prepare_candidate_consolidation(app, None, task, (item,))
-    assert app.extraction.extract_candidates.await_count == 2
+    assert app.extraction.extract_candidates.await_count == 1
     app.related.assert_not_awaited()
     app.extraction.decide_candidates.assert_not_awaited()
     assert not any(table == "remember_candidate_extractions" for table, _ in app.uow.rows)
 
 
-async def test_resume_legacy_short_split_reprocesses_parent_not_partial_children():
+async def test_saved_whole_short_result_has_priority_over_legacy_failure_markers():
     app, _, _ = app_and_input(1)
     item = snapshot("short", "沈舟的首选编辑器是VS Code。")
     task = SimpleNamespace(task_id="short-task", kind="remember.extract")
@@ -291,12 +371,17 @@ async def test_resume_legacy_short_split_reprocesses_parent_not_partial_children
             [[item.ref.model_dump(mode="json"), item.content_hash]],
         ]
     )
+    app.uow.write(
+        "remember_candidate_extractions",
+        binding,
+        CandidateExtractionResult(
+            candidates=(candidate(item),), model_id="model", policy_version=app.policy.version
+        ).model_dump(mode="json"),
+    )
     app.uow.write("remember_candidate_extraction_splits", binding, {"reason": "output_capacity"})
+    app.uow.write("remember_short_extraction_failures", binding, 2)
     result = await prepare_candidate_consolidation(app, None, task, (item,))
-    app.extraction.extract_candidates.assert_awaited_once()
-    assert app.extraction.extract_candidates.call_args.kwargs["source_ranges"] == {
-        item.sources[0].source_id: (0, len(item.content))
-    }
+    app.extraction.extract_candidates.assert_not_awaited()
     assert result["proposals"][0].candidate.text == item.content
     assert await prepare_candidate_consolidation(app, None, task, (item,)) == result
 
@@ -317,11 +402,11 @@ def test_large_source_subdivision_still_covers_the_complete_original():
     assert right.ranges[source_id][1] == len(item.content)
 
 
-async def test_short_input_budget_failure_does_not_split_or_call_model():
+async def test_indivisible_short_input_budget_failure_does_not_call_model():
     app, items, _ = app_and_input(1)
     app.policy = app.policy.model_copy(update={"comparison_context_tokens": 1})
     task = SimpleNamespace(task_id="short-task", kind="remember.extract")
-    with pytest.raises(FoundationError, match="complete short.*capacity"):
+    with pytest.raises(FoundationError, match="indivisible.*capacity"):
         await prepare_candidate_consolidation(app, None, task, items)
     app.extraction.extract_candidates.assert_not_awaited()
 
@@ -367,18 +452,16 @@ async def test_short_message_over_chunk_token_limit_is_never_initially_fragmente
     assert result["proposals"][0].candidate.text == item.content
 
 
-def test_short_fragment_range_is_rejected_instead_of_classified_as_complete():
+@pytest.mark.parametrize("bounds", [(-1, 5), (2, 10000), (5, 2)])
+def test_invalid_extraction_range_cannot_be_subdivided(bounds):
     from aether_agent_memory.remember.basic.candidate_consolidation import (
-        _complete_short_part,
         _ExtractionPart,
         _split_part,
     )
 
     app, items, _ = app_and_input(1)
-    part = _ExtractionPart(items, {items[0].sources[0].source_id: (2, len(items[0].content))})
-    with pytest.raises(FoundationError, match="incomplete short"):
-        _complete_short_part(app, part)
-    with pytest.raises(FoundationError, match="incomplete short"):
+    part = _ExtractionPart(items, {items[0].sources[0].source_id: bounds})
+    with pytest.raises(FoundationError, match="invalid extraction source range"):
         _split_part(app, part)
 
 

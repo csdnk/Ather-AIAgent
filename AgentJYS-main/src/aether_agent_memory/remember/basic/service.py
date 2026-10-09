@@ -12,6 +12,7 @@ from aether_agent_memory.remember.contracts.foundation import (
     ChunkDescriptor,
     ContextGuardRequest,
     GuardStamp,
+    MemoryRecord,
     ProjectionManifest,
     ProjectionReadiness,
 )
@@ -165,7 +166,13 @@ class Remember:
             raise ValueError("memory event subject/producer mismatch")
 
     def emit(
-        self, tx: MetadataTransaction, ctx: TrustedContext, memory: MemorySnapshot, change: str
+        self,
+        tx: MetadataTransaction,
+        ctx: TrustedContext,
+        memory: MemorySnapshot,
+        change: str,
+        *,
+        defer_task_id: str | None = None,
     ) -> None:
         if change == "corrected" and hasattr(self, "retention"):
             self.retention.version_started_in(tx, memory)
@@ -231,26 +238,28 @@ class Remember:
                 "status": memory.status.value,
             },
         )
-        self.events.append(
-            tx,
-            ctx,
-            EventEnvelope(
-                event_id=fingerprint(
-                    [memory.ref.model_dump(mode="json"), memory.object_revision, change]
-                ),
-                event_type="memory.changed",
-                producer=Flow.REMEMBER,
-                subject=memory_ref(memory.ref, versioned=True),
-                subject_revision=memory.object_revision,
-                occurred_at=self.identity.clock(),
-                request_id=ctx.request_id,
-                trace_id=ctx.trace_id,
-                initiator_id=ctx.principal.principal_id,
-                initiator_auth_epoch=ctx.principal.auth_epoch,
-                payload=payload.model_dump(mode="json"),
-                payload_hash=fingerprint(payload.model_dump(mode="json")),
+        event = EventEnvelope(
+            event_id=fingerprint(
+                [memory.ref.model_dump(mode="json"), memory.object_revision, change]
             ),
+            event_type="memory.changed",
+            producer=Flow.REMEMBER,
+            subject=memory_ref(memory.ref, versioned=True),
+            subject_revision=memory.object_revision,
+            occurred_at=self.identity.clock(),
+            request_id=ctx.request_id,
+            trace_id=ctx.trace_id,
+            initiator_id=ctx.principal.principal_id,
+            initiator_auth_epoch=ctx.principal.auth_epoch,
+            payload=payload.model_dump(mode="json"),
+            payload_hash=fingerprint(payload.model_dump(mode="json")),
         )
+        if defer_task_id is None:
+            self.events.append(tx, ctx, event)
+        else:
+            from .projection_dispatch import stage_event
+
+            stage_event(tx, ctx, event, defer_task_id)
 
     def current(self, tx: MetadataTransaction, memory_id: str) -> MemorySnapshot:
         pointer = tx.read("remember_current", memory_id)
@@ -262,7 +271,7 @@ class Remember:
     def current_ref(
         self, tx: MetadataTransaction, ctx: TrustedContext, memory_id: str
     ) -> MemoryRef:
-        """Resolve and authorize current metadata without fetching a remote body."""
+        """Authorize a correctable long-term record without fetching its body."""
         pointer = tx.read("remember_current", memory_id)
         physical = None if pointer is None else RecordRef.model_validate(pointer)
         raw = None if physical is None else tx.get(physical)
@@ -272,6 +281,11 @@ class Remember:
         if logical.memory_id != memory_id or memory_ref(logical, versioned=True) != physical:
             raise FoundationError(ErrorCode.CONTRACT_VIOLATION, "current memory reference changed")
         self.identity.authorize(tx, ctx, Permission.CORRECT, memory_ref(logical))
+        if raw["kind"] == MemoryKind.WORKING:
+            raise FoundationError(
+                ErrorCode.INVALID_ARGUMENT,
+                "Working originals are immutable; save new information as a new Working memory",
+            )
         return logical
 
     def decode(self, tx: MetadataTransaction, raw: Any) -> MemorySnapshot:
@@ -349,7 +363,11 @@ class Remember:
         return item
 
     def enqueue(
-        self, tx: MetadataTransaction, ctx: TrustedContext, memory: MemorySnapshot, kind: str
+        self,
+        tx: MetadataTransaction,
+        ctx: TrustedContext,
+        memory: MemorySnapshot | MemoryRecord,
+        kind: str,
     ) -> str:
         deadline_key = request_key(ctx, "remember.processing")
         deadline = tx.read("remember_deadlines", deadline_key)
@@ -470,52 +488,30 @@ class Remember:
                 raise FoundationError(ErrorCode.MEMORY_GONE, "memory deleted")
             return item
 
-    def invalidate_working(
-        self,
-        tx: MetadataTransaction,
-        ctx: TrustedContext,
-        item: MemorySnapshot,
-        *,
-        deleting: bool = False,
-    ) -> None:
-        if item.kind == MemoryKind.WORKING:
-            for key, _ in tx.rows("remember_current"):
-                derived = self.current(tx, key)
-                if (
-                    derived.kind != MemoryKind.WORKING
-                    and (
-                        derived.status != MemoryStatus.DELETED
-                        if deleting
-                        else derived.status in {MemoryStatus.ACTIVE, MemoryStatus.ARCHIVED}
-                    )
-                    and set(s.source_id for s in derived.sources)
-                    & set(s.source_id for s in item.sources)
-                ):
-                    derived = self.change(
-                        tx,
-                        derived,
-                        status=MemoryStatus.DELETED if deleting else MemoryStatus.SUPERSEDED,
-                        projection_state=ProjectionState.STALE,
-                    )
-                    if deleting:
-                        self.enqueue(tx, ctx, derived, "remember.cleanup")
-                    self.emit(tx, ctx, derived, "deleted" if deleting else "projection_stale")
-        # Keep the legacy basic profile compatible; the pipeline owns independent sources.
-        if not getattr(self, "independent_working_sources", False):
-            for source in item.sources:
-                row = tx.read("remember_sources", source.source_id)
-                if row and row["working_id"] and row["working_id"] != item.ref.memory_id:
-                    working = self.current(tx, row["working_id"])
-                    if working.status == MemoryStatus.ACTIVE:
-                        working = self.change(
-                            tx,
-                            working,
-                            status=MemoryStatus.DELETED if deleting else MemoryStatus.SUPERSEDED,
-                            projection_state=ProjectionState.STALE,
-                        )
-                        if deleting:
-                            self.enqueue(tx, ctx, working, "remember.cleanup")
-                        self.emit(tx, ctx, working, "deleted" if deleting else "archived")
+    def retire_working_processing(self, tx: MetadataTransaction, item: MemorySnapshot) -> None:
+        """Retire only this original's processing state; do not retract its sources.
+
+        Completed long-term records own their bodies and remain independently usable.
+        Source withdrawal is an explicit operation. Workers still enforce final
+        eligibility before publishing, including outputs already generated in flight.
+        """
+        if item.kind != MemoryKind.WORKING:
+            return
+        key = item.ref.memory_id
+        pending = tx.read("remember_pending", key)
+        if pending and pending.get("state") != "processed":
+            tx.write("remember_pending", key, {**pending, "state": "obsolete"})
+        summary = tx.read("remember_working_summaries", key)
+        if summary:
+            tx.write("remember_working_summaries", key, {**summary, "state": "obsolete"})
+        artifact_key = self.refkey(item.ref)
+        artifact = tx.read("remember_artifacts", artifact_key)
+        if artifact:
+            tx.write(
+                "remember_artifacts",
+                artifact_key,
+                {**artifact, "published": False, "reason": "working_deleted"},
+            )
 
     def correct(
         self, ctx: TrustedContext, memory_id: str, request: CorrectionRequest
@@ -525,8 +521,8 @@ class Remember:
         ):
             raise FoundationError(ErrorCode.INVALID_ARGUMENT, "correction exceeds input limits")
         with self.uow.transaction() as tx:
+            self.current_ref(tx, ctx, memory_id)
             item = self.current(tx, memory_id)
-            self.identity.authorize(tx, ctx, Permission.CORRECT, memory_ref(item.ref))
             key, previous = self.replay(tx, ctx, "correct_" + memory_id, request)
             if previous:
                 return RememberReceipt.model_validate(previous["result"])
@@ -540,7 +536,6 @@ class Remember:
                 )
             ):
                 tx.abort(ErrorCode.VERSION_CONFLICT, "memory deleted or version changed")
-            self.invalidate_working(tx, ctx, item)
             old = self.change(
                 tx, item, status=MemoryStatus.SUPERSEDED, projection_state=ProjectionState.STALE
             )
@@ -550,12 +545,7 @@ class Remember:
                 fingerprint([key, "correction_source"]),
                 item.ref.scope,
                 request.content,
-                item.ref.memory_id if item.kind == MemoryKind.WORKING else None,
-            )
-            body = (
-                self.working_correction_body(tx, ctx, item, source, request)
-                if item.kind == MemoryKind.WORKING
-                else request.content
+                None,
             )
             updated = MemorySnapshot.model_validate(
                 {
@@ -563,8 +553,8 @@ class Remember:
                     "ref": {**item.ref.model_dump(), "version": item.ref.version + 1},
                     "revision": 1,
                     "object_revision": old.object_revision + 1,
-                    "content": body,
-                    "content_hash": text_hash(body),
+                    "content": request.content,
+                    "content_hash": text_hash(request.content),
                     "sources": (source,),
                     "status": MemoryStatus.ACTIVE,
                     "projection_state": ProjectionState.PENDING,
@@ -578,18 +568,7 @@ class Remember:
                 "remember_source_input", source.source_id, request.source.model_dump(mode="json")
             )
             self.put(tx, updated)
-            task_kind = (
-                self.working_task_kind(tx, updated)
-                if item.kind == MemoryKind.WORKING
-                else "remember.project"
-            )
-            task_ids = [self.enqueue(tx, ctx, updated, task_kind)] if task_kind else []
-            if (
-                task_kind
-                and item.kind == MemoryKind.WORKING
-                and self.projection_buildable(tx, updated)
-            ):
-                task_ids.append(self.enqueue(tx, ctx, updated, "remember.project"))
+            task_ids = [self.enqueue(tx, ctx, updated, "remember.project")]
             self.emit(tx, ctx, updated, "corrected")
             result = RememberReceipt(
                 operation_id=ctx.operation_id,
@@ -611,16 +590,6 @@ class Remember:
                 },
             )
             return result
-
-    def working_correction_body(
-        self,
-        tx: MetadataTransaction,
-        ctx: TrustedContext,
-        item: MemorySnapshot,
-        source: SourceRef,
-        request: CorrectionRequest,
-    ) -> str:
-        return request.content
 
     def working_task_kind(self, tx: MetadataTransaction, item: MemorySnapshot) -> str | None:
         return "remember.extract"
@@ -661,7 +630,8 @@ class Remember:
             if not self.projection_buildable(tx, item):
                 tx.abort(
                     ErrorCode.REQUEST_IN_PROGRESS,
-                    "Working summary is not ready; recover it with reprocess before reindex",
+                    "historical Working representation is not a full original; "
+                    "import the verified original as a new Working before indexing",
                 )
             kind = "remember.project"
             task_id = tx.read("remember_latest_task", fingerprint([memory_id, kind]))
@@ -757,10 +727,6 @@ class Remember:
                 if request.target == "active"
                 else ProjectionState.STALE,
             )
-            if request.target == "archived" and not getattr(
-                self, "independent_working_sources", False
-            ):
-                self.invalidate_working(tx, ctx, item)
             if request.target == "active" and hasattr(self, "retention"):
                 self.retention.activated_in(tx, updated)
             admitted = []
@@ -822,7 +788,7 @@ class Remember:
             return DeleteReceipt.model_validate(previous["result"])
         if item.object_revision != request.expected_revision:
             tx.abort(ErrorCode.VERSION_CONFLICT, "object revision changed")
-        self.invalidate_working(tx, ctx, item, deleting=True)
+        self.retire_working_processing(tx, item)
         updated = self.change(
             tx, item, status=MemoryStatus.DELETED, projection_state=ProjectionState.STALE
         )
@@ -884,20 +850,23 @@ class Remember:
                 {**row, "valid": False, "revision": row["revision"] + 1},
             )
             tasks = []
-            for memory_id, _ in tx.rows("remember_current"):
-                item = self.current(tx, memory_id)
+            for memory_id, pointer in tx.rows("remember_current"):
+                raw: dict[str, Any] | None = tx.get(RecordRef.model_validate(pointer))
                 if (
-                    any(s.source_id == source_id for s in item.sources)
-                    and item.status != MemoryStatus.DELETED
+                    raw is None
+                    or raw["status"] == MemoryStatus.DELETED
+                    or not any(source["source_id"] == source_id for source in raw["sources"])
                 ):
-                    updated = self.change(
-                        tx,
-                        item,
-                        status=MemoryStatus.DELETED,
-                        projection_state=ProjectionState.STALE,
-                    )
-                    tasks.append(self.enqueue(tx, ctx, updated, "remember.cleanup"))
-                    self.emit(tx, ctx, updated, "deleted")
+                    continue
+                ref = MemoryRef.model_validate(raw["ref"])
+                self.identity.authorize(tx, ctx, Permission.DELETE, memory_ref(ref))
+                item = self.current(tx, memory_id)
+                self.retire_working_processing(tx, item)
+                updated = self.change(
+                    tx, item, status=MemoryStatus.DELETED, projection_state=ProjectionState.STALE
+                )
+                tasks.append(self.enqueue(tx, ctx, updated, "remember.cleanup"))
+                self.emit(tx, ctx, updated, "deleted")
             result = DeleteReceipt(
                 operation_id=ctx.operation_id,
                 blocked=True,

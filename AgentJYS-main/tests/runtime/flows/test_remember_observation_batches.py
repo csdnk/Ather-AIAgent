@@ -3,6 +3,7 @@
 import asyncio
 
 import pytest
+from remember_candidate_support import configure_candidates
 from remember_helpers import app as app
 from remember_helpers import context, drain, source
 
@@ -45,26 +46,34 @@ def test_short_observation_cached_after_durable_commit_and_waits_for_batch(app):
         assert tx.read("remember_pending", ref.memory_id)["state"] == "pending"
 
 
-def test_large_working_uses_reference_no_summary_or_projection_and_compression_releases(app):
-    text = "我喜欢清淡食物。" * 500
+def test_large_working_keeps_original_and_schedules_projection_and_extraction(app):
+    manager, processor = configure_candidates(app, "我喜欢清淡食物。")
+    text = "我喜欢清淡食物。\n" * 500
     receipt = observation(app, text)
     ref = receipt.memories[0]
     with app.foundation.uow.transaction() as tx:
         pending = tx.read("remember_pending", ref.memory_id)
-        assert pending["state"] == "waiting_compression"
+        assert pending["state"] == "scheduled"
         assert tx.read("remember_working_summaries", ref.memory_id) is None
-        assert (
-            tx.read("remember_working_representations", ref.memory_id)["representation"]
-            == "source_reference"
-        )
-        assert not app.remember.projection_buildable(tx, app.remember.current(tx, ref.memory_id))
+        assert tx.read("remember_working_representations", ref.memory_id) is None
+        assert app.remember.current(tx, ref.memory_id).content == text
+        assert app.remember.projection_buildable(tx, app.remember.current(tx, ref.memory_id))
         kinds = [tx.read("tasks", tid)["record"]["kind"] for tid in receipt.task_ids]
-        assert kinds == ["remember.compress"]
+        assert set(kinds) == {"remember.extract", "remember.project"}
+        assert tx.read("remember_precompression_manifest", app.remember.refkey(ref)) is None
+    assert not processor.inputs and not manager.extraction_inputs
     drain(app)
     with app.foundation.uow.transaction() as tx:
-        assert tx.read("remember_pending", ref.memory_id)["state"] != "waiting_compression"
-        assert tx.read("remember_artifacts", app.remember.refkey(ref)) is not None
-        assert tx.read("remember_working_summaries", ref.memory_id) is None
+        assert tx.read("remember_pending", ref.memory_id)["state"] == "processed"
+        ids = tx.read("remember_precompression_manifest", app.remember.refkey(ref))
+        assert ids
+        for artifact_id in ids:
+            artifact = tx.read("remember_precompression_artifacts", artifact_id)
+            assert artifact["consumer"] == "langmem_candidate_extraction"
+            assert artifact["quality_review_enabled"] is False
+        assert app.remember.current(tx, ref.memory_id).content == text
+        assert app.remember.current(tx, ref.memory_id).ref.version == 1
+    assert processor.inputs and manager.extraction_inputs and manager.decision_inputs
 
 
 def test_duplicate_save_retries_failed_cache_without_another_source(app):
@@ -96,60 +105,43 @@ def test_duplicate_save_retries_failed_cache_without_another_source(app):
     "text,large", [("a" * 7999, False), ("a" * 8000, True), ("中" * 2667, True)]
 )
 def test_large_threshold_counts_utf8_bytes(app, text, large):
+    manager, processor = configure_candidates(app)
+    # Force short inputs through extraction too: only single-input byte length
+    # decides whether LLMLingua runs, never the aggregate scheduling setting.
+    app.remember.policy = app.remember.policy.model_copy(update={"consolidation_messages": 1})
     receipt = observation(app, text)
+    drain(app)
+    assert bool(processor.inputs) is large
+    assert manager.extraction_inputs
     with app.foundation.uow.transaction() as tx:
-        row = tx.read("remember_working_representations", receipt.memories[0].memory_id)
-        assert bool(row) is large
+        ref = receipt.memories[0]
+        assert app.remember.current(tx, ref.memory_id).content == text
+        assert tx.read("remember_pending", ref.memory_id)["state"] == "processed"
+        assert bool(tx.read("remember_precompression_manifest", app.remember.refkey(ref))) is large
 
 
-def test_compression_quality_failure_falls_back_and_does_not_wait_forever(app):
-    from aether_agent_memory.remember.basic.compression import QualityEvidence
+def test_long_route_failure_keeps_pending_and_does_not_silently_use_original(app):
+    manager, processor = configure_candidates(app, "完整原文。")
 
-    class Reject:
-        async def verify(self, ctx, original, compressed):
-            return QualityEvidence(
-                passed=False,
-                policy="controlled_reject",
-                reason="controlled fidelity failure",
-                retained_fact_fraction=0,
-            )
+    async def fail_compression():
+        raise ValueError("controlled token alignment failure")
 
-    app.remember.quality = Reject()
-    app.remember.policy = app.remember.policy.model_copy(
-        update={"compression_quality_sample_rate": 1.0}
-    )
-    receipt = observation(app, "完整原文。" * 600)
+    processor.before_compress = fail_compression
+    text = "完整原文。\n" * 600
+    receipt = observation(app, text)
     drain(app)
     with app.foundation.uow.transaction() as tx:
-        pending = tx.read("remember_pending", receipt.memories[0].memory_id)
-        artifact = tx.read("remember_artifacts", app.remember.refkey(receipt.memories[0]))
-        assert artifact["published"] is False
-        assert pending["compression_terminal"] == "failed"
-        assert pending["state"] != "waiting_compression"
-        assert pending.get("task_id") is not None
-        assert pending["state"] == "processed"
-    assert app.remember.processing(context(app), receipt.memories[0].memory_id)["state"] == (
-        "completed_with_compression_failure"
-    )
-    # A confirmed transport failure can reach the same recovered state; its
-    # diagnostic remains visible even though raw-source consolidation completed.
-    with app.foundation.uow.transaction() as tx:
-        task_id = pending["compression_task_id"]
-        row = tx.read("tasks", task_id)
-        row["record"].update(state="failed", effect_status="no_effect")
-        tx.write("tasks", task_id, row)
-    status = app.remember.processing(context(app), receipt.memories[0].memory_id)
-    assert status["state"] == "completed_with_compression_failure"
-    assert status["historical_failed_tasks"] == 1
-    with app.foundation.uow.transaction() as tx:
-        row = tx.read("tasks", task_id)
-        row["record"].update(state="attention_required", effect_status="unknown")
-        tx.write("tasks", task_id, row)
-    assert app.remember.processing(context(app), receipt.memories[0].memory_id)["state"] == "failed"
+        ref = receipt.memories[0]
+        pending = tx.read("remember_pending", ref.memory_id)
+        assert pending["state"] != "processed"
+        assert app.remember.current(tx, ref.memory_id).content == text
+        assert tx.read("remember_precompression_manifest", app.remember.refkey(ref)) is None
+    assert processor.inputs and not manager.extraction_inputs
+    assert not manager.decision_inputs
 
 
-def test_late_cache_completion_cannot_mark_new_content_version_cached(app):
-    from aether_agent_memory.remember.contracts.models import CorrectionRequest
+def test_late_cache_completion_cannot_reheat_deleted_working(app):
+    from aether_agent_memory.remember.contracts.models import DeleteRequest
 
     ctx = context(app, operation="cache-race")
     request = RememberRequest(
@@ -161,38 +153,41 @@ def test_late_cache_completion_cannot_mark_new_content_version_cached(app):
     asyncio.run(app.remember.persist_save(ctx, prepared))
     receipt = app.remember.commit_save(ctx, request, prepared)
     original = app.remember.bodies.admit
-    corrected = None
+    ref = receipt.memories[0]
+    item = app.remember.get(ctx, ref.memory_id)
+    deletions = []
 
-    async def replace_during_admit(scope, text):
-        nonlocal corrected
+    async def delete_during_admit(scope, text):
         result = await original(scope, text)
-        correction_ctx = context(app, operation="cache-race-correction")
-        correction = CorrectionRequest(
-            expected_version=1,
-            content="新内容",
-            source=source("race-correction"),
-            reason="explicit correction",
+        deletions.append(
+            app.remember.delete(
+                context(app, operation="cache-race-delete"),
+                ref.memory_id,
+                DeleteRequest(
+                    expected_revision=item.object_revision, reason="deleted during cache I/O"
+                ),
+            )
         )
-        # Commit v2 while the old admission is still awaiting its receipt. Pause
-        # before v2's own admission so this hook cannot recursively correct again.
-        # CorrectionStages uses the same prepare / persist / correct boundary;
-        # v2's initial cache admission is covered by test_remember_initial_cache.
-        prepared_correction = app.remember.prepare_correction(
-            correction_ctx, receipt.memories[0].memory_id, correction
-        )
-        await app.remember.bodies.persist(correction_ctx, scope, prepared_correction["text"])
-        corrected = app.remember.correct(correction_ctx, receipt.memories[0].memory_id, correction)
         return result
 
-    app.remember.bodies.admit = replace_during_admit
+    app.remember.bodies.admit = delete_during_admit
     asyncio.run(app.remember.admit_save_cache(ctx, prepared, receipt))
-    assert corrected is not None
+    assert len(deletions) == 1
     with app.foundation.uow.transaction() as tx:
-        current = tx.get(memory_ref(corrected.memories[0], versioned=True))
-        assert current["ref"]["version"] == 2
+        current = tx.get(memory_ref(ref, versioned=True))
+        assert current["ref"]["version"] == ref.version
+        assert current["status"] == "deleted"
         assert current["cache_location"] is None
-        marker = tx.read("remember_cache_admission", receipt.memories[0].memory_id)
-        assert marker is None or marker["memory"]["version"] == 2
+        marker = tx.read("remember_cache_admission", ref.memory_id)
+        assert marker is not None and marker["state"] == "ineligible"
+        assert tx.read("remember_pending", ref.memory_id)["state"] == "obsolete"
+    assert app.remember.bodies.cache.get_sync(ref.scope, item.content_hash) is None
+    # Both late completion and a saved-receipt replay must honor the tombstone.
+    asyncio.run(app.remember.admit_save_cache(ctx, prepared, receipt))
+    assert len(deletions) == 1
+    assert app.remember.bodies.cache.get_sync(ref.scope, item.content_hash) is None
+    with app.foundation.uow.transaction() as tx:
+        assert tx.get(memory_ref(ref, versioned=True))["cache_location"] is None
 
 
 @pytest.mark.parametrize("fault", ["revocation", "unavailable"])

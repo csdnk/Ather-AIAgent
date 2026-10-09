@@ -133,7 +133,9 @@ async def test_diagnostic_failure_does_not_replace_original_error(failure):
 
 
 async def test_success_and_handled_capacity_do_not_create_failure_diagnostics():
-    app, items, _ = app_and_input(1)
+    # Recovery may subdivide at the complete-message boundary. A single atomic
+    # sentence is intentionally no longer retried as arbitrary character halves.
+    app, items, _ = app_and_input(2)
     delegate = app.extraction.extract_candidates.side_effect
     attempted = False
 
@@ -150,3 +152,9 @@ async def test_success_and_handled_capacity_do_not_create_failure_diagnostics():
     )
     assert result["proposals"]
     assert not failures(app)
+    capacity = [
+        row
+        for (table, _), row in app.uow.rows.items()
+        if table == "remember_candidate_extraction_splits"
+    ]
+    assert len(capacity) == 1 and capacity[0]["reason"] == "output_capacity"
