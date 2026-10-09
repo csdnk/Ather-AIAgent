@@ -5,14 +5,19 @@ deployment acceptance; missing authoritative observations remain blockers.
 """
 
 import os
+import shutil
 from hashlib import sha256
 from pathlib import Path
 from tempfile import gettempdir
 from uuid import uuid4
 
+import httpx
+import psycopg
 import pytest
 import yaml
 from fastapi.testclient import TestClient
+from pymilvus.exceptions import MilvusException
+from redis.exceptions import RedisError
 
 from aether_agent_memory.recall.contracts.models import ContextPack, RecallRecord
 from aether_agent_memory.runtime.contracts.models import Permission
@@ -54,10 +59,33 @@ def authorization_target(tmp_path, request):
     )
     request.addfinalizer(lambda: evidence.write(directory))
     # Each variant gets its own identities, backend namespaces and data copies.
-    if not os.environ.get("P3_TEST_STATE_DSN"):
-        evidence.blocked("blocked_fixture", "real Azure PostgreSQL P3_TEST_STATE_DSN")
-        pytest.fail("blocked_fixture: real Azure PostgreSQL P3_TEST_STATE_DSN unavailable")
-    temporal = request.getfixturevalue("temporal_server")
+    required = (
+        "P3_TEST_STATE_DSN",
+        "P3_TEST_REDIS_HOST",
+        "P3_TEST_REDIS_PASSWORD",
+        "P3_TEST_CEPH_ENDPOINT",
+        "P3_TEST_CEPH_BUCKET",
+        "P3_TEST_CEPH_ACCESS",
+        "P3_TEST_CEPH_SECRET",
+        "P3_TEST_MILVUS_URI",
+        "P3_TEST_MILVUS_TOKEN",
+        "P3_TEST_MILVUS_DATABASE",
+        "P3_TEST_MILVUS_CA_FILE",
+        "P3_TEST_MILVUS_SERVER_NAME",
+    )
+    missing = [name for name in required if not os.environ.get(name)]
+    temporal_binary = os.environ.get("P3_TEMPORAL_CLI") or shutil.which("temporal")
+    if not temporal_binary or not os.access(temporal_binary, os.X_OK):
+        missing.append("P3_TEMPORAL_CLI executable")
+    for name in missing:
+        evidence.blocked("blocked_fixture", name)
+    if missing:
+        pytest.fail("blocked_fixture: missing " + ", ".join(missing))
+    try:
+        temporal = request.getfixturevalue("temporal_server")
+    except (OSError, RuntimeError, TimeoutError) as error:
+        evidence.blocked("blocked_fixture", "Temporal startup: " + type(error).__name__)
+        raise
     scope = {
         "tenant_id": "T-" + execution_id,
         "application_id": "App-A",
@@ -100,7 +128,20 @@ def authorization_target(tmp_path, request):
         http_wait_seconds=0.05,
         temporal={"deployment_id": "auth-" + execution_id, "endpoint": temporal.endpoint},
     )
-    service = Service(configuration)
+    try:
+        service = Service(configuration)
+    except (
+        psycopg.OperationalError,
+        RedisError,
+        MilvusException,
+        httpx.TransportError,
+        FileNotFoundError,
+    ) as error:
+        evidence.blocked(
+            "blocked_fixture",
+            "backend bootstrap: " + type(error).__module__ + "." + type(error).__name__,
+        )
+        raise
     evidence.data["lane"] = "real-storage-controlled-model"
     evidence.data["permission_contract"] = {
         "READ": Permission.READ.value,
