@@ -2,6 +2,10 @@
 
 ## Overview
 
+For strict native Working source acceptance (AET-34 / RC-SRC-01,06), use
+[Working native search and no cross-source fallback](recall-working-native-search.md).
+The older examples below do not establish that acceptance.
+
 This document describes the core testing infrastructure for the Recall API, implemented as part of **AET-8: Core Testing Infrastructure & Happy Path**.
 
 ## Test File Location
