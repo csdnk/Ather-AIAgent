@@ -126,70 +126,98 @@ def test_qualification_rejects_working_mislabeled_as_long_term(app):
     assert result.decision == "excluded" and result.reason_code == "memory_source_mismatch"
 
 
-def test_summary_publishes_only_new_actual_summary_version(app):
+def test_long_consolidation_preserves_original_working_version_and_projection(app):
     configure(app)
-    receipt, _, _ = save_long(app)
+    text = (
+        "\n".join(
+            f"Module {i:03d} uses port {12000 + i} and is maintained by owner-{i:03d}."
+            for i in range(170)
+        )
+        + "\nRefund timeout is 30 seconds."
+    )
+    assert len(text.encode("utf-8")) >= app.remember.policy.compression_min_bytes
+    receipt, _, _ = save_long(app, text=text)
     assert readiness(app).pending_count == 1
     drain(app)
     item = app.remember.get(context(app), receipt.memories[0].memory_id)
-    assert item.ref.version == 2 and item.projection_state == "ready"
+    assert item.ref == receipt.memories[0] and item.ref.version == 1
+    assert item.content == text and item.projection_state == "ready"
+    manifest, _ = projection(app, item.ref)
+    assert "".join(text[part.start_char : part.end_char] for part in manifest.chunks) == text
     with app.foundation.uow.transaction() as tx:
         rows = [
             r["data"]
             for _, r in tx.rows(app.vectors.projection_namespace)
             if not r["deleted"] and r["data"]["target"]["memory"]["memory_id"] == item.ref.memory_id
         ]
-    assert rows and all(r["target"]["memory"]["version"] == 2 for r in rows)
+        assert tx.read("remember_working_summaries", item.ref.memory_id) is None
+        assert tx.read("remember_pending", item.ref.memory_id)["state"] == "processed"
+    assert rows and all(r["target"]["memory"]["version"] == 1 for r in rows)
 
 
-def test_failed_summary_never_projects_descriptor_and_readiness_reports_failure(app):
+def test_unused_summary_provider_cannot_block_original_working_projection(app):
     configure(app)
 
     class UnsupportedSummary:
         async def select(self, *args):
-            return ("unsupported invented summary",)
+            raise AssertionError("current saves must not invoke the retired summary provider")
 
     app.remember.summaries.provider = UnsupportedSummary()
-    receipt, _, _ = save_long(app)
+    receipt, text, _ = save_long(app)
     drain(app)
     item = app.remember.get(context(app), receipt.memories[0].memory_id)
     state = readiness(app)
-    assert state.failed_count == 1 and not state.complete
-    assert item.projection_state != "ready"
+    assert state.failed_count == 0 and state.complete and state.ready_count == 1
+    assert item.content == text and item.ref.version == 1
+    assert item.projection_state == "ready"
     with app.foundation.uow.transaction() as tx:
-        assert not [
+        assert [
             r["data"]
             for _, r in tx.rows(app.vectors.projection_namespace)
             if not r["deleted"] and r["data"]["target"]["memory"]["memory_id"] == item.ref.memory_id
         ]
+        assert tx.read("remember_working_summaries", item.ref.memory_id) is None
 
 
-def test_correction_invalidates_old_working_generation_and_indexes_new_body(app):
+def test_working_correction_rejected_and_new_information_indexes_independent_original(app):
     receipt = save(app)
     drain(app)
     old_ref = receipt.memories[0]
     _, old_target = projection(app, old_ref)
     old_target = old_target.model_copy(update={"memory_source": "working"})
-    corrected = asyncio.run(
-        app.remember.correct_async(
-            context(app),
-            old_ref.memory_id,
-            CorrectionRequest(
-                expected_version=1,
-                content="I now prefer tea.",
-                source=source("corrected"),
-                reason="new preference",
-            ),
+    before = app.remember.get(context(app), old_ref.memory_id)
+    with pytest.raises(FoundationError, match="Working originals are immutable"):
+        asyncio.run(
+            app.remember.correct_async(
+                context(app),
+                old_ref.memory_id,
+                CorrectionRequest(
+                    expected_version=1,
+                    content="I now prefer tea.",
+                    source=source("corrected"),
+                    reason="new preference",
+                ),
+            )
         )
-    )
-    assert app.remember.get(context(app), old_ref.memory_id).projection_state == "pending"
+    assert app.remember.get(context(app), old_ref.memory_id) == before
     result = asyncio.run(
         RememberBoundary(app.remember).qualify(context(app), (old_target,), "recall")
     )[0]
-    assert result.decision == "excluded"
+    assert result.decision == "allowed"
+    saved = save(app, "I now prefer tea.")
+    new_ref = saved.memories[0]
+    assert new_ref.memory_id != old_ref.memory_id and new_ref.version == 1
+    assert app.remember.get(context(app), new_ref.memory_id).projection_state == "pending"
     drain(app)
-    assert app.remember.get(context(app), old_ref.memory_id).ref == corrected.memories[0]
-    assert readiness(app).ready_count == 1
+    assert app.remember.get(context(app), old_ref.memory_id).ref == old_ref
+    assert app.remember.get(context(app), new_ref.memory_id).content == "I now prefer tea."
+    _, new_target = projection(app, new_ref)
+    new_target = new_target.model_copy(update={"memory_source": "working"})
+    results = asyncio.run(
+        RememberBoundary(app.remember).qualify(context(app), (old_target, new_target), "recall")
+    )
+    assert all(result.decision == "allowed" for result in results)
+    assert readiness(app).ready_count == 2
 
 
 def test_archive_and_reactivate_working_require_verified_projection(app):
@@ -366,13 +394,13 @@ def test_late_working_projection_cannot_publish_after_delete(app, monkeypatch):
         assert not tx.rows("generation_vectors")
 
 
-def test_reindex_unready_summary_explicitly_refuses_without_starting_processing(app):
+def test_reindex_original_reuses_pending_projection_without_starting_more_work(app):
     configure(app)
     receipt, _, _ = save_long(app)
     with app.foundation.uow.transaction() as tx:
         before = tx.rows("tasks")
-    with pytest.raises(FoundationError) as exc:
-        app.remember.reindex(context(app), receipt.memories[0].memory_id)
-    assert exc.value.code == "REQUEST_IN_PROGRESS"
+    task_id = app.remember.reindex(context(app), receipt.memories[0].memory_id)
+    assert task_id in receipt.task_ids
+    assert app.foundation.diagnostics.task(context(app), task_id).kind == "remember.project"
     with app.foundation.uow.transaction() as tx:
         assert tx.rows("tasks") == before

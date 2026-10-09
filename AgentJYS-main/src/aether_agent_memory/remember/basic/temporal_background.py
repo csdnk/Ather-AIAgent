@@ -28,6 +28,10 @@ class BackgroundStages:
     def handler(self, phase: str, *, reconcile: bool = False) -> StageHandler:
         async def call(step: StepRequest) -> StepResult:
             context = StageContext.current()
+            if context.task.kind == "remember.summarize":
+                # Historical provider bindings may no longer exist. Retirement
+                # uses the live task fence, not an obsolete model configuration.
+                return await self.retire_summary()
 
             def read_policy() -> tuple[Any, Any]:
                 with self.owner.uow.transaction() as tx:
@@ -53,6 +57,11 @@ class BackgroundStages:
                 _task_policy.reset(token)
 
         return call
+
+    async def retire_summary(self) -> StepResult:
+        context = StageContext.current()
+        result = await asyncio.to_thread(self.owner.summaries.retire, context.context, context.task)
+        return self.outcome(result)
 
     def ref(self, name: str) -> RecordRef:
         return StageContext.current().task.subject.model_copy(
@@ -140,6 +149,8 @@ class BackgroundStages:
         return tuple(MemorySnapshot.model_validate(i) for i in self.required("prepared")["items"])
 
     async def prepare(self, step: StepRequest, *, reconcile: bool) -> StepResult:
+        if StageContext.current().task.kind == "remember.summarize":
+            return await self.retire_summary()
         if (await asyncio.to_thread(self.load, "prepared")) is None:
             context = StageContext.current()
             items = await self.owner.prepare_background(context.context, context.task)
@@ -153,6 +164,8 @@ class BackgroundStages:
         return self.done("prepared", "generate")
 
     async def generate(self, step: StepRequest, *, reconcile: bool) -> StepResult:
+        if StageContext.current().task.kind == "remember.summarize":
+            return await self.retire_summary()
         name = await asyncio.to_thread(self.generation)
         if (await asyncio.to_thread(self.load, name)) is None:
             c = StageContext.current()
@@ -164,8 +177,6 @@ class BackgroundStages:
                 value = await self.owner.generate_compression(c.context, c.task, items[0])
             elif kind == "remember.project":
                 value = await self.owner.generate_projection(c.context, c.task, items[0])
-            elif kind == "remember.summarize":
-                value = await self.owner.summaries.generate(c.context, c.task, items[0])
             elif kind == "remember.cleanup":
                 value = await asyncio.to_thread(
                     self.owner.prepare_cleanup, c.context, c.task, items[0]
@@ -182,8 +193,6 @@ class BackgroundStages:
         kind = StageContext.current().task.kind
         if kind == "remember.compress":
             return [data["text"]] if data["text"] is not None else []
-        if kind == "remember.summarize":
-            return [data["content"]] if data["failure"] is None else []
         if kind in {"remember.extract", "remember.distill"}:
             # A preceding amendment can turn an equivalent candidate into a
             # conflict during commit. Confirm every accepted body beforehand;
@@ -196,6 +205,8 @@ class BackgroundStages:
         return []
 
     async def publish_bodies(self, data: dict[str, Any], *, reconcile: bool) -> StepResult | None:
+        if StageContext.current().task.kind == "remember.summarize":
+            return await self.retire_summary()
         c, bodies = StageContext.current(), self.owner.bodies
         scope = (await asyncio.to_thread(self.items))[0].ref.scope
         for text in self.texts(data):
@@ -253,6 +264,8 @@ class BackgroundStages:
         return None
 
     async def publish(self, step: StepRequest, *, reconcile: bool) -> StepResult:
+        if StageContext.current().task.kind == "remember.summarize":
+            return await self.retire_summary()
         c = StageContext.current()
         name, items = (
             (await asyncio.to_thread(self.generation)),
@@ -273,6 +286,8 @@ class BackgroundStages:
         return self.outcome(result) if result is not None else self.done(name, "commit")
 
     async def commit(self, step: StepRequest, *, reconcile: bool) -> StepResult:
+        if StageContext.current().task.kind == "remember.summarize":
+            return await self.retire_summary()
         c, items = StageContext.current(), (await asyncio.to_thread(self.items))
         data = await asyncio.to_thread(self.required, (await asyncio.to_thread(self.generation)))
         checked = await self.publish(step, reconcile=True)
@@ -291,8 +306,6 @@ class BackgroundStages:
             )
         elif kind == "remember.project":
             result = await self.owner.commit_projection(c.context, c.task, items[0], data)
-        elif kind == "remember.summarize":
-            result = await self.owner.summaries.commit(c.context, c.task, items[0], data)
         elif kind == "remember.cleanup":
             result = await asyncio.to_thread(self.owner.commit_cleanup, c.context, c.task)
         else:

@@ -1,4 +1,4 @@
-"""Opt-in, scope-bound scheduling of evidenced episodic reflection.
+"""Scope-bound reflection prototype, not an automatic production workflow.
 
 Frequency/importance trigger a review, never certify a semantic fact. The existing
 distill task validates evidence, deduplicates and commits candidates normally.
@@ -95,7 +95,7 @@ class Reflection:
                 "last_task_id": prior.get("last_task_id"),
                 "last_inputs": prior.get("last_inputs", []),
                 "reviewed": prior.get("reviewed", []),
-                "status": "enrolled" if request.enabled else "disabled",
+                "status": "prototype_only" if request.enabled else "disabled",
             }
             tx.write("remember_reflection_policies", key, row)
             result = {k: v for k, v in row.items() if k != "context"}
@@ -120,6 +120,19 @@ class Reflection:
         return count
 
     def periodic_item(self, tx: MetadataTransaction, key: str) -> int:
+        # Keep the shared periodic route and any admitted historical tasks intact.
+        # Saving prototype settings must not enroll new background reflection work.
+        row = tx.read("remember_reflection_policies", key)
+        if row is not None:
+            if row.get("status") in {"scheduled", "running", "needs_recovery"}:
+                return 0
+            status = "prototype_only" if row["policy"].get("enabled", True) else "disabled"
+            if row.get("status") != status:
+                tx.write("remember_reflection_policies", key, {**row, "status": status})
+        return 0
+
+    def prototype_periodic_item(self, tx: MetadataTransaction, key: str) -> int:
+        """Retained design experiment; never called by the runtime periodic route."""
         count = 0
         row = tx.read("remember_reflection_policies", key)
         policy = ReflectionRequest.model_validate(row["policy"])

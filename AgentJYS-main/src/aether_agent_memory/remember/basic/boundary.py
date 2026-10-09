@@ -68,11 +68,20 @@ class RememberBoundary:
                 if owner.final_guard(tx, ctx, (ref,), "recall").items[0].decision != "allowed":
                     continue
                 summary = tx.read("remember_working_summaries", memory_id)
-                if summary and summary["memory"] == record["ref"] and summary["state"] != "ready":
-                    if summary["state"] == "failed":
-                        failed += 1
-                    else:
-                        pending += 1
+                if (
+                    summary
+                    and summary["memory"] == record["ref"]
+                    and any(
+                        s["content_hash"]
+                        != (record.get("body_location") or {}).get(
+                            "content_hash", record.get("content_hash")
+                        )
+                        for s in record["sources"]
+                    )
+                ):
+                    # Never index a retained descriptor as original text; retired
+                    # summary state alone cannot block a full Working body.
+                    failed += 1
                     continue
                 raw = tx.read("remember_manifests", owner.refkey(ref))
                 manifest = ProjectionManifest.model_validate(raw) if raw else None

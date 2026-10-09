@@ -40,9 +40,10 @@ def test_empty_consolidation_replay_does_not_consume_later_input(app):
         assert tx.read("remember_pending", saved.memories[0].memory_id)["state"] == "pending"
 
 
-def test_reprocess_replay_keeps_original_task_after_content_correction(app):
+def test_reprocess_replay_keeps_original_task_after_long_term_content_correction(app):
     saved = save(app, "Original content")
-    ref = saved.memories[0]
+    drain(app)
+    ref = facts(app, saved)[0]
     ctx = context(app, operation="original-reprocess")
     original = app.remember.reprocess(ctx, ref.memory_id)
     asyncio.run(

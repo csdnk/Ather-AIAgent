@@ -1,6 +1,7 @@
 """Initial Remember admission uses real PG/Redis and the production tier boundary."""
 
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from test_operate_memory_record import publication as publication
@@ -16,6 +17,8 @@ from aether_agent_memory.remember.basic.service import memory_ref
 from aether_agent_memory.remember.basic.sources import SourceAccess
 from aether_agent_memory.remember.basic.temporal_stages import CorrectionStages
 from aether_agent_memory.remember.contracts.models import CorrectionRequest, MemoryKind, SourceInput
+from aether_agent_memory.runtime.contracts.models import ErrorCode
+from aether_agent_memory.runtime.foundation.common import FoundationError
 from aether_agent_memory.runtime.temporal.activities import StageContext
 
 
@@ -149,10 +152,12 @@ def working_publication(publication):
 
 
 @pytest.mark.parametrize(
-    "text", ["修正后的偏好是清淡食物。", "完整的长Working更正。" * 1000], ids=["short", "long"]
+    "text",
+    ["修正后的偏好是清淡食物。", "\n".join(f"第{i}个项目的负责人为成员{i}。" for i in range(600))],
+    ids=["short", "long"],
 )
-@pytest.mark.parametrize("entrypoint", ["direct", "temporal_stage"])
-async def test_working_correction_admits_exact_new_version_and_replay_cannot_reheat(
+@pytest.mark.parametrize("entrypoint", ["direct", "prepare", "commit"])
+async def test_working_correction_rejects_before_body_cache_or_version_changes(
     working_publication, text, entrypoint, monkeypatch
 ):
     p = working_publication
@@ -170,48 +175,42 @@ async def test_working_correction_admits_exact_new_version_and_replay_cannot_reh
             occurred_at=p.host.identity.clock(),
         ),
     )
-    if entrypoint == "direct":
-        receipt = await p.reader.correct_async(ctx, old_ref.memory_id, request)
-
-        async def replay():
-            return await p.reader.correct_async(ctx, old_ref.memory_id, request)
-    else:
-        await p.reader.bodies.persist(ctx, old_ref.scope, text)
-        receipt = p.reader.correct(ctx, old_ref.memory_id, request)
-        stage = CorrectionStages(None, p.reader)
-        # This test checks the real command-stage -> domain handoff; Azure covers
-        # Temporal dispatch itself. Receipts contain the real committed PG version.
-        monkeypatch.setattr(
-            StageContext, "current", staticmethod(lambda: SimpleNamespace(context=ctx))
-        )
-        monkeypatch.setattr(stage, "load", lambda name: receipt.model_dump(mode="json"))
-        monkeypatch.setattr(
-            stage, "ref", lambda name: memory_ref(receipt.memories[0], versioned=True)
-        )
-        await stage.admit_cache(None)
-
-        async def replay():
-            return await stage.admit_cache(None)
-
-    new_ref = receipt.memories[0]
-    assert new_ref.version == old_ref.version + 1
+    before, objects = read_record(p), dict(p.objects)
+    persist = AsyncMock(side_effect=AssertionError("rejected correction must not persist a body"))
+    admission = AsyncMock(side_effect=AssertionError("rejected correction must not admit cache"))
+    monkeypatch.setattr(p.reader.bodies, "persist", persist)
+    monkeypatch.setattr(p.reader.bodies, "admit_initial", admission)
+    for _ in range(2):
+        with pytest.raises(FoundationError, match="Working originals are immutable") as error:
+            if entrypoint == "direct":
+                await p.reader.correct_async(ctx, old_ref.memory_id, request)
+            elif entrypoint == "prepare":
+                p.reader.prepare_correction(ctx, old_ref.memory_id, request)
+            else:
+                # A historical worker may already have completed preparation;
+                # the commit entry point independently rejects Working updates.
+                p.reader.correct(ctx, old_ref.memory_id, request)
+        assert error.value.code == ErrorCode.INVALID_ARGUMENT
+    persist.assert_not_awaited()
+    admission.assert_not_awaited()
+    assert p.objects == objects and read_record(p) == before
     with p.host.uow.transaction() as tx:
-        updated = p.reader.current(tx, new_ref.memory_id)
-        record = tx.get(memory_ref(new_ref, versioned=True))
-    assert updated.content == text
-    assert p.cache.get_sync(new_ref.scope, updated.content_hash) == text
-    assert p.executor.inspect(new_ref, updated.content_hash)
-    assert record["cache_location"]["content_hash"] == updated.content_hash
-    old = await p.reader.read_body(ctx, old_ref)
-    assert old.outcome != "read" and old.content is None
-    # Existing cleanup is version-bounded: purging v1 cannot remove v2's copy.
-    p.executor.purge(old_ref, permanent=False, ctx=ctx)
-    assert p.executor.inspect(new_ref, updated.content_hash)
-    p.executor.purge(new_ref, permanent=False, ctx=ctx)
-    await replay()
-    assert p.cache.get_sync(new_ref.scope, updated.content_hash) is None
-    with p.host.uow.transaction() as tx:
-        assert tx.get(memory_ref(new_ref, versioned=True))["cache_location"] is None
+        assert p.reader.current(tx, old_ref.memory_id).ref == old_ref
+        next_ref = old_ref.model_copy(update={"version": old_ref.version + 1})
+        assert tx.get(memory_ref(next_ref, versioned=True)) is None
+    assert p.cache.get_sync(old_ref.scope, p.item.content_hash) == p.item.content
+    assert p.executor.inspect(old_ref, p.item.content_hash)
+    # The old persisted Temporal terminal stage remains a no-op. Even a stale
+    # Working correction receipt cannot reheat content after Operate cooling.
+    await p.service.execute(ctx, intent(p.executor, ctx, p.item, Tier.COLD, "cool-original"))
+    assert read_record(p)["cache_location"] is None
+    stage = CorrectionStages(None, p.reader)
+    monkeypatch.setattr(StageContext, "current", staticmethod(lambda: SimpleNamespace(context=ctx)))
+    monkeypatch.setattr(stage, "ref", lambda name: memory_ref(old_ref, versioned=True))
+    await stage.admit_cache(None)
+    assert p.cache.get_sync(old_ref.scope, p.item.content_hash) is None
+    assert read_record(p)["cache_location"] is None
+    admission.assert_not_awaited()
 
 
 async def test_remember_and_operate_publish_identical_cache_locations(publication):

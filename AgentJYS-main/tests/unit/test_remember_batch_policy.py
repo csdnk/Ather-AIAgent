@@ -15,7 +15,7 @@ def test_defaults_are_observation_and_one_hour_byte_batch():
     assert policy.consolidation_seconds == 3600
 
 
-@pytest.mark.parametrize("sizes,expected", [([3999, 4001, 2], 2), ([9000, 1], 1), ([1] * 40, 32)])
+@pytest.mark.parametrize("sizes,expected", [([3999, 4001, 2], 2), ([1] * 40, 32)])
 def test_batch_preserves_whole_messages(sizes, expected):
     from aether_agent_memory.remember.basic.batching import select_batch
 
@@ -23,10 +23,8 @@ def test_batch_preserves_whole_messages(sizes, expected):
     assert select_batch(rows, RememberPolicy()) == rows[:expected]
 
 
-def test_source_descriptor_never_contains_excerpt_or_summary_promise():
-    from aether_agent_memory.remember.basic.batching import source_descriptor
+def test_short_batch_excludes_long_originals_and_keeps_messages_whole():
+    from aether_agent_memory.remember.basic.batching import select_batch
 
-    descriptor = source_descriptor("source-1", 1, 8000)
-    assert "source-1@1" in descriptor
-    assert "8000" in descriptor
-    assert "摘要" not in descriptor
+    rows = [("long", {"bytes": 8000}), ("short-a", {"bytes": 3999}), ("short-b", {"bytes": 4001})]
+    assert select_batch(rows, RememberPolicy()) == rows[1:]

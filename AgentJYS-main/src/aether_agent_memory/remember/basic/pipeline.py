@@ -7,6 +7,7 @@ references. Local body replicas are durable runtime data, separate from caches.
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Callable
 from contextvars import ContextVar
 from typing import Any, cast
@@ -161,7 +162,6 @@ def checkpoint_provider_identity(provider: Any, seen: frozenset[int] = frozenset
 @hydrate_metadata_reads
 @observed("remember")
 class RememberPipeline(Revalidation):
-    independent_working_sources = True
     retention: Retention
     reflection: Reflection
     embedding_count: Callable[[str], int]
@@ -222,7 +222,11 @@ class RememberPipeline(Revalidation):
         return qualify(self, native(tx), ctx, refs, purpose)
 
     def enqueue(
-        self, tx: MetadataTransaction, ctx: TrustedContext, memory: MemorySnapshot, kind: str
+        self,
+        tx: MetadataTransaction,
+        ctx: TrustedContext,
+        memory: MemorySnapshot | MemoryRecord,
+        kind: str,
     ) -> str:
         task_id = super().enqueue(tx, ctx, memory, kind)
         if tx.read("remember_task_policy", task_id) is None:
@@ -610,7 +614,6 @@ class RememberPipeline(Revalidation):
         duplicate_result = await asyncio.to_thread(inspect_source)
         if duplicate_result is not None:
             return duplicate_result
-        summarized = len(text.encode("utf-8")) >= self.policy.compression_min_bytes
         # Long and short Working records both address the real immutable body.
         # Length affects processing admission, never the meaning of the body.
         working_text = text
@@ -620,7 +623,6 @@ class RememberPipeline(Revalidation):
             "text": text,
             "working_text": working_text,
             "document": document,
-            "summarized": summarized,
         }
 
     async def persist_save(self, ctx: TrustedContext, prepared: dict[str, Any]) -> None:
@@ -911,45 +913,56 @@ class RememberPipeline(Revalidation):
         pending = [
             (key, {**row, "bytes": self.pending_bytes(tx, key, row)}) for key, row in pending
         ]
-        due = (
-            later(pending[0][1]["created_at"], self.policy.consolidation_seconds)
-            <= self.identity.clock()
-        )
-        if not (
-            force
-            or due
-            or len(pending) >= self.policy.consolidation_messages
-            or sum(r["bytes"] for _, r in pending) >= self.policy.consolidation_bytes
-        ):
-            return ()
-        # Bound one task's input count; subsequent ticks pick up the remainder.
-        pending = select_batch(pending, self.policy)
-        items = []
-        for key, row in pending:
-            item = self.current(tx, key)
-            if self.final_guard(tx, ctx, (item.ref,), "recall").items[0].decision == "allowed":
-                items.append(item)
-            else:
-                tx.write("remember_pending", key, {**row, "state": "obsolete"})
-        if not items:
-            return ()
-        task_id = self.enqueue(tx, ctx, items[0], "remember.extract")
-        tx.write(
-            "remember_batches",
-            task_id,
-            {
-                "refs": [x.ref.model_dump(mode="json") for x in items],
-                "context_refs": [],
-            },
-        )
-        for item in items:
-            row = tx.read("remember_pending", item.ref.memory_id)
-            tx.write(
-                "remember_pending",
-                item.ref.memory_id,
-                {**row, "state": "scheduled", "task_id": task_id},
+        # A long original is its own immediate task. Its bytes/count/age do not
+        # cause the unrelated short-message backlog to be consumed.
+        batches = [
+            [entry] for entry in pending if entry[1]["bytes"] >= self.policy.compression_min_bytes
+        ]
+        short = [
+            entry for entry in pending if entry[1]["bytes"] < self.policy.compression_min_bytes
+        ]
+        if short:
+            due = (
+                later(short[0][1]["created_at"], self.policy.consolidation_seconds)
+                <= self.identity.clock()
             )
-        return (task_id,)
+            if (
+                force
+                or due
+                or len(short) >= self.policy.consolidation_messages
+                or sum(r["bytes"] for _, r in short) >= self.policy.consolidation_bytes
+            ):
+                # Bound short task input; subsequent ticks pick up the remainder.
+                batches.append(select_batch(short, self.policy))
+        task_ids = []
+        for batch in batches:
+            items = []
+            for key, row in batch:
+                item = self.current(tx, key)
+                if self.final_guard(tx, ctx, (item.ref,), "recall").items[0].decision == "allowed":
+                    items.append(item)
+                else:
+                    tx.write("remember_pending", key, {**row, "state": "obsolete"})
+            if not items:
+                continue
+            task_id = self.enqueue(tx, ctx, items[0], "remember.extract")
+            tx.write(
+                "remember_batches",
+                task_id,
+                {
+                    "refs": [x.ref.model_dump(mode="json") for x in items],
+                    "context_refs": [],
+                },
+            )
+            for item in items:
+                row = tx.read("remember_pending", item.ref.memory_id)
+                tx.write(
+                    "remember_pending",
+                    item.ref.memory_id,
+                    {**row, "state": "scheduled", "task_id": task_id},
+                )
+            task_ids.append(task_id)
+        return tuple(task_ids)
 
     def pending_bytes(self, tx: MetadataTransaction, key: str, row: dict[str, Any]) -> int:
         if "bytes" in row:
@@ -1166,6 +1179,8 @@ class RememberPipeline(Revalidation):
         return memory_ids, dict(sorted(selected_envelopes.items()))
 
     def processing(self, ctx: TrustedContext, memory_id: str) -> dict[str, Any]:
+        from .projection_dispatch import dispatch_status
+
         with self.uow.transaction() as tx:
             item = self.current(tx, memory_id)
             authorize_content_read(self.identity, tx, ctx, memory_ref(item.ref))
@@ -1209,6 +1224,11 @@ class RememberPipeline(Revalidation):
                 state = "completed_with_compression_failure"
             if pending and pending["state"] == "pending" and item.status == MemoryStatus.ACTIVE:
                 state = "awaiting_consolidation"
+            projection_dispatch = dispatch_status(tx, memory_ids)
+            if state == "completed" and projection_dispatch["pending"]:
+                state = "processing"
+            if projection_dispatch["blocked"] and state != "failed":
+                state = "failed"
             if (
                 pending
                 and pending["state"] == "awaiting_extractor"
@@ -1216,8 +1236,6 @@ class RememberPipeline(Revalidation):
             ):
                 state = "awaiting_extraction_provider"
             summary = tx.read("remember_working_summaries", memory_id)
-            if summary and summary["state"] == "failed" and state == "completed":
-                state = "completed_with_summary_failure"
             recovery = None
             if (
                 item.status == MemoryStatus.ACTIVE
@@ -1243,18 +1261,6 @@ class RememberPipeline(Revalidation):
                 )
                 action = reason = None
                 if (
-                    summary
-                    and summary["memory"] == item.ref.model_dump(mode="json")
-                    and summary["state"] != "ready"
-                    and not summary_busy
-                    and (
-                        summary["state"] == "failed"
-                        or summary_task
-                        and summary_task["state"] in {"failed", "attention_required"}
-                    )
-                ):
-                    action, reason = "reprocess", "working_summary_failed"
-                elif (
                     self.projection_buildable(tx, item)
                     and not projection_busy
                     and (
@@ -1295,6 +1301,7 @@ class RememberPipeline(Revalidation):
                 ),
                 "memory_status": item.status.value,
                 "projection_state": item.projection_state.value,
+                "projection_dispatch": projection_dispatch,
                 "derived_memory_ids": sorted(memory_ids - {memory_id}),
                 "rejected_candidate_count": len(rejections),
                 "candidate_rejections": rejections,
@@ -1329,9 +1336,12 @@ class RememberPipeline(Revalidation):
         return precompression_artifact_status(self, tx, ctx, item)
 
     def periodic(self) -> int:
+        from .projection_dispatch import dispatch_projections
+
         count = self.retention.periodic() if hasattr(self, "retention") else 0
         if hasattr(self, "reflection"):
             count += self.reflection.periodic()
+        count += dispatch_projections(self)
         with self.uow.transaction() as tx:
             pending = [
                 (key, row)
@@ -1358,6 +1368,10 @@ class RememberPipeline(Revalidation):
 
     def periodic_pending(self, tx: MetadataTransaction, key: str) -> int:
         row = tx.read("remember_pending", key)
+        if row and row.get("dispatch_task_id"):
+            from .projection_dispatch import dispatch_result_in
+
+            return dispatch_result_in(self, tx, key, row)
         if not row or row["state"] not in {"pending", "waiting_compression"}:
             return 0
         scope = MemoryRef.model_validate(row["ref"]).scope
@@ -1398,80 +1412,26 @@ class RememberPipeline(Revalidation):
     ) -> RememberReceipt:
         prepared = self.prepare_correction(ctx, memory_id, request)
         scope = Scope.model_validate(prepared["scope"])
-        for body in dict.fromkeys((prepared["text"], prepared["working_text"])):
-            await self.bodies.persist(ctx, scope, body)
-        result = self.correct(ctx, memory_id, request)
-        return await self.admit_correction_cache(ctx, result)
-
-    async def admit_correction_cache(
-        self, ctx: TrustedContext, result: RememberReceipt
-    ) -> RememberReceipt:
-        """A corrected Working is a new body/version eligible for first admission."""
-        memory = result.memories[0]
-
-        def is_current_working() -> bool:
-            with self.uow.transaction() as tx:
-                if self.final_guard(tx, ctx, (memory,), "recall").items[0].decision != "allowed":
-                    return False
-                raw = tx.get(memory_ref(memory, versioned=True))
-                return bool(raw and raw["kind"] == MemoryKind.WORKING)
-
-        if await asyncio.to_thread(is_current_working):
-            # Reuse saved-receipt hydration and exact-version fences. In particular,
-            # command replay must never readmit the older body or undo later cooling.
-            await self.admit_save_cache(ctx, {"previous": True}, result)
-        return result
+        await self.bodies.persist(ctx, scope, prepared["text"])
+        return self.correct(ctx, memory_id, request)
 
     def prepare_correction(
         self, ctx: TrustedContext, memory_id: str, request: CorrectionRequest
     ) -> dict[str, Any]:
         with self.uow.transaction() as tx:
-            item = self.current(tx, memory_id)
-            self.identity.authorize(tx, ctx, Permission.CORRECT, memory_ref(item.ref))
+            ref = self.current_ref(tx, ctx, memory_id)
         if (
             not request.content.strip()
             or len(request.content.encode("utf-8")) > self.max_input_bytes
         ):
             raise FoundationError(ErrorCode.INVALID_ARGUMENT, "correction exceeds input policy")
         return {
-            "scope": item.ref.scope.model_dump(mode="json"),
+            "scope": ref.scope.model_dump(mode="json"),
             "text": request.content,
+            # SaveStages persists this field too; both name the same long-term body.
             "working_text": request.content,
             "memory_id": memory_id,
         }
-
-    def working_correction_body(
-        self,
-        tx: MetadataTransaction,
-        ctx: TrustedContext,
-        item: MemorySnapshot,
-        source: SourceRef,
-        request: CorrectionRequest,
-    ) -> str:
-        prior = tx.read("remember_working_summaries", item.ref.memory_id)
-        source_policy = tx.read("remember_source_policy", item.sources[0].source_id) or {}
-        tx.write("remember_source_policy", source.source_id, source_policy)
-        new_ref = item.ref.model_copy(update={"version": item.ref.version + 1})
-        body = request.content
-        if prior:
-            # Keep old summary history bound to the previous version; every new
-            # correction, regardless of length, uses the actual corrected body.
-            tx.write(
-                "remember_working_summaries", item.ref.memory_id, {**prior, "state": "obsolete"}
-            )
-        tx.write(
-            "remember_pending",
-            item.ref.memory_id,
-            {
-                "ref": new_ref.model_dump(mode="json"),
-                "tokens": self.tokenizer.count(request.content),
-                "bytes": len(request.content.encode("utf-8")),
-                "created_at": self.identity.clock(),
-                "context": ctx.model_dump(mode="json"),
-                "state": "pending",
-            },
-        )
-        return body
 
     def working_task_kind(self, tx: MetadataTransaction, item: MemorySnapshot) -> str | None:
         if self.working_processing_busy(tx, item.ref):
@@ -1521,8 +1481,12 @@ class RememberPipeline(Revalidation):
         if representation and representation["memory"] == item.ref.model_dump(mode="json"):
             return False
         row = tx.read("remember_working_summaries", item.ref.memory_id)
+        # A retained old descriptor/summary is not an original. A legacy summary
+        # task's state must not gate a full original's independent vectorization.
         return (
-            not row or row["memory"] != item.ref.model_dump(mode="json") or row["state"] == "ready"
+            not row
+            or row["memory"] != item.ref.model_dump(mode="json")
+            or all(source.content_hash == item.content_hash for source in item.sources)
         )
 
     async def hydrate(
@@ -1857,11 +1821,11 @@ class RememberPipeline(Revalidation):
         return items
 
     async def run_bound(self, ctx: TrustedContext, task: TaskRecord) -> RunResult:
+        if task.kind == "remember.summarize":
+            return self.summaries.retire(ctx, task)
         items = await self.prepare_background(ctx, task)
         if isinstance(items, RunResult):
             return items
-        if task.kind == "remember.summarize":
-            return await self.summaries.process(ctx, task, items[0])
         if task.kind in {"remember.extract", "remember.distill"}:
             return await self.extract_batch(ctx, task, items)
         if task.kind == "remember.revalidate":
@@ -2262,7 +2226,10 @@ class RememberPipeline(Revalidation):
                 if type(self.extraction) is LiteralExtraction:
                     with self.uow.transaction() as tx:
                         summary = tx.read("remember_working_summaries", item.ref.memory_id)
-                        if summary and summary["memory"] != item.ref.model_dump(mode="json"):
+                        if summary and (
+                            summary["memory"] != item.ref.model_dump(mode="json")
+                            or all(s.content_hash == item.content_hash for s in item.sources)
+                        ):
                             summary = None
                         if summary:
                             # A file is not automatically one giant event. The literal
@@ -3221,6 +3188,11 @@ class RememberPipeline(Revalidation):
         prepared: dict[str, Any],
     ) -> RunResult | None:
         from .official_commit import TWO_STAGE_ACTIONS, TWO_STAGE_COMMIT_SCHEMA
+        from .projection_dispatch import (
+            dispatch_projections,
+            stage_dispatch_anchor,
+            stage_projection,
+        )
 
         attempt, space_key = prepared["attempt"], prepared["space_key"]
         expected_space_seq, virtual = prepared["expected_space_seq"], prepared["virtual"]
@@ -3326,6 +3298,7 @@ class RememberPipeline(Revalidation):
                 tx.write("remember_comparison_retries", task.task_id, {"attempts": attempt + 1})
                 return None
             outputs, decisions = [], []
+            stage_dispatch_anchor(tx, ctx, task.task_id, items[0].ref)
             output_sources: dict[str, set[tuple[str, int, str]]] = {}
             for index, (candidate, decision, target) in enumerate(proposals):
                 compared_ref = target.ref if target else None
@@ -3434,7 +3407,7 @@ class RememberPipeline(Revalidation):
                         fact = current
                     else:
                         fact = self.change(tx, current, **updates)
-                        self.emit(tx, ctx, fact, "processing")
+                        self.emit(tx, ctx, fact, "processing", defer_task_id=task.task_id)
                 elif decision.outcome == "amend" or (two_stage and decision.outcome == "correct"):
                     assert target is not None
                     old = self.change(
@@ -3443,7 +3416,7 @@ class RememberPipeline(Revalidation):
                         status=MemoryStatus.SUPERSEDED,
                         projection_state=ProjectionState.STALE,
                     )
-                    self.emit(tx, ctx, old, "projection_stale")
+                    self.emit(tx, ctx, old, "projection_stale", defer_task_id=task.task_id)
                     fact = MemorySnapshot.model_validate(
                         {
                             **old.model_dump(),
@@ -3470,8 +3443,8 @@ class RememberPipeline(Revalidation):
                     # A new version uses a new versioned MemoryRecord. put() drops
                     # stale projection/cache locations and resets cache admission.
                     self.put(tx, fact)
-                    self.enqueue(tx, ctx, fact, "remember.project")
-                    self.emit(tx, ctx, fact, "corrected")
+                    stage_projection(self, tx, ctx, fact, task.task_id)
+                    self.emit(tx, ctx, fact, "corrected", defer_task_id=task.task_id)
                 else:
                     if two_stage:
                         self.identity.authorize(
@@ -3525,8 +3498,8 @@ class RememberPipeline(Revalidation):
                         }
                     )
                     self.put(tx, fact)
-                    self.enqueue(tx, ctx, fact, "remember.project")
-                    self.emit(tx, ctx, fact, "saved")
+                    stage_projection(self, tx, ctx, fact, task.task_id)
+                    self.emit(tx, ctx, fact, "saved", defer_task_id=task.task_id)
                 relation = tx.read("remember_relations", fact.ref.memory_id) or {}
                 tx.write(
                     "remember_relations",
@@ -3581,7 +3554,7 @@ class RememberPipeline(Revalidation):
                 if decision.outcome == "conflict":
                     assert target is not None
                     changed_target = self.change(tx, self.current(tx, target.ref.memory_id))
-                    self.emit(tx, ctx, changed_target, "processing")
+                    self.emit(tx, ctx, changed_target, "processing", defer_task_id=task.task_id)
                     group = ConflictGroup(
                         group_id=fingerprint(
                             [
@@ -3624,7 +3597,7 @@ class RememberPipeline(Revalidation):
                 items,
                 final_outputs,
                 target_factor=self.policy.compression_target_ratio,
-                long_input_bytes=self.policy.consolidation_bytes,
+                long_input_bytes=self.policy.compression_min_bytes,
                 complete=not deferred,
                 output_sources=output_sources,
             )
@@ -3642,7 +3615,7 @@ class RememberPipeline(Revalidation):
                             else "processed",
                         },
                     )
-            return self.finish(
+            result = self.finish(
                 tx,
                 ctx,
                 task,
@@ -3670,6 +3643,18 @@ class RememberPipeline(Revalidation):
                     "awaiting_extraction_provider": deferred,
                 },
             )
+        # Semantic publication is already committed. Task admission uses separate
+        # transactions and can wait for the existing queue to release capacity.
+        try:
+            dispatch_projections(self, source_task_id=task.task_id)
+        except FoundationError as error:
+            # Durable intents remain available to periodic recovery even if
+            # admission itself cannot currently write a diagnostic receipt.
+            logging.getLogger(__name__).warning(
+                "Remember result committed; projection dispatch awaits recovery",
+                extra={"task_id": task.task_id, "reason_code": error.code.value},
+            )
+        return result
 
     def load(self, ctx: TrustedContext, refs: tuple[MemoryRef, ...]) -> MemoryReadBatch:
         batch = super().load(ctx, refs)
@@ -3736,7 +3721,7 @@ class RememberPipeline(Revalidation):
                 return RunResult(
                     outcome="obsolete",
                     effect_status=EffectStatus.NO_EFFECT,
-                    reason="Working summary is not ready for projection",
+                    reason="historical Working representation is not a full original",
                 )
         pieces = self.project_chunks(item)
         generation = task.task_id
@@ -3928,6 +3913,8 @@ class RememberPipeline(Revalidation):
     def commit_projection_metadata(
         self, ctx: TrustedContext, task: TaskRecord, item: MemorySnapshot, prepared: dict[str, Any]
     ) -> RunResult | None:
+        from .projection_dispatch import dispatch_projections, stage_dispatch_anchor
+
         targets = tuple(ProjectionTarget.model_validate(t) for t in prepared["targets"])
         descriptors = tuple(ChunkDescriptor.model_validate(d) for d in prepared["descriptors"])
         generation, dimensions = task.task_id, prepared["dimensions"]
@@ -3969,8 +3956,9 @@ class RememberPipeline(Revalidation):
                     projection_state=ProjectionState.READY,
                     model_space=self.model_space,
                 )
-                self.emit(tx, ctx, updated, "projection_ready")
-                return self.finish(
+                stage_dispatch_anchor(tx, ctx, task.task_id, item.ref)
+                self.emit(tx, ctx, updated, "projection_ready", defer_task_id=task.task_id)
+                result = self.finish(
                     tx,
                     ctx,
                     task,
@@ -3980,7 +3968,16 @@ class RememberPipeline(Revalidation):
                         "chunks": len(targets),
                     },
                 )
-        return None
+        if not valid:
+            return None
+        try:
+            dispatch_projections(self, source_task_id=task.task_id)
+        except FoundationError as error:
+            logging.getLogger(__name__).warning(
+                "Remember projection ready; event dispatch awaits recovery",
+                extra={"task_id": task.task_id, "reason_code": error.code.value},
+            )
+        return result
 
     async def discard_projection(
         self, ctx: TrustedContext, task: TaskRecord, targets: tuple[ProjectionTarget, ...]

@@ -236,7 +236,7 @@ class Review:
         )
 
 
-def test_automatic_reflection_creates_semantic_once_keeps_episodes(app, monkeypatch):
+def test_reflection_prototype_keeps_episodes_without_automatic_distill(app, monkeypatch):
     refs = [episode(app, f"Experiment {i}: retries must be bounded")[1] for i in range(3)]
     app.remember.extraction = Review()
     request = ReflectionRequest(
@@ -245,16 +245,17 @@ def test_automatic_reflection_creates_semantic_once_keeps_episodes(app, monkeypa
     ctx = context(app)
     first = app.remember.reflection.configure(ctx, request)
     assert app.remember.reflection.configure(ctx, request) == first
-    assert app.remember.reflection.periodic() == 1
+    assert first["status"] == "prototype_only"
+    assert app.remember.reflection.periodic() == 0
     assert app.remember.reflection.periodic() == 0
     drain(app)
     with app.foundation.uow.transaction() as tx:
         tasks = [
             r["record"] for _, r in tx.rows("tasks") if r["record"]["kind"] == "remember.distill"
         ]
-        assert len(tasks) == 1 and tasks[0]["state"] == "succeeded"
+        assert tasks == []
         all_items = [app.remember.current(tx, mid) for mid, _ in tx.rows("remember_current")]
-        assert len([i for i in all_items if i.kind == "semantic"]) == 1
+        assert not [i for i in all_items if i.kind == "semantic"]
     assert all(app.remember.get(context(app), r.memory_id).kind == "episodic" for r in refs)
     advance(app, monkeypatch, 25)
     assert app.remember.reflection.periodic() == 0
@@ -267,12 +268,12 @@ def test_reflection_independent_evidence_scope_and_missing_provider(app, monkeyp
     app.remember.reflection.configure(context(app), request)
     assert app.remember.reflection.periodic() == 0
     with app.foundation.uow.transaction() as tx:
-        assert tx.rows("remember_reflection_policies")[0][1]["status"] == "provider_unavailable"
+        assert tx.rows("remember_reflection_policies")[0][1]["status"] == "prototype_only"
     app.remember.extraction = Review()
     advance(app, monkeypatch, 25)
     assert app.remember.reflection.periodic() == 0
     with app.foundation.uow.transaction() as tx:
-        assert tx.rows("remember_reflection_policies")[0][1]["status"] == "waiting_evidence"
+        assert tx.rows("remember_reflection_policies")[0][1]["status"] == "prototype_only"
     with pytest.raises(FoundationError):
         app.remember.reflection.configure(
             context(app, "carol"),

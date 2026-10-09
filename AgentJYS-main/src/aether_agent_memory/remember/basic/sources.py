@@ -1,4 +1,8 @@
-"""Remember's authorized text-source reader; P2 owns parsing and physical range I/O."""
+"""Remember's authorized parsed-text reader and source-range identity checks.
+
+Document ingress parses verified original bytes; the body provider owns storage
+I/O. Range manifests describe parsed text, not PDF pages or model input chunks.
+"""
 
 import asyncio
 from typing import Any
@@ -24,10 +28,11 @@ from aether_agent_memory.runtime.foundation.requests import text_hash
 
 
 class PreparedDocument(BaseModel):
-    """Trusted P2/provider result. Original bytes and parsed text have separate identities.
+    """Verified document-ingress result; original bytes and parsed text have separate identities.
 
     acquire_text(ctx, DocumentInput) must authorize and verify the original object
-    before returning. Remember never runs PDF/DOCX parsers or arbitrary URL fetches.
+    before returning. The built-in Documents ingress parses supported PDF/DOCX/text
+    uploads; consolidation consumes verified text and does not fetch arbitrary URLs.
     A pending/failed parser must raise a typed dependency/input error, not empty text.
     """
 

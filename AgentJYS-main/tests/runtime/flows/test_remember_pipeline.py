@@ -3,11 +3,11 @@
 import asyncio
 
 import pytest
+from remember_candidate_support import configure_candidates
 from remember_helpers import app as app
 from remember_helpers import context, drain, facts, recall, save, source
 
 from aether_agent_memory.remember.basic.comparison import ComparisonDecision
-from aether_agent_memory.remember.basic.compression import CompressionOutput, QualityEvidence
 from aether_agent_memory.remember.basic.policy import RememberPolicy, chunks
 from aether_agent_memory.remember.basic.service import memory_ref
 from aether_agent_memory.remember.contracts.foundation import MemoryRecord, ProjectionManifest
@@ -150,7 +150,7 @@ def test_same_words_do_not_collapse_distinct_event_occurrences(app):
         assert tx.get(task.result_ref)["memories"][0] == expected
 
 
-def test_archive_working_preserves_fact_and_correction_blocks_archived_derivative(app):
+def test_archiving_and_deleting_working_leave_archived_long_term_fact_independent(app):
     receipt = save(app, "deployment failed")
     drain(app)
     fact = facts(app, receipt)[0]
@@ -166,25 +166,38 @@ def test_archive_working_preserves_fact_and_correction_blocks_archived_derivativ
         fact.memory_id,
         LifecycleRequest(expected_version=1, target="archived", reason="hide temporarily"),
     )
-    asyncio.run(
-        app.remember.correct_async(
-            context(app),
-            working.memory_id,
-            CorrectionRequest(
-                expected_version=1,
-                content="deployment succeeded",
-                source=source(),
-                reason="verified correction",
-            ),
+    with pytest.raises(FoundationError, match="Working originals are immutable"):
+        asyncio.run(
+            app.remember.correct_async(
+                context(app),
+                working.memory_id,
+                CorrectionRequest(
+                    expected_version=1,
+                    content="deployment succeeded",
+                    source=source(),
+                    reason="verified correction",
+                ),
+            )
         )
+    archived_fact = app.remember.get(context(app), fact.memory_id)
+    assert archived_fact.status == "archived" and archived_fact.ref == fact
+    original = app.remember.get(context(app), working.memory_id)
+    app.remember.delete(
+        context(app),
+        working.memory_id,
+        DeleteRequest(expected_revision=original.object_revision, reason="discard original record"),
     )
-    assert app.remember.get(context(app), fact.memory_id).status == "superseded"
-    with pytest.raises(FoundationError):
-        app.remember.lifecycle(
-            context(app),
-            fact.memory_id,
-            LifecycleRequest(expected_version=1, target="active", reason="restore stale fact"),
-        )
+    drain(app)
+    assert app.remember.get(context(app), fact.memory_id) == archived_fact
+    restored = app.remember.lifecycle(
+        context(app),
+        fact.memory_id,
+        LifecycleRequest(expected_version=1, target="active", reason="restore independent fact"),
+    )
+    assert restored.status == "active" and restored.ref == fact
+    assert restored.content == archived_fact.content
+    drain(app)
+    assert app.remember.get(context(app), fact.memory_id).projection_state == "ready"
 
 
 def test_request_timeout_does_not_become_background_deadline(app):
@@ -203,40 +216,36 @@ def test_request_timeout_does_not_become_background_deadline(app):
     assert task.deadline_at > later(ctx.deadline_at, 3600)
 
 
-@pytest.mark.parametrize(
-    "passed,ratio_ok,published", [(True, True, True), (True, False, True), (False, True, False)]
-)
-def test_compression_ratio_and_independent_quality_gate(app, passed, ratio_ok, published):
-    class Compressor:
-        async def compress(self, ctx, text):
-            return CompressionOutput(text="fact" if ratio_ok else text, strategy="test")
-
-    class Quality:
-        async def verify(self, ctx, original, compressed):
-            return QualityEvidence(
-                passed=passed,
-                policy="test",
-                reason="independent verification",
-                retained_fact_fraction=1 if passed else 0.5,
-            )
-
+@pytest.mark.parametrize("route", ["llmlingua", "direct"])
+def test_final_compression_metric_counts_long_term_not_intermediate_artifact(app, route):
+    fact = "Refund timeout is 30 seconds."
+    manager, processor = configure_candidates(app, fact)
     app.remember.policy = app.remember.policy.model_copy(
-        update={"compression_min_bytes": 10, "compression_quality_sample_rate": 1.0}
+        update={"compression_min_bytes": 10, "long_memory_route": route}
     )
-    app.remember.compressor, app.remember.quality = Compressor(), Quality()
-    receipt = save(app, "fact " * 50)
+    # Only 1X: retaining the fact is correct even though the observed 5X goal is missed.
+    receipt = save(app, fact)
     drain(app)
+    ref = receipt.memories[0]
     with app.foundation.uow.transaction() as tx:
-        artifact = tx.read("remember_artifacts", app.remember.refkey(receipt.memories[0]))
-    assert artifact["published"] is published
-    working = app.remember.get(context(app), receipt.memories[0].memory_id)
-    assert "全文请通过来源读取" in working.content
-    originals = asyncio.run(app.remember.source_access.originals(context(app), (working,)))
-    assert originals[0].content == "fact " * 50
-    assert facts(app, receipt)  # Compression rejection never blocks extraction.
+        pending = tx.read("remember_pending", ref.memory_id)
+        metric = tx.read("remember_consolidation_metrics", pending["task_id"])
+        assert pending["state"] == "processed"
+        assert metric["original_bytes"] == metric["long_term_bytes"] == len(fact.encode())
+        assert metric["compression_factor"] == 1
+        assert metric["target_met"] is False and metric["target_enforced"] is False
+        assert metric["long_input_count"] == 1
+        assert metric["per_working_memory"][0]["is_long_input"] is True
+        assert metric["per_working_memory"][0]["all_parts_complete"] is True
+    assert bool(processor.inputs) is (route == "llmlingua")
+    assert manager.extraction_inputs and manager.decision_inputs
+    assert app.remember.get(context(app), ref.memory_id).content == fact
+    assert facts(app, receipt)
 
 
-def test_p2_failure_never_returns_saved_and_verified_read_repairs_replica(app, monkeypatch):
+def test_p2_failure_never_returns_saved_and_authority_read_does_not_repair_replica(
+    app, monkeypatch
+):
     bodies = app.remember.bodies
     transport = bodies.p2.transport.client
 
@@ -261,7 +270,7 @@ def test_p2_failure_never_returns_saved_and_verified_read_repairs_replica(app, m
     body = asyncio.run(app.remember.read_body(context(app), receipt.memories[0]))
     assert body.outcome == "read" and body.content == "P2 original" and body.path == "authority"
     drain(app)
-    assert cache.raw_sync(record.ref.scope, record.body_location.content_hash) == b"P2 original"
+    assert cache.raw_sync(record.ref.scope, record.body_location.content_hash) == b"corrupt"
 
 
 def test_redis_full_body_quota_hash_and_delete(app, azure_redis):
@@ -420,6 +429,17 @@ def test_partial_batch_invalidation_reschedules_valid_input(app):
     drain(app)
     with app.foundation.uow.transaction() as tx:
         pending = tx.read("remember_pending", second.memories[0].memory_id)
+        assert pending["state"] == "pending"
+        assert pending["reschedule_operation_id"]
+        previous_task = pending["task_id"]
+    # The seeded task driver does not run the service's periodic controller.
+    # Retry only after the obsolete batch's terminal record is durable.
+    assert app.remember.periodic() == 1
+    drain(app)
+    with app.foundation.uow.transaction() as tx:
+        pending = tx.read("remember_pending", second.memories[0].memory_id)
+        assert pending["task_id"] != previous_task
+        assert tx.read("remember_pending", first.memories[0].memory_id)["state"] == "obsolete"
     assert pending["state"] == "processed"
     assert recall(app, query="second event").groups
 
@@ -443,32 +463,15 @@ def test_batch_model_inputs_are_bounded_and_evidence_offsets_stay_original(app):
     assert facts(app, receipt) == []
 
 
-def test_qualified_artifact_used_with_original_fallback(app):
-    class Batch:
-        supports_representations = True
-        saw_summary = False
-        saw_original = False
-
-        def __init__(self, fail_summary):
-            self.fail_summary = fail_summary
-
-        async def extract_batch(self, ctx, items, policy_version, representations=None):
-            if representations:
-                self.saw_summary = True
-                if self.fail_summary:
-                    raise ValueError("summary lacks exact original quote")
-            else:
-                self.saw_original = True
-            return ExtractionResult(
-                candidates=(), model_id="summary", policy_version=policy_version
-            )
-
-    receipt = save(app, "original fact " * 30)
+def test_legacy_artifact_cannot_replace_current_original_or_enable_fallback(app):
+    manager, processor = configure_candidates(app, "original fact")
+    text = "original fact\n" * 30
+    receipt = save(app, text)
     drain(app)
     item = app.remember.get(context(app), receipt.memories[0].memory_id)
-    location = asyncio.run(
-        app.remember.bodies.persist(context(app), item.ref.scope, "original fact")
-    )
+    location = asyncio.run(app.remember.bodies.persist(context(app), item.ref.scope, "unrelated"))
+    # Historical persisted data remains readable for old task recovery, but it
+    # must not become input to a newly requested consolidation.
     with app.foundation.uow.transaction() as tx:
         tx.write(
             "remember_artifacts",
@@ -481,10 +484,16 @@ def test_qualified_artifact_used_with_original_fallback(app):
                 ),
             },
         )
-    for fail in (False, True):
-        provider = Batch(fail)
-        app.remember.extraction = provider
-        task = app.remember.reprocess(context(app), item.ref.memory_id)
-        drain(app)
-        assert app.foundation.diagnostics.task(context(app), task).state == "succeeded"
-        assert provider.saw_summary and provider.saw_original == fail
+    manager.extraction_inputs.clear()
+    task = app.remember.reprocess(context(app), item.ref.memory_id)
+    drain(app)
+    assert app.foundation.diagnostics.task(context(app), task).state == "succeeded"
+    seen = [
+        fragment["text"]
+        for call in manager.extraction_inputs
+        for source in call["sources"]
+        for fragment in source["fragments"]
+    ]
+    assert seen and all("unrelated" not in value for value in seen)
+    assert "".join(seen) == text
+    assert not processor.inputs  # A short Working never enters LLMLingua.

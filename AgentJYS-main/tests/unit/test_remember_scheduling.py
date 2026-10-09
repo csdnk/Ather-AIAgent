@@ -33,7 +33,8 @@ def scheduler():
     owner.current = lambda _, key: SimpleNamespace(
         ref=MemoryRef.model_validate(tx.read("remember_pending", key)["ref"])
     )
-    owner.enqueue = lambda *args: "task-1"
+    task_ids = iter(f"task-{i}" for i in range(1, 100))
+    owner.enqueue = lambda *args: next(task_ids)
     scope = Scope(tenant_id="t", application_id="app", user_id="u", agent_id="a", session_id="s")
     return owner, tx, scope
 
@@ -98,6 +99,96 @@ def test_unprocessed_adjacent_message_blocks_reaching_older_context():
     add(tx, scope, "new", size=8000)
     owner.schedule(tx, None, scope)
     assert tx.read("remember_batches", "task-1")["context_refs"] == []
+
+
+def batch_ids(tx):
+    return [[ref["memory_id"] for ref in row["refs"]] for _, row in tx.rows("remember_batches")]
+
+
+def test_arriving_long_message_does_not_consume_pending_short_backlog():
+    owner, tx, scope = scheduler()
+    add(tx, scope, "short", size=7000, at="2026-10-07T01:58:00Z")
+    add(tx, scope, "long", size=8000)
+
+    assert owner.schedule(tx, None, scope) == ("task-1",)
+    assert batch_ids(tx) == [["long"]]
+    assert tx.read("remember_pending", "short")["state"] == "pending"
+
+
+@pytest.mark.parametrize("force", [False, True])
+def test_each_long_message_has_its_own_task_even_with_larger_batch_threshold(force):
+    owner, tx, scope = scheduler()
+    owner.policy = owner.policy.model_copy(update={"consolidation_bytes": 32000})
+    add(tx, scope, "long-a", size=8000)
+    add(tx, scope, "long-b", size=9000)
+
+    assert owner.schedule(tx, None, scope, force=force) == ("task-1", "task-2")
+    assert batch_ids(tx) == [["long-a"], ["long-b"]]
+    assert owner.schedule(tx, None, scope, force=force) == ()
+
+
+@pytest.mark.parametrize(
+    "force,at", [(True, "2026-10-07T01:59:00Z"), (False, "2026-10-07T01:00:00Z")]
+)
+def test_force_or_age_schedules_short_messages_separately_from_long(force, at):
+    owner, tx, scope = scheduler()
+    add(tx, scope, "short", size=2000, at=at)
+    add(tx, scope, "long", size=8000)
+
+    assert len(owner.schedule(tx, None, scope, force=force)) == 2
+    assert sorted(batch_ids(tx)) == [["long"], ["short"]]
+
+
+def test_short_batch_crosses_aggregate_threshold_without_taking_long_message():
+    owner, tx, scope = scheduler()
+    add(tx, scope, "short-a", size=4000, at="2026-10-07T01:57:00Z")
+    add(tx, scope, "long", size=8000, at="2026-10-07T01:58:00Z")
+    add(tx, scope, "short-b", size=4000)
+    add(tx, scope, "tail", size=1)
+
+    assert len(owner.schedule(tx, None, scope)) == 2
+    assert sorted(batch_ids(tx)) == [["long"], ["short-a", "short-b"]]
+    assert tx.read("remember_pending", "tail")["state"] == "pending"
+
+
+def test_short_byte_trigger_does_not_redefine_which_messages_are_long():
+    owner, tx, scope = scheduler()
+    owner.policy = owner.policy.model_copy(update={"consolidation_bytes": 1000})
+    add(tx, scope, "short-a", size=600)
+    add(tx, scope, "short-b", size=600)
+
+    assert owner.schedule(tx, None, scope) == ("task-1",)
+    assert batch_ids(tx) == [["short-a", "short-b"]]
+
+
+@pytest.mark.parametrize("count", [31, 32])
+def test_long_message_does_not_count_towards_short_message_trigger(count):
+    owner, tx, scope = scheduler()
+    for i in range(count):
+        add(tx, scope, f"short-{i:02}")
+    add(tx, scope, "long", size=8000)
+
+    tasks = owner.schedule(tx, None, scope)
+    assert len(tasks) == (2 if count == 32 else 1)
+    assert batch_ids(tx)[0] == ["long"]
+    expected_state = "scheduled" if count == 32 else "pending"
+    assert all(
+        tx.read("remember_pending", f"short-{i:02}")["state"] == expected_state
+        for i in range(count)
+    )
+
+
+def test_new_long_task_does_not_steal_an_unresolved_historical_task():
+    owner, tx, scope = scheduler()
+    add(tx, scope, "busy", size=8000)
+    row = tx.read("remember_pending", "busy")
+    tx.write("remember_pending", "busy", {**row, "task_id": "in-flight"})
+    tx.write("tasks", "in-flight", {"record": {"state": "running", "effect_status": "unknown"}})
+    add(tx, scope, "new", size=8000)
+
+    assert owner.schedule(tx, None, scope, force=True) == ("task-1",)
+    assert batch_ids(tx) == [["new"]]
+    assert tx.read("remember_pending", "busy")["task_id"] == "in-flight"
 
 
 @pytest.mark.parametrize(

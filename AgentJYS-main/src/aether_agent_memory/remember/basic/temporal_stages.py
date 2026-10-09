@@ -279,6 +279,26 @@ class SaveStages:
 
 
 class CorrectionStages(SaveStages):
+    async def authorize_target(self) -> None:
+        # A task prepared by an older deployment can resume directly in persist
+        # or reconciliation. Validate the original kind before either path can
+        # upload/replay a body; checking only prepare/commit is too late.
+        payload = await self.payload()
+        await asyncio.to_thread(
+            self.remember.prepare_correction,
+            StageContext.current().context,
+            payload["memory_id"],
+            CorrectionRequest.model_validate(payload["request"]),
+        )
+
+    async def persist(self, step: StepRequest) -> StepResult:
+        await self.authorize_target()
+        return await super().persist(step)
+
+    async def reconcile_persist(self, step: StepRequest) -> StepResult:
+        await self.authorize_target()
+        return await super().reconcile_persist(step)
+
     async def prepare(self, step: StepRequest) -> StepResult:
         payload = await self.payload()
         prepared = await asyncio.to_thread(
@@ -317,10 +337,9 @@ class CorrectionStages(SaveStages):
         )
 
     async def admit_cache(self, step: StepRequest) -> StepResult:
-        from aether_agent_memory.remember.contracts.models import RememberReceipt
-
-        receipt = RememberReceipt.model_validate(await asyncio.to_thread(self.load, "receipt"))
-        await self.remember.admit_correction_cache(StageContext.current().context, receipt)
+        # Preserve the terminal stage name for persisted Temporal plans. Corrections
+        # now affect only long-term bodies, whose placement remains Operate-owned.
+        # A historical Working receipt must never reheat or republish its old body.
         return StepResult(
             outcome="done",
             result_ref=self.ref("receipt"),

@@ -1,17 +1,17 @@
 """Real Azure stores and isolated resources, with deterministic model fault fixtures."""
 
 import asyncio
+import json
 
 import pytest
+from remember_candidate_support import configure_candidates
 from remember_helpers import app as app
 from remember_helpers import context, drain, recall, source
 
 from aether_agent_memory.remember.basic.service import memory_ref
 from aether_agent_memory.remember.basic.sources import PreparedDocument
-from aether_agent_memory.remember.basic.summaries import ExtractiveSummary
 from aether_agent_memory.remember.contracts.models import (
     CandidateFact,
-    CorrectionRequest,
     DeleteRequest,
     DocumentInput,
     ExtractionResult,
@@ -47,14 +47,15 @@ class FactsFromOriginal:
 
 
 def configure(app, extractor=None):
+    # Small pages exercise cross-page ranges; this is a fixture, not a new
+    # production chunking recommendation. Force extraction for short test inputs.
     app.remember.policy = app.remember.policy.model_copy(
-        update={
-            "working_summary_min_bytes": 512,
-            "working_summary_max_chars": 256,
-            "source_page_chars": 256,
-        }
+        update={"source_page_chars": 256, "consolidation_messages": 1}
     )
-    app.remember.extraction = extractor or FactsFromOriginal()
+    manager, processor = configure_candidates(app, "Refund timeout is 30 seconds.")
+    if extractor is not None:
+        app.remember.extraction = extractor  # Explicit legacy reflection prototype fixture.
+    return manager, processor
 
 
 def save_long(app, text=None, request=None, operation=None):
@@ -81,26 +82,18 @@ def durable(app):
         ]
 
 
-def test_save_does_not_wait_for_summary_original_immediately_readable(app):
-    configure(app)
-
-    class NeverCalled:
-        async def select(self, *args):
-            raise AssertionError("save must not call a model")
-
-    app.remember.summaries.provider = NeverCalled()
+def test_save_does_not_wait_for_models_and_original_is_immediately_readable(app):
+    manager, processor = configure(app)
     receipt, text, _ = save_long(app)
     working = app.remember.get(context(app), receipt.memories[0].memory_id)
-    assert working.status == "active" and working.content != text
-    assert "Review the refund timeout" in working.content
-    assert working.content_hash != receipt.source.content_hash == text_hash(text)
+    assert working.status == "active" and working.content == text
+    assert working.content_hash == receipt.source.content_hash == text_hash(text)
     read = asyncio.run(app.remember.read_source(context(app), receipt.source, len(text) - 28))
     assert read["content"] == text[-28:] and read["is_complete"] is False
-    assert (
-        app.remember.processing(context(app), working.ref.memory_id)["working_summary"]["state"]
-        == "pending"
-    )
+    assert not manager.extraction_inputs and not processor.inputs
     assert durable(app) == []
+    with app.foundation.uow.transaction() as tx:
+        assert tx.read("remember_working_summaries", working.ref.memory_id) is None
 
 
 @pytest.mark.parametrize(
@@ -111,57 +104,40 @@ def test_save_does_not_wait_for_summary_original_immediately_readable(app):
         ("All migrations require approval.", "semantic"),
     ],
 )
-def test_summary_version_and_long_term_evidence_use_original(app, fact, kind):
-    extraction = FactsFromOriginal(fact, kind)
-    configure(app, extraction)
+def test_consolidation_preserves_working_version_and_original_evidence(app, fact, kind):
+    configure(app)
+    manager, _ = configure_candidates(app, fact, kind)
     text = "Context details unrelated to the final fact.\n" * 35 + fact
     receipt, _, _ = save_long(app, text)
     original_created = app.remember.get(context(app), receipt.memories[0].memory_id).created_at
     drain(app)
     working = app.remember.get(context(app), receipt.memories[0].memory_id)
-    assert working.ref.version == 2 and working.supersedes == receipt.memories[0]
-    assert working.created_at == original_created
-    assert len(working.content) < len(text)
-    assert any(fact in value for value in extraction.inputs)
+    assert working.ref.version == 1 and working.supersedes is None
+    assert working.created_at == original_created and working.content == text
+    assert manager.extraction_inputs and manager.decision_inputs
     memories = durable(app)
-    assert len(memories) == 1 and memories[0].content == fact
+    assert len(memories) == 1 and memories[0].content == fact and memories[0].kind == kind
     assert memories[0].projection_state == "ready"
     assert recall(app, query=fact).outcome == "available"
     with app.foundation.uow.transaction() as tx:
         old = tx.get(memory_ref(receipt.memories[0], versioned=True))
-        assert old["status"] == "superseded"
+        assert old["status"] == "active"
         relation = tx.read("remember_relations", memories[0].ref.memory_id)
         evidence = relation["evidence"][0]
-        assert text[evidence["start_char"] : evidence["end_char"]] == fact
-    details = app.remember.processing(context(app), working.ref.memory_id)
-    assert details["working_summary"]["state"] == "ready"
-    assert details["working_summary"]["is_complete"] is False
+        assert fact in text[evidence["start_char"] : evidence["end_char"]]
+        assert tx.read("remember_working_summaries", working.ref.memory_id) is None
 
 
-def test_summary_failure_falls_back_to_original_and_can_retry_without_duplicates(app):
+def test_reprocess_reuses_equivalent_fact_without_replacing_working(app):
     configure(app)
-
-    class Hallucinating:
-        calls = 0
-
-        async def select(self, *args):
-            self.calls += 1
-            return ("An invented requirement absent from the source.",)
-
-    provider = Hallucinating()
-    app.remember.summaries.provider = provider
-    receipt, _, _ = save_long(app)
+    receipt, text, _ = save_long(app)
     drain(app)
-    info = app.remember.processing(context(app), receipt.memories[0].memory_id)
-    assert provider.calls == 3
-    assert info["working_summary"]["state"] == "failed"
-    assert info["state"] == "completed_with_summary_failure"
-    assert len(durable(app)) == 1
-    app.remember.summaries.provider = ExtractiveSummary()
+    first = durable(app)[0].ref
     app.remember.reprocess(context(app), receipt.memories[0].memory_id)
     drain(app)
-    assert app.remember.get(context(app), receipt.memories[0].memory_id).ref.version == 2
-    assert len(durable(app)) == 1
+    assert [item.ref for item in durable(app)] == [first]
+    working = app.remember.get(context(app), receipt.memories[0].memory_id)
+    assert working.ref.version == 1 and working.content == text
 
 
 def test_real_unicode_range_does_not_load_whole_object_and_checks_hash(app, monkeypatch):
@@ -226,59 +202,52 @@ def test_source_read_scope_version_budget_and_revoke_during_read(app, monkeypatc
     assert exc.value.code == "MEMORY_GONE"
 
 
-def test_correction_while_summary_runs_cannot_overwrite_new_source(app):
-    configure(app)
-    new_text = "Updated architecture.\n" * 40 + "Refund timeout is 60 seconds."
+def test_deletion_during_stage_two_cannot_publish_already_extracted_candidates(app, monkeypatch):
+    manager, _ = configure(app)
+    original = manager.ainvoke
+    deleted = []
 
-    class CorrectDuringModel:
-        changed = False
-
-        async def select(self, ctx, text, task_context, max_chars):
-            if not self.changed:
-                self.changed = True
-                item = app.remember.get(context(app), receipt.memories[0].memory_id)
-                await app.remember.correct_async(
-                    context(app),
-                    item.ref.memory_id,
-                    CorrectionRequest(
-                        expected_version=item.ref.version,
-                        content=new_text,
-                        source=source("revision"),
-                        reason="correct file",
-                    ),
-                )
-            return (text[: min(80, max_chars)],)
-
-    app.remember.summaries.provider = CorrectDuringModel()
-    receipt, _, _ = save_long(app)
-    drain(app)
-    item = app.remember.get(context(app), receipt.memories[0].memory_id)
-    assert item.ref.version == 3  # correction v2, its own summary v3
-    assert item.sources[0] != receipt.source
-    assert "Updated architecture" in item.content
-    info = app.remember.processing(context(app), item.ref.memory_id)
-    assert info["working_summary"]["memory"] == item.ref.model_dump(mode="json")
-    assert info["working_summary"]["source"] == item.sources[0].model_dump(mode="json")
-
-
-def test_delete_during_summary_prevents_publication(app):
-    configure(app)
-
-    class DeleteDuringModel:
-        deleted = False
-
-        async def select(self, ctx, text, task_context, max_chars):
-            if not self.deleted:
-                self.deleted = True
-                item = app.remember.get(context(app), receipt.memories[0].memory_id)
+    async def delete_after_decision(payload, **kwargs):
+        result = await original(payload, **kwargs)
+        if "candidates" in json.loads(payload["messages"][0]["content"]) and not deleted:
+            item = app.remember.get(context(app), receipt.memories[0].memory_id)
+            deleted.append(
                 app.remember.delete(
                     context(app),
                     item.ref.memory_id,
-                    DeleteRequest(expected_revision=item.object_revision, reason="delete"),
+                    DeleteRequest(
+                        expected_revision=item.object_revision, reason="delete during decision"
+                    ),
                 )
-            return (text[:80],)
+            )
+        return result
 
-    app.remember.summaries.provider = DeleteDuringModel()
+    monkeypatch.setattr(manager, "ainvoke", delete_after_decision)
+    receipt, _, _ = save_long(app)
+    drain(app)
+    assert deleted and manager.extraction_inputs and manager.decision_inputs
+    with app.foundation.uow.transaction() as tx:
+        ref = receipt.memories[0]
+        row = tx.get(memory_ref(ref, versioned=True))
+        assert row["status"] == "deleted" and row["ref"]["version"] == ref.version
+        assert tx.read("remember_pending", ref.memory_id)["state"] == "obsolete"
+        assert tx.read("remember_sources", receipt.source.source_id)["valid"]
+    assert durable(app) == []
+
+
+def test_delete_during_extraction_prevents_publication(app):
+    manager, _ = configure(app)
+
+    async def delete_during_model():
+        manager.before_extract = None
+        item = app.remember.get(context(app), receipt.memories[0].memory_id)
+        app.remember.delete(
+            context(app),
+            item.ref.memory_id,
+            DeleteRequest(expected_revision=item.object_revision, reason="delete"),
+        )
+
+    manager.before_extract = delete_during_model
     receipt, _, _ = save_long(app)
     drain(app)
     with app.foundation.uow.transaction() as tx:
@@ -287,7 +256,7 @@ def test_delete_during_summary_prevents_publication(app):
     assert durable(app) == []
 
 
-def test_summary_redis_eviction_and_working_archive_do_not_erase_source_or_es(app):
+def test_original_cache_eviction_and_working_archive_preserve_source_and_long_term(app):
     configure(app)
 
     async def scenario():
@@ -306,7 +275,7 @@ def test_summary_redis_eviction_and_working_archive_do_not_erase_source_or_es(ap
         )
         assert (
             await app.remember.bodies.cache.get(initial.ref.scope, receipt.source.content_hash)
-            is None
+            == initial.content
         )
         # This multi-stage integration asserts convergence, not the host's 12s default wait.
         await app.drain(timeout_seconds=60)
@@ -364,7 +333,7 @@ def test_prepared_file_separates_original_file_hash_from_parsed_text(app):
     assert len(durable(app)) == 1
 
 
-def test_source_http_requires_authorization_and_returns_original_not_summary(app):
+def test_source_http_requires_authorization_and_returns_exact_original_range(app):
     from fastapi.testclient import TestClient
 
     from aether_agent_memory.runtime.flows.http import create_app
@@ -408,36 +377,17 @@ def test_task_context_changes_are_idempotency_conflicts(app):
     assert exc.value.code == "IDEMPOTENCY_CONFLICT"
 
 
-def test_summary_timeout_is_bounded_and_source_read_does_not_reinforce(app):
-    configure(app)
-    app.remember.policy = app.remember.policy.model_copy(
-        update={"summary_call_timeout_seconds": 0.01}
-    )
-
-    class Slow:
-        calls = 0
-
-        async def select(self, *args):
-            self.calls += 1
-            await asyncio.sleep(10)
-            return ()
-
-    slow = Slow()
-    app.remember.summaries.provider = slow
+def test_source_read_does_not_reinforce_or_call_extraction_model(app):
+    manager, _ = configure(app)
     receipt, _, _ = save_long(app)
     before = app.remember.retention.read(context(app), receipt.memories[0].memory_id)["retention"]
     asyncio.run(app.remember.read_source(context(app), receipt.source, 0, 20))
     after = app.remember.retention.read(context(app), receipt.memories[0].memory_id)["retention"]
     assert before["anchor_hour"] == after["anchor_hour"]
     assert before["reinforcements"] == after["reinforcements"] == 0
+    assert not manager.extraction_inputs
     drain(app)
-    assert slow.calls == 3 and len(durable(app)) == 1
-    assert (
-        app.remember.processing(context(app), receipt.memories[0].memory_id)["working_summary"][
-            "state"
-        ]
-        == "failed"
-    )
+    assert len(durable(app)) == 1
 
 
 def test_original_based_episodic_to_semantic_reflection(app):
@@ -519,7 +469,7 @@ def test_replayed_old_save_without_optional_task_context_still_matches(app):
     assert asyncio.run(app.remember.save(ctx, request)) == first
 
 
-def test_summary_preserves_retention_policy_and_does_not_reset_decay(app):
+def test_consolidation_preserves_working_retention_policy_and_decay(app):
     from aether_agent_memory.remember.contracts.models import RetentionRequest
 
     configure(app)
@@ -539,26 +489,27 @@ def test_summary_preserves_retention_policy_and_does_not_reset_decay(app):
     )
     drain(app)
     after = app.remember.retention.read(context(app), item.ref.memory_id)
-    assert after["memory"]["version"] == after["policy"]["version"] == 2
+    assert after["memory"]["version"] == after["policy"]["version"] == 1
     assert after["policy"]["legal_hold"] and after["policy"]["enabled"]
     assert after["retention"]["anchor_hour"] == before["anchor_hour"]
     assert after["retention"]["reinforcements"] == 0
 
 
-def test_missing_document_extractor_does_not_turn_file_into_giant_episode(app):
-    from aether_agent_memory.remember.basic.extraction import LiteralExtraction
+def test_extraction_failure_does_not_publish_or_consume_working(app):
+    manager, _ = configure(app)
 
-    configure(app, LiteralExtraction())
-    receipt, _, _ = save_long(app)
+    async def unavailable():
+        raise ValueError("controlled extraction provider failure")
+
+    manager.before_extract = unavailable
+    receipt, text, _ = save_long(app)
     drain(app)
-    info = app.remember.processing(context(app), receipt.memories[0].memory_id)
-    assert info["working_summary"]["state"] == "ready"
-    assert info["state"] == "awaiting_extraction_provider"
+    with app.foundation.uow.transaction() as tx:
+        pending = tx.read("remember_pending", receipt.memories[0].memory_id)
+        assert pending["state"] != "processed"
     assert durable(app) == []
-    app.remember.extraction = FactsFromOriginal()
+    assert app.remember.get(context(app), receipt.memories[0].memory_id).content == text
+    manager.before_extract = None
     app.remember.reprocess(context(app), receipt.memories[0].memory_id)
     drain(app)
     assert len(durable(app)) == 1
-    assert (
-        app.remember.processing(context(app), receipt.memories[0].memory_id)["state"] == "completed"
-    )
