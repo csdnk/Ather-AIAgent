@@ -48,8 +48,8 @@ class F4Actor(ContractModel):
         return self
 
 
-class F4Case(ContractModel):
-    """Maintainer-prepared data; never invent a memory-ID override route."""
+class F4CaseData(ContractModel):
+    """Shared deployment and maintained F4 fixture bindings."""
 
     run_id: Identifier
     request: RecallRequest
@@ -63,6 +63,10 @@ class F4Case(ContractModel):
     backend_binding: Digest
     model_binding: Digest
     model_space: Identifier
+
+
+class F4Case(F4CaseData):
+    """Maintainer-prepared same-ID tenant data; no memory-ID override route."""
 
     @model_validator(mode="after")
     def same_named_identifiers(self) -> "F4Case":
@@ -121,6 +125,7 @@ def load_stage_observation(
     path: Path,
     job_id: str,
     timeout: float = 10,
+    observation_type: type[F4StageObservation] = F4StageObservation,
 ) -> F4StageObservation:
     """Poll an exporter receipt for this job; never reuse a different execution."""
     deadline = time.monotonic() + timeout
@@ -131,7 +136,7 @@ def load_stage_observation(
             matched = [row for row in rows if row.get("job_id") == job_id]
             assert len(matched) <= 1, "duplicate maintenance observations for original job"
             if matched:
-                return F4StageObservation.model_validate(matched[0])
+                return observation_type.model_validate(matched[0])
         if time.monotonic() >= deadline:
             raise RuntimeError("blocked_fixture: authorized stage receipt for original job missing")
         time.sleep(min(0.05, max(0, deadline - time.monotonic())))
@@ -139,7 +144,7 @@ def load_stage_observation(
 
 def assert_stage_isolation(
     observation: F4StageObservation,
-    case: F4Case,
+    case: F4CaseData,
     actor: F4Actor,
     operation_id: str,
     job_id: str,
