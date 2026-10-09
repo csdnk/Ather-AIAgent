@@ -177,7 +177,12 @@ class RecallHTTP:
                 "X-Operation-ID": operation_id,
             },
         )
-        assert response.status_code in {200, 202}, "command not accepted"
+        # Current P3 maps PendingOperationError to 400 with the original job
+        # headers; it is a continuation receipt, never authorization success.
+        pending = (
+            response.status_code == 400 and response.json().get("code") == "REQUEST_IN_PROGRESS"
+        )
+        assert response.status_code in {200, 202} or pending, "command not accepted"
         location = response.headers.get("Location", "")
         job_id = response.headers.get("X-P3-Job-ID") or location.removeprefix("/p3/operations/")
         assert job_id and "/" not in job_id, "original job binding missing"

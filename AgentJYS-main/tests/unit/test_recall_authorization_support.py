@@ -17,6 +17,32 @@ def test_original_job_failure_is_observed_without_resubmission():
         assert harness.poll_job("original")["error_code"] == "FORBIDDEN"
 
 
+def test_current_p3_pending_response_recovers_original_job_without_reposting():
+    methods = []
+
+    def peer(request):
+        methods.append(request.method)
+        if request.method == "POST":
+            return httpx.Response(
+                400,
+                json={"code": "REQUEST_IN_PROGRESS"},
+                headers={
+                    "Location": "/p3/operations/original",
+                    "X-P3-Job-ID": "original",
+                },
+            )
+        if request.url.path.endswith("/result"):
+            return httpx.Response(200, json={"recall_id": "original"})
+        return httpx.Response(200, json={"state": "succeeded"})
+
+    with httpx.Client(transport=httpx.MockTransport(peer), base_url="http://target") as client:
+        assert RecallHTTP(client, "maintainer").command("/p3/recall", {}, "op", "reader") == (
+            {"recall_id": "original"},
+            "original",
+        )
+    assert methods == ["POST", "GET", "GET"]
+
+
 def test_nonterminal_original_job_times_out_instead_of_passing():
     with (
         httpx.Client(
