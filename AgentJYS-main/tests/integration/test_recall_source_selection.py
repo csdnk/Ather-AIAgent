@@ -621,20 +621,7 @@ def test_rc_src_06_explicit_working_no_fallback(client):
 # ============================================================================
 
 
-@pytest.mark.sources
-@pytest.mark.p1
-def test_rc_src_10_single_source_failure_degrades(client):
-    """RC-SRC-10: Single source failure in both-mode returns successful source.
-
-    Validates:
-    - With degradation policy, one source failure returns other source
-    - Results marked as degraded with reason
-    - Coverage shows successful and failed sources
-    - Degradation doesn't return unauthorized content
-
-    Note: Requires ability to inject source failures.
-    """
-    pytest.skip("Requires source failure injection capability")
+# test_rc_src_10_single_source_failure_degrades is implemented in test_recall_source_failure.py.
 
 
 # ============================================================================
@@ -683,60 +670,7 @@ def test_rc_src_12_all_vector_sources_unavailable(client):
 # ============================================================================
 
 
-@pytest.mark.sources
-@pytest.mark.p1
-def test_rc_src_13_normal_empty_vs_degraded_empty(client):
-    """RC-SRC-13: Normal empty is distinguished from degraded empty.
-
-    Validates:
-    - Normal empty: all sources searched successfully, no matches
-    - Degraded empty: some sources failed, no matches from successful sources
-    - Coverage status accurately reflects difference
-    - Monitoring can distinguish health states
-    """
-    # Setup: Create memories that won't match the query
-    session_id = f"session-{uuid4().hex}"
-
-    create_working_memory(
-        client,
-        text="Information about tea preferences",
-        session_id=session_id,
-        user="alice"
-    )
-
-    create_longterm_memory(
-        client,
-        text="Historical data about tea cultivation",
-        user="alice"
-    )
-
-    # Submit recall with non-matching query
-    recall_request = make_recall_request(
-        query="quantum physics and relativity theory",
-        sources="both",
-        selection={"session_id": session_id}
-    )
-
-    response = client.post("/p3/recall", json=recall_request, headers=headers(user="alice"))
-    assert response.status_code in SUCCESS_CODES, f"Recall request failed: {response.text}"
-
-    job_id = response.json()["job_id"]
-    operation = poll_operation_until_complete(client, job_id, user="alice")
-
-    result = operation["result"]
-
-    # Verify normal empty (all sources searched, no matches)
-    assert result.get("selected_sources") == "both", "Both sources should have been selected"
-    assert len(result.get("items", [])) == 0, "Should have no matching items"
-
-    # Verify NOT marked as degraded
-    assert not result.get("degraded", False), "Normal empty should not be marked degraded"
-
-    # Verify coverage shows both sources completed successfully
-    if "coverage" in result:
-        # Both sources should show as searched (exact status depends on implementation)
-        assert "working" in result["coverage"], "Coverage should include working source"
-        assert "long_term" in result["coverage"], "Coverage should include long_term source"
+# test_rc_src_13_normal_empty_vs_degraded_empty is implemented in test_recall_source_failure.py.
 
 
 # ============================================================================

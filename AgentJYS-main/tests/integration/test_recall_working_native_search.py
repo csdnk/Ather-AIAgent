@@ -150,6 +150,18 @@ def working_target(request, tmp_path, monkeypatch):
                 },
             }
         )
+    if options.get("foreign_owner"):
+        identities.append(
+            {
+                "credential_sha256": sha256(b"foreign-owner").hexdigest(),
+                "principal": {
+                    "principal_id": "foreign-owner",
+                    "home_scope": {**home, "user_id": "other-user"},
+                    "permissions": [p.value for p in Permission],
+                    "auth_epoch": 1,
+                },
+            }
+        )
     identity.write_text(
         yaml.safe_dump(
             {
