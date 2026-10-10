@@ -637,20 +637,7 @@ def test_rc_src_06_explicit_working_no_fallback(client):
 # ============================================================================
 
 
-@pytest.mark.sources
-@pytest.mark.p0
-def test_rc_src_12_all_vector_sources_unavailable(client):
-    """RC-SRC-12: Complete vector source unavailability fails clearly.
-
-    Validates:
-    - All sources unavailable fails with clear error
-    - No fallback to keyword search
-    - Body availability doesn't mask vector failure
-    - Failure mode is explicit
-
-    Note: Requires ability to inject vector database failures.
-    """
-    pytest.skip("Requires vector database failure injection capability")
+# RC-SRC-12 is implemented in test_recall_all_vectors_unavailable.py.
 
 
 # ============================================================================
