@@ -607,50 +607,8 @@ def test_rc_src_06_explicit_working_no_fallback(client):
 
 
 # ============================================================================
-# RC-SRC-07: Pending index status reported correctly
-# ============================================================================
-
-
-@pytest.mark.sources
-@pytest.mark.p1
-@pytest.mark.skip(reason="Blocked by Q09: Coverage policy for pending state not finalized")
-def test_rc_src_07_pending_index_status(client):
-    """RC-SRC-07: Pending index status is reported and distinguished from empty.
-
-    Validates:
-    - Pending indexing state is reported in coverage
-    - Pending is distinguished from legitimate empty
-    - No fallback to body listing during pending
-    - Original indexing job reference is included
-
-    Note: Test implementation pending Q09 clarification on pending behavior.
-    """
-    # Implementation requires ability to pause/control indexing pipeline
-    # Will be implemented once Q09 (coverage policy) is clarified
-    pass
-
-
-# ============================================================================
-# RC-SRC-08: Failed index status reported correctly
-# ============================================================================
-
-
-@pytest.mark.sources
-@pytest.mark.p1
-def test_rc_src_08_failed_index_status(client):
-    """RC-SRC-08: Failed index status is reported with failure reason.
-
-    Validates:
-    - Failed indexing state is reported in coverage
-    - Failure reason is included
-    - Distinguished from pending and empty states
-    - No fallback to keyword search
-
-    Note: Requires injectable failure in indexing pipeline.
-    """
-    # Setup: This test requires infrastructure to inject indexing failures
-    # For now, we document the expected behavior
-    pytest.skip("Requires indexing failure injection capability")
+# RC-SRC-07,08 are implemented at P0 in test_recall_projection_states.py.
+# Q09 restricts only wait duration/terminal policy, never the whole scenario.
 
 
 # ============================================================================
