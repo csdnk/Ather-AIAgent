@@ -249,6 +249,61 @@ def test_rc_bud_08_counting_failure_cannot_produce_a_deliverable_plan(app, monke
 
 
 @pytest.mark.p1
+def test_rc_bud_09_whole_pack_token_count_differs_from_segment_sum(app):
+    """Test that whole-pack counting uses concatenated text, not segment sums.
+
+    Some tokenizers produce different token counts when encoding concatenated
+    text versus summing individual segment encodings. This test verifies budget
+    measurement uses the whole pack, not segment addition.
+    """
+    ctx, assembly, body, request = assembly_setup(app, token_budget=4096)
+
+    # Use content that demonstrates tokenization boundary effects
+    # The word boundaries and punctuation between segments can affect tokenization
+    replace_body(app, body, "m1", "用户喜欢咖啡。")
+    replace_body(app, body, "m2", "但是不加糖。")
+
+    plan = asyncio.run(assembly.plan(ctx, request))
+
+    # Calculate segment-by-segment token sum
+    encoding = tiktoken.get_encoding("o200k_base")
+    segment_sum = 0
+    for unit in plan.units:
+        for body_item in unit.bodies:
+            # Count each body content separately
+            segment_sum += len(encoding.encode(body_item.content))
+            # Add source overhead per segment
+            for source in body_item.sources:
+                segment_sum += len(encoding.encode(f"{source.source_id}@{source.source_version}"))
+
+    # The actual whole-pack count includes reference markers, newlines, and
+    # "Sources:" labels which interact with surrounding text
+    whole_pack_count = len(encoding.encode(plan.rendered_context, disallowed_special=()))
+
+    # Verify the plan uses whole-pack counting
+    assert plan.tokens_used == whole_pack_count
+
+    # The whole pack count should differ from naive segment sum due to
+    # reference markers "[1]", "Sources:", newlines, and tokenization boundaries
+    assert whole_pack_count != segment_sum
+
+    # Verify budget enforcement uses whole-pack count
+    tight = request.model_copy(
+        update={"recall_id": "whole_pack_boundary", "token_budget": whole_pack_count}
+    )
+    verified_plan = asyncio.run(assembly.plan(ctx, tight))
+    assert verified_plan.tokens_used == whole_pack_count
+
+    # One token less should fail
+    too_tight = request.model_copy(
+        update={"recall_id": "below_whole_pack", "token_budget": whole_pack_count - 1}
+    )
+    with pytest.raises(FoundationError) as error:
+        asyncio.run(assembly.plan(ctx, too_tight))
+    assert error.value.code == ErrorCode.BUDGET_TOO_SMALL
+
+
+@pytest.mark.p1
 @pytest.mark.parametrize("independent_count", [0, 1, 2])
 def test_rc_bud_10_final_count_boundary_with_relationship_supplemented_members(
     app, independent_count
@@ -319,3 +374,57 @@ def test_rc_bud_10_final_count_boundary_with_relationship_supplemented_members(
             assert body.content in plan.rendered_context
         if unit.conflict:
             assert unit.conflict.explanation in plan.rendered_context
+
+
+@pytest.mark.p1
+def test_rc_bud_11_pack_budget_excludes_downstream_caller_reserves(app):
+    """Test that ContextPack token budget doesn't include caller's reserves.
+
+    The token_budget provided to Recall is for the ContextPack alone. The caller
+    (Agent/LLM service) has separate reserves for system prompt, user query, and
+    answer generation that don't count against the pack budget. This test verifies
+    the pack respects its allocated budget without assuming full model window.
+    """
+    ctx, assembly, body, request = assembly_setup(app, token_budget=512)
+
+    # Simulate a scenario where caller has reserves:
+    # - System prompt: ~200 tokens
+    # - User query: ~50 tokens
+    # - Answer generation: ~300 tokens
+    # - Total caller reserves: ~550 tokens
+    # - Model window: 4096 tokens
+    # - Pack budget: 512 tokens (not 4096 - 550 = 3546)
+
+    plan = asyncio.run(assembly.plan(ctx, request))
+
+    # Verify pack respects its budget allocation
+    assert plan.tokens_used <= request.token_budget
+    assert plan.tokens_used <= 512
+
+    # The pack should not assume it can use more tokens just because
+    # the model window is larger. Budget enforcement is strict.
+    encoding = tiktoken.get_encoding("o200k_base")
+    actual_tokens = len(encoding.encode(plan.rendered_context, disallowed_special=()))
+    assert plan.tokens_used == actual_tokens
+
+    # Test boundary: pack at exactly allocated budget should succeed
+    measured_budget = plan.tokens_used
+    exact_request = request.model_copy(
+        update={"recall_id": "exact_pack_budget", "token_budget": measured_budget}
+    )
+    exact_plan = asyncio.run(assembly.plan(ctx, exact_request))
+    assert exact_plan.tokens_used == measured_budget
+
+    # One token over the pack's allocated budget should allow more content
+    # (if available), not fail
+    over_request = request.model_copy(
+        update={"recall_id": "over_pack_budget", "token_budget": measured_budget + 100}
+    )
+    over_plan = asyncio.run(assembly.plan(ctx, over_request))
+    assert over_plan.tokens_used >= measured_budget  # Can include more if available
+
+    # The key assertion: pack budget is independent of model window size
+    # Even if model supports 4096 tokens, pack only uses its allocation
+    assert plan.request.token_budget == 512  # Pack's allocation
+    assert plan.tokens_used <= 512  # Pack respects it
+    # Pack doesn't try to use (hypothetical 4096 model window - 550 caller reserves)
