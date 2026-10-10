@@ -629,19 +629,7 @@ def test_rc_src_06_explicit_working_no_fallback(client):
 # ============================================================================
 
 
-@pytest.mark.sources
-@pytest.mark.p1
-def test_rc_src_11_required_source_failure_rejects(client):
-    """RC-SRC-11: Required source failure fails entire request.
-
-    Validates:
-    - With strict policy, required source failure fails request
-    - No partial results are delivered
-    - Failure is not masked by having some valid candidates
-
-    Note: Requires ability to inject source failures and configure policy.
-    """
-    pytest.skip("Requires source failure injection and policy configuration")
+# RC-SRC-11 is implemented in test_recall_required_sources.py.
 
 
 # ============================================================================
