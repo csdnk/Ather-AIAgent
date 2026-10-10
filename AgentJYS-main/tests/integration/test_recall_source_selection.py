@@ -653,19 +653,8 @@ def test_rc_src_06_explicit_working_no_fallback(client):
 # ============================================================================
 
 
-@pytest.mark.sources
-@pytest.mark.p1
-def test_rc_src_14_completion_order_independence(client):
-    """RC-SRC-14: Results don't depend on which source completes first.
-
-    Validates:
-    - Source completion order doesn't affect fusion scores
-    - Ranking is deterministic regardless of timing
-    - Late-arriving results past deadline don't modify committed results
-
-    Note: Requires ability to control source completion timing.
-    """
-    pytest.skip("Requires source timing control capability")
+# RC-SRC-14 is implemented in test_recall_source_completion_order.py and
+# test_recall_late_source_results.py.
 
 
 # ============================================================================
