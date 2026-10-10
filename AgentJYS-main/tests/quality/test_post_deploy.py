@@ -64,3 +64,42 @@ def test_lost_supervisor_journal_keeps_lock_and_blocks_new_work(tmp_path, monkey
     )
     assert result["cleanup_pending"] is True
     assert (root / "active-run.lock").exists()
+
+
+def test_first_scene_pass_cannot_hide_unexecuted_required_business_scenarios(tmp_path, monkeypatch):
+    import json
+
+    m = mod()
+    monkeypatch.setattr(m, "candidate", lambda: {"sha": "test"})
+    monkeypatch.setattr(m, "inspect", lambda c: (True, {}))
+
+    def supervisor(command, **kwargs):
+        live = Path(command[command.index("--output") + 1])
+        live.mkdir()
+        (live / "journal.json").write_text(
+            json.dumps(
+                {
+                    "result": "PASS",
+                    "cleanup": {"status": "PASS"},
+                    "accounts": [{"cleanup": "deleted_and_absence_verified"}],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    monkeypatch.setattr(m.subprocess, "run", supervisor)
+    result = m.execute(
+        {
+            "runs_root": str(tmp_path / "runs"),
+            "python": "python",
+            "credentials": "private",
+            "native": "native",
+        },
+        tmp_path / "out",
+        allow_model=True,
+    )
+    missing = [r for r in result["records"] if r["id"].startswith("business/")]
+    assert len(missing) == 12
+    assert all(r["required"] and r["status"] == "NOT_RUN" for r in missing)
+    assert result["execution_status"] == "BLOCKED"
+    assert result["cleanup_pending"] is False

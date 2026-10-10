@@ -16,6 +16,24 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from continuous import candidate, emit, live_rows
 
+# Native scenarios exist, but the bounded supervisor has admitted only
+# public-working. Keep each missing required journey in every report so a
+# successful smoke cannot silently become a complete business gate.
+PENDING_BUSINESS = {
+    "idempotent-scheduling": "ordinary-user task diagnostics contract needs adaptation",
+    "longterm-new-session": "derived artifact and cross-session cleanup not admitted",
+    "correction": "lost correction receipt and both versions need cleanup verification",
+    "archive-activate": "lifecycle recovery cleanup not admitted",
+    "legal-hold": "retention policy restoration must be verified before execution",
+    "source-revoke": "source revocation and historical result cleanup not admitted",
+    "cross-tenant": "two-tenant native scenario not admitted to supervisor",
+    "empty-new-session": "new-session native scenario not admitted to supervisor",
+    "token-budget": "budget boundary native scenario not admitted to supervisor",
+    "source-read": "source range native scenario not admitted to supervisor",
+    "scheduler-auth": "scheduler denial native scenario not admitted to supervisor",
+    "hot-scheduling": "owned-object diagnostic identity and thermal cleanup missing",
+}
+
 
 def admitted(deployment, pods, digest):
     if not re.fullmatch(r"sha256:[a-f0-9]{64}", digest):
@@ -183,6 +201,16 @@ def execute(config, output, allow_model=False):
         elif lock.exists():
             may_release = False
     finally:
+        rows.extend(
+            dict(
+                id="business/" + key,
+                layer="system",
+                status="NOT_RUN",
+                required=True,
+                reason=reason,
+            )
+            for key, reason in PENDING_BUSINESS.items()
+        )
         for layer in (
             "browser-e2e",
             "performance",
