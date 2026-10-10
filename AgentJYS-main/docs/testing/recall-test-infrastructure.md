@@ -12,6 +12,9 @@ For strict long-term source isolation and filtering before Top-1 (AET-35 / RC-SR
 For both-source execution and controlled exact-Ref fusion (AET-36 / RC-SRC-03), use
 [Both-source execution and fusion](recall-both-sources.md).
 
+For context-based auto selection and source-outcome independence (AET-37 / RC-SRC-04,05), use
+[Auto source selection](recall-auto-sources.md).
+
 This document describes the core testing infrastructure for the Recall API, implemented as part of **AET-8: Core Testing Infrastructure & Happy Path**.
 
 ## Test File Location
