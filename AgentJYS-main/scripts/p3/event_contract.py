@@ -7,10 +7,10 @@ import json
 from typing import Any
 
 import yaml
-from catalog import ROOT, models
 from pydantic import BaseModel
 
 from aether_agent_memory.runtime.contracts.models import EventEnvelope
+from catalog import ROOT, models
 
 
 def validate_event(data: dict[str, Any]) -> BaseModel:

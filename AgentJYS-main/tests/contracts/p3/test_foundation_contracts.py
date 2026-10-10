@@ -4,8 +4,9 @@ import copy
 import json
 
 import pytest
-from catalog import ROOT, models
 from pydantic import ValidationError
+
+from catalog import ROOT, models
 
 MODELS = models()
 EXAMPLES = {
