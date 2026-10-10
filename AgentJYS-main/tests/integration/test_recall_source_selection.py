@@ -612,24 +612,8 @@ def test_rc_src_06_explicit_working_no_fallback(client):
 
 
 # ============================================================================
-# RC-SRC-09: Mixed ready/pending coverage handling
+# RC-SRC-09: implemented in test_recall_mixed_coverage.py (Ready+pending/failed).
 # ============================================================================
-
-
-@pytest.mark.sources
-@pytest.mark.p1
-@pytest.mark.skip(reason="Blocked by Q09: Coverage policy for mixed state not finalized")
-def test_rc_src_09_mixed_ready_pending_coverage(client):
-    """RC-SRC-09: Mixed ready and pending sources are handled per policy.
-
-    Validates:
-    - Available source results are returned if policy allows
-    - Pending status is observable in results
-    - Coverage is not marked complete when some sources pending
-
-    Note: Test implementation pending Q09 clarification on partial results policy.
-    """
-    pass
 
 
 # ============================================================================

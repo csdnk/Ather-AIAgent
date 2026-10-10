@@ -92,6 +92,15 @@ def working_target(request, tmp_path, monkeypatch):
     )
     request.addfinalizer(lambda: evidence.write(directory))
 
+    policy_settings = {}
+    if "mixed_policy" in options:
+        from recall_mixed_coverage_support import mixed_policy
+
+        policy_settings, policy_evidence = mixed_policy(
+            os.environ.get("P3_RECALL_MIXED_POLICY_FILE"), options["mixed_policy"]
+        )
+        evidence.data["mixed_policy"] = policy_evidence
+
     def blocked(reason):
         evidence.data["acceptance"] = "blocked_fixture"
         evidence.blocked("blocked_fixture", reason)
@@ -156,6 +165,7 @@ def working_target(request, tmp_path, monkeypatch):
             {
                 "candidate_limit": options.get("candidate_limit", 20),
                 "rerank_policy": "disabled",
+                **policy_settings,
             }
         )
     )
