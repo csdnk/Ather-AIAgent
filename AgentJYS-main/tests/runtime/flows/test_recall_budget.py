@@ -246,3 +246,76 @@ def test_rc_bud_08_counting_failure_cannot_produce_a_deliverable_plan(app, monke
     monkeypatch.setattr(tiktoken.Encoding, "encode", failed_count)
     with pytest.raises(RuntimeError, match="controlled tokenizer unavailable"):
         asyncio.run(assembly.plan(ctx, request))
+
+
+@pytest.mark.p1
+@pytest.mark.parametrize("independent_count", [0, 1, 2])
+def test_rc_bud_10_final_count_boundary_with_relationship_supplemented_members(
+    app, independent_count
+):
+    """Test final count limits when relationship groups add supplemented members.
+
+    Verifies that with a candidate_limit, relationship-supplemented members are
+    counted correctly and boundaries are enforced. Tests 0, 1, and 2 independent
+    memories plus a relationship group to verify count behavior at boundaries.
+    """
+    ctx, assembly, body, request = assembly_setup(app, token_budget=4096)
+
+    # Create a relationship group where m1 is hit and m3 is supplemented
+    relation = ConflictGroup(
+        group_id="required_group",
+        members=(body.snapshots["m1"].ref, body.snapshots["m3"].ref),
+        explanation="关系组：这两个记忆必须一起交付。",
+    )
+    body.conflicts = [relation]
+
+    # Set candidate limit to test boundaries
+    # With limit=3: if independent_count=2, we have 2 independent + 1 group (2 members)
+    # The supplemented member m3 should be included as part of the group
+    limit = independent_count + 1
+
+    # Configure assembly to return limited candidates
+    assembly.settings = assembly.settings.model_copy(update={"candidate_limit": limit})
+
+    if independent_count == 0:
+        # Only the relationship group should be considered
+        request = request.model_copy(
+            update={"long_term_search": request.long_term_search.model_copy(update={"memory_top_k": 1})}
+        )
+    elif independent_count == 1:
+        # m1 (with relation to m3) should be delivered
+        request = request.model_copy(
+            update={"long_term_search": request.long_term_search.model_copy(update={"memory_top_k": 2})}
+        )
+    else:
+        # Both m1 and m2 as independent, plus relationship supplementation
+        pass
+
+    plan = asyncio.run(assembly.plan(ctx, request))
+
+    # Verify final count respects limit and includes supplemented members
+    total_bodies = sum(len(u.bodies) for u in plan.units)
+    primary_count = sum(len(u.primary_memories) for u in plan.units)
+
+    if independent_count == 0:
+        # Only relationship group: m1 (primary) + m3 (supplemented)
+        assert [b.memory.memory_id for u in plan.units for b in u.bodies] == ["m1", "m3"]
+        assert primary_count == 1  # Only m1 is primary
+        assert total_bodies == 2  # m1 + m3
+    elif independent_count == 1:
+        # Can fit relationship group within limit
+        assert "m1" in [b.memory.memory_id for u in plan.units for b in u.bodies]
+        assert "m3" in [b.memory.memory_id for u in plan.units for b in u.bodies]
+        assert primary_count <= limit
+    else:
+        # independent_count == 2: both m1 and m2, plus relationship
+        assert set([b.memory.memory_id for u in plan.units for b in u.bodies]) == {"m1", "m2", "m3"}
+        assert primary_count == 2  # m1 and m2 are primary
+        assert total_bodies == 3  # m1, m2, m3 (m3 supplemented)
+
+    # Verify all content is in rendered context
+    for unit in plan.units:
+        for body in unit.bodies:
+            assert body.content in plan.rendered_context
+        if unit.conflict:
+            assert unit.conflict.explanation in plan.rendered_context
