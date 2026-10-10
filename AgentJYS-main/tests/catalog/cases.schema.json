@@ -1,0 +1,260 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Aether test specifications without execution state",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "catalog_version",
+    "source_sha256",
+    "source_spec_count",
+    "cases",
+    "fixtures",
+    "requirements"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "catalog_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source_spec_count": {
+      "const": 88
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 88,
+      "maxItems": 88,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stage": {
+            "type": "string",
+            "minLength": 1
+          },
+          "level": {
+            "type": "string",
+            "minLength": 1
+          },
+          "priority": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dataset": {
+            "type": "string",
+            "minLength": 1
+          },
+          "preconditions": {
+            "type": "string",
+            "minLength": 1
+          },
+          "api_group": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cleanup": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requirements": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          },
+          "expected": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          },
+          "required_capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          },
+          "smoke": {
+            "type": "boolean"
+          },
+          "always_select": {
+            "type": "boolean"
+          },
+          "design_state": {
+            "enum": [
+              "SPECIFIED",
+              "PARTIALLY_AUTOMATED",
+              "AUTOMATED"
+            ]
+          },
+          "open_design_items": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "automation": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "scenario_keys",
+                "coverage",
+                "dependency"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "scenario_keys": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "minItems": 1
+                },
+                "coverage": {
+                  "enum": [
+                    "partial",
+                    "full"
+                  ]
+                },
+                "dependency": {
+                  "enum": [
+                    "real",
+                    "mock",
+                    "replay",
+                    "static"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "stage",
+          "level",
+          "priority",
+          "dataset",
+          "preconditions",
+          "api_group",
+          "cleanup",
+          "evidence",
+          "requirements",
+          "steps",
+          "expected",
+          "required_capabilities",
+          "smoke",
+          "always_select",
+          "design_state",
+          "open_design_items",
+          "automation"
+        ]
+      }
+    },
+    "fixtures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "file",
+          "source",
+          "sha256"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "source",
+          "cases"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cases": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          }
+        }
+      }
+    }
+  }
+}

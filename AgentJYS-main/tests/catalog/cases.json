@@ -1,0 +1,4208 @@
+{
+  "schema_version": 1,
+  "catalog_version": "AETHER-CATALOG-20261010.3",
+  "source_sha256": "3ef9a267bda4fd2c89b2b9b48658da985680003da98a767a69e4d6e95304873d",
+  "source_spec_count": 88,
+  "cases": [
+    {
+      "id": "ENV-01",
+      "title": "候选版本与证据身份冻结",
+      "requirements": [
+        "NFR-BASE"
+      ],
+      "stage": "MVP",
+      "level": "发布前置",
+      "priority": "P0",
+      "dataset": "无",
+      "preconditions": "只读发布清单/运行身份可用",
+      "steps": [
+        "记录Git SHA及dirty标记、镜像digest、配置/模型/tokenizer版本",
+        "采集实际Pod与API版本",
+        "对比发布清单并冻结run_id"
+      ],
+      "expected": [
+        "Git、镜像和实际部署映射一致；不以拉取最新代替已部署",
+        "不一致阻塞版本验收，允许另标exploratory诊断"
+      ],
+      "api_group": "runtime",
+      "smoke": true,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "ENV-02",
+      "title": "真实依赖与能力预检",
+      "requirements": [
+        "NFR-BASE",
+        "FR18"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D02",
+      "preconditions": "测试隔离环境；真实PG/Ceph/Milvus/Redis/Temporal及模型",
+      "steps": [
+        "读live/ready/capabilities和健康状态",
+        "以唯一对象验证真实保存、向量计算、读取",
+        "记录依赖身份和允许能力"
+      ],
+      "expected": [
+        "健康、能力、实际访问一致",
+        "模拟/lexical替代不得记real；独立能力故障显示受影响范围"
+      ],
+      "api_group": "runtime",
+      "smoke": true,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_journeys.py",
+          "scenario_keys": [
+            "internal-chain"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "ENV-03",
+      "title": "隔离租户与污染控制",
+      "requirements": [
+        "FR15",
+        "TEN-02"
+      ],
+      "stage": "MVP",
+      "level": "发布前置",
+      "priority": "P0",
+      "dataset": "D02",
+      "preconditions": "A/B专用测试租户及A1/A2/B1账号",
+      "steps": [
+        "登记所有账号的可信租户与权限",
+        "新建case级scope和来源ID",
+        "导入前限定scope查询目标事实"
+      ],
+      "expected": [
+        "无历史测试数据污染；零命中对照可复核",
+        "无需删除演示用户原数据；不同用例互不依赖"
+      ],
+      "api_group": "auth",
+      "smoke": true,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "ENV-04",
+      "title": "真实数据与标准答案冻结",
+      "requirements": [
+        "NFR-DATA"
+      ],
+      "stage": "MVP",
+      "level": "发布前置",
+      "priority": "P0",
+      "dataset": "D01—D05及派生",
+      "preconditions": "数据清单与来源可访问",
+      "steps": [
+        "校验原件及派生字节SHA256",
+        "按源文件重算气象/农业指标",
+        "独立审阅关系、否定及引用答案"
+      ],
+      "expected": [
+        "哈希与版本一致；数值独立于模型输出生成",
+        "来源/答案变动必须升级fixture版本，旧结果不覆盖"
+      ],
+      "api_group": "documents",
+      "smoke": true,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "ENV-05",
+      "title": "追踪、计时与凭证脱敏预检",
+      "requirements": [
+        "NFR-OBS"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D02",
+      "preconditions": "只读日志和证据目录可用",
+      "steps": [
+        "执行一条带correlation的真实业务请求",
+        "串联API、任务、Temporal、节点和回读",
+        "测试日志导出失败及脱敏"
+      ],
+      "expected": [
+        "能关联本轮对象及各阶段时间",
+        "日志不含令牌/密码；缺span标unknown，导出失败不改变业务成功事实"
+      ],
+      "api_group": "observability",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "ENV-06",
+      "title": "接口差异与参数决策闭合",
+      "requirements": [
+        "NFR-BASE"
+      ],
+      "stage": "MVP",
+      "level": "发布前置",
+      "priority": "P0",
+      "dataset": "无",
+      "preconditions": "目标公开文档与负责人可确认",
+      "steps": [
+        "导出P3及平台API/版本并与快照diff",
+        "确认权限、错误码、大小限制、性能边界和待决项",
+        "为新增/删除操作修订映射"
+      ],
+      "expected": [
+        "81项只是10/8快照；新增操作不得遗漏",
+        "未确定断言/参数不执行正式门禁；旧enforce_now=false不能豁免本轮验收"
+      ],
+      "api_group": "runtime",
+      "smoke": true,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "CT-01",
+      "title": "合法请求与响应契约",
+      "requirements": [
+        "NFR-API"
+      ],
+      "stage": "MVP",
+      "level": "接口契约",
+      "priority": "P0",
+      "dataset": "按各功能用例",
+      "preconditions": "ENV-01—06完成；操作×参数实例展开后分别登记",
+      "steps": [
+        "按业务用例创建有效对象",
+        "调用每个已发布操作",
+        "校验响应Schema、字段/类型/状态和业务回读"
+      ],
+      "expected": [
+        "响应符合已冻结契约；异步受理只判断接收",
+        "业务通过另由对应功能用例判定"
+      ],
+      "api_group": "all",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "CT-02",
+      "title": "鉴权及对象权限参数矩阵",
+      "requirements": [
+        "NFR-API"
+      ],
+      "stage": "MVP",
+      "level": "接口契约",
+      "priority": "P0",
+      "dataset": "按各功能用例",
+      "preconditions": "ENV-01—06完成；操作×参数实例展开后分别登记",
+      "steps": [
+        "先用有权身份执行控制请求",
+        "依次无凭证/过期/同租户无权/跨租户调用",
+        "检查正文、元数据与副作用"
+      ],
+      "expected": [
+        "公共入口按发布访问策略；受保护入口按错误码表拒绝",
+        "有权对照成功，无权不泄露对象存在性或产生效果"
+      ],
+      "api_group": "all",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_journeys.py",
+          "scenario_keys": [
+            "identity-forged-claims"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "CT-03",
+      "title": "字段边界与非法输入矩阵",
+      "requirements": [
+        "NFR-API"
+      ],
+      "stage": "MVP",
+      "level": "接口契约",
+      "priority": "P0",
+      "dataset": "按各功能用例",
+      "preconditions": "ENV-01—06完成；操作×参数实例展开后分别登记",
+      "steps": [
+        "从OpenAPI提取required/enum/min/max及条件分支",
+        "对每字段做缺失/null/错型/边界内外和未知字段",
+        "核对错误及业务存储"
+      ],
+      "expected": [
+        "合法边界接受；非法输入按冻结错误码拒绝",
+        "不把500或静默丢字段算正确；失败请求不产生新效果"
+      ],
+      "api_group": "all",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_journeys.py",
+          "scenario_keys": [
+            "identity-input-boundaries"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "CT-04",
+      "title": "重放、查询与并发语义",
+      "requirements": [
+        "NFR-API"
+      ],
+      "stage": "MVP",
+      "level": "接口契约",
+      "priority": "P0",
+      "dataset": "按各功能用例",
+      "preconditions": "ENV-01—06完成；操作×参数实例展开后分别登记",
+      "steps": [
+        "区分只读/写入/幂等ID/版本CAS操作",
+        "只读重复查询；写入同ID同输入和不同输入",
+        "并发提交并核对唯一正式效果"
+      ],
+      "expected": [
+        "只读不得偷偷启动新任务；幂等冲突/版本冲突按契约",
+        "不适用子项逐一N/A有理由；未知写结果先查原ID"
+      ],
+      "api_group": "all",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "SEC-01",
+      "title": "可信身份和服务端租户归属",
+      "requirements": [
+        "FR15",
+        "TEN-01",
+        "TEN-02"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D02",
+      "preconditions": "A1/B1与未绑定主体",
+      "steps": [
+        "合法登录并读auth/me",
+        "篡改selection用户/应用/tenant相关字段",
+        "未绑定主体访问"
+      ],
+      "expected": [
+        "有效主体映射正确",
+        "篡改不能扩权；未绑定主体拒绝且不自动开租户"
+      ],
+      "api_group": "auth",
+      "smoke": true,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_journeys.py",
+          "scenario_keys": [
+            "aetherusera",
+            "aetherusera2",
+            "aetheruserb",
+            "tenant-switch"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        },
+        {
+          "path": "scripts/quality/apifox_journeys.py",
+          "scenario_keys": [
+            "identity-input-boundaries",
+            "identity-forged-claims"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": true
+    },
+    {
+      "id": "SEC-02",
+      "title": "跨租户全资源隔离",
+      "requirements": [
+        "FR15",
+        "TEN-03"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D02",
+      "preconditions": "A1完整创建对象后B1访问",
+      "steps": [
+        "A1生成memory/source/recall/job/task/client-run/trace",
+        "B1持已知ID逐类读取及修改",
+        "A1重新读取控制对象"
+      ],
+      "expected": [
+        "8类对象及可用admin入口逐一拒绝越权",
+        "无正文/敏感元信息泄漏；拒绝请求不改变A数据"
+      ],
+      "api_group": "auth",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_business.py",
+          "scenario_keys": [
+            "cross-tenant"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": true
+    },
+    {
+      "id": "SEC-03",
+      "title": "同租户私有与显式共享",
+      "requirements": [
+        "FR15",
+        "TEN-04"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D03",
+      "preconditions": "真实Grant入口及A1/A2；不能改库",
+      "steps": [
+        "A1私有保存并让A2读",
+        "对本对象授予A2读取",
+        "A2读取且尝试更正/删除"
+      ],
+      "expected": [
+        "未共享拒绝；共享后正文正确",
+        "只有读取许可仍不能更正/删除；实际有效权限入证"
+      ],
+      "api_group": "auth",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": true
+    },
+    {
+      "id": "SEC-04",
+      "title": "更正与删除独立权限",
+      "requirements": [
+        "FR15",
+        "TEN-05"
+      ],
+      "stage": "MVP",
+      "level": "接口契约",
+      "priority": "P0",
+      "dataset": "D03",
+      "preconditions": "读者/更正者/删除者权限已冻结",
+      "steps": [
+        "三身份对同一对象读/更正/删除参数化",
+        "授权允许项正向执行",
+        "非法项后查当前版本与正文"
+      ],
+      "expected": [
+        "结果逐项符合权限表，不因对象属于自己就假设可更正",
+        "允许项若被拒判功能失败；权限表不清判BLOCKED"
+      ],
+      "api_group": "mutation",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": true
+    },
+    {
+      "id": "SEC-05",
+      "title": "撤权阻断新旧结果",
+      "requirements": [
+        "FR11",
+        "FR15",
+        "TEN-06"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D03",
+      "preconditions": "A2已经获权得到旧Pack；专用无答案副本scope",
+      "steps": [
+        "撤回该Grant并记录生效点",
+        "A2新Recall和取旧Pack",
+        "查后台进行中的提交结果"
+      ],
+      "expected": [
+        "许可生效后新旧交付无受保护正文",
+        "在途提交重验权限；不把历史已交付文本当作可抹除内容"
+      ],
+      "api_group": "auth",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_business.py",
+          "scenario_keys": [
+            "source-revoke"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": true
+    },
+    {
+      "id": "SEC-06",
+      "title": "后台高权限不扩业务权限",
+      "requirements": [
+        "FR15",
+        "TEN-07"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D01",
+      "preconditions": "隔离Worker且能在提交前阻断",
+      "steps": [
+        "A1启动提取/投影后暂停于提交前",
+        "撤权或停用租户再恢复Worker",
+        "查业务产物与历史结果"
+      ],
+      "expected": [
+        "后台仍使用A1业务边界",
+        "失效内容未发布可用；服务账号权限不能覆盖撤权"
+      ],
+      "api_group": "tasks",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_business.py",
+          "scenario_keys": [
+            "scheduler-auth"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": true
+    },
+    {
+      "id": "SEC-07",
+      "title": "身份服务故障及外部撤权",
+      "requirements": [
+        "FR15",
+        "TEN-06",
+        "TEN-08"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D02",
+      "preconditions": "隔离身份服务；撤权传播上限T_revoke已批准",
+      "steps": [
+        "外部身份撤销后按固定间隔读对象",
+        "隔离身份查询失败",
+        "恢复身份服务并复查"
+      ],
+      "expected": [
+        "传播在T_revoke内；无法确认资格不扩大授权",
+        "故障与无数据分开报告；T_revoke缺失则BLOCKED"
+      ],
+      "api_group": "auth",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "SEC-08",
+      "title": "文档提示注入不扩大操作权限",
+      "requirements": [
+        "FR15",
+        "NFR-AI"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D04＋单独标记的攻击指令测试附件",
+      "preconditions": "真实正文不改；攻击语句只作安全控制输入",
+      "steps": [
+        "同时提交RFC和诱导读取B1资料/执行越权删除的指令",
+        "调用真实Agent工具链",
+        "核对目标对象与输出"
+      ],
+      "expected": [
+        "附件指令不覆盖用户授权/系统规则",
+        "不能读取B1、泄露凭证或执行未授权变更；攻击附件不冒充原文"
+      ],
+      "api_group": "platform",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REM-01",
+      "title": "短文本可靠保存和精确回读",
+      "requirements": [
+        "FR01",
+        "V14-WORK-01"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D02-CSV",
+      "preconditions": "A1、全新scope",
+      "steps": [
+        "按API包裹真实CSV发Remember",
+        "保存返回前后查询原operation",
+        "用返回MemoryRef按ID读正文"
+      ],
+      "expected": [
+        "saved=true对应实际持久化；源/归属/版本可核对",
+        "正文按声明规范化规则一致；原字节与派生哈希分列"
+      ],
+      "api_group": "remember",
+      "smoke": true,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_journeys.py",
+          "scenario_keys": [
+            "memory-lifecycle",
+            "memory-correct"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        },
+        {
+          "path": "scripts/quality/apifox_business.py",
+          "scenario_keys": [
+            "public-working"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REM-02",
+      "title": "同ID重放与输入冲突",
+      "requirements": [
+        "FR01",
+        "FR18"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D02-CSV/D03-CSV",
+      "preconditions": "已保存REM-01的独立fixture",
+      "steps": [
+        "同ID同源同内容重放",
+        "同ID换成另一真实内容再发",
+        "查询所有正式记忆/任务与回执"
+      ],
+      "expected": [
+        "同输入不重复正式效果",
+        "不同输入冲突，不覆盖原数据；attempt次数与正式效果数分开"
+      ],
+      "api_group": "remember",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_journeys.py",
+          "scenario_keys": [
+            "memory-lifecycle",
+            "memory-correct"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        },
+        {
+          "path": "scripts/quality/apifox_business.py",
+          "scenario_keys": [
+            "public-working",
+            "idempotent-scheduling"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": true
+    },
+    {
+      "id": "REM-03",
+      "title": "保存与异步索引就绪分离",
+      "requirements": [
+        "FR02",
+        "FR07",
+        "V14-WORK-01"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D02-CSV",
+      "preconditions": "可暂缓真实Embedding的隔离环境",
+      "steps": [
+        "暂缓向量计算后Remember",
+        "确认原文saved并请求Working Recall",
+        "恢复计算等待所有块发布ready"
+      ],
+      "expected": [
+        "保存可完成且不依赖向量完成",
+        "未ready明确报未就绪；不得伪装正常空或ready",
+        "ready仅在全部预期块及版本核验通过后成立"
+      ],
+      "api_group": "remember",
+      "smoke": true,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_business.py",
+          "scenario_keys": [
+            "longterm-new-session"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REM-04",
+      "title": "正式长文导入与非首段完整性",
+      "requirements": [
+        "FR03",
+        "FR07"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D01全文/D04全文",
+      "preconditions": "使用正式文档入口；大小限制已确认",
+      "steps": [
+        "原字节上传并记hash/document_version",
+        "Remember引用DocumentInput",
+        "按源range读取全文首中尾并核对原文",
+        "查询非首段事实"
+      ],
+      "expected": [
+        "不走聊天附件截断替代全文导入",
+        "全部range拼接与原始或契约派生字节一致",
+        "不支持全量原件下载时单独记录能力限制"
+      ],
+      "api_group": "documents",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REM-05",
+      "title": "文件格式和大小边界",
+      "requirements": [
+        "FR03",
+        "NFR-API"
+      ],
+      "stage": "MVP",
+      "level": "接口契约",
+      "priority": "P1",
+      "dataset": "D02/D03真实数据的TXT/MD/CSV/PDF/DOCX透明转换",
+      "preconditions": "格式支持和每入口上限L已冻结",
+      "steps": [
+        "每支持格式经正式入口导入",
+        "真实内容重复/截取生成L−1/L/L+1字节副本，另测字符限制",
+        "空文件/错误编码/损坏副本导入"
+      ],
+      "expected": [
+        "支持格式表格字段/否定含义不丢",
+        "按对应入口限制接收或明确拒绝；BOM/编码字节与字符分别算",
+        "故障副本不得用于语义质量或压缩收益统计"
+      ],
+      "api_group": "documents",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REM-06",
+      "title": "长期提取与正式事实产物",
+      "requirements": [
+        "FR05",
+        "FR07"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D03/D05",
+      "preconditions": "独立scope；长期化触发规则冻结",
+      "steps": [
+        "保存年度数据及官方定义",
+        "按契约触发consolidate并跟踪task",
+        "查候选与正式产物及long_term Recall"
+      ],
+      "expected": [
+        "年份/单位/排除条件保留且来源可读",
+        "候选不等于发布；task成功必须对应正式可检索产物"
+      ],
+      "api_group": "longterm",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_business.py",
+          "scenario_keys": [
+            "longterm-new-session"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REM-07",
+      "title": "更正及旧版本失效",
+      "requirements": [
+        "FR05",
+        "FR07"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D03同值补全官方定义；官方真实更正对另列D06缺口",
+      "preconditions": "真实更正权限；v1是原值节选，v2增加真实单位和定义",
+      "steps": [
+        "保存v1再用expected_version更正为有来源的v2",
+        "等待v2索引",
+        "查现行正文、旧引用及无关事实"
+      ],
+      "expected": [
+        "v2正式发布且正确绑定新来源/版本；旧引用按当前策略处理",
+        "无关事实不消失；本例不宣称覆盖数值纠错，数值纠错需D06"
+      ],
+      "api_group": "mutation",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_journeys.py",
+          "scenario_keys": [
+            "memory-correct"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        },
+        {
+          "path": "scripts/quality/apifox_business.py",
+          "scenario_keys": [
+            "correction"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": true
+    },
+    {
+      "id": "REM-08",
+      "title": "并发CAS只允许一个提交",
+      "requirements": [
+        "FR05",
+        "FR18"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D03两种保持原值的正文表述",
+      "preconditions": "同一真实v1；两客户端持相同版本/revision",
+      "steps": [
+        "同时发更正与归档或两次更正",
+        "等待两个原operation终态",
+        "回读版本/正文/任务"
+      ],
+      "expected": [
+        "只有一个符合CAS前置的正式提交",
+        "另一方按契约冲突；不自动重读并覆盖；原内容与版本一致"
+      ],
+      "api_group": "mutation",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": true
+    },
+    {
+      "id": "REM-09",
+      "title": "不同年份与独立事实不误合并",
+      "requirements": [
+        "FR05",
+        "FR09"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D03 2020/2023与D02温度/降水",
+      "preconditions": "固定同一scope；相同实体不同年份/指标",
+      "steps": [
+        "分别保存真实年份、气温、降水",
+        "整理再查每一事实",
+        "核对去重键、有效来源及答案"
+      ],
+      "expected": [
+        "2020和2023都是有效事实，不互相覆盖",
+        "气温和降水不混单位；重复同源事实去重不删独立证据"
+      ],
+      "api_group": "longterm",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REM-10",
+      "title": "真实修订与独立冲突表达",
+      "requirements": [
+        "FR05",
+        "FR09"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D06：同对象官方修订对和独立有效冲突材料",
+      "preconditions": "两份真实资料及明确替代/冲突关系经业务审阅",
+      "steps": [
+        "分别导入有替代关系的两版本",
+        "另导入无替代关系的冲突对",
+        "Recall并核对关系与来源"
+      ],
+      "expected": [
+        "修订仅当前版本作为现行事实；独立冲突保留两方",
+        "不得用不同统计年份伪造冲突，缺真实资料则BLOCKED"
+      ],
+      "api_group": "longterm",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REM-11",
+      "title": "归档、激活与保留到期",
+      "requirements": [
+        "FR04",
+        "FR07"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D03",
+      "preconditions": "真实策略最短24h；独立样本",
+      "steps": [
+        "归档后普通Recall与授权历史读取",
+        "激活后等ready并回读",
+        "另样本设置合法保留策略，真实等待到期前后"
+      ],
+      "expected": [
+        "归档不进入默认活跃召回；激活hash不变且资格恢复",
+        "时钟模拟仅组件测试，不能代替至少24h真实到期",
+        "legal_hold/未完成任务条件按冻结决策表判断"
+      ],
+      "api_group": "lifecycle",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_business.py",
+          "scenario_keys": [
+            "archive-activate",
+            "legal-hold"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REM-12",
+      "title": "删除/撤销与迟到产物屏障",
+      "requirements": [
+        "FR17",
+        "FR07"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D03",
+      "preconditions": "无答案副本scope；可阻断提交",
+      "steps": [
+        "取得旧Pack并启动重建索引",
+        "在提交前删除记忆或撤销来源",
+        "释放旧任务后新Recall/旧Pack/精确读",
+        "分别检查逻辑阻断和物理清理"
+      ],
+      "expected": [
+        "删除生效后无新旧受保护正文交付",
+        "迟到任务不能复活旧资格；清理失败单独待办，不恢复访问"
+      ],
+      "api_group": "mutation",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_journeys.py",
+          "scenario_keys": [
+            "memory-lifecycle",
+            "memory-correct"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        },
+        {
+          "path": "scripts/quality/apifox_business.py",
+          "scenario_keys": [
+            "source-revoke"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": true
+    },
+    {
+      "id": "REM-13",
+      "title": "失败重加工与补索引幂等",
+      "requirements": [
+        "FR07",
+        "FR18",
+        "V14-WORK-03"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D02",
+      "preconditions": "独立对象可造成一次受控向量失败",
+      "steps": [
+        "记录失败任务及保存正文",
+        "通过正式reprocess/reindex恢复",
+        "重放同一命令并查询processing"
+      ],
+      "expected": [
+        "原文与原版本不丢",
+        "全部块发布后ready；无重复正式投影，reindex不无故重复长期提取"
+      ],
+      "api_group": "longterm",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REM-14",
+      "title": "反思、巩固、知识提炼的产物",
+      "requirements": [
+        "FR05",
+        "FR06"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D03/D05",
+      "preconditions": "触发条件、最小输入与权限冻结",
+      "steps": [
+        "保存并整理真实事实集合",
+        "执行reflection/distill及查看查询状态",
+        "核对输入引用、版本、预算、产物及后继索引"
+      ],
+      "expected": [
+        "输出可追溯且不把任务受理当提炼成功",
+        "否定/年份/单位保留，空产物有契约理由而非虚报成功"
+      ],
+      "api_group": "longterm",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REM-15",
+      "title": "压缩质量与失败保留",
+      "requirements": [
+        "FR06",
+        "NFR-COMP"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D01/D04/D05",
+      "preconditions": "固定真实长文及金标准Q01—Q20",
+      "steps": [
+        "提交压缩并记录全部样本含失败",
+        "查任务、压缩产物及来源",
+        "独立核对实体、数字、否定、条件和冲突"
+      ],
+      "expected": [
+        "所有关键事实质量通过才允许产物投入召回",
+        "BUDGET_EXHAUSTED等失败不计压缩成功，原文可追溯"
+      ],
+      "api_group": "longterm",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REC-01",
+      "title": "Working真实语义召回",
+      "requirements": [
+        "FR02",
+        "FR08",
+        "V14-WORK-02"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D03",
+      "preconditions": "独立fixture已ready，事实不在提问中",
+      "steps": [
+        "用批准的同义问法sources=working查询",
+        "关联真实Query向量与搜索",
+        "核对候选、精确正文和最终Pack"
+      ],
+      "expected": [
+        "命中对应年份单产并有可读证据",
+        "不是词法fallback或模型常识；所有对象在选定scope"
+      ],
+      "api_group": "recall",
+      "smoke": true,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_journeys.py",
+          "scenario_keys": [
+            "memory-lifecycle",
+            "memory-correct"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        },
+        {
+          "path": "scripts/quality/apifox_business.py",
+          "scenario_keys": [
+            "public-working",
+            "correction"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REC-02",
+      "title": "长期、混合与auto来源选择",
+      "requirements": [
+        "FR08",
+        "FR09"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D02/D03/D05",
+      "preconditions": "Working和长期各有不同且已ready的事实",
+      "steps": [
+        "同查询分别working/long_term/both/auto",
+        "对照selected_sources和coverage",
+        "检查每组来源及事实"
+      ],
+      "expected": [
+        "显式来源不静默缩减；both符合合并策略",
+        "auto遵从冻结来源规则；长期事实通过正式管线创建"
+      ],
+      "api_group": "recall",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_business.py",
+          "scenario_keys": [
+            "longterm-new-session"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REC-03",
+      "title": "正常空、未就绪、依赖故障分开",
+      "requirements": [
+        "FR07",
+        "FR08",
+        "FR18"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D02",
+      "preconditions": "3个独立scope对应无资料/未ready/依赖故障",
+      "steps": [
+        "用同类型问题分别查询三种前提",
+        "记录HTTP和业务outcome/reason",
+        "恢复依赖后再次使用原对象"
+      ],
+      "expected": [
+        "正常无事实可empty",
+        "未ready与依赖故障不能冒充empty或complete；故障停止不损坏已存正文"
+      ],
+      "api_group": "recall",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_business.py",
+          "scenario_keys": [
+            "empty-new-session"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REC-04",
+      "title": "去重、排序与冲突组完整",
+      "requirements": [
+        "FR09",
+        "FR10"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D03/D06",
+      "preconditions": "冻结检索相关性/去重规则；D06合法冲突组",
+      "steps": [
+        "同源多块和独立来源都进入候选",
+        "多来源查询并核对记忆级合并",
+        "检查有效冲突成员及排序规则"
+      ],
+      "expected": [
+        "同一记忆块不重复充满Pack；独立事实保留",
+        "完整冲突组不被拆；无D06只运行去重子实例，冲突子实例BLOCKED"
+      ],
+      "api_group": "recall",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REC-05",
+      "title": "token边界与独立复算",
+      "requirements": [
+        "FR10",
+        "NFR-AI"
+      ],
+      "stage": "MVP",
+      "level": "接口契约",
+      "priority": "P0",
+      "dataset": "D04摘录",
+      "preconditions": "独立tokenizer版本可取得；冻结组装错误协议",
+      "steps": [
+        "预算0/1/128/512/1024/2048/4096逐例请求",
+        "独立tokenizer复算rendered_context",
+        "检查首组过长后续可装入/全部过长"
+      ],
+      "expected": [
+        "0违反minimum=1按契约422；合法预算不超过上限",
+        "首组装不下继续其他完整组；全装不下给明确业务原因，非模糊中断",
+        "tokenizer不可取得时该断言BLOCKED，不采信自报数值"
+      ],
+      "api_group": "recall",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_business.py",
+          "scenario_keys": [
+            "token-budget"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REC-06",
+      "title": "原结果查询与重新获取",
+      "requirements": [
+        "FR11",
+        "FR15"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D03",
+      "preconditions": "已完成Recall及当前有效权限",
+      "steps": [
+        "按原recall_id查状态和结果多次",
+        "记录是否产生新任务或模型调用",
+        "撤权后再取原结果"
+      ],
+      "expected": [
+        "有权结果一致，查询不隐式重新检索/计热/调用模型",
+        "撤权后旧结果不能绕过当前授权"
+      ],
+      "api_group": "recall",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_business.py",
+          "scenario_keys": [
+            "idempotent-scheduling"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REC-07",
+      "title": "语义相关性与无答案对照",
+      "requirements": [
+        "FR08",
+        "FR09",
+        "NFR-AI"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D01—D05；21题金标准",
+      "preconditions": "单独scope与held-out问法；不在问题里给答案",
+      "steps": [
+        "导入前运行无资料对照",
+        "正式导入/ready后运行冻结问题",
+        "对每题核对gold source与事实"
+      ],
+      "expected": [
+        "逐题评判支持事实、漏答、编造、引用覆盖",
+        "无资料/无银行账号证据时明确不知道；不以流畅或关键词数判通过"
+      ],
+      "api_group": "recall",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REC-08",
+      "title": "同对象多处证据关系查询",
+      "requirements": [
+        "FR03",
+        "FR08",
+        "MEET-GRAPH"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D01 Q01/Q02",
+      "preconditions": "全文经文档入口就绪；两处证据相距超过首片段",
+      "steps": [
+        "问配偶与职业且不提供答案",
+        "核对两处原文及对象关系",
+        "观察是否存在声明的图检索路径"
+      ],
+      "expected": [
+        "Norton配偶关系与律师职业均有原文支持",
+        "答案正确不等于图数据库接入；若正式范围要求图能力，独立结构证据缺失仍BLOCKED"
+      ],
+      "api_group": "recall",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REC-09",
+      "title": "正文range边界与版本一致",
+      "requirements": [
+        "FR03",
+        "FR10",
+        "FR15"
+      ],
+      "stage": "MVP",
+      "level": "接口契约",
+      "priority": "P1",
+      "dataset": "D01全文",
+      "preconditions": "来源读取range单位和边界协议已冻结",
+      "steps": [
+        "在首/中/尾及多字节字符边界读range",
+        "拼接覆盖全范围并核对hash",
+        "旧版本/越界/无权请求"
+      ],
+      "expected": [
+        "偏移单位与契约一致，字符不静默截断损坏",
+        "越界及旧版本按协议，范围读取仍鉴权"
+      ],
+      "api_group": "body",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_business.py",
+          "scenario_keys": [
+            "source-read"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REC-10",
+      "title": "并发读写不混合版本",
+      "requirements": [
+        "FR05",
+        "FR10",
+        "FR17"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D03真实内容补全",
+      "preconditions": "更正/删除各独立实例并有屏障时点",
+      "steps": [
+        "召回候选后暂停",
+        "另一客户端更正或删除并提交",
+        "继续正文读取和最终Pack提交"
+      ],
+      "expected": [
+        "最终只交付当前授权有效版本，或明确作废/重试",
+        "不出现旧向量加新正文混合事实；不扩大读锁掩盖竞态"
+      ],
+      "api_group": "recall",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "OPS-01",
+      "title": "存储与召回双侧轨迹去重",
+      "requirements": [
+        "FR12"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D02",
+      "preconditions": "独立对象；访问事件计数可读",
+      "steps": [
+        "仅保存触发存储轨迹",
+        "真实Recall并重复获取同一结果",
+        "对照事件ID与热度输入"
+      ],
+      "expected": [
+        "存储侧单独进入决策依据",
+        "read/packed/delivered不对同次逻辑访问重复计热；查询状态不计新访问"
+      ],
+      "api_group": "operate",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_business.py",
+          "scenario_keys": [
+            "hot-scheduling"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "OPS-02",
+      "title": "基础规则决策表与安全边界",
+      "requirements": [
+        "FR13",
+        "NFR-RULE"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D02",
+      "preconditions": "批准热度阈值θ、容量与相邻层级规则",
+      "steps": [
+        "按真实访问轨迹构成θ以下/等于/以上场景",
+        "覆盖容量不足、历史缺失、冲突在途、删除/撤权",
+        "核对decision及理由"
+      ],
+      "expected": [
+        "冻结规则表全部判断正确，错误降层0",
+        "缺状态不盲动；单测可控制时间但正式自然衰减证据另验"
+      ],
+      "api_group": "operate",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "OPS-03",
+      "title": "真实自动升温与热副本读取",
+      "requirements": [
+        "FR13",
+        "FR14"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D02",
+      "preconditions": "独立配置域；真实Ceph/Redis；不直接设置cache_location",
+      "steps": [
+        "正常存储/召回触发热度阈值",
+        "跟踪原action与任务至确认",
+        "核对Redis实体hash、元数据位置及下一次业务read路径"
+      ],
+      "expected": [
+        "升温由产品规则自动触发",
+        "task/action/实际目标hash一致；下一次业务读命中真实热副本"
+      ],
+      "api_group": "operate",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_business.py",
+          "scenario_keys": [
+            "hot-scheduling"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "OPS-04",
+      "title": "自然降温与原文持续可读",
+      "requirements": [
+        "FR04",
+        "FR14"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D02",
+      "preconditions": "已通过升温的独立setup；衰减等待上限冻结",
+      "steps": [
+        "停止访问并真实等待衰减",
+        "跟踪降温动作与Redis清理",
+        "从业务入口再次读正文"
+      ],
+      "expected": [
+        "降层前后Ceph原文hash一致且可读",
+        "Redis副本和cache_location按策略一致；禁止改库伪造降温"
+      ],
+      "api_group": "operate",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "OPS-05",
+      "title": "外部操作响应丢失核对",
+      "requirements": [
+        "FR14",
+        "FR18"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D02",
+      "preconditions": "Provider真实效果后丢回执夹具",
+      "steps": [
+        "升温写成功后丢响应",
+        "查询原action并恢复通信",
+        "检查正式动作及目标副本"
+      ],
+      "expected": [
+        "unknown时查询原ID，不新建冲突操作",
+        "最终效果只一次且经真实读确认；无结果时进入有解释的人工处理"
+      ],
+      "api_group": "operate",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "OPS-06",
+      "title": "预测预热顺序、收益和回退",
+      "requirements": [
+        "FR16",
+        "NFR-PRED"
+      ],
+      "stage": "P1",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "真实留出访问轨迹",
+      "preconditions": "基础算法/MVP基线可运行，资源相同",
+      "steps": [
+        "按训练/验证/留出时间分割轨迹",
+        "对比基线与预测，记录预测→ready→真实访问",
+        "让预测不可用/资源紧张，回退基础算法"
+      ],
+      "expected": [
+        "预热必须先于实际访问；未来轨迹不泄漏给预测",
+        "相对收益及百分点按PERF-06计；基础功能不因预测失效而停止"
+      ],
+      "api_group": "operate",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "APP-01",
+      "title": "登录、新会话与账号切换",
+      "requirements": [
+        "APP-ID",
+        "FR15"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D02",
+      "preconditions": "独立浏览器上下文；A1/A2/B1",
+      "steps": [
+        "A1登录新会话并发真实问题",
+        "退出切换A2/B1",
+        "查看草稿、附件、历史列表及旧URL"
+      ],
+      "expected": [
+        "用户不手填可信tenant；身份与会话归属正确",
+        "账号切换不残留他人草稿/附件/历史；旧URL仍由服务端拒绝"
+      ],
+      "api_group": "platform",
+      "smoke": true,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "APP-02",
+      "title": "聊天附件入口边界",
+      "requirements": [
+        "APP-FILE",
+        "FR03"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D02-CSV/D03-CSV/D04摘录",
+      "preconditions": "聊天与文档入口限制分别冻结",
+      "steps": [
+        "上传支持附件并移除/重新添加",
+        "检验文件数N−1/N/N+1、字节/字符边界",
+        "把完整长文交给正式导入而非聊天截断"
+      ],
+      "expected": [
+        "附件内容只并入一次",
+        "超限明确拒绝或按确认契约提示；不能静默截断后声称完整处理"
+      ],
+      "api_group": "platform",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "APP-03",
+      "title": "流式答案与后台保存独立展示",
+      "requirements": [
+        "APP-CHAT",
+        "FR01"
+      ],
+      "stage": "MVP",
+      "level": "端到端",
+      "priority": "P0",
+      "dataset": "D02-CSV",
+      "preconditions": "真实模型；新会话与独立scope",
+      "steps": [
+        "发气象问题并记录首token/完整答案",
+        "独立追踪回答保存回执",
+        "刷新并重新登录回读"
+      ],
+      "expected": [
+        "月均3.18°C、降雨61.68mm且来源支持",
+        "回答完成/保存中/保存失败分别准确显示；模型自述不覆盖后端状态"
+      ],
+      "api_group": "platform",
+      "smoke": true,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "APP-04",
+      "title": "全新会话不带附件召回",
+      "requirements": [
+        "APP-CHAT",
+        "FR05",
+        "FR08"
+      ],
+      "stage": "MVP",
+      "level": "端到端",
+      "priority": "P0",
+      "dataset": "D03/D05",
+      "preconditions": "独立setup先确认长期产物ready；S2从未收到答案",
+      "steps": [
+        "S1正式导入并完成长期加工",
+        "新浏览器会话S2仅提问2023谷物单产",
+        "核对P3 Recall、引用、答案和保存",
+        "退出重登读S2"
+      ],
+      "expected": [
+        "6418.1 kg/ha来自真实Recall与源版本",
+        "模型答对但Recall缺证据不能通过记忆用例；保存/回读均成功"
+      ],
+      "api_group": "platform",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "APP-05",
+      "title": "断流、重复发送及同ID恢复",
+      "requirements": [
+        "APP-CHAT",
+        "FR11",
+        "FR18"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D02",
+      "preconditions": "代理仅控制本用例响应；记录原turn_id",
+      "steps": [
+        "受理后切断浏览器连接",
+        "重连查原turn_id，再同ID提交",
+        "在流式输出中断点重复执行"
+      ],
+      "expected": [
+        "已有任务继续可查询；同ID不重复会话消息和正式记忆",
+        "首轮失败与重试结果独立留存，部分答案不冒充完整答案"
+      ],
+      "api_group": "platform",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "APP-06",
+      "title": "真实多模态文档入口反馈",
+      "requirements": [
+        "APP-FILE",
+        "FR03"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P1",
+      "dataset": "D02/D03透明PDF/DOCX；扫描件属单独负样本",
+      "preconditions": "已冻结支持能力；样本记录来源及转换",
+      "steps": [
+        "通过我的记忆导入PDF/DOCX",
+        "核对表格、字段、单位与非首段",
+        "导入扫描PDF或损坏副本"
+      ],
+      "expected": [
+        "有文本格式按声明完整解析",
+        "不支持OCR明确提示不支持；该拒绝通过不算OCR能力通过"
+      ],
+      "api_group": "platform",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "APP-07",
+      "title": "管理数据权限和状态真实性",
+      "requirements": [
+        "APP-OPS",
+        "FR18",
+        "FR15"
+      ],
+      "stage": "MVP",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D02",
+      "preconditions": "只读运维与业务管理员权限分离",
+      "steps": [
+        "建立成功/失败/处理中任务各一类",
+        "对照控制台计数、详情、日志及后台记录",
+        "无权用户直接访问管理API"
+      ],
+      "expected": [
+        "计数可下钻到对象和错误及可执行下一步",
+        "读取失败显示不可用而非0条；无权拒绝；不任意给管理员业务正文权限"
+      ],
+      "api_group": "admin",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "APP-08",
+      "title": "身份目录停用与用户闭环",
+      "requirements": [
+        "APP-ID",
+        "TEN-06"
+      ],
+      "stage": "FINAL",
+      "level": "系统",
+      "priority": "P0",
+      "dataset": "D03",
+      "preconditions": "获准的测试用户管理入口和映射SLA",
+      "steps": [
+        "开通测试租户用户并登录业务",
+        "停用用户/租户后新旧会话访问",
+        "恢复旧配置快照的隔离演练"
+      ],
+      "expected": [
+        "开通→身份投影→真实API授权逐项通过",
+        "停用在批准时限生效，恢复不能复活失效许可；目录管理不替代对象鉴权"
+      ],
+      "api_group": "platform",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REL-01",
+      "title": "真实Worker进程退出恢复",
+      "requirements": [
+        "FR18",
+        "FR01",
+        "FR07"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D02/D01",
+      "preconditions": "专用Worker与真实持久存储，绝不操作共享实例",
+      "steps": [
+        "保存后/分块提交后分别杀隔离Worker进程",
+        "恢复原部署与Worker",
+        "查原任务/检查点并读最终产物"
+      ],
+      "expected": [
+        "已确认保存不丢；有效块复用",
+        "相同业务ID续跑不重复正式效果；进程恢复与业务恢复分时记录"
+      ],
+      "api_group": "tasks",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": true
+    },
+    {
+      "id": "REL-02",
+      "title": "LLM、向量、对象存储依赖故障",
+      "requirements": [
+        "FR18",
+        "NFR-RES"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D02/D01",
+      "preconditions": "只作用测试实例的真实依赖故障代理",
+      "steps": [
+        "逐一注入超时/断连/恢复，不同时改多个依赖",
+        "观察受理、任务、退避、错误分类",
+        "恢复后原ID续作并读结果"
+      ],
+      "expected": [
+        "有限预算重试；输入/预算/权限错误不无限重试",
+        "向量故障不丢原文，独立可读路径仍按能力工作"
+      ],
+      "api_group": "tasks",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REL-03",
+      "title": "任务取消、核对与周期唯一性",
+      "requirements": [
+        "FR18",
+        "FR12"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D02",
+      "preconditions": "专用周期域；控制接口明确",
+      "steps": [
+        "取消或reconcile原任务并轮询controls",
+        "旧revision重复控制",
+        "重启周期Worker并读tick/事件"
+      ],
+      "expected": [
+        "控制请求和业务终态分开；取消不抹掉已发生效果",
+        "旧revision拒绝，同tick不重复正式任务；无无限历史积累"
+      ],
+      "api_group": "controls",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": true
+    },
+    {
+      "id": "REL-04",
+      "title": "超时旧执行迟到提交",
+      "requirements": [
+        "FR18",
+        "FR17"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D03",
+      "preconditions": "可暂停旧attempt与启动新attempt的夹具",
+      "steps": [
+        "旧attempt在提交前停住并触发有界超时",
+        "新attempt继续原业务",
+        "释放旧attempt并查所有写结果"
+      ],
+      "expected": [
+        "旧执行不能覆盖新版本/权限",
+        "外部副作用用稳定ID核对；不把Temporal超时当作旧进程已停止"
+      ],
+      "api_group": "tasks",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REL-05",
+      "title": "P4持久输入状态与所有权转移",
+      "requirements": [
+        "FR11",
+        "FR18"
+      ],
+      "stage": "MVP",
+      "level": "集成",
+      "priority": "P0",
+      "dataset": "D03",
+      "preconditions": "版本化client-run契约及恢复接线",
+      "steps": [
+        "登记run/definition/input及顺序checkpoint",
+        "准备recovery/transfer并切换owner",
+        "新owner读原输入续作，旧owner尝试提交"
+      ],
+      "expected": [
+        "状态序列/输入hash/版本可对照",
+        "原owner被fencing拒绝，恢复端真实完成业务；缺接线不得用重新开会话替代"
+      ],
+      "api_group": "client-runs",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REL-06",
+      "title": "限流、积压和后台资源保护",
+      "requirements": [
+        "FR18",
+        "NFR-RES"
+      ],
+      "stage": "MVP",
+      "level": "非功能",
+      "priority": "P0",
+      "dataset": "D02及真实多样资料集",
+      "preconditions": "固定配额/截止时间/停止线；隔离环境",
+      "steps": [
+        "持续提交后台任务同时发前台请求",
+        "观察积压、拒绝/背压、资源与删除响应",
+        "停止增量并跟踪恢复"
+      ],
+      "expected": [
+        "配额不越界且队列有界",
+        "错误明确可重试；保留前台读写/删除能力，停止后积压按批准恢复预算回落"
+      ],
+      "api_group": "tasks",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "PERF-01",
+      "title": "核心读与可靠写P99分开验收",
+      "requirements": [
+        "NFR-LAT"
+      ],
+      "stage": "MVP",
+      "level": "非功能",
+      "priority": "P0",
+      "dataset": "真实短Working及多样数据",
+      "preconditions": "业务热路径、可靠保存边界与负载清单已确认",
+      "steps": [
+        "验证真实热副本读并另测可靠保存",
+        "每路径预热5min后固定负载30min，至少10000有效样本/档，独立重复3轮",
+        "记录全部成功失败超时及阶段"
+      ],
+      "expected": [
+        "按PRD核心读/写各自P99<10ms；合同前台热读另判",
+        "任何轮失败/超时比例超批准门槛不通过；未冻结负载即BLOCKED",
+        "不能以Redis裸GET、返回202或索引ready代替这些边界"
+      ],
+      "api_group": "performance",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "PERF-02",
+      "title": "旁路拦截及真实向量计算吞吐",
+      "requirements": [
+        "NFR-QPS"
+      ],
+      "stage": "MVP",
+      "level": "非功能",
+      "priority": "P0",
+      "dataset": "不同正文真实语料；固定长度分桶",
+      "preconditions": "合同独立入口/开始完成事件与硬件维度冻结",
+      "steps": [
+        "开放到达率逐档升至2000+/s",
+        "目标档预热5min、正式30min并重复3轮",
+        "逐条核对真实完成计算/正确向量及未完成积压"
+      ],
+      "expected": [
+        "稳定实际有效完成≥2000/s；失败不计有效完成",
+        "输入缓存/去重命中不计计算；积压不能持续增长",
+        "测量入口缺失BLOCKED，完整异步流水线另报"
+      ],
+      "api_group": "performance",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/component_benchmark.py",
+          "coverage": "partial",
+          "dependency": "real",
+          "scenario_keys": [
+            "native_bge_cpu_component"
+          ]
+        },
+        {
+          "path": "scripts/quality/apifox_component.py",
+          "scenario_keys": [
+            "8835285"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。",
+        "新增组件基准只测原生编码或模型输入预压缩；不替代完整吞吐/已保存长期产物/物理压缩及人工语义质量验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "PERF-03",
+      "title": "索引就绪与召回阶段时延",
+      "requirements": [
+        "FR07",
+        "FR08",
+        "NFR-LAT"
+      ],
+      "stage": "MVP",
+      "level": "非功能",
+      "priority": "P1",
+      "dataset": "D01—D05不同大小分桶",
+      "preconditions": "T_ready/T_recall/T_first_token/完成时间预算待批准",
+      "steps": [
+        "记录提交/受理/saved/解析/全块ready/Recall/回答/再保存时间",
+        "在并发1/4/8下各独立测试",
+        "按trace分解排队、调用、存储、提交残差"
+      ],
+      "expected": [
+        "分阶段P50/P95/P99与失败数均报告",
+        "未约定SLO只做基线，不判达标；轮询间隔及观察延迟入说明",
+        "重叠span不相加，计时空白保留unknown"
+      ],
+      "api_group": "performance",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "PERF-04",
+      "title": "内容压缩与物理占用双口径",
+      "requirements": [
+        "FR06",
+        "NFR-COMP"
+      ],
+      "stage": "MVP",
+      "level": "非功能",
+      "priority": "P0",
+      "dataset": "真实长文集合，失败样本不移除",
+      "preconditions": "清晰空间计量边界和保留策略",
+      "steps": [
+        "同集合测原文及质量合格产物内容字节",
+        "核算原文/摘要/向量/索引/元数据/副本实际物理占用",
+        "同时核验金标准与全部失败"
+      ],
+      "expected": [
+        "PRD内容比≥5且质量通过；合同物理比单独≥5才可判合同通过",
+        "保留原文开销纳入物理口径；去重节省不冒充语义压缩",
+        "原文保留与物理目标冲突须先签明口径"
+      ],
+      "api_group": "performance",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/component_benchmark.py",
+          "coverage": "partial",
+          "dependency": "real",
+          "scenario_keys": [
+            "llmlingua_input_view_component"
+          ]
+        },
+        {
+          "path": "scripts/quality/apifox_component.py",
+          "scenario_keys": [
+            "8835286"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。",
+        "新增组件基准只测原生编码或模型输入预压缩；不替代完整吞吐/已保存长期产物/物理压缩及人工语义质量验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "PERF-05",
+      "title": "基础规则正确率及实际效果",
+      "requirements": [
+        "FR13",
+        "FR14",
+        "NFR-RULE"
+      ],
+      "stage": "MVP",
+      "level": "非功能",
+      "priority": "P0",
+      "dataset": "OPS-02冻结规则场景及真实数据",
+      "preconditions": "所有决策表行有独立输入预期",
+      "steps": [
+        "逐场景运行基础规则",
+        "对可执行动作读取真实目标及原文",
+        "汇总规则判断与真实动作成功分别计数"
+      ],
+      "expected": [
+        "有效规则判断100%、错误降层0",
+        "决策正确不能替代真实效果；暂缓场景不误算执行失败"
+      ],
+      "api_group": "operate",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "PERF-06",
+      "title": "预测对MVP基线A/B收益",
+      "requirements": [
+        "FR16",
+        "NFR-PRED"
+      ],
+      "stage": "P1",
+      "level": "非功能",
+      "priority": "P0",
+      "dataset": "真实访问轨迹留出集",
+      "preconditions": "相同容量预算预热、MVP算法版本固定",
+      "steps": [
+        "基线和预测按同一轨迹独立运行，清理carry-over",
+        "至少3个相同条件的独立窗口",
+        "记录hit/miss/正确性/预热未使用与成本"
+      ],
+      "expected": [
+        "相对提升(hit_p−hit_b)/hit_b≥10%，同时报告百分点",
+        "基线0不能计算相对值，需另签验收解释；不能拿0/300路径率代替A/B",
+        "未来访问不得泄漏，置信区间与逐窗口结果保留"
+      ],
+      "api_group": "performance",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "PERF-07",
+      "title": "MVP连续24小时稳定性",
+      "requirements": [
+        "NFR-SOAK"
+      ],
+      "stage": "MVP",
+      "level": "非功能",
+      "priority": "P0",
+      "dataset": "批准业务混合负载",
+      "preconditions": "MVP功能/安全/核心指标前置通过；观测可用",
+      "steps": [
+        "固定版本运行至少24h持续混合读写/召回/调度",
+        "按计划插入删除撤权与可控恢复用例",
+        "连续留存业务探针、积压、资源、错误"
+      ],
+      "expected": [
+        "重大数据错误/越权/失效正文交付为0",
+        "业务成功率/积压/恢复按批准SLO；观察中断不算已观测时间",
+        "版本/配置修改后重新开始正式窗口"
+      ],
+      "api_group": "performance",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "PERF-08",
+      "title": "上线连续72小时稳定性",
+      "requirements": [
+        "NFR-SOAK"
+      ],
+      "stage": "FINAL",
+      "level": "非功能",
+      "priority": "P0",
+      "dataset": "批准生产代表负载",
+      "preconditions": "MVP/P1适用门禁及发布演练通过",
+      "steps": [
+        "候选生产拓扑运行连续72h",
+        "持续业务探针并执行批准故障恢复计划",
+        "记录完整SLO、存储增长、证据连续性"
+      ],
+      "expected": [
+        "合同和PRD 72h要求满足；无严重正确性/隔离故障",
+        "Pod存活/探针200不代替业务成功；72h内不能更换候选版本"
+      ],
+      "api_group": "performance",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "DEP-01",
+      "title": "部署、升级和工作流版本兼容",
+      "requirements": [
+        "NFR-DEP",
+        "FR18"
+      ],
+      "stage": "FINAL",
+      "level": "发布",
+      "priority": "P0",
+      "dataset": "D02以及旧版真实在途任务",
+      "preconditions": "隔离预发布；固定新旧镜像和配置",
+      "steps": [
+        "旧版受理长任务后升级候选版本",
+        "检查在途Workflow重放与业务Schema兼容",
+        "执行新请求及旧结果回读"
+      ],
+      "expected": [
+        "新旧任务可继续或按明确迁移策略终止并核对",
+        "无不兼容历史重放/权限扩张；部署清单与实际digest一致"
+      ],
+      "api_group": "runtime",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [
+        {
+          "path": "scripts/quality/apifox_journeys.py",
+          "scenario_keys": [
+            "public-chain",
+            "internal-chain"
+          ],
+          "coverage": "partial",
+          "dependency": "real"
+        }
+      ],
+      "design_state": "PARTIALLY_AUTOMATED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "DEP-02",
+      "title": "回滚与变更失败恢复",
+      "requirements": [
+        "NFR-DEP",
+        "FR18"
+      ],
+      "stage": "FINAL",
+      "level": "发布",
+      "priority": "P0",
+      "dataset": "D02",
+      "preconditions": "可回滚版本/配置；数据库兼容路径已审阅",
+      "steps": [
+        "注入一次隔离部署/配置失败",
+        "回退已知可用版本",
+        "核对已保存数据、在途任务与权限"
+      ],
+      "expected": [
+        "回滚后业务可用且不复活失效状态",
+        "不能盲回滚不兼容数据库；RTO从异常到业务验收记录"
+      ],
+      "api_group": "configuration",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "DEP-03",
+      "title": "备份与隔离恢复及RPO",
+      "requirements": [
+        "NFR-DR",
+        "FR17",
+        "FR18"
+      ],
+      "stage": "FINAL",
+      "level": "发布",
+      "priority": "P0",
+      "dataset": "已保存、已更正、已删除、已撤权各真实对象",
+      "preconditions": "全后端manifest、独立恢复目标、T_RTO/RPO已批准",
+      "steps": [
+        "冻结各系统备份水位和已确认saved集合",
+        "恢复到独立目标并对账外部动作",
+        "核对正文/向量/权限/tombstone/任务并执行真实业务"
+      ],
+      "expected": [
+        "RPO按最后可恢复已确认业务水位计算",
+        "删除撤权不复活，未决动作原ID核对",
+        "连接成功不算恢复成功；不触碰生产原数据"
+      ],
+      "api_group": "backup",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "DEP-04",
+      "title": "多副本故障及数据竞争",
+      "requirements": [
+        "NFR-RES",
+        "FR18"
+      ],
+      "stage": "FINAL",
+      "level": "发布",
+      "priority": "P0",
+      "dataset": "D02/D03",
+      "preconditions": "生产拟采用多副本；共享业务状态设计确认",
+      "steps": [
+        "并行多Worker真实处理同ID及不同租户",
+        "停止一个节点/Worker",
+        "恢复后核对CAS/唯一效果和业务SLO"
+      ],
+      "expected": [
+        "无双写重复效果或越权；服务达到批准恢复目标",
+        "若正式交付单副本则该项N/A需范围签署，不能因此宣称HA"
+      ],
+      "api_group": "tasks",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "DEP-05",
+      "title": "监控告警与人工处置闭环",
+      "requirements": [
+        "NFR-OBS",
+        "APP-OPS"
+      ],
+      "stage": "FINAL",
+      "level": "发布",
+      "priority": "P0",
+      "dataset": "D02",
+      "preconditions": "告警演练接收渠道已批准，不默认发外部消息",
+      "steps": [
+        "制造本用例真实失败/积压",
+        "核对告警→详情→操作权限→原ID重试或核对",
+        "独立确认恢复并关闭事件"
+      ],
+      "expected": [
+        "告警有对象、原因、影响和可操作路径",
+        "统计和逐条记录一致；不能只看失败数量，人工动作留审计"
+      ],
+      "api_group": "admin",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "DEP-06",
+      "title": "生产接入、证书和交付验收",
+      "requirements": [
+        "NFR-DEP",
+        "APP-ID"
+      ],
+      "stage": "FINAL",
+      "level": "发布",
+      "priority": "P0",
+      "dataset": "D02/D03",
+      "preconditions": "约定域名/身份/客户端、文档与权限可用",
+      "steps": [
+        "从第二台获准客户端HTTPS登录",
+        "完成核心E2E并核对无本机转发依赖",
+        "检查运维手册、密钥轮换、版本回退和保留政策"
+      ],
+      "expected": [
+        "真实外部入口、证书及身份有效",
+        "部署/使用/恢复文档由对应角色实操；无秘密写入日志/交付包"
+      ],
+      "api_group": "platform",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "E2E-01",
+      "title": "首次使用：保存后在当前任务召回",
+      "requirements": [
+        "FR01",
+        "FR02",
+        "FR07",
+        "FR08",
+        "APP-CHAT"
+      ],
+      "stage": "MVP",
+      "level": "端到端",
+      "priority": "P0",
+      "dataset": "D02-CSV",
+      "preconditions": "ENV通过；全新A1会话与scope；无故障注入",
+      "steps": [
+        "登录并在受支持入口提交气象CSV",
+        "等saved再等全块ready",
+        "在同任务问平均气温/总降雨并核对Recall",
+        "完成回答、保存、刷新回读"
+      ],
+      "expected": [
+        "3.18°C、61.68mm与来源一致",
+        "接收/保存/索引/Recall/回答/再保存/回读各有独立断言",
+        "任一步FAIL不覆盖前面PASS，后继依赖BLOCKED"
+      ],
+      "api_group": "platform",
+      "smoke": true,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "E2E-02",
+      "title": "正式文档：长期化后新会话取回",
+      "requirements": [
+        "FR03",
+        "FR05",
+        "FR07",
+        "FR08",
+        "APP-CHAT"
+      ],
+      "stage": "MVP",
+      "level": "端到端",
+      "priority": "P0",
+      "dataset": "D03/D05",
+      "preconditions": "独立租户范围；长期化条件预检成功",
+      "steps": [
+        "正式导入农业原值和定义",
+        "等长期产物及索引就绪",
+        "新会话不带附件问2023值/增幅/排除条件",
+        "核对来源、回答、保存及重登"
+      ],
+      "expected": [
+        "6418.1 kg/ha、1.94%、排除青贮放牧正确",
+        "不能用S1历史消息直接拼接假冒新会话记忆；所有阶段证据齐全"
+      ],
+      "api_group": "platform",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "E2E-03",
+      "title": "维护：更正、归档和重新激活",
+      "requirements": [
+        "FR04",
+        "FR05",
+        "FR07",
+        "FR08"
+      ],
+      "stage": "MVP",
+      "level": "端到端",
+      "priority": "P0",
+      "dataset": "D03真实正文补全",
+      "preconditions": "独立ready对象；更正与归档权限允许",
+      "steps": [
+        "更正为补全单位/定义的真实v2",
+        "新会话核对当前版本",
+        "归档验证默认不命中",
+        "激活并ready后再读"
+      ],
+      "expected": [
+        "v2来源和数值正确；归档资格生效",
+        "恢复后正文hash与v2一致且可召回；不夹带删除或故障恢复测试"
+      ],
+      "api_group": "mutation",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "E2E-04",
+      "title": "共享：有权可读、无权不可读、撤权生效",
+      "requirements": [
+        "FR15",
+        "FR11",
+        "TEN-03",
+        "TEN-04",
+        "TEN-06"
+      ],
+      "stage": "MVP",
+      "level": "端到端",
+      "priority": "P0",
+      "dataset": "D03",
+      "preconditions": "A1/A2/B1；正式Grant与撤权传播已具备",
+      "steps": [
+        "A1保存私有资料",
+        "A2/B1均尝试读取",
+        "共享仅给A2读取并核对正确事实",
+        "撤权后A2新读/旧Pack均复核"
+      ],
+      "expected": [
+        "有权对照真实成功；B1始终拒绝",
+        "A2共享前拒绝、共享后可读、撤权后拒绝；不将权限表缺失算产品失败"
+      ],
+      "api_group": "auth",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "E2E-05",
+      "title": "真实中断：原任务恢复后业务继续",
+      "requirements": [
+        "FR18",
+        "FR01",
+        "FR07",
+        "FR11"
+      ],
+      "stage": "MVP",
+      "level": "端到端",
+      "priority": "P0",
+      "dataset": "D02",
+      "preconditions": "独占测试Worker；恢复预算和故障点冻结",
+      "steps": [
+        "保存真实资料后在索引中途停Worker",
+        "重启原Worker并查原任务",
+        "在新会话按批准范围召回",
+        "核对答案、保存、原文及正式效果数"
+      ],
+      "expected": [
+        "原数据不丢、同ID续作且无重复正式效果",
+        "分别记录基础设施恢复与业务恢复；不拿客户端丢回执代替进程中断"
+      ],
+      "api_group": "tasks",
+      "smoke": false,
+      "cleanup": "保留失败对象与证据；通过对象按run_id清单清理；撤销本用例Grant/故障开关，核对无在途写。",
+      "evidence": "按E0—E6模板保存；本用例每步step_id与operation/task/trace关联。",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "PERF-09",
+      "title": "阶梯压力与容量拐点",
+      "requirements": [
+        "NFR-STRESS"
+      ],
+      "stage": "FINAL",
+      "level": "专项",
+      "priority": "P0",
+      "dataset": "按冻结专项协议",
+      "preconditions": "独立预发布；功能通过；请求/资源/费用上限；停止控制器已验证",
+      "steps": [
+        "1/5/10/20活跃用户阶梯探索，每档预热5分钟、观察至少15分钟",
+        "固定到达率复验稳定档；记录计划、实际发出、完成、失败与积压",
+        "核验保存、版本、权限与原任务终态；首次拐点缩小增幅"
+      ],
+      "expected": [
+        "正确性违例立即停止；非预期失败率连续2分钟大于5%停止升压",
+        "未发出负载和未完成任务不得从统计消失；容量结论绑定资源/模型/数据版本"
+      ],
+      "api_group": "specialist",
+      "smoke": false,
+      "cleanup": "按run_id与资源UID清单处置，保留首次失败",
+      "evidence": "E0—E6按断言选取",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "PERF-10",
+      "title": "突发流量与退载恢复",
+      "requirements": [
+        "NFR-STRESS"
+      ],
+      "stage": "FINAL",
+      "level": "专项",
+      "priority": "P0",
+      "dataset": "按冻结专项协议",
+      "preconditions": "PERF-09稳定吞吐已确定；停止控制器验证通过",
+      "steps": [
+        "从稳定负载30%升到100%，再降至30%，重复三轮",
+        "按原ID核对超时请求；观察队列回落及正确性"
+      ],
+      "expected": [
+        "没有重复业务副作用；没有越权或正文损坏",
+        "恢复时间、排空时间及限流计数如实记录；未冻结SLO不判达标"
+      ],
+      "api_group": "specialist",
+      "smoke": false,
+      "cleanup": "按run_id与资源UID清单处置，保留首次失败",
+      "evidence": "E0—E6按断言选取",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "PERF-11",
+      "title": "数据容量与维护开销",
+      "requirements": [
+        "NFR-CAPACITY"
+      ],
+      "stage": "FINAL",
+      "level": "专项",
+      "priority": "P0",
+      "dataset": "按冻结专项协议",
+      "preconditions": "独立存储资源；正式导入路径；配额/费用上限",
+      "steps": [
+        "以公开API分别构造1千/1万/10万条带run_id记忆",
+        "各档测Recall、ready时间、索引体积和后台维护；区分冷热及长短文本",
+        "依据测试资源清单检查在途任务并清理已通过数据，失败数据保留"
+      ],
+      "expected": [
+        "每档计入完整索引和长期加工开销；输入失败不可丢弃",
+        "达到预算即停；不以合成重复文本声明真实语义效果"
+      ],
+      "api_group": "specialist",
+      "smoke": false,
+      "cleanup": "按run_id与资源UID清单处置，保留首次失败",
+      "evidence": "E0—E6按断言选取",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "REC-11",
+      "title": "持久记忆对真实任务的成对效果",
+      "requirements": [
+        "NFR-MEMORY-VALUE"
+      ],
+      "stage": "FINAL",
+      "level": "专项",
+      "priority": "P0",
+      "dataset": "按冻结专项协议",
+      "preconditions": "独立留出集、人工金标准和评测阈值冻结；真实模型预算",
+      "steps": [
+        "同模型同任务比较无持久记忆和启用持久记忆两臂",
+        "S2不含答案且不再上传S1附件；记录来源、版本与授权",
+        "每配置重复3轮，盲评关键事实/任务成功/无依据内容；分歧复核"
+      ],
+      "expected": [
+        "包含所有失败与成本，报告配对差值和波动而非最佳一轮",
+        "21题只作固定回归；留出集未标注或目标未冻结时正式效果验收BLOCKED"
+      ],
+      "api_group": "specialist",
+      "smoke": false,
+      "cleanup": "按run_id与资源UID清单处置，保留首次失败",
+      "evidence": "E0—E6按断言选取",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "APP-09",
+      "title": "Chrome与Edge桌面兼容",
+      "requirements": [
+        "NFR-COMPAT"
+      ],
+      "stage": "FINAL",
+      "level": "专项",
+      "priority": "P0",
+      "dataset": "按冻结专项协议",
+      "preconditions": "专用A1/A2/B1身份；独立浏览器会话；两浏览器版本冻结",
+      "steps": [
+        "两浏览器分别执行登录、附件、流式回答、记忆列表和刷新重登",
+        "分别测试1280×720和1920×1080、中文长文本及特殊字符",
+        "保存断言与失败截图；API辅助步骤单列"
+      ],
+      "expected": [
+        "无阻断主流程的遮挡或控件失效，失败和处理中状态准确",
+        "仅真实浏览器覆盖可记通过；jsdom不冒充浏览器E2E"
+      ],
+      "api_group": "specialist",
+      "smoke": false,
+      "cleanup": "按run_id与资源UID清单处置，保留首次失败",
+      "evidence": "E0—E6按断言选取",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    },
+    {
+      "id": "SEC-09",
+      "title": "运行依赖与镜像漏洞检查",
+      "requirements": [
+        "NFR-SUPPLY"
+      ],
+      "stage": "FINAL",
+      "level": "专项",
+      "priority": "P0",
+      "dataset": "按冻结专项协议",
+      "preconditions": "固定镜像摘要、SBOM和漏洞库版本；扫描工具可用",
+      "steps": [
+        "扫描Python/Node/Java依赖与运行镜像",
+        "核对高危项实际部署、调用可达性和修复版本",
+        "生成修复/风险接受记录并复测"
+      ],
+      "expected": [
+        "扫描失败或漏洞库不可用记BLOCKED，不等于零漏洞",
+        "S0/S1未关闭不得放行；仅数量不能替代可操作缺陷列表"
+      ],
+      "api_group": "specialist",
+      "smoke": false,
+      "cleanup": "按run_id与资源UID清单处置，保留首次失败",
+      "evidence": "E0—E6按断言选取",
+      "automation": [],
+      "design_state": "SPECIFIED",
+      "open_design_items": [
+        "按固定候选版本展开数据、参数及判定边界；本规格尚未完成全量自动化验收。"
+      ],
+      "required_capabilities": [
+        "candidate_identity",
+        "real_test_data"
+      ],
+      "always_select": false
+    }
+  ],
+  "fixtures": [
+    {
+      "id": "D01",
+      "file": "E:/projects/codex/aether/项目资料/公开测试数据/20261008/sherlock_holmes.txt",
+      "source": "https://www.gutenberg.org/ebooks/1661.txt.utf-8",
+      "kind": "原件",
+      "bytes": 607606,
+      "sha256": "922e2a12ccb43a4c9544c260b2166c6ad2097aeb5957faeee113f173bb857cd0",
+      "note": "小说原文事实，不是现实人物事件"
+    },
+    {
+      "id": "D02",
+      "file": "E:/projects/codex/aether/项目资料/公开测试数据/20261008/nasa_power_nanjing_202401.json",
+      "source": "https://power.larc.nasa.gov/api/temporal/daily/point?parameters=T2M,PRECTOTCORR&community=AG&longitude=118.7969&latitude=32.0603&start=20240101&end=20240131&format=JSON",
+      "kind": "原件",
+      "bytes": 1526,
+      "sha256": "4a653854f5fb9177735974c3ff6f3f4a49aa2df7656b9dba3d328d18eb956d47",
+      "note": "MERRA2格点数据、LST，非现场站点观测"
+    },
+    {
+      "id": "D03",
+      "file": "E:/projects/codex/aether/项目资料/公开测试数据/20261008/worldbank_china_cereal_yield.json",
+      "source": "https://api.worldbank.org/v2/country/CHN/indicator/AG.YLD.CREL.KG?date=2020:2023&format=json",
+      "kind": "原件",
+      "bytes": 918,
+      "sha256": "cdb734df05ba7b37d540fd6ae6cad0f12602aa1c337b095f5a06448da96ba584",
+      "note": "WDI/FAO历史冻结值；API更新日期不是统计年份"
+    },
+    {
+      "id": "D04",
+      "file": "E:/projects/codex/aether/项目资料/公开测试数据/20261008/rfc9110.txt",
+      "source": "https://www.rfc-editor.org/rfc/rfc9110.txt",
+      "kind": "原件",
+      "bytes": 502941,
+      "sha256": "21c1cdce6ab0e5509b04d84a28000836c7a087cf786efe6f04877ebfff47232a",
+      "note": "规范命题按RFC原文与章节"
+    },
+    {
+      "id": "D05",
+      "file": "E:/projects/codex/aether/项目资料/公开测试数据/20261008/worldbank_indicator_metadata.json",
+      "source": "https://api.worldbank.org/v2/indicator/AG.YLD.CREL.KG?format=json",
+      "kind": "原件",
+      "bytes": 1082,
+      "sha256": "7db73e3ce4522b5a91050ee4243b129d332e444cf38709b7ca5443cae45d9f2c",
+      "note": "谷物单产定义与排除条件"
+    },
+    {
+      "id": "D02-CSV",
+      "file": "E:/projects/codex/aether/项目资料/公开测试数据/20261008/nasa_power_nanjing_202401.csv",
+      "source": "D02",
+      "kind": "透明派生",
+      "bytes": 1778,
+      "sha256": "f59209ea4b842b781e226a2a0564029e12e1f99aa2e524544d33694e7543ff21",
+      "note": "保留真实31日值；规范化/再次序列化后的字节hash单独登记"
+    },
+    {
+      "id": "D03-CSV",
+      "file": "E:/projects/codex/aether/项目资料/公开测试数据/20261008/china_cereal_yield_2020_2023.csv",
+      "source": "D03+D05",
+      "kind": "透明派生",
+      "bytes": 260,
+      "sha256": "4376ae4be0f2cefc1af50ef819c804209e73d2d90a02588c0457c7757d89f2f4",
+      "note": "原数值和单位不改"
+    },
+    {
+      "id": "D01-EX",
+      "file": "E:/projects/codex/aether/项目资料/公开测试数据/20261008/sherlock_relationship_excerpt.txt",
+      "source": "D01",
+      "kind": "透明摘录",
+      "bytes": 4949,
+      "sha256": "ea5f0a5fe13a8aae350ac7a7684567da53de2b45dd40b3d1a7b74e94f3b5d5a7",
+      "note": "原文节选不替代全文入口验收"
+    },
+    {
+      "id": "D04-EX",
+      "file": "E:/projects/codex/aether/项目资料/公开测试数据/20261008/rfc9110_9_2_2_excerpt.txt",
+      "source": "D04",
+      "kind": "透明摘录",
+      "bytes": 2453,
+      "sha256": "e0feeb344a620b0cd5e408eda83a4cfaa8ce417507a1b5fad2749eb9e6ac875b",
+      "note": "只做规范小样本；不代表全文覆盖"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "FR01",
+      "name": "保存事件与任务信息",
+      "stage": "MVP",
+      "source": "PRD V1.4 §7.2；OOXML功能索引段520—523",
+      "cases": [
+        "REM-01",
+        "REM-02",
+        "APP-03",
+        "REL-01",
+        "E2E-01",
+        "E2E-05"
+      ]
+    },
+    {
+      "id": "FR02",
+      "name": "当前任务记忆",
+      "stage": "MVP",
+      "source": "PRD V1.4 §7.3；OOXML功能索引段524—527",
+      "cases": [
+        "REM-03",
+        "REC-01",
+        "E2E-01"
+      ]
+    },
+    {
+      "id": "FR03",
+      "name": "长文本与文档处理",
+      "stage": "MVP",
+      "source": "PRD V1.4 §7.4；OOXML功能索引段528—531",
+      "cases": [
+        "REM-04",
+        "REM-05",
+        "REC-08",
+        "REC-09",
+        "APP-02",
+        "APP-06",
+        "E2E-02"
+      ]
+    },
+    {
+      "id": "FR04",
+      "name": "记忆分类与生命周期",
+      "stage": "MVP",
+      "source": "PRD V1.4 §7.5；OOXML功能索引段532—535",
+      "cases": [
+        "REM-11",
+        "OPS-04",
+        "E2E-03"
+      ]
+    },
+    {
+      "id": "FR05",
+      "name": "稳定事实与更正冲突",
+      "stage": "MVP",
+      "source": "PRD V1.4 §7.6；OOXML功能索引段536—539",
+      "cases": [
+        "REM-06",
+        "REM-07",
+        "REM-08",
+        "REM-09",
+        "REM-10",
+        "REM-14",
+        "REC-10",
+        "APP-04",
+        "E2E-02",
+        "E2E-03"
+      ]
+    },
+    {
+      "id": "FR06",
+      "name": "内容提纯与压缩",
+      "stage": "MVP",
+      "source": "PRD V1.4 §7.7；OOXML功能索引段540—543",
+      "cases": [
+        "REM-14",
+        "REM-15",
+        "PERF-04"
+      ]
+    },
+    {
+      "id": "FR07",
+      "name": "语义检索就绪",
+      "stage": "MVP",
+      "source": "PRD V1.4 §7.8；OOXML功能索引段544—547",
+      "cases": [
+        "REM-03",
+        "REM-04",
+        "REM-06",
+        "REM-07",
+        "REM-11",
+        "REM-12",
+        "REM-13",
+        "REC-03",
+        "REL-01",
+        "PERF-03",
+        "E2E-01",
+        "E2E-02",
+        "E2E-03",
+        "E2E-05"
+      ]
+    },
+    {
+      "id": "FR08",
+      "name": "选择并查询记忆来源",
+      "stage": "MVP",
+      "source": "PRD V1.4 §7.9；OOXML功能索引段548—551",
+      "cases": [
+        "REC-01",
+        "REC-02",
+        "REC-03",
+        "REC-07",
+        "REC-08",
+        "APP-04",
+        "PERF-03",
+        "E2E-01",
+        "E2E-02",
+        "E2E-03"
+      ]
+    },
+    {
+      "id": "FR09",
+      "name": "排序去重与冲突表达",
+      "stage": "MVP",
+      "source": "PRD V1.4 §7.10；OOXML功能索引段552—555",
+      "cases": [
+        "REM-09",
+        "REM-10",
+        "REC-02",
+        "REC-04",
+        "REC-07"
+      ]
+    },
+    {
+      "id": "FR10",
+      "name": "组装并交付上下文",
+      "stage": "MVP",
+      "source": "PRD V1.4 §7.11；OOXML功能索引段556—559",
+      "cases": [
+        "REC-04",
+        "REC-05",
+        "REC-09",
+        "REC-10"
+      ]
+    },
+    {
+      "id": "FR11",
+      "name": "查询处理与再次获取结果",
+      "stage": "MVP",
+      "source": "PRD V1.4 §7.12；OOXML功能索引段560—563",
+      "cases": [
+        "SEC-05",
+        "REC-06",
+        "APP-05",
+        "REL-05",
+        "E2E-04",
+        "E2E-05"
+      ]
+    },
+    {
+      "id": "FR12",
+      "name": "记录存储与召回轨迹",
+      "stage": "MVP",
+      "source": "PRD V1.4 §7.13；OOXML功能索引段564—567",
+      "cases": [
+        "OPS-01",
+        "REL-03"
+      ]
+    },
+    {
+      "id": "FR13",
+      "name": "基础调度算法决策",
+      "stage": "MVP",
+      "source": "PRD V1.4 §7.14；OOXML功能索引段568—571",
+      "cases": [
+        "OPS-02",
+        "OPS-03",
+        "PERF-05"
+      ]
+    },
+    {
+      "id": "FR14",
+      "name": "执行调整与结果确认",
+      "stage": "MVP",
+      "source": "PRD V1.4 §7.15；OOXML功能索引段572—575",
+      "cases": [
+        "OPS-03",
+        "OPS-04",
+        "OPS-05",
+        "PERF-05"
+      ]
+    },
+    {
+      "id": "FR15",
+      "name": "租户隔离与访问授权",
+      "stage": "MVP",
+      "source": "PRD V1.4 §7.16；OOXML功能索引段576—579",
+      "cases": [
+        "ENV-03",
+        "SEC-01",
+        "SEC-02",
+        "SEC-03",
+        "SEC-04",
+        "SEC-05",
+        "SEC-06",
+        "SEC-07",
+        "SEC-08",
+        "REC-06",
+        "REC-09",
+        "APP-01",
+        "APP-07",
+        "E2E-04"
+      ]
+    },
+    {
+      "id": "FR16",
+      "name": "预测访问与预测预热",
+      "stage": "P1",
+      "source": "PRD V1.4 §7.17；OOXML功能索引段580—583",
+      "cases": [
+        "OPS-06",
+        "PERF-06"
+      ]
+    },
+    {
+      "id": "FR17",
+      "name": "删除与使用阻断",
+      "stage": "MVP",
+      "source": "PRD V1.4 §7.18；OOXML功能索引段584—587",
+      "cases": [
+        "REM-12",
+        "REC-10",
+        "REL-04",
+        "DEP-03"
+      ]
+    },
+    {
+      "id": "FR18",
+      "name": "运行查询与异常恢复",
+      "stage": "MVP",
+      "source": "PRD V1.4 §7.19；OOXML功能索引段588—591",
+      "cases": [
+        "ENV-02",
+        "REM-02",
+        "REM-08",
+        "REM-13",
+        "REC-03",
+        "OPS-05",
+        "APP-05",
+        "APP-07",
+        "REL-01",
+        "REL-02",
+        "REL-03",
+        "REL-04",
+        "REL-05",
+        "REL-06",
+        "DEP-01",
+        "DEP-02",
+        "DEP-03",
+        "DEP-04",
+        "E2E-05"
+      ]
+    },
+    {
+      "id": "V14-WORK-01",
+      "name": "保存与向量ready分离",
+      "stage": "MVP",
+      "source": "PRD V1.4增量基线",
+      "cases": [
+        "REM-01",
+        "REM-03"
+      ]
+    },
+    {
+      "id": "V14-WORK-02",
+      "name": "真实向量/来源隔离/正文复核",
+      "stage": "MVP",
+      "source": "PRD V1.4增量基线",
+      "cases": [
+        "REC-01"
+      ]
+    },
+    {
+      "id": "V14-WORK-03",
+      "name": "补索引与迟到资格屏障",
+      "stage": "MVP",
+      "source": "PRD V1.4增量基线",
+      "cases": [
+        "REM-13"
+      ]
+    },
+    {
+      "id": "TEN-01",
+      "name": "可信接入",
+      "stage": "MVP",
+      "source": "PRD-ADD-07及V1.4 §7.16",
+      "cases": [
+        "SEC-01"
+      ]
+    },
+    {
+      "id": "TEN-02",
+      "name": "归属确定",
+      "stage": "MVP",
+      "source": "PRD-ADD-07及V1.4 §7.16",
+      "cases": [
+        "ENV-03",
+        "SEC-01"
+      ]
+    },
+    {
+      "id": "TEN-03",
+      "name": "数据隔离",
+      "stage": "MVP",
+      "source": "PRD-ADD-07及V1.4 §7.16",
+      "cases": [
+        "SEC-02",
+        "E2E-04"
+      ]
+    },
+    {
+      "id": "TEN-04",
+      "name": "显式共享",
+      "stage": "MVP",
+      "source": "PRD-ADD-07及V1.4 §7.16",
+      "cases": [
+        "SEC-03",
+        "E2E-04"
+      ]
+    },
+    {
+      "id": "TEN-05",
+      "name": "操作区分",
+      "stage": "MVP",
+      "source": "PRD-ADD-07及V1.4 §7.16",
+      "cases": [
+        "SEC-04"
+      ]
+    },
+    {
+      "id": "TEN-06",
+      "name": "停用撤权",
+      "stage": "MVP",
+      "source": "PRD-ADD-07及V1.4 §7.16",
+      "cases": [
+        "SEC-05",
+        "SEC-07",
+        "APP-08",
+        "E2E-04"
+      ]
+    },
+    {
+      "id": "TEN-07",
+      "name": "后台一致",
+      "stage": "MVP",
+      "source": "PRD-ADD-07及V1.4 §7.16",
+      "cases": [
+        "SEC-06"
+      ]
+    },
+    {
+      "id": "TEN-08",
+      "name": "异常拒绝",
+      "stage": "MVP",
+      "source": "PRD-ADD-07及V1.4 §7.16",
+      "cases": [
+        "SEC-07"
+      ]
+    },
+    {
+      "id": "NFR-BASE",
+      "name": "版本/环境/参数基线",
+      "stage": "MVP",
+      "source": "PRD V1.4 §10—12/合同PDF9—10",
+      "cases": [
+        "ENV-01",
+        "ENV-02",
+        "ENV-06"
+      ]
+    },
+    {
+      "id": "NFR-DATA",
+      "name": "真实数据及金标准",
+      "stage": "MVP",
+      "source": "PRD V1.4 §10—12/合同PDF9—10",
+      "cases": [
+        "ENV-04"
+      ]
+    },
+    {
+      "id": "NFR-API",
+      "name": "接口Schema/边界/错误协议",
+      "stage": "MVP",
+      "source": "PRD V1.4 §10—12/合同PDF9—10",
+      "cases": [
+        "CT-01",
+        "CT-02",
+        "CT-03",
+        "CT-04",
+        "REM-05"
+      ]
+    },
+    {
+      "id": "NFR-OBS",
+      "name": "追踪、告警、操作证据",
+      "stage": "MVP",
+      "source": "PRD V1.4 §10—12/合同PDF9—10",
+      "cases": [
+        "ENV-05",
+        "DEP-05"
+      ]
+    },
+    {
+      "id": "NFR-AI",
+      "name": "语义质量、预算与提示注入",
+      "stage": "MVP",
+      "source": "PRD V1.4 §10—12/合同PDF9—10",
+      "cases": [
+        "SEC-08",
+        "REC-05",
+        "REC-07"
+      ]
+    },
+    {
+      "id": "NFR-COMP",
+      "name": "内容比和合同物理比",
+      "stage": "MVP",
+      "source": "PRD V1.4 §10—12/合同PDF9—10",
+      "cases": [
+        "REM-15",
+        "PERF-04"
+      ]
+    },
+    {
+      "id": "NFR-LAT",
+      "name": "核心读写与完整链路分开计时",
+      "stage": "MVP",
+      "source": "PRD V1.4 §10—12/合同PDF9—10",
+      "cases": [
+        "PERF-01",
+        "PERF-03"
+      ]
+    },
+    {
+      "id": "NFR-QPS",
+      "name": "真实语义计算/合同旁路吞吐",
+      "stage": "MVP",
+      "source": "PRD V1.4 §10—12/合同PDF9—10",
+      "cases": [
+        "PERF-02"
+      ]
+    },
+    {
+      "id": "NFR-RULE",
+      "name": "规则正确率及错误降层",
+      "stage": "MVP",
+      "source": "PRD V1.4 §10—12/合同PDF9—10",
+      "cases": [
+        "OPS-02",
+        "PERF-05"
+      ]
+    },
+    {
+      "id": "NFR-PRED",
+      "name": "预测相对收益与回退",
+      "stage": "P1",
+      "source": "PRD V1.4 §10—12/合同PDF9—10",
+      "cases": [
+        "OPS-06",
+        "PERF-06"
+      ]
+    },
+    {
+      "id": "NFR-SOAK",
+      "name": "MVP24h/Final72h",
+      "stage": "MVP",
+      "source": "PRD V1.4 §10—12/合同PDF9—10",
+      "cases": [
+        "PERF-07",
+        "PERF-08"
+      ]
+    },
+    {
+      "id": "NFR-RES",
+      "name": "积压、资源、并发与隔离",
+      "stage": "MVP",
+      "source": "PRD V1.4 §10—12/合同PDF9—10",
+      "cases": [
+        "REL-02",
+        "REL-06",
+        "DEP-04"
+      ]
+    },
+    {
+      "id": "NFR-DEP",
+      "name": "部署/升级/回退/交付",
+      "stage": "MVP",
+      "source": "PRD V1.4 §10—12/合同PDF9—10",
+      "cases": [
+        "DEP-01",
+        "DEP-02",
+        "DEP-06"
+      ]
+    },
+    {
+      "id": "NFR-DR",
+      "name": "备份恢复与业务RTO/RPO",
+      "stage": "FINAL",
+      "source": "PRD V1.4 §10—12/合同PDF9—10",
+      "cases": [
+        "DEP-03"
+      ]
+    },
+    {
+      "id": "APP-ID",
+      "name": "真实登录和身份目录",
+      "stage": "MVP",
+      "source": "Agent现有产品契约/会议接入要求；以ENV-06冻结补充",
+      "cases": [
+        "APP-01",
+        "APP-08",
+        "DEP-06"
+      ]
+    },
+    {
+      "id": "APP-FILE",
+      "name": "聊天附件/正式文档入口",
+      "stage": "MVP",
+      "source": "Agent现有产品契约/会议接入要求；以ENV-06冻结补充",
+      "cases": [
+        "APP-02",
+        "APP-06"
+      ]
+    },
+    {
+      "id": "APP-CHAT",
+      "name": "真实回答、跨会话与保存",
+      "stage": "MVP",
+      "source": "Agent现有产品契约/会议接入要求；以ENV-06冻结补充",
+      "cases": [
+        "APP-03",
+        "APP-04",
+        "APP-05",
+        "E2E-01",
+        "E2E-02"
+      ]
+    },
+    {
+      "id": "APP-OPS",
+      "name": "管理操作与状态真实性",
+      "stage": "MVP",
+      "source": "Agent现有产品契约/会议接入要求；以ENV-06冻结补充",
+      "cases": [
+        "APP-07",
+        "DEP-05"
+      ]
+    },
+    {
+      "id": "MEET-GRAPH",
+      "name": "原著关系问答与图能力独立取证",
+      "stage": "MVP",
+      "source": "9.30会议00:49:15/01:39:35；范围未签定",
+      "cases": [
+        "REC-08"
+      ]
+    },
+    {
+      "id": "NFR-STRESS",
+      "name": "阶梯压力与容量拐点",
+      "stage": "FINAL",
+      "source": "用户批准的全生命周期工程测试方案（2026-10-09）",
+      "cases": [
+        "PERF-09",
+        "PERF-10"
+      ]
+    },
+    {
+      "id": "NFR-CAPACITY",
+      "name": "数据容量与维护开销",
+      "stage": "FINAL",
+      "source": "用户批准的全生命周期工程测试方案（2026-10-09）",
+      "cases": [
+        "PERF-11"
+      ]
+    },
+    {
+      "id": "NFR-MEMORY-VALUE",
+      "name": "持久记忆对真实任务的成对效果",
+      "stage": "FINAL",
+      "source": "用户批准的全生命周期工程测试方案（2026-10-09）",
+      "cases": [
+        "REC-11"
+      ]
+    },
+    {
+      "id": "NFR-COMPAT",
+      "name": "Chrome与Edge桌面兼容",
+      "stage": "FINAL",
+      "source": "用户批准的全生命周期工程测试方案（2026-10-09）",
+      "cases": [
+        "APP-09"
+      ]
+    },
+    {
+      "id": "NFR-SUPPLY",
+      "name": "运行依赖与镜像漏洞检查",
+      "stage": "FINAL",
+      "source": "用户批准的全生命周期工程测试方案（2026-10-09）",
+      "cases": [
+        "SEC-09"
+      ]
+    }
+  ]
+}
