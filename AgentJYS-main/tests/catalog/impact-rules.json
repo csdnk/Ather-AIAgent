@@ -1,0 +1,9 @@
+{
+  "policy_version": "20261010.1",
+  "fallback": "all",
+  "documentation_only": {"prefix": "docs/", "suffix": ".md", "reason": "仅根目录说明文档；不含业务目录、父路径、构建及发布配置"},
+  "product_roots": ["AgentJYS-main/", ".github/"],
+  "dependency_suffixes": ["uv.lock", "package-lock.json", "pnpm-lock.yaml", "pom.xml", "Cargo.lock"],
+  "deployment_fragments": ["Dockerfile", "/migrations/"],
+  "reason": "在模块影响关系经实证核验前，任何产品、依赖、未知变更均保守选择全部88项，公开缺口。"
+}

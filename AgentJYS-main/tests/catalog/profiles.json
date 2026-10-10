@@ -1,0 +1,9 @@
+{
+  "policy_version": "20261010.1",
+  "profiles": {
+    "commit": {"selection": "conservative", "purpose": "变更相关组件与契约；未实现的必需测试显式阻塞"},
+    "post-deploy": {"selection": "all", "purpose": "固定部署版本后的功能与真实集成；性能需另行满足准入"},
+    "release": {"selection": "all", "purpose": "全部适用功能、安全、效果、容量、恢复、稳定性和发布验收"}
+  },
+  "execution_rule": "选择必需规格不代表自动启动负载；缺少入口、真实环境、预算或冻结阈值均不得记为通过。"
+}

@@ -11,9 +11,10 @@ from importlib import import_module
 import pytest
 import rfc8785
 import yaml
-from catalog import FLOWS, ROOT, models, schema_path
 from jsonschema import Draft202012Validator, FormatChecker
 from pydantic import ValidationError
+
+from catalog import FLOWS, ROOT, models, schema_path
 
 MODELS = models()
 CASES = json.loads((ROOT / "contracts/p3/fixtures/cases.json").read_text(encoding="utf-8"))

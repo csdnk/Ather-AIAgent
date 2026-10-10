@@ -1,0 +1,118 @@
+name: Aether continuous regression
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  tooling:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: AgentJYS-main
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install pytest httpx PyYAML
+      - run: npm install --prefix "${{ runner.temp }}/quality-node" --no-audit --no-fund newman@6.2.1
+      - name: Test execution tools and produce Agent report
+        env:
+          QUALITY_NODE_MODULES: ${{ runner.temp }}/quality-node/node_modules
+        run: python scripts/quality/continuous.py --profile commit --output "${{ runner.temp }}/quality-tooling"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quality-tooling-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/quality-tooling/summary.json
+            ${{ runner.temp }}/quality-tooling/agent-report.md
+            ${{ runner.temp }}/quality-tooling/results.xml
+          if-no-files-found: error
+
+  product:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        layer: [unit, integration, platform]
+    defaults:
+      run:
+        working-directory: AgentJYS-main
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install product and declared dependencies
+        run: python -m pip install -e '.[embedding-onnx,resource-documents,remember-ceph]' --group dev
+      - name: Generate bindings
+        run: python scripts/generate_proto.py
+      - name: Execute portable checks and report full-backend admission separately
+        env:
+          PYTHONPATH: tests
+        run: python scripts/quality/product_ci.py --layer ${{ matrix.layer }} --output "${{ runner.temp }}/product-report"
+      - name: Report setup failures when no execution report exists
+        if: always()
+        run: |
+          if [ ! -f "${{ runner.temp }}/product-report/summary.json" ]; then
+            python scripts/quality/continuous.py --profile collect --junit "${{ matrix.layer }}=${{ runner.temp }}/missing.xml" --output "${{ runner.temp }}/setup-failure" || true
+            mkdir -p "${{ runner.temp }}/product-report"
+            cp "${{ runner.temp }}/setup-failure/summary.json" "${{ runner.temp }}/setup-failure/agent-report.md" "${{ runner.temp }}/setup-failure/results.xml" "${{ runner.temp }}/product-report/"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quality-${{ matrix.layer }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/product-report/summary.json
+            ${{ runner.temp }}/product-report/agent-report.md
+            ${{ runner.temp }}/product-report/results.xml
+          if-no-files-found: error
+
+  report:
+    if: always()
+    needs: [tooling, product]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: quality-*-${{ github.sha }}
+          path: ${{ runner.temp }}/evidence
+      - name: Combine expected layers, including missing evidence
+        working-directory: AgentJYS-main
+        run: >-
+          python scripts/quality/continuous.py --profile collect
+          --junit "tooling=${{ runner.temp }}/evidence/quality-tooling-${{ github.sha }}/results.xml"
+          --junit "unit=${{ runner.temp }}/evidence/quality-unit-${{ github.sha }}/results.xml"
+          --junit "integration=${{ runner.temp }}/evidence/quality-integration-${{ github.sha }}/results.xml"
+          --junit "platform=${{ runner.temp }}/evidence/quality-platform-${{ github.sha }}/results.xml"
+          --output "${{ runner.temp }}/combined"
+      - name: Show result in Actions summary
+        if: always()
+        run: cat "${{ runner.temp }}/combined/agent-report.md" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: agent-test-report-${{ github.sha }}
+          path: ${{ runner.temp }}/combined/
+          if-no-files-found: error

@@ -6,7 +6,6 @@ import copy
 import json
 
 import pytest
-from catalog import ROOT
 from pydantic import ValidationError
 
 from aether_agent_memory.remember.contracts.foundation import (
@@ -14,6 +13,7 @@ from aether_agent_memory.remember.contracts.foundation import (
     CandidateQualificationTarget,
     ContextGuardRequest,
 )
+from catalog import ROOT
 
 
 def evidence():
